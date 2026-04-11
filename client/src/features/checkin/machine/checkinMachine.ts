@@ -27,18 +27,11 @@
  *   offline    → RESET           → idle
  */
 import { assign, createMachine } from "xstate";
+import type { CheckinPrograma, CheckinMetodo } from "../constants";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type CheckinPrograma =
-  | "comedor"
-  | "familia"
-  | "formacion"
-  | "atencion_juridica"
-  | "voluntariado"
-  | "acompanamiento";
-
-export type CheckinMetodo = "qr_scan" | "manual_busqueda" | "conteo_anonimo";
+export type { CheckinPrograma, CheckinMetodo } from "../constants";
 
 export interface CheckinPerson {
   id: string;

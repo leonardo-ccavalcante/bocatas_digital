@@ -9,18 +9,11 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { createAdminClient } from "../../client/src/lib/supabase/server";
 import { protectedProcedure, router } from "../_core/trpc";
+import { PROGRAMA_VALUES, METODO_VALUES } from "../../client/src/features/checkin/constants";
 
 // ─── Enums matching DB types ──────────────────────────────────────────────────
-const ProgramaEnum = z.enum([
-  "comedor",
-  "familia",
-  "formacion",
-  "atencion_juridica",
-  "voluntariado",
-  "acompanamiento",
-]);
-
-const MetodoEnum = z.enum(["qr_scan", "manual_busqueda", "conteo_anonimo"]);
+const ProgramaEnum = z.enum(PROGRAMA_VALUES);
+const MetodoEnum = z.enum(METODO_VALUES);
 
 // ─── Router ───────────────────────────────────────────────────────────────────
 export const checkinRouter = router({
