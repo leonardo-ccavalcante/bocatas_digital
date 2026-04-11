@@ -11,7 +11,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import Home from "./pages/Home";
 import LoginPage from "./pages/Login";
 import Personas from "./pages/Personas";
-import Checkin from "./pages/Checkin";
+import CheckIn from "./pages/CheckIn";
 import Dashboard from "./pages/Dashboard";
 import AdminConsentimientos from "./pages/AdminConsentimientos";
 import PersonasNueva from "./pages/PersonasNueva";
@@ -69,7 +69,7 @@ function Router() {
       </Route>
       <Route path="/checkin">
         <ProtectedRoute>
-          <Checkin />
+          <CheckIn />
         </ProtectedRoute>
       </Route>
       <Route path="/dashboard">
