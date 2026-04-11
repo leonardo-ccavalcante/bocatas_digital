@@ -1,25 +1,19 @@
-import { useQuery } from "@tanstack/react-query";
-import { createClient } from "@/lib/supabase/client";
-import { PersonSchema, type Person } from "../schemas";
+/**
+ * usePersonById — tRPC-based person detail hook.
+ *
+ * Previously used the Supabase browser client directly, which failed because
+ * Manus OAuth users have no Supabase JWT and RLS denied SELECT on persons.
+ * Now delegates to the tRPC server procedure that uses createAdminClient().
+ */
+import { trpc } from "@/lib/trpc";
 
 export function usePersonById(id: string | undefined) {
-  const supabase = createClient();
-
-  return useQuery<Person | null>({
-    queryKey: ["persons", id],
-    enabled: !!id,
-    staleTime: 30_000,
-    queryFn: async () => {
-      if (!id) return null;
-      const { data, error } = await supabase
-        .from("persons")
-        .select("*")
-        .eq("id", id)
-        .is("deleted_at", null)
-        .single();
-
-      if (error) throw error;
-      return PersonSchema.parse(data);
-    },
-  });
+  return trpc.persons.getById.useQuery(
+    { id: id! },
+    {
+      enabled: !!id,
+      staleTime: 30_000,
+      retry: false,
+    }
+  );
 }

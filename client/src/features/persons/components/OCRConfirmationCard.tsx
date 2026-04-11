@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { OcrExtracted } from "../schemas";
 import { TIPO_DOCUMENTO_LABELS } from "../schemas";
+import { formatDateDisplay } from "@/lib/dateUtils";
 
 interface OCRConfirmationCardProps {
   data: OcrExtracted;
@@ -14,7 +15,7 @@ export function OCRConfirmationCard({ data, onAccept, onEdit }: OCRConfirmationC
   const fields: { label: string; value: string | undefined }[] = [
     { label: "Nombre", value: data.nombre },
     { label: "Apellidos", value: data.apellidos },
-    { label: "Fecha de nacimiento", value: data.fecha_nacimiento },
+    { label: "Fecha de nacimiento", value: formatDateDisplay(data.fecha_nacimiento) },
     { label: "Tipo de documento", value: data.tipo_documento ? TIPO_DOCUMENTO_LABELS[data.tipo_documento] : undefined },
     { label: "Número de documento", value: data.numero_documento },
     { label: "País de origen", value: data.pais_origen },

@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Link } from "wouter";
 import type { DuplicateCandidate } from "../schemas";
+import { formatDateDisplay } from "@/lib/dateUtils";
 
 interface DuplicateWarningCardProps {
   candidates: DuplicateCandidate[];
@@ -48,7 +49,7 @@ export function DuplicateWarningCard({ candidates, onContinueAnyway }: Duplicate
                 </p>
                 {c.fecha_nacimiento && (
                   <p className="text-xs text-muted-foreground">
-                    Nacido/a: {c.fecha_nacimiento}
+                    Nacido/a: {formatDateDisplay(c.fecha_nacimiento)}
                   </p>
                 )}
               </div>

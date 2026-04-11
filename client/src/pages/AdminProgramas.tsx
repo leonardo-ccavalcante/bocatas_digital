@@ -38,12 +38,12 @@ export default function AdminProgramas() {
     setShowDialog(true);
   };
 
-  const openEdit = (prog: { id: string; name: string; description?: string | null; icon: string; is_active: boolean }) => {
+  const openEdit = (prog: { id: string; name: string; description?: string | null; icon?: string | null; is_active: boolean }) => {
     setEditId(prog.id);
     setForm({
       name: prog.name,
       description: prog.description ?? "",
-      icon: prog.icon,
+      icon: prog.icon ?? "📋",
       is_active: prog.is_active,
     });
     setShowDialog(true);

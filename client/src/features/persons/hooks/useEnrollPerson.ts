@@ -1,5 +1,12 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { createClient } from "@/lib/supabase/client";
+/**
+ * useEnrollPerson — tRPC-based program enrollment hook.
+ *
+ * Previously used the Supabase browser client directly, which failed because
+ * Manus OAuth users have no Supabase JWT and RLS denied INSERT on program_enrollments.
+ * Now delegates to the tRPC server procedure that uses createAdminClient().
+ */
+import { useQueryClient } from "@tanstack/react-query";
+import { trpc } from "@/lib/trpc";
 
 interface EnrollPersonParams {
   personId: string;
@@ -7,31 +14,19 @@ interface EnrollPersonParams {
 }
 
 export function useEnrollPerson() {
-  const supabase = createClient();
   const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({ personId, programIds }: EnrollPersonParams) => {
-      if (programIds.length === 0) return [];
-
-      // Upsert enrollments — one row per program
-      const rows = programIds.map((programId) => ({
-        person_id: personId,
-        program_id: programId,
-        estado: "activo" as const,
-      }));
-
-      const { data, error } = await supabase
-        .from("program_enrollments")
-        .upsert(rows, { onConflict: "person_id,program_id" })
-        .select("id, program_id, estado");
-
-      if (error) throw error;
-      return data ?? [];
-    },
+  const mutation = trpc.persons.enroll.useMutation({
     onSuccess: (_data, { personId }) => {
       void queryClient.invalidateQueries({ queryKey: ["persons", personId] });
       void queryClient.invalidateQueries({ queryKey: ["enrollments", personId] });
     },
   });
+
+  return {
+    mutateAsync: async ({ personId, programIds }: EnrollPersonParams) => {
+      return mutation.mutateAsync({ personId, programIds });
+    },
+    isPending: mutation.isPending,
+    error: mutation.error,
+  };
 }

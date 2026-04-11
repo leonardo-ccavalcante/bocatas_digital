@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { ConsentModal } from "./ConsentModal";
 import { useConsentTemplates } from "../hooks/useConsentTemplates";
+import { formatDateDisplay, calculateAge } from "@/lib/dateUtils";
 import type { Database } from "@/lib/database.types";
 
 type PersonRow = Database["public"]["Tables"]["persons"]["Row"];
@@ -70,7 +71,10 @@ export function PersonCard({ person, onRefresh }: PersonCardProps) {
               {person.fecha_nacimiento && (
                 <p className="text-sm text-muted-foreground">
                   <Calendar className="mr-1 inline h-3.5 w-3.5" />
-                  {new Date(person.fecha_nacimiento).toLocaleDateString("es-ES")}
+                  {formatDateDisplay(person.fecha_nacimiento)}
+                  {calculateAge(person.fecha_nacimiento) !== undefined && (
+                    <span className="ml-1 text-xs">({calculateAge(person.fecha_nacimiento)} años)</span>
+                  )}
                 </p>
               )}
               <div className="flex flex-wrap gap-1.5 pt-1">
@@ -156,7 +160,7 @@ export function PersonCard({ person, onRefresh }: PersonCardProps) {
               <InfoRow icon={Globe} label="País de origen" value={person.pais_origen} />
               <InfoRow icon={FileText} label="Tipo de documento" value={person.tipo_documento} />
               <InfoRow icon={FileText} label="Número de documento" value={person.numero_documento} />
-              <InfoRow icon={Calendar} label="Fecha de llegada a España" value={person.fecha_llegada_espana} />
+              <InfoRow icon={Calendar} label="Fecha de llegada a España" value={formatDateDisplay(person.fecha_llegada_espana)} />
               <InfoRow icon={Shield} label="Situación legal" value={person.situacion_legal} />
             </CardContent>
           </Card>
