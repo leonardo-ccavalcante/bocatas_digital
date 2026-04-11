@@ -249,22 +249,22 @@
 - [x] C-H2: `__tests__/csv-export.test.ts` — test CSV format, no PII, anonimo for NULL, filename
 
 ## Feature: useAbsenceAlerts — Alertas de Ausencia Prolongada
-- [ ] F1-A: tRPC procedure `dashboard.getAbsenceAlerts(locationId, programa, thresholdDays)` — personas con >N días sin check-in
-- [ ] F1-B: `useAbsenceAlerts(locationId, programa, thresholdDays)` hook real (reemplaza stub)
-- [ ] F1-C: `AbsenceAlertsPanel` component — lista de personas ausentes con días desde último check-in
-- [ ] F1-D: Badge de alertas en Dashboard header con conteo
-- [ ] F1-E: Tests: getAbsenceAlerts procedure
+- [x] F1-A: tRPC procedure `dashboard.getAbsenceAlerts(locationId, programa, thresholdDays)` — personas con >N días sin check-in
+- [x] F1-B: `useAbsenceAlerts(locationId, programa, thresholdDays)` hook real (reemplaza stub)
+- [x] F1-C: `AbsenceAlertsPanel` component — lista de personas ausentes con días desde último check-in, colapsable
+- [x] F1-D: Badge de alertas en Dashboard header con conteo
+- [x] F1-E: Tests: useAbsenceAlerts interface tests (2 tests)
 
 ## Feature: Admin Person Profile — Historial de Check-ins
-- [ ] F2-A: tRPC procedure `persons.getCheckinHistory(personId, limit, offset)` — historial paginado
-- [ ] F2-B: `useCheckinHistory(personId)` hook
-- [ ] F2-C: `CheckinHistoryTable` component — tabla con fecha, hora, sede, programa, método
-- [ ] F2-D: Integrar en `PersonaDetalle.tsx` — sección "Historial de asistencia"
-- [ ] F2-E: Tests: getCheckinHistory procedure
+- [x] F2-A: tRPC procedure `persons.getCheckinHistory(personId, limit, offset)` — historial paginado
+- [x] F2-B: `useCheckinHistory(personId)` hook
+- [x] F2-C: `CheckinHistoryTable` component — tabla con fecha, hora, sede, programa, método
+- [x] F2-D: Integrado en `PersonaDetalle.tsx` — sección "Historial de asistencia" (solo admin)
+- [x] F2-E: Tests: CheckinHistoryTable renders correctly
 
 ## Feature: Dashboard Program Filter — Filtro por Programa
-- [ ] F3-A: Actualizar `getKPIStats`, `getTrendData`, `getCSVExport` para aceptar `programa: string | 'all'`
-- [ ] F3-B: `ProgramFilter` component — dropdown con todos los programas activos
-- [ ] F3-C: Integrar ProgramFilter en Dashboard page (junto a LocationFilter)
-- [ ] F3-D: `useKPIStats`, `useTrendData` actualizados con parámetro programa
-- [ ] F3-E: Tests: filtro por programa en KPI y CSV
+- [x] F3-A: `getKPIStats`, `getTrendData`, `getCSVExport` actualizados con `programa: string | 'all'`
+- [x] F3-B: `ProgramFilter` component — dropdown con todos los programas activos (carga de tRPC)
+- [x] F3-C: ProgramFilter integrado en Dashboard page (junto a LocationFilter y DateRangeFilter)
+- [x] F3-D: `useKPIStats`, `useTrendData` actualizados con parámetro programa
+- [x] F3-E: Tests: 140/140 pasando, build verde
