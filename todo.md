@@ -160,3 +160,24 @@
 - [x] QA-2: Confirmar lógica RGPD: Group A bloquea creación; consentimientos dinámicos por programas seleccionados
 - [x] QA-3: Tests para flujo de familia: step condicional aparece, valida campos, llama createFamily
 - [x] QA-4: Persistir seed de consent_templates como script en repo (drizzle/seeds/consent_templates.sql)
+
+## Epic B — QR Check-in (Task 3)
+- [x] DB: verificar/crear tabla attendances con unique constraint (person_id, location_id, programa, checked_in_date)
+- [x] DB: verificar/crear view persons_safe
+- [x] DB: verificar/crear tabla locations con 3 sedes (Sede Central, Ópera, La Cañada)
+- [x] DB: seed Maria Garcia Lopez con restricciones_alimentarias = 'Sin gluten'
+- [x] Backend: tRPC router checkin (verifyAndInsert, searchPersons, getLocations, anonymousCheckin)
+- [x] Frontend: XState machine (8 estados: idle, scanning, verifying, registered, duplicate, not_found, error, offline)
+- [x] Frontend: useCheckinStore Zustand (locationId, programaId, pendingQueue, flushQueue)
+- [x] Frontend: hooks (useCheckin)
+- [x] Frontend: QRScanner component (html5-qrcode)
+- [x] Frontend: ResultCard (green/amber/red/grey + dietary badge)
+- [x] Frontend: ManualSearchModal (fuzzy search < 2s)
+- [x] Frontend: LocationSelector + ProgramSelector (same row)
+- [x] Frontend: DemoModeBanner (toggle switch)
+- [x] Frontend: OfflinePendingBadge (count while queue > 0)
+- [x] Frontend: /checkin page con offline queue flush on reconnect
+- [x] Tests: XState machine (todos los estados y transiciones)
+- [x] Tests: duplicate prevention (same program = amber, different program = green)
+- [x] Build: npm run build verde
+- [ ] Push a GitHub con handoff template
