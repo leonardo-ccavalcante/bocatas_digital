@@ -1,21 +1,42 @@
+/**
+ * schemas.ts — Zod schemas and TypeScript types for Epic C Dashboard.
+ */
 import { z } from "zod";
 
-export const DashboardFiltersSchema = z.object({
-  location_id: z.string().uuid().optional(),
-  date_from: z.string().date().optional(),
-  date_to: z.string().date().optional(),
-  programa: z.string().optional(),
+export const PeriodSchema = z.enum(["today", "week", "month"]);
+export type Period = z.infer<typeof PeriodSchema>;
+
+export const KPIStatsSchema = z.object({
+  count: z.number(),
+  period: PeriodSchema,
+  locationId: z.string(),
 });
+export type KPIStats = z.infer<typeof KPIStatsSchema>;
 
-export type DashboardFilters = z.infer<typeof DashboardFiltersSchema>;
-
-export const AttendanceStatsSchema = z.object({
-  total: z.number().int().nonnegative(),
-  today: z.number().int().nonnegative(),
-  this_week: z.number().int().nonnegative(),
-  this_month: z.number().int().nonnegative(),
-  by_programa: z.record(z.string(), z.number()),
-  by_location: z.record(z.string(), z.number()),
+export const TrendPointSchema = z.object({
+  label: z.string(),
+  count: z.number(),
 });
+export type TrendPoint = z.infer<typeof TrendPointSchema>;
 
-export type AttendanceStats = z.infer<typeof AttendanceStatsSchema>;
+export const CSVRowSchema = z.object({
+  fecha: z.string(),
+  hora: z.string(),
+  persona_uuid: z.string(),
+  punto_servicio: z.string(),
+  programa: z.string(),
+  metodo: z.string(),
+});
+export type CSVRow = z.infer<typeof CSVRowSchema>;
+
+export const PERIOD_LABELS: Record<Period, string> = {
+  today: "Hoy",
+  week: "Semana",
+  month: "Mes",
+};
+
+export const PERIOD_KPI_LABELS: Record<Period, string> = {
+  today: "HOY",
+  week: "SEMANA",
+  month: "MES",
+};

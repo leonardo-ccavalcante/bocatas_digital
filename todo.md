@@ -193,3 +193,57 @@
 - [x] BUG: Invalid UUID persists across scans — FIXED: limpiar context en SCAN_START y CANCEL
 - [x] BUG: locationId UUID validation falta — FIXED: agregar validación UUID para locationId
 - [x] BUG: Zustand persist no migra — FIXED: agregar migrate() para limpiar locationId inválido
+
+## Epic C — Real-Time Attendance Dashboard (Task 4)
+
+### Phase A — Backend tRPC Procedures
+- [x] C-A1: tRPC procedure `dashboard.getKPIStats(period, locationId)` — today/week/month counts, es_demo=false, anonymous included
+- [x] C-A2: tRPC procedure `dashboard.getTrendData(locationId)` — last 4 ISO weeks, non-demo check-ins per week
+- [x] C-A3: tRPC procedure `dashboard.getCSVExport(dateFrom, dateTo, locationId)` — JOIN locations, COALESCE(person_id, 'anonimo'), zero PII
+- [x] C-A4: All procedures use protectedProcedure and uuidLike validator
+
+### Phase B — Frontend Schemas & Types
+- [x] C-B1: `client/src/features/dashboard/schemas.ts` — Zod schemas for KPI, trend, CSV export params
+
+### Phase C — Frontend Hooks
+- [x] C-C1: `useKPIStats(period, locationId)` — calls tRPC, TanStack Query key ['dashboard','kpi',period,locationId]
+- [x] C-C2: `useTrendData(locationId)` — calls tRPC, TanStack Query key ['dashboard','trend',locationId]
+- [x] C-C3: `useRealtimeAttendance()` — Supabase Realtime channel on attendances INSERT, invalidates KPI+trend queries if !es_demo
+- [x] C-C4: `useAbsenceAlerts()` — stub, returns { data: [] } always
+
+### Phase D — Frontend Utils
+- [x] C-D1: `utils/exportCSV.ts` — build CSV string, Blob+URL.createObjectURL, filename bocatas_asistencias_YYYY-MM.csv
+
+### Phase E — Frontend Components (McKinsey/Colenusbaumer style)
+- [x] C-E1: `KPICard.tsx` — props: {label, count, isLoading?}, skeleton on loading, error state with retry
+- [x] C-E2: `TrendChart.tsx` — Recharts tree-shaken (ONLY: BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer), 360px mobile
+- [x] C-E3: `ExportButton.tsx` — props: {locationId, currentPeriod}, toast on error
+- [x] C-E4: `DateRangeFilter.tsx` — today/week/month toggle buttons
+- [x] C-E5: `LocationFilter.tsx` — All + 3 locations dropdown, loads from tRPC getLocations
+
+### Phase F — Dashboard Page
+- [x] C-F1: `/dashboard` page at `client/src/pages/Dashboard.tsx` — McKinsey style, max-w-2xl, mobile-first
+- [x] C-F2: Register route in App.tsx
+- [x] C-F3: Realtime "actualizando..." indicator on disconnect
+- [x] C-F4: Error boundaries: skeleton + "Error al cargar" + retry button per KPI card
+- [x] C-F5: Mobile 360px — no horizontal scroll, grid-cols-3 KPI cards
+
+### Phase G — Acceptance Criteria Verification
+- [x] C-G1: AC1 — 3 KPI cards visible with non-zero counts (seed data)
+- [x] C-G2: AC2 — es_demo=true records NEVER count
+- [x] C-G3: AC3 — Anonymous records (person_id IS NULL) DO count
+- [x] C-G4: AC4 — Realtime < 5s update
+- [x] C-G5: AC5 — Location filter: All + 3 locations
+- [x] C-G6: AC6 — Date filter: today/week/month
+- [x] C-G7: AC7 — Trend chart: 4 bars visible on 360px
+- [x] C-G8: AC9 — CSV columns: fecha, hora, persona_uuid, punto_servicio, programa, metodo (NO PII)
+- [x] C-G9: AC10 — CSV person_id=NULL → "anonimo"
+- [x] C-G10: AC11 — CSV respects filters
+- [x] C-G11: AC12 — CSV filename: bocatas_asistencias_YYYY-MM.csv
+- [x] C-G12: AC15 — useAbsenceAlerts stub returns []
+- [x] C-G13: AC16 — Vitest: KPI + CSV tests pass
+- [x] C-G14: AC17 — npm run build green
+
+### Phase H — Tests
+- [x] C-H1: `__tests__/kpi-queries.test.ts` — test KPI counts, es_demo exclusion, anonymous inclusion
+- [x] C-H2: `__tests__/csv-export.test.ts` — test CSV format, no PII, anonimo for NULL, filename

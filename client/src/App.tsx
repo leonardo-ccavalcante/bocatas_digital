@@ -8,11 +8,13 @@ import { useEffect } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 
 // Pages
+import { lazy, Suspense } from "react";
 import Home from "./pages/Home";
 import LoginPage from "./pages/Login";
 import Personas from "./pages/Personas";
 import CheckIn from "./pages/CheckIn";
-import Dashboard from "./pages/Dashboard";
+// Lazy-load Dashboard to keep initial bundle < 300KB (recharts is ~100KB gzip)
+const Dashboard = lazy(() => import("./pages/Dashboard"));
 import AdminConsentimientos from "./pages/AdminConsentimientos";
 import PersonasNueva from "./pages/PersonasNueva";
 import PersonaDetalle from "./pages/PersonaDetalle";
@@ -74,7 +76,9 @@ function Router() {
       </Route>
       <Route path="/dashboard">
         <ProtectedRoute requiredRoles={["admin", "superadmin"]}>
-          <Dashboard />
+          <Suspense fallback={<div className="flex items-center justify-center h-full min-h-[60vh]"><div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" /></div>}>
+            <Dashboard />
+          </Suspense>
         </ProtectedRoute>
       </Route>
       <Route path="/admin/consentimientos">
