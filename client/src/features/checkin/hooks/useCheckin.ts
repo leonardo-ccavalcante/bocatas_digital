@@ -5,7 +5,7 @@
  *   const { state, send, isOnline, offlineCount } = useCheckin();
  */
 import { useActor } from "@xstate/react";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { checkinMachine } from "../machine/checkinMachine";
 import type { CheckinPrograma, CheckinMetodo } from "../machine/checkinMachine";
@@ -14,11 +14,25 @@ import { useCheckinStore } from "../store/useCheckinStore";
 export function useCheckin() {
   const [state, send] = useActor(checkinMachine);
   const { offlineQueue, enqueue, dequeue, setIsSyncing, isSyncing } = useCheckinStore();
-  const isOnline = useOnlineStatus();
+  const [isOnline, setIsOnline] = useState(() => navigator.onLine);
 
   const verifyMutation = trpc.checkin.verifyAndInsert.useMutation();
   const anonymousMutation = trpc.checkin.anonymousCheckin.useMutation();
   const syncMutation = trpc.checkin.syncOfflineQueue.useMutation();
+
+  // ── Reactive online/offline listener ───────────────────────────────────────
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
 
   // ── Trigger API call when entering verifying state ─────────────────────────
   const prevStateRef = useRef<string | null>(null);
@@ -143,12 +157,4 @@ export function useCheckin() {
     offlineCount: offlineQueue.length,
     isSyncing,
   };
-}
-
-// ── Online status hook ─────────────────────────────────────────────────────────
-function useOnlineStatus() {
-  const getSnapshot = () => navigator.onLine;
-  // Simple polling — React 18 useSyncExternalStore would be ideal but this is simpler
-  const isOnline = getSnapshot();
-  return isOnline;
 }

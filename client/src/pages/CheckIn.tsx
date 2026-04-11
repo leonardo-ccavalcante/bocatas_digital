@@ -6,7 +6,7 @@
  *   Main area: idle | scanning | verifying | result states
  *   Bottom: action buttons (Escanear QR | Búsqueda manual | Conteo anónimo)
  */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -20,11 +20,23 @@ import { LocationSelector } from "@/features/checkin/components/LocationSelector
 import { ProgramSelector } from "@/features/checkin/components/ProgramSelector";
 import { DemoModeBanner } from "@/features/checkin/components/DemoModeBanner";
 import { OfflinePendingBadge } from "@/features/checkin/components/OfflinePendingBadge";
+import { useCheckinStore } from "@/features/checkin/store/useCheckinStore";
 import type { CheckinPerson, CheckinPrograma } from "@/features/checkin/machine/checkinMachine";
 
 export default function CheckIn() {
   const { state, send, isOnline, offlineCount, isSyncing } = useCheckin();
+  const { locationId: storedLocationId, programa: storedPrograma, setLocationId, setPrograma } = useCheckinStore();
   const [showManualSearch, setShowManualSearch] = useState(false);
+
+  // Initialize from Zustand store on mount
+  useEffect(() => {
+    if (storedLocationId && !state.context.locationId) {
+      send({ type: "SET_LOCATION", locationId: storedLocationId });
+    }
+    if (storedPrograma && state.context.programa !== storedPrograma) {
+      send({ type: "SET_PROGRAMA", programa: storedPrograma });
+    }
+  }, []);
 
   const currentState = state.value as string;
   const ctx = state.context;
@@ -37,10 +49,14 @@ export default function CheckIn() {
     send({ type: "MANUAL_VERIFY", personId: person.id, person });
   };
   const handleAnonymous = () => send({ type: "ANONYMOUS" });
-  const handleLocationChange = (locationId: string) =>
+  const handleLocationChange = (locationId: string) => {
     send({ type: "SET_LOCATION", locationId });
-  const handleProgramaChange = (programa: CheckinPrograma) =>
+    setLocationId(locationId);
+  };
+  const handleProgramaChange = (programa: CheckinPrograma) => {
     send({ type: "SET_PROGRAMA", programa });
+    setPrograma(programa);
+  };
   const handleDemoToggle = (checked: boolean) =>
     send({ type: "SET_DEMO_MODE", isDemoMode: checked });
 

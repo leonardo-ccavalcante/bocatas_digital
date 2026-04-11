@@ -180,4 +180,11 @@
 - [x] Tests: XState machine (todos los estados y transiciones)
 - [x] Tests: duplicate prevention (same program = amber, different program = green)
 - [x] Build: npm run build verde
-- [ ] Push a GitHub con handoff template
+- [x] Push a GitHub con handoff template (commit a41e2e0, 18 files, +1970 lines)
+
+## RED TEAM QA — Critical Gaps Found (2026-04-11)
+- [x] GAP 1 CRÍTICA: ProgramSelector hardcoded — FIXED: ahora carga de programs table via tRPC
+- [x] GAP 2 CRÍTICA: checked_in_at field falta en attendances — FIXED: migración SQL creada
+- [x] GAP 3 CRÍTICA: useOnlineStatus() no reactivo — FIXED: agregados listeners online/offline
+- [x] GAP 4 MEDIA: Persistir locationId + programa en Zustand — FIXED: store v2 persiste ambos
+- [x] GAP 5 BAJA: Deshabilitar botones si no hay locationId — YA IMPLEMENTADO

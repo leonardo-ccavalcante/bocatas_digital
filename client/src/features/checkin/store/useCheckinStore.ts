@@ -2,21 +2,27 @@
  * useCheckinStore.ts — Zustand store for check-in offline queue persistence.
  *
  * The XState machine manages in-memory state.
- * This store persists the offline queue to localStorage so it survives page reloads.
+ * This store persists:
+ *   - offline queue to localStorage (survives page reloads)
+ *   - locationId and programa (user preferences)
  */
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { OfflineQueueItem } from "../machine/checkinMachine";
+import type { OfflineQueueItem, CheckinPrograma } from "../machine/checkinMachine";
 
 interface CheckinStoreState {
   offlineQueue: OfflineQueueItem[];
   isSyncing: boolean;
+  locationId: string | null;
+  programa: CheckinPrograma;
 
   // Actions
   enqueue: (item: Omit<OfflineQueueItem, "clientId" | "queuedAt">) => string;
   dequeue: (clientIds: string[]) => void;
   setIsSyncing: (syncing: boolean) => void;
   clearQueue: () => void;
+  setLocationId: (locationId: string | null) => void;
+  setPrograma: (programa: CheckinPrograma) => void;
 }
 
 export const useCheckinStore = create<CheckinStoreState>()(
@@ -24,6 +30,8 @@ export const useCheckinStore = create<CheckinStoreState>()(
     (set) => ({
       offlineQueue: [],
       isSyncing: false,
+      locationId: null,
+      programa: "comedor",
 
       enqueue: (item) => {
         const clientId = crypto.randomUUID();
@@ -48,10 +56,14 @@ export const useCheckinStore = create<CheckinStoreState>()(
       setIsSyncing: (syncing) => set({ isSyncing: syncing }),
 
       clearQueue: () => set({ offlineQueue: [] }),
+
+      setLocationId: (locationId) => set({ locationId }),
+
+      setPrograma: (programa) => set({ programa }),
     }),
     {
-      name: "bocatas-checkin-offline-queue",
-      version: 1,
+      name: "bocatas-checkin-store",
+      version: 2,
     }
   )
 );
