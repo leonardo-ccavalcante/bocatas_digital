@@ -89,6 +89,12 @@ export function useCheckin() {
     // Named check-in
     const metodo: CheckinMetodo = state.context.rawQrValue ? "qr_scan" : "manual_busqueda";
 
+    // Validate personId is a valid UUID before proceeding
+    if (!personId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(personId)) {
+      send({ type: "ERROR", message: "Código QR inválido. Intenta de nuevo o usa búsqueda manual." });
+      return;
+    }
+
     if (!isOnline) {
       const clientId = enqueue({ personId, locationId, programa, metodo, isDemoMode });
       send({

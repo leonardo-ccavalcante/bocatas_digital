@@ -188,3 +188,4 @@
 - [x] GAP 3 CRÍTICA: useOnlineStatus() no reactivo — FIXED: agregados listeners online/offline
 - [x] GAP 4 MEDIA: Persistir locationId + programa en Zustand — FIXED: store v2 persiste ambos
 - [x] GAP 5 BAJA: Deshabilitar botones si no hay locationId — YA IMPLEMENTADO
+- [x] BUG: Invalid UUID error — FIXED: validacion UUID en useCheckin antes de API call
