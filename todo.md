@@ -122,4 +122,41 @@
 - [x] pnpm check → 0 errores TypeScript
 - [x] ESLint → 0 errores, 0 warnings en código Bocatas
 - [x] Red Team: 12 bugs encontrados y corregidos
-- [ ] Commit + push GitHub (TASK2)
+- [x] Commit + push GitHub (TASK2 — commit 6c3f43f, 30 files, +3098 lines)
+
+## Bugs Reportados — Auth Fix
+
+- [ ] Habilitar Google OAuth en Supabase (Client ID + Secret de Google Cloud Console)
+- [ ] Configurar redirect URL en Supabase: https://bocatasdg-mvcpdsc2.manus.space/auth/callback
+- [ ] Reemplazar formulario email/password (dev-only) por Magic Link universal en producción
+- [ ] Login page: mensaje claro para nuevos usuarios ("Se creará tu cuenta automáticamente")
+- [ ] Verificar flujo completo: OAuth → callback → home
+
+## Auth Migration — Manus OAuth
+
+- [ ] Reemplazar Login.tsx con Manus OAuth (getLoginUrl + useAuth hook del template)
+- [ ] Actualizar ProtectedRoute.tsx para usar useAuth() en lugar de useSupabaseAuth
+- [ ] Actualizar AppShell.tsx para usar useAuth() y logout de tRPC
+- [ ] Actualizar Home.tsx para usar useAuth() para role-gating de tiles
+- [ ] Eliminar dependencia de useSupabaseAuth en todos los componentes
+- [ ] Verificar flujo: login → callback → home → sidebar con rol correcto
+
+## Bugs Registro (2026-04-11)
+- [x] BUG 1: Integrar DocumentCapture+OCR dentro del Step 2 (Documento) — eliminar modal separado del Step 1
+- [x] BUG 2: Corregir error de navegación entre pasos (trigger en campos opcionales / validación completa)
+- [x] BUG 3: Mover insert de personas a tRPC procedure con service role key (bypass RLS para Manus OAuth)
+- [x] BUG 3b: Mover enrollPerson a tRPC procedure con service role key
+- [x] BUG 3c: Mejorar mensaje de error en onSubmit (mostrar error real de Supabase)
+- [x] BUG 4: Fecha de nacimiento — display en DD/MM/YYYY (PersonCard, OCRConfirmationCard, DuplicateWarningCard). DB sigue recibiendo YYYY-MM-DD (ISO, correcto).
+- [x] BUG 5: CHECK constraint persons_pais_origen_check — el campo pais_origen tiene un enum/check en DB que rechaza texto libre. Investigar y corregir (cambiar a text libre o usar enum correcto).
+- [x] BUG 6: CHECK constraint persons_telefono_check — campo vacío se envía como "" en lugar de null. Sanitizar todos los campos opcionales de texto antes del insert.
+- [x] FIX 7: Mover selección de programa al Step 0 — bloquear submit si no hay programa seleccionado (programa es obligatorio)
+- [x] FIX 8: Integrar RGPD obligatorio como paso del wizard — consentimientos Bocatas + Banco de Alimentos, obligatorio para todos los programas
+- [x] FIX 9: Soporte de miembros familiares adicionales para programa Familias (flujo post-titular en el wizard)
+- [x] FIX 10: Poblar consent_templates en DB con plantillas reales de RGPD (Bocatas + Banco de Alimentos)
+
+## QA Gaps (2026-04-11 pre-checkpoint)
+- [x] QA-1: Confirmar en código que submit está bloqueado si no hay programa seleccionado (validación Zod + UI error state)
+- [x] QA-2: Confirmar lógica RGPD: Group A bloquea creación; consentimientos dinámicos por programas seleccionados
+- [x] QA-3: Tests para flujo de familia: step condicional aparece, valida campos, llama createFamily
+- [x] QA-4: Persistir seed de consent_templates como script en repo (drizzle/seeds/consent_templates.sql)

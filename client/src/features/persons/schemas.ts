@@ -102,7 +102,7 @@ export const PersonCreateSchema = z.object({
       return d <= minAge;
     }, "La persona debe tener al menos 5 años"),
   genero: GeneroSchema.optional().nullable(),
-  pais_origen: z.string().max(100).optional().nullable(),
+  pais_origen: z.string().length(2).optional().nullable(), // ISO 3166-1 alpha-2
   idioma_principal: IdiomaSchema,
   idiomas: z.array(IdiomaSchema).optional().nullable(), // DB column name: idiomas
 
@@ -213,7 +213,7 @@ export const OCRResultSchema = z.object({
     // OCR returns lowercase values from LLM — use OcrTipoDocumentoSchema
     tipo_documento: OcrTipoDocumentoSchema.optional(),
     numero_documento: z.string().max(30).optional(),
-    pais_origen: z.string().max(100).optional(),
+    pais_origen: z.string().optional(), // OCR may return full name — mapped to ISO-2 before insert
   }),
 });
 
@@ -433,3 +433,63 @@ export const PROGRAMS_SEED_FALLBACK: Program[] = [
   { id: "00000000-0000-0000-0000-000000000005", slug: "voluntariado", name: "Voluntariado", icon: "🤝", is_default: false, is_active: true, display_order: 5 },
   { id: "00000000-0000-0000-0000-000000000006", slug: "acompanamiento", name: "Acompañamiento", icon: "🫂", is_default: false, is_active: true, display_order: 6 },
 ];
+
+// ─── Country labels: ISO 3166-1 alpha-2 → display name (Spanish) ─────────────
+// Ordered by frequency in Bocatas Digital user base
+export const PAIS_LABELS: Record<string, string> = {
+  ES: "España",
+  MA: "Marruecos",
+  SN: "Senegal",
+  ML: "Mali",
+  GN: "Guinea",
+  GW: "Guinea-Bisáu",
+  GM: "Gambia",
+  NG: "Nigeria",
+  GH: "Ghana",
+  CM: "Camerún",
+  CI: "Costa de Marfil",
+  BF: "Burkina Faso",
+  NE: "Níger",
+  TG: "Togo",
+  BJ: "Benín",
+  CD: "Congo (RDC)",
+  CG: "Congo",
+  GA: "Gabón",
+  MR: "Mauritania",
+  DZ: "Argelia",
+  TN: "Túnez",
+  LY: "Libia",
+  EG: "Egipto",
+  SD: "Sudán",
+  ET: "Etiopía",
+  SO: "Somalia",
+  ER: "Eritrea",
+  PK: "Pakistán",
+  BD: "Bangladés",
+  IN: "India",
+  CN: "China",
+  PH: "Filipinas",
+  RO: "Rumanía",
+  UA: "Ucrania",
+  RU: "Rusia",
+  SY: "Siria",
+  IQ: "Irak",
+  AF: "Afganistán",
+  CO: "Colombia",
+  VE: "Venezuela",
+  EC: "Ecuador",
+  PE: "Perú",
+  BO: "Bolivia",
+  HN: "Honduras",
+  GT: "Guatemala",
+  SV: "El Salvador",
+  DO: "República Dominicana",
+  CU: "Cuba",
+  BR: "Brasil",
+  MX: "México",
+  PT: "Portugal",
+  FR: "Francia",
+  IT: "Italia",
+  DE: "Alemania",
+  GB: "Reino Unido",
+};
