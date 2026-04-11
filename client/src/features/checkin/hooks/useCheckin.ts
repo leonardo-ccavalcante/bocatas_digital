@@ -137,7 +137,7 @@ export function useCheckin() {
         },
       }
     );
-  }, [state.value]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [state, isOnline]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Auto-flush offline queue when back online ──────────────────────────────
   useEffect(() => {
