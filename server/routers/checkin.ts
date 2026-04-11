@@ -10,6 +10,12 @@ import { z } from "zod";
 import { createAdminClient } from "../../client/src/lib/supabase/server";
 import { protectedProcedure, router } from "../_core/trpc";
 
+// UUID-like validator that accepts any 8-4-4-4-12 hex string (including synthetic seed IDs)
+const uuidLike = z.string().regex(
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+  "Invalid UUID format"
+);
+
 // ─── Enums matching DB types ──────────────────────────────────────────────────
 const ProgramaEnum = z.enum([
   "comedor",
@@ -34,12 +40,12 @@ export const checkinRouter = router({
   verifyAndInsert: protectedProcedure
     .input(
       z.object({
-        personId: z.string().uuid(),
-        locationId: z.string().uuid(),
+        personId: uuidLike,
+        locationId: uuidLike,
         programa: ProgramaEnum,
         metodo: MetodoEnum.default("qr_scan"),
         isDemoMode: z.boolean().default(false),
-        clientId: z.string().uuid().optional(), // for idempotent offline sync
+        clientId: uuidLike.optional(), // for idempotent offline sync
       })
     )
     .mutation(async ({ input }) => {
@@ -128,7 +134,7 @@ export const checkinRouter = router({
   anonymousCheckin: protectedProcedure
     .input(
       z.object({
-        locationId: z.string().uuid(),
+        locationId: uuidLike,
         programa: ProgramaEnum,
         isDemoMode: z.boolean().default(false),
       })
@@ -241,9 +247,9 @@ export const checkinRouter = router({
     .input(
       z.array(
         z.object({
-          clientId: z.string().uuid(),
-          personId: z.string().uuid().nullable(),
-          locationId: z.string().uuid(),
+          clientId: uuidLike,
+          personId: uuidLike.nullable(),
+          locationId: uuidLike,
           programa: ProgramaEnum,
           metodo: MetodoEnum,
           isDemoMode: z.boolean().default(false),
