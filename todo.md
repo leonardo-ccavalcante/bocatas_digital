@@ -122,4 +122,21 @@
 - [x] pnpm check → 0 errores TypeScript
 - [x] ESLint → 0 errores, 0 warnings en código Bocatas
 - [x] Red Team: 12 bugs encontrados y corregidos
-- [ ] Commit + push GitHub (TASK2)
+- [x] Commit + push GitHub (TASK2 — commit 6c3f43f, 30 files, +3098 lines)
+
+## Bugs Reportados — Auth Fix
+
+- [ ] Habilitar Google OAuth en Supabase (Client ID + Secret de Google Cloud Console)
+- [ ] Configurar redirect URL en Supabase: https://bocatasdg-mvcpdsc2.manus.space/auth/callback
+- [ ] Reemplazar formulario email/password (dev-only) por Magic Link universal en producción
+- [ ] Login page: mensaje claro para nuevos usuarios ("Se creará tu cuenta automáticamente")
+- [ ] Verificar flujo completo: OAuth → callback → home
+
+## Auth Migration — Manus OAuth
+
+- [ ] Reemplazar Login.tsx con Manus OAuth (getLoginUrl + useAuth hook del template)
+- [ ] Actualizar ProtectedRoute.tsx para usar useAuth() en lugar de useSupabaseAuth
+- [ ] Actualizar AppShell.tsx para usar useAuth() y logout de tRPC
+- [ ] Actualizar Home.tsx para usar useAuth() para role-gating de tiles
+- [ ] Eliminar dependencia de useSupabaseAuth en todos los componentes
+- [ ] Verificar flujo: login → callback → home → sidebar con rol correcto
