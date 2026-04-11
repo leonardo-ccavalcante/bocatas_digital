@@ -5,7 +5,7 @@
  *   const { state, send, isOnline, offlineCount } = useCheckin();
  */
 import { useActor } from "@xstate/react";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { checkinMachine } from "../machine/checkinMachine";
 import type { CheckinPrograma, CheckinMetodo } from "../machine/checkinMachine";
@@ -146,9 +146,19 @@ export function useCheckin() {
 }
 
 // ── Online status hook ─────────────────────────────────────────────────────────
-function useOnlineStatus() {
-  const getSnapshot = () => navigator.onLine;
-  // Simple polling — React 18 useSyncExternalStore would be ideal but this is simpler
-  const isOnline = getSnapshot();
+function useOnlineStatus(): boolean {
+  const [isOnline, setIsOnline] = useState(() => navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
   return isOnline;
 }
