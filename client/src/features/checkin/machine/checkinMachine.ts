@@ -124,7 +124,15 @@ export const checkinMachine = createMachine(
     states: {
       idle: {
         on: {
-          SCAN_START: { target: "scanning" },
+          SCAN_START: {
+            target: "scanning",
+            actions: assign({
+              rawQrValue: null,
+              personId: null,
+              person: null,
+              errorMessage: null,
+            }),
+          },
           MANUAL_VERIFY: {
             target: "verifying",
             actions: assign({
@@ -170,7 +178,10 @@ export const checkinMachine = createMachine(
               person: null,
             }),
           },
-          CANCEL: { target: "idle" },
+          CANCEL: {
+            target: "idle",
+            actions: "clearResult",
+          },
           SET_LOCATION: {
             actions: assign({ locationId: ({ event }) => event.locationId }),
           },

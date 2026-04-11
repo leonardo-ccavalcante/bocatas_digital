@@ -46,8 +46,9 @@ export function useCheckin() {
 
     const { locationId, programa, isDemoMode, personId } = state.context;
 
-    if (!locationId) {
-      send({ type: "ERROR", message: "Selecciona una sede antes de hacer check-in." });
+    // Validate locationId is a valid UUID
+    if (!locationId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(locationId)) {
+      send({ type: "ERROR", message: "Selecciona una sede válida antes de hacer check-in." });
       return;
     }
 

@@ -190,3 +190,6 @@
 - [x] GAP 5 BAJA: Deshabilitar botones si no hay locationId — YA IMPLEMENTADO
 - [x] BUG: Invalid UUID error — FIXED: validacion UUID en useCheckin antes de API call
 - [x] BUG: Stale state in useEffect — FIXED: cambiar dependencias de [state.value] a [state, isOnline]
+- [x] BUG: Invalid UUID persists across scans — FIXED: limpiar context en SCAN_START y CANCEL
+- [x] BUG: locationId UUID validation falta — FIXED: agregar validación UUID para locationId
+- [x] BUG: Zustand persist no migra — FIXED: agregar migrate() para limpiar locationId inválido
