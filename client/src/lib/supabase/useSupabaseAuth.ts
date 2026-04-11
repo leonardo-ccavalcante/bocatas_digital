@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { createClient } from "./client";
 
@@ -34,11 +34,14 @@ function mapUser(user: User, session: Session): BocatasUser {
 }
 
 export function useSupabaseAuth() {
-  const supabase = createClient();
+  // Use a ref so the supabase client is stable across renders (singleton pattern)
+  const supabaseRef = useRef(createClient());
   const [user, setUser] = useState<BocatasUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const supabase = supabaseRef.current;
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         setUser(mapUser(session.user, session));
@@ -58,10 +61,10 @@ export function useSupabaseAuth() {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, []); // supabaseRef.current is stable — no dep needed
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    await supabaseRef.current.auth.signOut();
   };
 
   return { user, loading, signOut };

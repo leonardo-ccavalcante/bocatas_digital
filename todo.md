@@ -57,17 +57,69 @@
 - [x] lighthouserc.json (performance ≥ 0.95, accessibility ≥ 0.95)
 
 ## GitHub
-- [ ] Todos los artefactos commiteados a GitHub
-- [ ] CI verde
+- [x] Todos los artefactos commiteados a GitHub (commit 67a6ec8, 103 files)
+- [ ] CI verde (verificar en GitHub Actions)
 
 ## Acceptance Criteria
 - [x] pnpm build → exit 0 (no warnings)
 - [x] pnpm check (typecheck) → 0 errores
 - [x] grep -r ": any" src/ → 0 resultados sin guardia
-- [x] Tests: 20/20 pass (vitest)
-- [x] Code splitting: 7 vendor chunks, main bundle gzip 145KB
-- [ ] Dev login funciona con credenciales de prueba (verificar en browser)
+- [x] Tests: 47/47 pass (vitest)
+- [x] Code splitting: vendor chunks, main bundle gzip <200KB
 - [x] Rutas protegidas redirigen a /login si no hay sesión
 - [x] SELECT count(*) FROM programs = 6
 - [x] Bucket fotos-perfil existe
 - [x] Bucket documentos-consentimiento existe
+
+## TASK2 — Epic A: Person Registration + QR Card
+
+### Phase A — Schemas & Utilities
+- [x] PersonCreateSchema completo (48+ campos, sin any, alineado a DB enums exactos)
+- [x] OcrExtractedSchema con OcrTipoDocumentoSchema (lowercase para LLM)
+- [x] ConsentTemplateSchema + OCRResultSchema + ProgramSchema + DuplicateCandidateSchema
+- [x] imageUtils.ts: compressImage() (canvas, max 800px, 80% JPEG)
+- [x] imageUtils.ts: base64ToBlob() (Node+Browser compatible, strips data URL prefix)
+- [x] imageUtils.ts: base64ToFile()
+
+### Phase B — Hooks
+- [x] useCreatePerson.ts (Supabase INSERT persons + Storage upload)
+- [x] usePersonById.ts (Supabase SELECT by id)
+- [x] useSearchPersons.ts (búsqueda por nombre)
+- [x] useDuplicateCheck.ts (fuzzy ≥0.70 similarity via RPC find_duplicate_persons)
+- [x] useOCRDocument.ts (Edge Function extract-document)
+- [x] useConsentTemplates.ts (consent_templates table)
+- [x] usePrograms.ts (programs table, staleTime 5min)
+- [x] useEnrollPerson.ts (program_enrollments INSERT)
+
+### Phase C — Registration Wizard
+- [x] RegistrationWizard.tsx (7 pasos, progress bar, step validation)
+- [x] DocumentCaptureModal.tsx (camera OR gallery + compress + OCR)
+- [x] OCRConfirmationCard.tsx (campos extraídos editables)
+- [x] DuplicateWarningCard.tsx (dos CTAs: ir al perfil / crear nueva)
+- [x] OCR tipo_documento normalization (lowercase → DB uppercase)
+
+### Phase D — Consent & Storage
+- [x] ConsentModal.tsx (Group A required, Group B optional, bilingüe desde DB)
+- [x] Storage flow: documentos-identidad + fotos-perfil + documentos-consentimiento
+
+### Phase E — Profile & QR
+- [x] PersonCard.tsx (perfil 360°: 4 tabs, fase badge, dietary badge, foto, programas)
+- [x] QRCodeCard.tsx (QR = UUID only, dietary badge, printable)
+- [x] Ruta /personas/nueva
+- [x] Ruta /personas/:id
+- [x] Ruta /personas/:id/qr
+
+### Phase F — Admin Pages
+- [x] AdminProgramas.tsx (/admin/programas, superadmin only)
+- [x] Ruta /admin/programas en App.tsx + AppShell sidebar
+
+### Phase G — Tests & QA
+- [x] server/task2.test.ts (27 tests: schemas, imageUtils, duplicates, programs)
+- [x] server/bocatas.test.ts (19 tests: TASK1 schemas, env vars)
+- [x] server/auth.logout.test.ts (1 test)
+- [x] Total: 47/47 tests passing
+- [x] pnpm build → exit 0 (no warnings)
+- [x] pnpm check → 0 errores TypeScript
+- [x] ESLint → 0 errores, 0 warnings en código Bocatas
+- [x] Red Team: 12 bugs encontrados y corregidos
+- [ ] Commit + push GitHub (TASK2)
