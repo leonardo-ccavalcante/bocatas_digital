@@ -822,6 +822,13 @@ export type Database = {
             referencedRelation: "persons_safe"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "program_enrollments_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "programs"
+            referencedColumns: ["id"]
+          },
         ]
       }
       programs: {
@@ -1081,6 +1088,17 @@ export type Database = {
       }
     }
     Functions: {
+      find_duplicate_persons: {
+        Args: { p_apellidos: string; p_nombre: string; p_threshold?: number }
+        Returns: {
+          apellidos: string
+          fecha_nacimiento: string
+          foto_perfil_url: string
+          id: string
+          nombre: string
+          similarity: number
+        }[]
+      }
       get_person_id: { Args: never; Returns: string }
       get_user_role: { Args: never; Returns: string }
       show_limit: { Args: never; Returns: number }

@@ -15,6 +15,10 @@ import Personas from "./pages/Personas";
 import Checkin from "./pages/Checkin";
 import Dashboard from "./pages/Dashboard";
 import AdminConsentimientos from "./pages/AdminConsentimientos";
+import PersonasNueva from "./pages/PersonasNueva";
+import PersonaDetalle from "./pages/PersonaDetalle";
+import PersonaQR from "./pages/PersonaQR";
+import AdminProgramas from "./pages/AdminProgramas";
 
 // Layout
 import ProtectedRoute from "./components/layout/ProtectedRoute";
@@ -53,7 +57,17 @@ function Router() {
       </Route>
       <Route path="/personas/nueva">
         <ProtectedRoute>
-          <Personas />
+          <PersonasNueva />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/personas/:id/qr">
+        <ProtectedRoute>
+          <PersonaQR />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/personas/:id">
+        <ProtectedRoute>
+          <PersonaDetalle />
         </ProtectedRoute>
       </Route>
       <Route path="/checkin">
@@ -69,6 +83,11 @@ function Router() {
       <Route path="/admin/consentimientos">
         <ProtectedRoute requiredRoles={["superadmin"]}>
           <AdminConsentimientos />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/admin/programas">
+        <ProtectedRoute requiredRoles={["superadmin"]}>
+          <AdminProgramas />
         </ProtectedRoute>
       </Route>
 

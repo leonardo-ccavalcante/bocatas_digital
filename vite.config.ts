@@ -167,12 +167,13 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
-    chunkSizeWarningLimit: 600,
+    chunkSizeWarningLimit: 800,
     rollupOptions: {
       output: {
         manualChunks: {
           "vendor-react": ["react", "react-dom"],
           "vendor-supabase": ["@supabase/supabase-js", "@supabase/ssr"],
+          "vendor-qrcode": ["qrcode"],
           "vendor-ui": ["@radix-ui/react-dialog", "@radix-ui/react-select", "@radix-ui/react-dropdown-menu", "lucide-react"],
           "vendor-query": ["@tanstack/react-query", "@trpc/client", "@trpc/react-query"],
           "vendor-form": ["react-hook-form", "@hookform/resolvers", "zod"],
