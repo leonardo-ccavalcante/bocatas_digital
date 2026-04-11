@@ -12,6 +12,7 @@ import type { Period } from "../schemas";
 interface ExportButtonProps {
   locationId: string;
   currentPeriod: Period;
+  programa?: string;
 }
 
 function getPeriodDates(period: Period): { dateFrom: string; dateTo: string } {
@@ -32,7 +33,7 @@ function getPeriodDates(period: Period): { dateFrom: string; dateTo: string } {
   }
 }
 
-export function ExportButton({ locationId, currentPeriod }: ExportButtonProps) {
+export function ExportButton({ locationId, currentPeriod, programa = "all" }: ExportButtonProps) {
   const [isExporting, setIsExporting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const utils = trpc.useUtils();
@@ -47,6 +48,7 @@ export function ExportButton({ locationId, currentPeriod }: ExportButtonProps) {
         dateFrom,
         dateTo,
         locationId,
+        programa,
       });
 
       if (!result.rows.length) {

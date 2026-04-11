@@ -4,9 +4,9 @@
  */
 import { trpc } from "@/lib/trpc";
 
-export function useTrendData(locationId: string) {
+export function useTrendData(locationId: string, programa = "all") {
   return trpc.dashboard.getTrendData.useQuery(
-    { locationId },
+    { locationId, programa },
     {
       staleTime: 60_000, // 1 min — Realtime will invalidate on new check-ins
       retry: 2,

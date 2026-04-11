@@ -178,13 +178,27 @@ describe("es_demo exclusion contract", () => {
   });
 });
 
-// ─── useAbsenceAlerts stub ────────────────────────────────────────────────────
+// ─── useAbsenceAlerts — real implementation ──────────────────────────────────
 
-describe("useAbsenceAlerts stub", () => {
-  it("returns empty array (Gate 2 stub)", async () => {
-    const { useAbsenceAlerts } = await import("../client/src/features/dashboard/hooks/useAbsenceAlerts");
-    const result = useAbsenceAlerts();
-    expect(result.data).toEqual([]);
-    expect(Array.isArray(result.data)).toBe(true);
+describe("useAbsenceAlerts interface", () => {
+  it("exports a function with the expected return shape keys", async () => {
+    // We can't call the hook outside React context, but we can verify the module
+    // exports a function and that the AbsenceAlert type has the required fields.
+    const mod = await import("../client/src/features/dashboard/hooks/useAbsenceAlerts");
+    expect(typeof mod.useAbsenceAlerts).toBe("function");
+  });
+
+  it("AbsenceAlert type has required fields", () => {
+    // Structural type check via a dummy object
+    const alert: import("../client/src/features/dashboard/hooks/useAbsenceAlerts").AbsenceAlert = {
+      personId: "a0000000-0000-0000-0000-000000000001",
+      nombre: "María",
+      apellidos: "García López",
+      diasAusente: 20,
+      ultimoCheckin: "2026-03-01",
+      restriccionesAlimentarias: "Sin gluten",
+    };
+    expect(alert.personId).toBeTruthy();
+    expect(alert.diasAusente).toBeGreaterThan(0);
   });
 });

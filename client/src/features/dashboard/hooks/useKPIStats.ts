@@ -5,9 +5,9 @@
 import { trpc } from "@/lib/trpc";
 import type { Period } from "../schemas";
 
-export function useKPIStats(period: Period, locationId: string) {
+export function useKPIStats(period: Period, locationId: string, programa = "all") {
   return trpc.dashboard.getKPIStats.useQuery(
-    { period, locationId },
+    { period, locationId, programa },
     {
       staleTime: 30_000, // 30s — Realtime will invalidate on new check-ins
       retry: 2,
