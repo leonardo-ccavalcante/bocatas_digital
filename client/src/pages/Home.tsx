@@ -1,7 +1,7 @@
 import { Link } from "wouter";
-import { useSupabaseAuth } from "@/lib/supabase/useSupabaseAuth";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { useAppStore } from "@/store/useAppStore";
-import type { BocatasRole } from "@/lib/supabase/useSupabaseAuth";
+import type { BocatasRole } from "@/components/layout/ProtectedRoute";
 import { UserPlus, QrCode, Search, BarChart3, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -52,9 +52,9 @@ function canSee(tile: Tile, role: BocatasRole): boolean {
 }
 
 export default function Home() {
-  const { user } = useSupabaseAuth();
+  const { user } = useAuth();
   const { selectedLocation } = useAppStore();
-  const role = user?.role ?? "voluntario";
+  const role = ((user?.role as BocatasRole | undefined) ?? "voluntario");
   const visibleTiles = TILES.filter((t) => canSee(t, role));
 
   return (
@@ -66,12 +66,12 @@ export default function Home() {
         <p className="text-gray-500 mt-1">¿Qué necesitas hacer hoy?</p>
         {selectedLocation ? (
           <div className="mt-3 inline-flex items-center gap-1.5 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-3 py-1">
-            <MapPin className="h-3.5 w-3.5" />
+            <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
             <span>{selectedLocation.nombre}</span>
           </div>
         ) : (
           <div className="mt-3 inline-flex items-center gap-1.5 text-sm text-gray-500 bg-gray-100 border border-gray-200 rounded-full px-3 py-1">
-            <MapPin className="h-3.5 w-3.5" />
+            <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
             <span>Selecciona una sede en el menú lateral</span>
           </div>
         )}
@@ -86,6 +86,7 @@ export default function Home() {
               )}
               role="button"
               tabIndex={0}
+              aria-label={tile.label}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   window.location.href = tile.href;

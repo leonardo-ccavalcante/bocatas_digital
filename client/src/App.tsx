@@ -5,12 +5,11 @@ import { Route, Switch, useLocation } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { useEffect } from "react";
-import { useSupabaseAuth } from "@/lib/supabase/useSupabaseAuth";
+import { useAuth } from "@/_core/hooks/useAuth";
 
 // Pages
 import Home from "./pages/Home";
 import LoginPage from "./pages/Login";
-import AuthCallback from "./pages/AuthCallback";
 import Personas from "./pages/Personas";
 import Checkin from "./pages/Checkin";
 import Dashboard from "./pages/Dashboard";
@@ -25,12 +24,12 @@ import ProtectedRoute from "./components/layout/ProtectedRoute";
 
 /** Redirect /login → / when already authenticated */
 function LoginGuard() {
-  const { user, loading } = useSupabaseAuth();
+  const { user, loading, isAuthenticated } = useAuth();
   const [, navigate] = useLocation();
 
   useEffect(() => {
-    if (!loading && user) navigate("/");
-  }, [loading, user, navigate]);
+    if (!loading && isAuthenticated) navigate("/");
+  }, [loading, isAuthenticated, navigate]);
 
   if (loading) return null;
   if (user) return null;
@@ -42,8 +41,6 @@ function Router() {
     <Switch>
       {/* Public routes */}
       <Route path="/login" component={LoginGuard} />
-      <Route path="/auth/callback" component={AuthCallback} />
-
       {/* Protected routes */}
       <Route path="/">
         <ProtectedRoute>

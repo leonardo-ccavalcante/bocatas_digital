@@ -1,60 +1,46 @@
-import { useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { useEffect } from "react";
 import { useLocation } from "wouter";
-import { createClient } from "@/lib/supabase/client";
-import { LoginSchema, type LoginInput } from "@/features/auth/schemas";
+import { useAuth } from "@/_core/hooks/useAuth";
+import { getLoginUrl } from "@/const";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 
+/**
+ * Login page — uses Manus OAuth as the single authentication method.
+ * Manus OAuth supports Google, GitHub, and other providers configured
+ * in the Manus platform. New users are automatically registered on first login.
+ */
 export default function LoginPage() {
   const [, navigate] = useLocation();
-  const supabase = createClient();
-  const [oauthLoading, setOauthLoading] = useState(false);
-  const isDev = import.meta.env.DEV;
+  const { isAuthenticated, loading } = useAuth();
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-  } = useForm<LoginInput>({ resolver: zodResolver(LoginSchema) });
-
-  const handleGoogleLogin = async () => {
-    setOauthLoading(true);
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
-    if (error) {
-      toast.error("Error al iniciar sesión. Inténtalo de nuevo.");
-      setOauthLoading(false);
-    }
-  };
-
-  const handleEmailLogin = async (data: LoginInput) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email: data.email,
-      password: data.password,
-    });
-    if (error) {
-      toast.error("Credenciales incorrectas. Verifica tu email y contraseña.");
-    } else {
+  // If already authenticated, redirect to home
+  useEffect(() => {
+    if (!loading && isAuthenticated) {
       navigate("/");
     }
+  }, [isAuthenticated, loading, navigate]);
+
+  const handleLogin = () => {
+    // getLoginUrl() builds the Manus OAuth URL with the correct redirect_uri
+    // pointing to /api/oauth/callback which is handled by the server template
+    window.location.href = getLoginUrl();
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 to-orange-100">
+        <Loader2 className="h-8 w-8 animate-spin text-amber-600" aria-label="Cargando..." />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 to-orange-100 p-4">
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="text-center space-y-2 pb-4">
-          <div className="text-5xl mb-2">🥖</div>
+          <div className="text-5xl mb-2" role="img" aria-label="Pan bocata">🥖</div>
           <CardTitle className="text-2xl font-bold text-amber-900">Bocatas Digital</CardTitle>
           <CardDescription className="text-amber-700">
             Plataforma de gestión del comedor social
@@ -62,94 +48,19 @@ export default function LoginPage() {
         </CardHeader>
 
         <CardContent className="space-y-4">
-          {/* Google OAuth — método principal */}
           <Button
-            onClick={handleGoogleLogin}
-            disabled={oauthLoading}
-            className="w-full bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 shadow-sm"
-            variant="outline"
+            onClick={handleLogin}
+            className="w-full bg-amber-600 hover:bg-amber-700 text-white font-medium h-11"
+            aria-label="Iniciar sesión con Manus"
           >
-            {oauthLoading ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
-                <path
-                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                  fill="#4285F4"
-                />
-                <path
-                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                  fill="#34A853"
-                />
-                <path
-                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                  fill="#FBBC05"
-                />
-                <path
-                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                  fill="#EA4335"
-                />
-              </svg>
-            )}
-            Iniciar sesión con Google
+            Iniciar sesión
           </Button>
 
-          {/* Dev fallback — solo en desarrollo */}
-          {isDev && (
-            <>
-              <div className="relative">
-                <Separator />
-                <span className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-2 text-xs text-muted-foreground">
-                  Solo para desarrollo
-                </span>
-              </div>
-
-              <form onSubmit={handleSubmit(handleEmailLogin)} className="space-y-3">
-                <div className="space-y-1">
-                  <Label htmlFor="email" className="text-sm">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="voluntario@bocatas.test"
-                    autoComplete="email"
-                    {...register("email")}
-                  />
-                  {errors.email && (
-                    <p className="text-xs text-destructive">{errors.email.message}</p>
-                  )}
-                </div>
-
-                <div className="space-y-1">
-                  <Label htmlFor="password" className="text-sm">Contraseña</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="••••••••"
-                    autoComplete="current-password"
-                    {...register("password")}
-                  />
-                  {errors.password && (
-                    <p className="text-xs text-destructive">{errors.password.message}</p>
-                  )}
-                </div>
-
-                <Button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="w-full bg-amber-600 hover:bg-amber-700 text-white"
-                >
-                  {isSubmitting ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : null}
-                  Entrar
-                </Button>
-              </form>
-
-              <p className="text-xs text-center text-muted-foreground">
-                Dev: voluntario@bocatas.test / BocatasVol2026!
-              </p>
-            </>
-          )}
+          <p className="text-xs text-center text-muted-foreground leading-relaxed">
+            Si es tu primera vez, se creará tu cuenta automáticamente.
+            <br />
+            El acceso está restringido a personal autorizado de Bocatas.
+          </p>
         </CardContent>
       </Card>
     </div>

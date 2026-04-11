@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { useSupabaseAuth, type BocatasRole } from "@/lib/supabase/useSupabaseAuth";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { useAppStore } from "@/store/useAppStore";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/database.types";
+import type { BocatasRole } from "./ProtectedRoute";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -63,7 +64,7 @@ interface AppShellProps {
 
 export default function AppShell({ children }: AppShellProps) {
   const [location] = useLocation();
-  const { user, signOut } = useSupabaseAuth();
+  const { user, logout } = useAuth();
   const { selectedLocation, setSelectedLocation, sidebarCollapsed, setSidebarCollapsed } = useAppStore();
   const [locations, setLocations] = useState<LocationRow[]>([]);
   const supabase = useMemo(() => createClient(), []);
@@ -79,11 +80,12 @@ export default function AppShell({ children }: AppShellProps) {
       });
   }, [supabase]);
 
-  const role = user?.role ?? "voluntario";
+  // Role comes from Manus user metadata; default to voluntario
+  const role = ((user?.role as BocatasRole | undefined) ?? "voluntario");
   const visibleNav = NAV_ITEMS.filter((item) => canAccess(item, role));
 
   const handleSignOut = async () => {
-    await signOut();
+    await logout();
     window.location.href = "/login";
   };
 
@@ -100,11 +102,11 @@ export default function AppShell({ children }: AppShellProps) {
         <div className="flex items-center justify-between px-4 py-4 border-b border-amber-800">
           {!sidebarCollapsed && (
             <div className="flex items-center gap-2">
-              <span className="text-2xl">🥖</span>
+              <span className="text-2xl" role="img" aria-label="Pan bocata">🥖</span>
               <span className="font-bold text-sm leading-tight">Bocatas<br />Digital</span>
             </div>
           )}
-          {sidebarCollapsed && <span className="text-2xl mx-auto">🥖</span>}
+          {sidebarCollapsed && <span className="text-2xl mx-auto" role="img" aria-label="Pan bocata">🥖</span>}
           <button
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
             className="p-1 rounded hover:bg-amber-800 transition-colors ml-auto"
@@ -118,7 +120,7 @@ export default function AppShell({ children }: AppShellProps) {
         {!sidebarCollapsed && (
           <div className="px-3 py-3 border-b border-amber-800">
             <div className="flex items-center gap-1 mb-1">
-              <MapPin className="h-3 w-3 text-amber-300" />
+              <MapPin className="h-3 w-3 text-amber-300" aria-hidden="true" />
               <span className="text-xs text-amber-300 font-medium">Sede</span>
             </div>
             <Select
@@ -128,7 +130,10 @@ export default function AppShell({ children }: AppShellProps) {
                 if (loc) setSelectedLocation({ id: loc.id, nombre: loc.nombre, tipo: loc.tipo });
               }}
             >
-              <SelectTrigger className="h-8 text-xs bg-amber-800 border-amber-700 text-amber-50 focus:ring-amber-600">
+              <SelectTrigger
+                className="h-8 text-xs bg-amber-800 border-amber-700 text-amber-50 focus:ring-amber-600"
+                aria-label="Seleccionar sede"
+              >
                 <SelectValue placeholder="Seleccionar sede…" />
               </SelectTrigger>
               <SelectContent>
@@ -143,7 +148,7 @@ export default function AppShell({ children }: AppShellProps) {
         )}
 
         {/* Navigation */}
-        <nav className="flex-1 py-3 space-y-1 px-2 overflow-y-auto">
+        <nav className="flex-1 py-3 space-y-1 px-2 overflow-y-auto" aria-label="Navegación principal">
           {visibleNav.map((item) => {
             const active = location === item.href || (item.href !== "/" && location.startsWith(item.href));
             return (
@@ -157,6 +162,7 @@ export default function AppShell({ children }: AppShellProps) {
                     sidebarCollapsed && "justify-center px-2"
                   )}
                   title={sidebarCollapsed ? item.label : undefined}
+                  aria-current={active ? "page" : undefined}
                 >
                   {item.icon}
                   {!sidebarCollapsed && <span>{item.label}</span>}
@@ -171,7 +177,7 @@ export default function AppShell({ children }: AppShellProps) {
           {!sidebarCollapsed && user && (
             <div className="text-xs text-amber-300 truncate px-1">
               <div className="font-medium text-amber-100 truncate">{user.name ?? user.email}</div>
-              <div className="capitalize">{user.role}</div>
+              <div className="capitalize">{role}</div>
             </div>
           )}
           <Button
@@ -182,8 +188,9 @@ export default function AppShell({ children }: AppShellProps) {
               "w-full text-amber-200 hover:bg-amber-800 hover:text-white",
               sidebarCollapsed ? "px-2 justify-center" : "justify-start gap-2"
             )}
+            aria-label="Cerrar sesión"
           >
-            <LogOut className="h-4 w-4 shrink-0" />
+            <LogOut className="h-4 w-4 shrink-0" aria-hidden="true" />
             {!sidebarCollapsed && <span>Salir</span>}
           </Button>
         </div>
