@@ -551,3 +551,13 @@
 - [x] BUG-A1: QR Scanner — removed bg-black from container; html5-qrcode video now fills the div properly
 - [x] BUG-A2: Personas.tsx rewritten with real search directory (admin: search+link+avatar+nueva btn; voluntario: search-only)
 - [x] BUG-A3: Audited all admin routes — AdminConsentimientos is intentionally placeholder (superadmin-only, not yet implemented); all other admin pages are functional
+
+## QR Scanner Video Sizing Bug (2026-04-13)
+
+- [ ] BUG-QR1: html5-qrcode video renders small in top-left corner — library sets fixed pixel size on video element, not responsive
+- [ ] BUG-QR2: Replace html5-qrcode with native getUserMedia + canvas approach OR apply CSS override to force video fill
+
+## QR Full Rewrite (2026-04-14)
+
+- [ ] BUG-QR3: QR Scanner — replace html5-qrcode with native getUserMedia + jsQR (full-width responsive video)
+- [ ] BUG-QR4: QR Generator (MiQR) — diagnose and fix QR code not scanning correctly

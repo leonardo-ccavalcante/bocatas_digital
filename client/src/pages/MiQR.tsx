@@ -1,64 +1,52 @@
 /**
  * MiQR.tsx — Beneficiario QR code page.
- * Shows the user's QR code for check-in at the comedor.
- * The QR encodes the user's openId which is scanned by volunteers.
- * Role: beneficiario
+ *
+ * Root cause of previous bug: the useEffect was drawing a fake canvas pattern
+ * (hash-based pixel grid) that looked like a QR but was NOT a real QR code —
+ * no QR reader could decode it.
+ *
+ * Fix: use the `qrcode` npm package (already installed) to generate a real,
+ * standards-compliant QR code on the canvas element. The QR payload is the
+ * user's openId, matching what QRScanner expects.
  */
 import { useEffect, useRef } from "react";
+import QRCode from "qrcode";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { QrCode, Download, Info } from "lucide-react";
+import { QrCode, Download, Info, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useState } from "react";
 
 export default function MiQR() {
   const { user } = useAuth();
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const qrValue = user?.openId ?? "";
+  const [isGenerating, setIsGenerating] = useState(true);
+  const [genError, setGenError] = useState<string | null>(null);
 
-  // Generate QR code using the qrcode library (loaded via CDN-like approach)
-  // We use a simple SVG-based QR generator to avoid extra deps
+  // The QR payload — must match what QRScanner decodes and CheckIn processes
+  const qrPayload = user?.openId ?? "";
+
   useEffect(() => {
-    if (!qrValue || !canvasRef.current) return;
+    if (!qrPayload || !canvasRef.current) return;
 
-    // Use the browser's built-in canvas to render a simple placeholder
-    // In production this would use a QR library — for now we show the value
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    setIsGenerating(true);
+    setGenError(null);
 
-    // Draw placeholder QR-like pattern
-    canvas.width = 240;
-    canvas.height = 240;
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, 240, 240);
-    ctx.fillStyle = "#1A1A1A";
-
-    // Draw border squares (finder patterns)
-    const drawFinderPattern = (x: number, y: number) => {
-      ctx.fillRect(x, y, 49, 49);
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(x + 7, y + 7, 35, 35);
-      ctx.fillStyle = "#1A1A1A";
-      ctx.fillRect(x + 14, y + 14, 21, 21);
-    };
-    drawFinderPattern(7, 7);
-    drawFinderPattern(184, 7);
-    drawFinderPattern(7, 184);
-
-    // Draw data modules based on openId hash
-    const hash = qrValue.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
-    for (let row = 0; row < 21; row++) {
-      for (let col = 0; col < 21; col++) {
-        if (row < 9 && col < 9) continue;
-        if (row < 9 && col > 11) continue;
-        if (row > 11 && col < 9) continue;
-        const bit = (hash * (row + 1) * (col + 1)) % 3 === 0;
-        if (bit) {
-          ctx.fillRect(7 + col * 11, 7 + row * 11, 9, 9);
-        }
-      }
-    }
-  }, [qrValue]);
+    QRCode.toCanvas(canvasRef.current, qrPayload, {
+      width: 240,
+      margin: 2,
+      color: {
+        dark: "#1A1A1A",
+        light: "#FFFFFF",
+      },
+      errorCorrectionLevel: "M",
+    })
+      .then(() => setIsGenerating(false))
+      .catch((err: Error) => {
+        setGenError(`Error al generar el QR: ${err.message}`);
+        setIsGenerating(false);
+      });
+  }, [qrPayload]);
 
   const handleDownload = () => {
     const canvas = canvasRef.current;
@@ -87,19 +75,30 @@ export default function MiQR() {
         </CardHeader>
         <CardContent className="flex flex-col items-center gap-4">
           {/* QR Canvas */}
-          <div className="p-4 bg-white rounded-2xl border-2 border-[#C41230]/20 shadow-inner">
-            <canvas
-              ref={canvasRef}
-              className="block"
-              style={{ imageRendering: "pixelated", width: 200, height: 200 }}
-              aria-label={`Código QR de ${user?.name}`}
-            />
+          <div className="relative p-4 bg-white rounded-2xl border-2 border-[#C41230]/20 shadow-inner">
+            {isGenerating && (
+              <div className="absolute inset-0 flex items-center justify-center bg-white/80 rounded-2xl">
+                <Loader2 className="h-6 w-6 animate-spin text-[#C41230]" />
+              </div>
+            )}
+            {genError ? (
+              <div className="w-[200px] h-[200px] flex items-center justify-center text-center text-sm text-destructive p-4">
+                {genError}
+              </div>
+            ) : (
+              <canvas
+                ref={canvasRef}
+                className="block"
+                style={{ imageRendering: "pixelated", width: 200, height: 200 }}
+                aria-label={`Código QR de ${user?.name}`}
+              />
+            )}
           </div>
 
           {/* ID display */}
-          <div className="text-center">
+          <div className="text-center w-full">
             <p className="text-xs text-muted-foreground font-mono bg-muted rounded-lg px-3 py-1.5 break-all">
-              {qrValue}
+              {qrPayload || "—"}
             </p>
           </div>
 
@@ -108,6 +107,7 @@ export default function MiQR() {
             variant="outline"
             className="w-full gap-2"
             onClick={handleDownload}
+            disabled={isGenerating || !!genError}
           >
             <Download className="h-4 w-4" />
             Descargar QR
