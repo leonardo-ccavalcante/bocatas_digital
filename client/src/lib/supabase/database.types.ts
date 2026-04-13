@@ -1,2 +1,2 @@
 // Re-export from canonical types file
-export * from "../database.types";
+export type { Database } from "../database.types";
