@@ -27,6 +27,11 @@ export function QRScanner({ onDecoded, onCancel, isDemoMode = false }: QRScanner
   const streamRef = useRef<MediaStream | null>(null);
   const rafRef = useRef<number | null>(null);
   const hasDecodedRef = useRef(false);
+  // Use ref for callbacks to avoid stale closures and prevent scan loop restarts on parent re-renders
+  const onDecodedRef = useRef(onDecoded);
+  const onCancelRef = useRef(onCancel);
+  useEffect(() => { onDecodedRef.current = onDecoded; }, [onDecoded]);
+  useEffect(() => { onCancelRef.current = onCancel; }, [onCancel]);
 
   const [status, setStatus] = useState<"starting" | "scanning" | "error">("starting");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -52,18 +57,18 @@ export function QRScanner({ onDecoded, onCancel, isDemoMode = false }: QRScanner
       inversionAttempts: "dontInvert",
     });
 
-    if (code && !hasDecodedRef.current) {
-      hasDecodedRef.current = true;
-      stopCamera();
-      onDecoded(code.data);
-      return;
-    }
+      if (code && !hasDecodedRef.current) {
+        hasDecodedRef.current = true;
+        stopCamera();
+        onDecodedRef.current(code.data);
+        return;
+      }
 
     // Schedule next frame (~10fps)
     rafRef.current = setTimeout(() => {
       rafRef.current = requestAnimationFrame(scanFrame);
     }, 100) as unknown as number;
-  }, [onDecoded]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const stopCamera = useCallback(() => {
     if (rafRef.current !== null) {
@@ -84,7 +89,7 @@ export function QRScanner({ onDecoded, onCancel, isDemoMode = false }: QRScanner
       const timer = setTimeout(() => {
         if (!hasDecodedRef.current) {
           hasDecodedRef.current = true;
-          onDecoded("bocatas://person/b0000000-0000-0000-0000-000000000002");
+          onDecodedRef.current("bocatas://person/b0000000-0000-0000-0000-000000000002");
         }
       }, 1500);
       return () => clearTimeout(timer);

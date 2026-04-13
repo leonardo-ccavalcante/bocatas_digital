@@ -554,10 +554,10 @@
 
 ## QR Scanner Video Sizing Bug (2026-04-13)
 
-- [ ] BUG-QR1: html5-qrcode video renders small in top-left corner — library sets fixed pixel size on video element, not responsive
-- [ ] BUG-QR2: Replace html5-qrcode with native getUserMedia + canvas approach OR apply CSS override to force video fill
+- [x] BUG-QR1: html5-qrcode video renders small in top-left corner — SUPERSEDED by BUG-QR3
+- [x] BUG-QR2: Replaced html5-qrcode — SUPERSEDED by BUG-QR3
 
 ## QR Full Rewrite (2026-04-14)
 
-- [ ] BUG-QR3: QR Scanner — replace html5-qrcode with native getUserMedia + jsQR (full-width responsive video)
-- [ ] BUG-QR4: QR Generator (MiQR) — diagnose and fix QR code not scanning correctly
+- [x] BUG-QR3: QR Scanner — replaced html5-qrcode with native getUserMedia+jsQR; video fills container via CSS (width:100% height:100% object-fit:cover); 369/369 tests pass
+- [x] BUG-QR4: QR Generator (MiQR) — replaced fake canvas hash-pattern with real qrcode npm package; QRCodeCard (beneficiary) was already correct; checkinMachine UUID regex correctly parses JSON payload
