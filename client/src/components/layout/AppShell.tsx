@@ -25,6 +25,7 @@ import {
   MapPin,
   BookOpen,
   UserCog,
+  UsersRound,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -46,6 +47,12 @@ const NAV_ITEMS: NavItem[] = [
     label: "Dashboard",
     href: "/dashboard",
     icon: <BarChart3 className="h-5 w-5" />,
+    roles: ["admin", "superadmin"],
+  },
+  {
+    label: "Familias",
+    href: "/familias",
+    icon: <UsersRound className="h-5 w-5" />,
     roles: ["admin", "superadmin"],
   },
   {

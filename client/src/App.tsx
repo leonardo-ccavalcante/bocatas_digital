@@ -27,6 +27,9 @@ import FamiliasList from "./pages/FamiliasList";
 import FamiliaRegistro from "./pages/FamiliaRegistro";
 import FamiliaDetalle from "./pages/FamiliaDetalle";
 import FamiliasCompliance from "./pages/FamiliasCompliance";
+import FamiliasVerificar from "./pages/FamiliasVerificar";
+import FamiliasEntregas from "./pages/FamiliasEntregas";
+import FamiliasInformesSociales from "./pages/FamiliasInformesSociales";
 
 // Layout
 import ProtectedRoute from "./components/layout/ProtectedRoute";
@@ -123,6 +126,21 @@ function Router() {
       <Route path="/familias/cumplimiento">
         <ProtectedRoute requiredRoles={["admin", "superadmin"]}>
           <FamiliasCompliance />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/familias/verificar">
+        <ProtectedRoute requiredRoles={["admin", "superadmin", "voluntario"]}>
+          <FamiliasVerificar />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/familias/entregas">
+        <ProtectedRoute requiredRoles={["admin", "superadmin", "voluntario"]}>
+          <FamiliasEntregas />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/familias/informes-sociales">
+        <ProtectedRoute requiredRoles={["admin", "superadmin"]}>
+          <FamiliasInformesSociales />
         </ProtectedRoute>
       </Route>
       <Route path="/familias/:id">

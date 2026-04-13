@@ -17,6 +17,7 @@ export const ProgramSchema = z.object({
   fecha_fin: z.string().nullable(),
   config: z.record(z.string(), z.unknown()),
   responsable_id: z.string().nullable(),
+  session_close_config: z.record(z.string(), z.unknown()).nullable().optional(),
   created_at: z.string().nullable(),
   updated_at: z.string().nullable(),
 });
@@ -76,6 +77,7 @@ export const ProgramFormSchema = z.object({
   fecha_fin: z.string().nullable().optional(),
   config: z.record(z.string(), z.unknown()).default({}),
   responsable_id: z.string().nullable().optional(),
+  session_close_config: z.record(z.string(), z.unknown()).nullable().optional(),
 });
 
 export type ProgramFormValues = z.infer<typeof ProgramFormSchema>;

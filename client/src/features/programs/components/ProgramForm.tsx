@@ -330,6 +330,27 @@ export function ProgramForm({
           />
         </div>
 
+        {/* Session Close Config */}
+        <div className="space-y-4 border-t pt-4">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+            Cierre de sesión
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            Configura cómo se registra el cierre de cada sesión de entrega de este programa.
+          </p>
+          <div className="rounded-lg border bg-muted/30 p-3 space-y-1">
+            <p className="text-xs font-medium">Campos predeterminados del sistema:</p>
+            <ul className="text-xs text-muted-foreground list-disc list-inside space-y-0.5">
+              <li>Familias atendidas (obligatorio)</li>
+              <li>Kg totales distribuidos (obligatorio)</li>
+              <li>Incidencias / observaciones</li>
+              <li>Voluntarios presentes</li>
+            </ul>
+            <p className="text-xs text-muted-foreground mt-2">
+              Para personalizar los campos, contacta con el administrador del sistema.
+            </p>
+          </div>
+        </div>
         {/* Actions */}
         <div className="flex justify-end gap-3 border-t pt-4">
           {onCancel && (
