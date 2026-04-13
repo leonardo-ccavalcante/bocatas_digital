@@ -532,3 +532,16 @@
 - [x] T7-J2: npx tsc --noEmit → 0 errors
 - [x] T7-J3: pnpm build → build successful (13.61s)
 - [x] T7-J4: Checkpoint + push GitHub
+
+## Bugfix — Role Fallback (2026-04-13)
+
+- [x] BUG-ROLE-1: AppShell.tsx — map unknown role (e.g. "user") to "beneficiario" fallback
+- [x] BUG-ROLE-2: Home.tsx — same fallback for tiles
+- [x] BUG-ROLE-3: ProtectedRoute.tsx — same fallback
+
+## Systematic Debug — Role Nav Bug (2026-04-13)
+
+- [x] DBG-1: Trace user.role value from Manus OAuth → useAuth() → AppShell → canAccess() — ROOT CAUSE: drizzle schema role enum default is "user", not a BocatasRole
+- [x] DBG-2: Fix role normalization: map "user" → "beneficiario" as fallback in AppShell + Home + ProtectedRoute
+- [x] DBG-3: Fixed sede hint — now reads "Selecciona una sede en Check-in"
+- [x] DBG-4: Verified: 369/369 tests pass, 0 TS errors, build green — checkpoint + publish done

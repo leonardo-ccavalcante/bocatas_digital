@@ -105,7 +105,12 @@ function canSee(tile: Tile, role: BocatasRole): boolean {
 export default function Home() {
   const { user } = useAuth();
   const { selectedLocation } = useAppStore();
-  const role = ((user?.role as BocatasRole | undefined) ?? "voluntario");
+  // Normalize role: Manus OAuth default is "user" — map to "beneficiario" as safe fallback.
+  const VALID_BOCATAS_ROLES: BocatasRole[] = ["superadmin", "admin", "voluntario", "beneficiario"];
+  const rawRole = user?.role as string | undefined;
+  const role: BocatasRole = (rawRole && VALID_BOCATAS_ROLES.includes(rawRole as BocatasRole))
+    ? (rawRole as BocatasRole)
+    : "beneficiario";
   const visibleTiles = TILES.filter((t) => canSee(t, role));
   const primaryTile = visibleTiles.find((t) => t.primary);
   const secondaryTiles = visibleTiles.filter((t) => !t.primary);
@@ -141,7 +146,7 @@ export default function Home() {
           ) : (
             <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground bg-muted border border-border rounded-full px-3 py-1.5">
               <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
-              Selecciona una sede en el menú lateral
+              Selecciona una sede en Check-in
             </span>
           )}
         </div>

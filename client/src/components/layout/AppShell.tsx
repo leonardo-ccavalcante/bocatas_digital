@@ -100,7 +100,13 @@ export default function AppShell({ children }: AppShellProps) {
   const { sidebarCollapsed, setSidebarCollapsed } = useAppStore();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const role = ((user?.role as BocatasRole | undefined) ?? "voluntario");
+  // Normalize role: Manus OAuth default is "user" which is not a Bocatas role.
+  // Map "user" (and any unknown role) → "beneficiario" as the safe fallback.
+  const VALID_BOCATAS_ROLES: BocatasRole[] = ["superadmin", "admin", "voluntario", "beneficiario"];
+  const rawRole = user?.role as string | undefined;
+  const role: BocatasRole = (rawRole && VALID_BOCATAS_ROLES.includes(rawRole as BocatasRole))
+    ? (rawRole as BocatasRole)
+    : "beneficiario";
   const visibleNav = NAV_ITEMS.filter((item) => canAccess(item, role));
 
   const handleSignOut = async () => {

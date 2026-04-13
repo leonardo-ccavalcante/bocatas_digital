@@ -28,8 +28,12 @@ export default function ProtectedRoute({ children, requiredRoles }: ProtectedRou
     }
   }, [loading, isAuthenticated]);
 
-  // Get role from user metadata (set in Manus platform or defaulted)
-  const userRole = (user?.role as BocatasRole | undefined) ?? "voluntario";
+  // Normalize role: Manus OAuth default is "user" — map to "beneficiario" as safe fallback.
+  const VALID_BOCATAS_ROLES: BocatasRole[] = ["superadmin", "admin", "voluntario", "beneficiario"];
+  const rawRole = user?.role as string | undefined;
+  const userRole: BocatasRole = (rawRole && VALID_BOCATAS_ROLES.includes(rawRole as BocatasRole))
+    ? (rawRole as BocatasRole)
+    : "beneficiario";
 
   // Redirect to home if authenticated but lacks required role
   useEffect(() => {
