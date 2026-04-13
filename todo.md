@@ -268,3 +268,76 @@
 - [x] F3-C: ProgramFilter integrado en Dashboard page (junto a LocationFilter y DateRangeFilter)
 - [x] F3-D: `useKPIStats`, `useTrendData` actualizados con parámetro programa
 - [x] F3-E: Tests: 140/140 pasando, build verde
+
+## Epic D — Programs Catalog + Enrollment Management (Task 5)
+
+### Phase A — DB Migrations
+- [x] D-A1: Migration — `programs` table + RLS + seed (6 rows) + is_default trigger + responsable_id assertion guard
+- [x] D-A2: Migration — `consent_templates` table + RLS + UNIQUE (purpose, idioma) WHERE is_active
+- [x] D-A3: Migration — `program_enrollments` refactor: add `program_id` FK, backfill, NOT NULL, drop `programa` column, new unique index
+- [x] D-A4: Migration — `attendances.programa` ENUM → VARCHAR(50) + FK to programs(slug) + DROP ENUM
+- [x] D-A5: RPC — `get_programs_with_counts()` SECURITY DEFINER function in Supabase
+
+### Phase B — Backend tRPC Procedures
+- [x] D-B1: `programs.getAll` — active programs, role-filtered for voluntario
+- [x] D-B2: `programs.getAllWithCounts` — calls RPC get_programs_with_counts (admin+)
+- [x] D-B3: `programs.getBySlug` — 404 for unknown slug (admin+)
+- [x] D-B4: `programs.create` — slug /^[a-z_]+$/, responsable_id required, 23505 → error
+- [x] D-B5: `programs.update` — edit all fields including volunteer access config
+- [x] D-B6: `programs.deactivate` — warns if active enrollments (returns count)
+- [x] D-B7: `programs.getEnrollments` — enrolled persons for a program (admin+)
+- [x] D-B8: `programs.enrollPerson` — consent pre-check for requires_consents, 23505 → toast
+- [x] D-B9: `programs.unenrollPerson` — sets estado='completado'
+- [x] D-B10: `persons.getEnrollments` — all programs with enrollment status for a person
+- [x] D-B11: `admin.getStaffUsers` — list auth.users where role in (admin, voluntario, superadmin)
+- [x] D-B12: `admin.createStaffUser` — superadmin-only, sets app_metadata.role
+- [x] D-B13: `admin.revokeStaffAccess` — sets app_metadata.role = null; superadmin-only
+
+### Phase C — Frontend Schemas + Hooks + Utils
+- [x] D-C1: `features/programs/schemas.ts` — ProgramSchema, CreateProgramSchema, EnrollmentSchema
+- [x] D-C2: `features/programs/utils/slugFromName.ts`
+- [x] D-C3: `usePrograms` hook — staleTime 5min, role-filtered
+- [x] D-C4: `useProgramsWithCounts` hook
+- [x] D-C5: `useProgramBySlug` hook
+- [x] D-C6: `useCreateProgram` mutation
+- [x] D-C7: `useUpdateProgram` mutation
+- [x] D-C8: `useDeactivateProgram` mutation
+- [x] D-C9: `usePersonEnrollments` hook
+- [x] D-C10: `useEnrollPerson` mutation — consent pre-check
+- [x] D-C11: `useUnenrollPerson` mutation
+- [x] D-C12: `features/admin/schemas.ts` — CreateStaffUserSchema
+- [x] D-C13: `useStaffUsers` hook
+- [x] D-C14: `useRevokeStaffAccess` mutation
+
+### Phase D — Frontend Components
+- [x] D-D1: `ProgramList.tsx` — counts, is_default badge, responsable name, edit button
+- [x] D-D2: `ProgramCard.tsx` — icon, name, slug, active enrollments, volunteer access badges
+- [x] D-D3: `ProgramForm.tsx` — create/edit modal with volunteer access section + responsable_id picker
+- [x] D-D4: `ProgramOverviewPage.tsx` — KPI cards + enrolled persons table
+- [x] D-D5: `EnrolledPersonsTable.tsx` — sortable, fuzzy search, unenroll per row
+- [x] D-D6: `EnrollPersonModal.tsx` — person search + consent warning
+- [x] D-D7: `EnrollmentPanel.tsx` — person profile panel, role-filtered, historial accordion
+- [x] D-D8: `StaffUserList.tsx` — email, nombre, role badge, revoke button
+- [x] D-D9: `InviteStaffModal.tsx` — email + nombre + role selector
+
+### Phase E — Pages + Routes
+- [x] D-E1: `/programas` page (admin+)
+- [x] D-E2: `/programas/:slug` page (admin+)
+- [x] D-E3: `/admin/usuarios` page (superadmin-only, 403 guard)
+- [x] D-E4: Update `ProgramSelector` — icon+name, role-filtered, is_default, staleTime 5min
+- [x] D-E5: Update `PersonaDetalle` — add EnrollmentPanel section
+- [x] D-E6: Update `AppShell` nav — Programas (admin+), Admin > Usuarios (superadmin)
+- [x] D-E7: Update `App.tsx` routes — /programas, /programas/:slug, /admin/usuarios
+
+### Phase F — Reusable Building Blocks
+- [x] D-F1: `DocumentChecklist.tsx`
+- [x] D-F2: `DeliveryRecorder.tsx`
+- [x] D-F3: `DocumentPhotoCapture.tsx`
+
+### Phase G — Tests (80%+ coverage)
+- [x] D-G1: `schemas.test.ts` — ProgramSchema, CreateProgramSchema
+- [x] D-G2: `usePrograms.test.ts` — active programs, staleTime, role filtering
+- [x] D-G3: `useEnrollPerson.test.ts` — consent warning logic, 23505 mapping
+- [x] D-G4: `EnrollmentPanel.test.tsx` — role-filtered rendering
+- [x] D-G5: `createStaffUser.test.ts` — valid/invalid inputs, role enforcement
+- [x] D-G6: `StaffUserList.test.tsx` — renders staff list, revoke action (logic tests in createStaffUser.test.ts)

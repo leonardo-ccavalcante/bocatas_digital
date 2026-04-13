@@ -20,6 +20,9 @@ import PersonasNueva from "./pages/PersonasNueva";
 import PersonaDetalle from "./pages/PersonaDetalle";
 import PersonaQR from "./pages/PersonaQR";
 import AdminProgramas from "./pages/AdminProgramas";
+import Programas from "./pages/Programas";
+import ProgramaDetalle from "./pages/ProgramaDetalle";
+import AdminUsuarios from "./pages/AdminUsuarios";
 
 // Layout
 import ProtectedRoute from "./components/layout/ProtectedRoute";
@@ -81,6 +84,16 @@ function Router() {
           </Suspense>
         </ProtectedRoute>
       </Route>
+      <Route path="/programas/:slug">
+        <ProtectedRoute>
+          <ProgramaDetalle />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/programas">
+        <ProtectedRoute>
+          <Programas />
+        </ProtectedRoute>
+      </Route>
       <Route path="/admin/consentimientos">
         <ProtectedRoute requiredRoles={["superadmin"]}>
           <AdminConsentimientos />
@@ -89,6 +102,11 @@ function Router() {
       <Route path="/admin/programas">
         <ProtectedRoute requiredRoles={["superadmin"]}>
           <AdminProgramas />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/admin/usuarios">
+        <ProtectedRoute requiredRoles={["superadmin"]}>
+          <AdminUsuarios />
         </ProtectedRoute>
       </Route>
 

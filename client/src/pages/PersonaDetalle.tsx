@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft, Loader2, AlertCircle } from "lucide-react";
 import { PersonCard } from "@/features/persons/components/PersonCard";
 import { CheckinHistoryTable } from "@/features/persons/components/CheckinHistoryTable";
+import { EnrollmentPanel } from "@/features/programs/components/EnrollmentPanel";
 import { usePersonById } from "@/features/persons/hooks/usePersonById";
 import { useAuth } from "@/_core/hooks/useAuth";
 import type { Database } from "@/lib/database.types";
@@ -55,6 +56,15 @@ export default function PersonaDetalle() {
           person={person as PersonRow}
           onRefresh={() => void refetch()}
         />
+      )}
+
+      {/* Program enrollments — visible to all authenticated users */}
+      {person && id && (
+        <div className="max-w-2xl mx-auto px-4 pb-4">
+          <div className="border-t border-border pt-6">
+            <EnrollmentPanel personId={id} isAdmin={isAdmin} />
+          </div>
+        </div>
       )}
 
       {/* Check-in history — admin only */}

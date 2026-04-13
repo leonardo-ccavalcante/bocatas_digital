@@ -833,46 +833,64 @@ export type Database = {
       }
       programs: {
         Row: {
+          config: Json
           created_at: string | null
           created_by: string | null
           description: string | null
           display_order: number
+          fecha_fin: string | null
+          fecha_inicio: string | null
           icon: string | null
           id: string
           is_active: boolean
           is_default: boolean
           name: string
+          requires_consents: string[]
           requires_fields: Json | null
+          responsable_id: string | null
           slug: string
           updated_at: string | null
+          volunteer_can_access: boolean
         }
         Insert: {
+          config?: Json
           created_at?: string | null
           created_by?: string | null
           description?: string | null
           display_order?: number
+          fecha_fin?: string | null
+          fecha_inicio?: string | null
           icon?: string | null
           id?: string
           is_active?: boolean
           is_default?: boolean
           name: string
+          requires_consents?: string[]
           requires_fields?: Json | null
+          responsable_id?: string | null
           slug: string
           updated_at?: string | null
+          volunteer_can_access?: boolean
         }
         Update: {
+          config?: Json
           created_at?: string | null
           created_by?: string | null
           description?: string | null
           display_order?: number
+          fecha_fin?: string | null
+          fecha_inicio?: string | null
           icon?: string | null
           id?: string
           is_active?: boolean
           is_default?: boolean
           name?: string
+          requires_consents?: string[]
           requires_fields?: Json | null
+          responsable_id?: string | null
           slug?: string
           updated_at?: string | null
+          volunteer_can_access?: boolean
         }
         Relationships: []
       }

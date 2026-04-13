@@ -23,6 +23,8 @@ import {
   Menu,
   X,
   MapPin,
+  BookOpen,
+  UserCog,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -39,6 +41,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Inicio", href: "/", icon: <Home className="h-5 w-5" /> },
   { label: "Personas", href: "/personas", icon: <Users className="h-5 w-5" /> },
   { label: "Check-in", href: "/checkin", icon: <QrCode className="h-5 w-5" /> },
+  { label: "Programas", href: "/programas", icon: <BookOpen className="h-5 w-5" /> },
   {
     label: "Dashboard",
     href: "/dashboard",
@@ -49,6 +52,12 @@ const NAV_ITEMS: NavItem[] = [
     label: "Admin",
     href: "/admin/consentimientos",
     icon: <Settings className="h-5 w-5" />,
+    roles: ["superadmin"],
+  },
+  {
+    label: "Usuarios",
+    href: "/admin/usuarios",
+    icon: <UserCog className="h-5 w-5" />,
     roles: ["superadmin"],
   },
 ];
