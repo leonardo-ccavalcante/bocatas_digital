@@ -366,3 +366,118 @@
 - [x] M3: KPI Query Limit — FALSE POSITIVE: no hay limit=500 en ninguna query de KPI
 - [x] M4: Redirect URL Validation — FALSE POSITIVE: no hay magic links; window.location.origin ya sigue patrón correcto del template
 - [x] I2b: EnrolledPersonsTable — columna foto de perfil implementada con Avatar + fallback iniciales
+
+## Epic E — Familia Program Complete Workflow (Task 6)
+
+### Phase A — DB Migrations + Storage Buckets
+- [x] E-A1: Migration 20260501100490 — create program_sessions table + programs.session_close_config column (MUST run before A2 due to FK)
+- [x] E-A2: Migration 20260501100500 — alter families (autorizado_documento_url, guf_cutoff_day, guf_verified_at) + alter deliveries (session_id FK, recogido_por_documento_url)
+- [x] E-A3: Migration 20260501100600 — DB triggers (enforce_kg_total, enforce_member_counts) + unique index uq_families_one_active_per_titular
+- [x] E-A4: Migration 20260501100700 — seed consent_templates for tratamiento_datos_banco_alimentos (es, ar, fr, bm)
+- [x] E-A5: Migration 20260501100800 — app_settings guf_default_cutoff_day
+- [x] E-A6: Migration 20260501100900 — create family_member_documents table
+- [x] E-A7: Migration 20260501101000 — index idx_families_guf_verified_at
+- [x] E-A8: RLS policy families_voluntario_select (voluntario can SELECT active families)
+- [x] E-A9: Create Storage bucket firmas-entregas (private, 2MB)
+- [x] E-A10: Create Storage bucket documentos-fisicos-entregas (private, 5MB)
+
+### Phase B — Backend tRPC Router
+- [x] E-B1: Create client/src/features/families/schemas.ts (Zod: FamilyMember, DeactivateFamily, SessionCloseConfig, CreateDelivery)
+- [x] E-B2: Create client/src/features/families/constants.ts (FAMILIA_DOCS_CONFIG, FAMILIA_DELIVERY_FIELDS, MOTIVO_BAJA_LABELS, FAMILIA_SESSION_CLOSE_PRESET)
+- [x] E-B3: Create server/routers/families.ts (all 14 procedures)
+- [x] E-B4: Register families router in server/routers.ts
+
+### Phase C — Utility Functions + Hooks
+- [x] E-C1: Create client/src/features/families/utils/gufCutoff.ts (getGufCutoffStatus + daysUntilCutoff)
+- [x] E-C2: Create gufCutoff.test.ts (TDD — 8 tests: days 1, 19, 20, 21, 28 + cutoffDay override)
+- [x] E-C3: Create all 14 React Query hooks in client/src/features/families/hooks/
+
+### Phase D — UI Components
+- [x] E-D1: GufPanel.tsx (3-state banner + freshness badge + CTA)
+- [ ] E-D2: GufCutoffOverride.tsx (per-family + system-wide override) — PENDING
+- [x] E-D3: SocialReportPanel.tsx (informe_social + 330d renewal alert + date picker)
+- [x] E-D4: IntakeWizard/IntakeWizard.tsx (5-step wizard state, titular pre-cargado, miembros con búsqueda)
+- [x] E-D5: IntakeWizard/StepIndicator.tsx (integrated in IntakeWizard)
+- [x] E-D6: IntakeWizard/Step1Titular.tsx (phone/name search + dedup, integrated in IntakeWizard)
+- [x] E-D7: IntakeWizard/Step2Miembros.tsx (MiembrosEditor + age computation, integrated in IntakeWizard)
+- [x] E-D8: IntakeWizard/Step3Consentimiento.tsx (consent_templates + per-member ≥14, integrated in IntakeWizard)
+- [x] E-D9: IntakeWizard/Step4Documentacion.tsx (DocumentChecklist, integrated in IntakeWizard)
+- [x] E-D10: IntakeWizard/Step5Confirmacion.tsx (summary + submit, integrated in IntakeWizard)
+- [x] E-D11: MiembrosEditor.tsx (add/edit/remove household members, integrated in IntakeWizard)
+- [x] E-D12: FamiliaProfile.tsx (4 tabs: Perfil, Documentación, GUF, Entregas, in FamiliaDetalle page)
+- [x] E-D13: FamiliaList.tsx (search + filters: estado, sin_alta_guf, sin_informe_social)
+- [x] E-D14: FamiliaCard.tsx (integrated in FamiliasList)
+- [ ] E-D15: IdentityVerifier.tsx (Job 7: redacted card + auth doc image) — PENDING
+- [ ] E-D16: PendingItemsPanel.tsx (Job 8: per-member ≥14 consent + doc gaps) — PENDING
+- [ ] E-D17: MemberConsentCollector.tsx (Job 8: SignatureCapture + DocumentPhotoCapture per member) — PENDING
+- [x] E-D18: ComplianceDashboard.tsx (Job 9: Layer A — 5 risk cards CM-1 to CM-5)
+- [ ] E-D19: PendientesGrid.tsx (Job 9: Layer B — per-member table + 3 filters + CSV export) — PENDING
+- [ ] E-D20: CerrarSesionPrograma.tsx (Job 10: config-driven session close) — PENDING
+- [x] E-D21: DeactivationForm.tsx (Job 6: deactivation form component)
+- [ ] E-D22: Extend ProgramForm.tsx with "Cierre de sesión" section (Job 10) — PENDING
+
+### Phase E — Pages + Routes
+- [x] E-E1: client/src/pages/FamiliasList.tsx (family list + search + filters)
+- [x] E-E2: client/src/pages/FamiliaDetalle.tsx (360° profile with 4 tabs)
+- [x] E-E3: client/src/pages/FamiliaRegistro.tsx (IntakeWizard wrapper)
+- [ ] E-E4: client/src/pages/FamiliasVerificar.tsx (Job 7: volunteer identity verification) — PENDING
+- [x] E-E5: client/src/pages/FamiliasCompliance.tsx (Job 9: compliance dashboard admin/superadmin)
+- [ ] E-E6: client/src/pages/FamiliasEntregas.tsx (delivery day view + CerrarSesionPrograma CTA) — PENDING
+- [ ] E-E7: client/src/pages/FamiliasInformesSociales.tsx (batch social report view) — PENDING
+- [x] E-E8: Register all routes in client/src/App.tsx (/familias, /familias/nueva, /familias/:id, /familias/cumplimiento)
+- [x] E-E9: Update Home.tsx tile + PersonaDetalle toggle — "Familias" (admin+)
+
+### Phase F — Edge Function Extension
+- [ ] E-F1: Extend supabase/functions/extract-document/index.ts with delivery_albaran extraction
+- [ ] E-F2: Extend supabase/functions/extract-document/index.ts with delivery_sheet_collective extraction
+
+### Phase G — TDD Tests
+- [x] E-G1: server/familiesSchemas.test.ts (FamilyMemberSchema + FamilyIntakeSchema — 12 tests)
+- [x] E-G2: server/gufCutoff.test.ts (8 tests — isGufStale logic with cutoffDay override)
+- [ ] E-G3: IntakeWizard.test.tsx (step nav + state + per-member consent) — PENDING
+- [ ] E-G4: useCreateDelivery.test.ts (firma upload + session_id FK) — PENDING
+- [x] E-G5: server/familiesCompliance.test.ts (CM-1, CM-2, CM-3, CM-5 — 15 tests)
+- [ ] E-G6: sessionClose.test.ts (CerrarSesionPrograma config rendering + hard-block) — PENDING
+- [ ] E-G7: Cross-EPIC: extend checkin.verifyAndInsert to return missingItems[] — PENDING
+- [ ] E-G8: Cross-EPIC: ResultCard.tsx renders ⚠ Pendientes panel when missingItems.length > 0 — PENDING
+
+### Phase H — Final Verification
+- [x] E-H1: pnpm test --run → 351 tests, 22 suites ALL PASS
+- [x] E-H2: pnpm tsc --noEmit → 0 errors
+- [x] E-H3: pnpm build → build successful (warning: index.js 1.4MB, non-blocking)
+- [ ] E-H4: Verify all 46 acceptance criteria from spec — PARTIAL
+- [ ] E-H5: Checkpoint + push to GitHub — PENDING
+
+## RGPD Person-Linkage Requirement (added 2026-04-13)
+
+- [x] RGPD-1: Cada miembro del hogar debe tener su propia ficha en `persons` (person_id obligatorio para adultos, opcional para menores)
+- [x] RGPD-2: `families.miembros` JSONB debe almacenar `person_id` (FK a persons) para cada integrante ≥18, no solo datos inline
+- [x] RGPD-3: IntakeWizard Step 2 (Miembros): buscar persona existente por nombre/documento antes de crear nueva — igual que el flujo del titular
+- [x] RGPD-4: IntakeWizard Step 2: si no existe → crear persona en `persons` (con datos completos: nombre, apellidos, fecha_nacimiento, documento, parentesco) antes de añadir al hogar
+- [x] RGPD-5: FamiliaProfile debe mostrar link a ficha individual de cada miembro (→ /personas/:id)
+- [x] RGPD-6: Consentimiento RGPD individual por miembro ≥14 (ya en Job 8) debe estar vinculado a su person_id en `consents`
+- [x] RGPD-7: Regenerar database.types.ts con nuevas columnas (autorizado_documento_url, guf_cutoff_day, guf_verified_at, session_id, etc.)
+- [x] RGPD-8: tRPC families.create debe aceptar miembros con person_id (FK) o datos para crear nueva persona
+- [x] RGPD-9: tRPC families.getById debe hacer JOIN a persons para cada miembro (no solo titular)
+
+## Flujo de Registro Familias — Pre-fill desde Registro (2026-04-13)
+
+- [x] PREFILL-1: IntakeWizard Step 1 (Titular): al buscar por nombre/teléfono, si la persona ya existe en `persons`, abrir su ficha y pre-rellenar todos los campos del formulario (nombre, apellidos, fecha_nacimiento, documento, teléfono, idioma, etc.)
+- [x] PREFILL-2: IntakeWizard Step 2 (Miembros): para cada miembro que el titular declare, buscar primero en `persons` por nombre+apellidos o documento — si existe, vincular person_id y mostrar datos ya conocidos
+- [x] PREFILL-3: Si el miembro no existe en el registro, crear nueva ficha en `persons` con los datos declarados durante el intake
+- [x] PREFILL-4: El wizard debe mostrar claramente qué datos vienen del registro (badge "Ya registrado") vs. datos nuevos que se están capturando
+- [x] PREFILL-5: Al finalizar el intake, todos los miembros adultos deben tener person_id en `families.miembros` JSONB
+
+## Arquitectura Módulo Familias — Decisión Final (2026-04-13)
+
+**Flujo correcto:**
+- El módulo Familias es SEPARADO (rutas /familias/*, nav item propio)
+- Punto de entrada desde PersonaDetalle: toggle "Inscribir en Programa de Familias" → redirige a /familias/nueva?titular_id=:id
+- El wizard pre-carga los datos del titular desde su ficha en `persons`
+- Para cada miembro del hogar: buscar primero en `persons` (por nombre+doc), si existe → vincular; si no → crear nueva ficha
+
+- [x] ARCH-1: PersonaDetalle — agregar sección "Programas" con toggle/botón "Inscribir en Programa de Familias" (visible si no tiene familia activa)
+- [x] ARCH-2: PersonaDetalle — si ya tiene familia activa, mostrar link "Ver ficha familiar → /familias/:id"
+- [x] ARCH-3: /familias/nueva?titular_id=:id — pre-cargar datos del titular desde persons (nombre, apellidos, teléfono, documento)
+- [x] ARCH-4: IntakeWizard Step 2 (Miembros) — buscador de personas del registro con dedup antes de crear nueva ficha
+- [x] ARCH-5: AppShell sidebar — "Familias" (admin+) como módulo separado

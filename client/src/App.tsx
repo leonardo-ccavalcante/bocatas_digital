@@ -23,6 +23,10 @@ import AdminProgramas from "./pages/AdminProgramas";
 import Programas from "./pages/Programas";
 import ProgramaDetalle from "./pages/ProgramaDetalle";
 import AdminUsuarios from "./pages/AdminUsuarios";
+import FamiliasList from "./pages/FamiliasList";
+import FamiliaRegistro from "./pages/FamiliaRegistro";
+import FamiliaDetalle from "./pages/FamiliaDetalle";
+import FamiliasCompliance from "./pages/FamiliasCompliance";
 
 // Layout
 import ProtectedRoute from "./components/layout/ProtectedRoute";
@@ -107,6 +111,28 @@ function Router() {
       <Route path="/admin/usuarios">
         <ProtectedRoute requiredRoles={["superadmin"]}>
           <AdminUsuarios />
+        </ProtectedRoute>
+      </Route>
+
+      {/* Familias module */}
+      <Route path="/familias/nueva">
+        <ProtectedRoute requiredRoles={["admin", "superadmin"]}>
+          <FamiliaRegistro />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/familias/cumplimiento">
+        <ProtectedRoute requiredRoles={["admin", "superadmin"]}>
+          <FamiliasCompliance />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/familias/:id">
+        <ProtectedRoute requiredRoles={["admin", "superadmin"]}>
+          <FamiliaDetalle />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/familias">
+        <ProtectedRoute requiredRoles={["admin", "superadmin"]}>
+          <FamiliasList />
         </ProtectedRoute>
       </Route>
 

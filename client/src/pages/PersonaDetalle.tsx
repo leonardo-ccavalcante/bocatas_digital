@@ -1,6 +1,6 @@
 import { Link, useParams } from "wouter";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Loader2, AlertCircle } from "lucide-react";
+import { ChevronLeft, Loader2, AlertCircle, Users } from "lucide-react";
 import { PersonCard } from "@/features/persons/components/PersonCard";
 import { CheckinHistoryTable } from "@/features/persons/components/CheckinHistoryTable";
 import { EnrollmentPanel } from "@/features/programs/components/EnrollmentPanel";
@@ -63,6 +63,29 @@ export default function PersonaDetalle() {
         <div className="max-w-2xl mx-auto px-4 pb-4">
           <div className="border-t border-border pt-6">
             <EnrollmentPanel personId={id} isAdmin={isAdmin} />
+          </div>
+        </div>
+      )}
+
+      {/* Familia program — admin only */}
+      {person && isAdmin && id && (
+        <div className="max-w-2xl mx-auto px-4 pb-4">
+          <div className="border-t border-border pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                  <Users className="h-4 w-4" /> Programa de Familias
+                </h2>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Registra a esta persona como titular de una unidad familiar
+                </p>
+              </div>
+              <Link href={`/familias/nueva?titular_id=${id}`}>
+                <Button variant="outline" size="sm">
+                  Registrar familia
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       )}

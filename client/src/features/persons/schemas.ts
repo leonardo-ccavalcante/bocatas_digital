@@ -149,9 +149,11 @@ export const PersonCreateSchema = z.object({
 export type PersonCreate = z.infer<typeof PersonCreateSchema>;
 export type PersonCreateInput = PersonCreate; // alias
 
-export const PersonUpdateSchema = PersonCreateSchema.partial().extend({
+// PersonCreateSchema contains .refine() calls on fecha_nacimiento, so we cannot use .extend().
+// Instead we compose a new schema that merges the partial fields with the required id.
+export const PersonUpdateSchema = z.object({
   id: z.string().uuid(),
-});
+}).and(PersonCreateSchema.partial());
 export type PersonUpdateInput = z.infer<typeof PersonUpdateSchema>;
 
 // ─── Section-level schemas for step-by-step validation ───────────────────────

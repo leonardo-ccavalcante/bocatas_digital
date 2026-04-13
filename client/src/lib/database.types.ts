@@ -344,7 +344,9 @@ export type Database = {
           metadata: Json | null
           notas: string | null
           recogido_por: string | null
+          recogido_por_documento_url: string | null
           registrado_por: string | null
+          session_id: string | null
           unidades_no_alimenticias: number | null
           updated_at: string
         }
@@ -365,7 +367,9 @@ export type Database = {
           metadata?: Json | null
           notas?: string | null
           recogido_por?: string | null
+          recogido_por_documento_url?: string | null
           registrado_por?: string | null
+          session_id?: string | null
           unidades_no_alimenticias?: number | null
           updated_at?: string
         }
@@ -386,11 +390,20 @@ export type Database = {
           metadata?: Json | null
           notas?: string | null
           recogido_por?: string | null
+          recogido_por_documento_url?: string | null
           registrado_por?: string | null
+          session_id?: string | null
           unidades_no_alimenticias?: number | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "deliveries_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "program_sessions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "deliveries_family_id_fkey"
             columns: ["family_id"]
@@ -434,6 +447,9 @@ export type Database = {
           num_miembros: number | null
           padron_recibido: boolean | null
           persona_recoge: string | null
+          autorizado_documento_url: string | null
+          guf_cutoff_day: number | null
+          guf_verified_at: string | null
           titular_id: string | null
           updated_at: string
         }
@@ -465,6 +481,9 @@ export type Database = {
           num_miembros?: number | null
           padron_recibido?: boolean | null
           persona_recoge?: string | null
+          autorizado_documento_url?: string | null
+          guf_cutoff_day?: number | null
+          guf_verified_at?: string | null
           titular_id?: string | null
           updated_at?: string
         }
@@ -496,6 +515,9 @@ export type Database = {
           num_miembros?: number | null
           padron_recibido?: boolean | null
           persona_recoge?: string | null
+          autorizado_documento_url?: string | null
+          guf_cutoff_day?: number | null
+          guf_verified_at?: string | null
           titular_id?: string | null
           updated_at?: string
         }
@@ -956,6 +978,125 @@ export type Database = {
             columns: ["person_id"]
             isOneToOne: true
             referencedRelation: "persons_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      app_settings: {
+        Row: {
+          description: string | null
+          key: string
+          updated_at: string | null
+          value: string
+        }
+        Insert: {
+          description?: string | null
+          key: string
+          updated_at?: string | null
+          value: string
+        }
+        Update: {
+          description?: string | null
+          key?: string
+          updated_at?: string | null
+          value?: string
+        }
+        Relationships: []
+      }
+      family_member_documents: {
+        Row: {
+          created_at: string
+          deleted_at: string | null
+          documento_tipo: string
+          documento_url: string | null
+          family_id: string
+          fecha_upload: string | null
+          id: string
+          member_index: number
+          member_person_id: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string | null
+          documento_tipo: string
+          documento_url?: string | null
+          family_id: string
+          fecha_upload?: string | null
+          id?: string
+          member_index: number
+          member_person_id?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string | null
+          documento_tipo?: string
+          documento_url?: string | null
+          family_id?: string
+          fecha_upload?: string | null
+          id?: string
+          member_index?: number
+          member_person_id?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "family_member_documents_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "family_member_documents_member_person_id_fkey"
+            columns: ["member_person_id"]
+            isOneToOne: false
+            referencedRelation: "persons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      program_sessions: {
+        Row: {
+          closed_at: string | null
+          closed_by: string | null
+          created_at: string
+          fecha: string
+          id: string
+          location_id: string | null
+          opened_by: string | null
+          program_id: string
+          session_data: Json | null
+        }
+        Insert: {
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          fecha?: string
+          id?: string
+          location_id?: string | null
+          opened_by?: string | null
+          program_id: string
+          session_data?: Json | null
+        }
+        Update: {
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          fecha?: string
+          id?: string
+          location_id?: string | null
+          opened_by?: string | null
+          program_id?: string
+          session_data?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "program_sessions_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "programs"
             referencedColumns: ["id"]
           },
         ]

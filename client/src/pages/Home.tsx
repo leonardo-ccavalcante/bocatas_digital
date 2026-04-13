@@ -2,7 +2,7 @@ import { Link } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useAppStore } from "@/store/useAppStore";
 import type { BocatasRole } from "@/components/layout/ProtectedRoute";
-import { UserPlus, QrCode, Search, BarChart3, MapPin } from "lucide-react";
+import { UserPlus, QrCode, Search, BarChart3, MapPin, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Tile {
@@ -42,6 +42,14 @@ const TILES: Tile[] = [
     href: "/dashboard",
     icon: <BarChart3 className="h-8 w-8" />,
     color: "bg-purple-50 border-purple-200 hover:bg-purple-100 text-purple-700",
+    roles: ["admin", "superadmin"],
+  },
+  {
+    label: "Programa de Familias",
+    description: "Gestión de unidades familiares y entregas",
+    href: "/familias",
+    icon: <Users className="h-8 w-8" />,
+    color: "bg-orange-50 border-orange-200 hover:bg-orange-100 text-orange-700",
     roles: ["admin", "superadmin"],
   },
 ];
