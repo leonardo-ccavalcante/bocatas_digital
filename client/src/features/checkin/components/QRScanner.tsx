@@ -81,15 +81,15 @@ export function QRScanner({ onDecoded, onCancel, isDemoMode = false }: QRScanner
       {!isDemoMode && (
         <div
           id={SCANNER_ID}
-          className="w-full max-w-sm rounded-xl overflow-hidden border-2 border-primary/30 bg-black"
-          style={{ minHeight: 280 }}
+          className="w-full rounded-xl overflow-hidden border-2 border-primary/30 bg-black"
+          style={{ minHeight: "60vh" }}
         />
       )}
 
       {/* Demo mode placeholder */}
       {isDemoMode && (
-        <div className="w-full max-w-sm rounded-xl overflow-hidden border-2 border-amber-400/50 bg-amber-950/20 flex items-center justify-center"
-          style={{ minHeight: 280 }}>
+        <div className="w-full rounded-xl overflow-hidden border-2 border-amber-400/50 bg-amber-950/20 flex items-center justify-center"
+          style={{ minHeight: "60vh" }}>
           <div className="text-center p-6">
             <Camera className="w-12 h-12 text-amber-400 mx-auto mb-3 animate-pulse" />
             <p className="text-amber-300 font-medium">Modo Demo</p>

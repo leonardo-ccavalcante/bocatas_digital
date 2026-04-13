@@ -982,6 +982,57 @@ export type Database = {
           },
         ]
       }
+      announcements: {
+        Row: {
+          id: string
+          titulo: string
+          contenido: string
+          tipo: string
+          roles_visibles: string[]
+          activo: boolean
+          fijado: boolean
+          imagen_url: string | null
+          autor_id: string | null
+          autor_nombre: string | null
+          fecha_inicio: string
+          fecha_fin: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          titulo: string
+          contenido: string
+          tipo?: string
+          roles_visibles?: string[]
+          activo?: boolean
+          fijado?: boolean
+          imagen_url?: string | null
+          autor_id?: string | null
+          autor_nombre?: string | null
+          fecha_inicio?: string
+          fecha_fin?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          titulo?: string
+          contenido?: string
+          tipo?: string
+          roles_visibles?: string[]
+          activo?: boolean
+          fijado?: boolean
+          imagen_url?: string | null
+          autor_id?: string | null
+          autor_nombre?: string | null
+          fecha_inicio?: string
+          fecha_fin?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       app_settings: {
         Row: {
           description: string | null

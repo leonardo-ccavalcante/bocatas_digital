@@ -30,6 +30,11 @@ import FamiliasCompliance from "./pages/FamiliasCompliance";
 import FamiliasVerificar from "./pages/FamiliasVerificar";
 import FamiliasEntregas from "./pages/FamiliasEntregas";
 import FamiliasInformesSociales from "./pages/FamiliasInformesSociales";
+import Perfil from "./pages/Perfil";
+import MiQR from "./pages/MiQR";
+import Novedades from "./pages/Novedades";
+import NovedadDetalle from "./pages/NovedadDetalle";
+import AdminNovedades from "./pages/AdminNovedades";
 
 // Layout
 import ProtectedRoute from "./components/layout/ProtectedRoute";
@@ -151,6 +156,35 @@ function Router() {
       <Route path="/familias">
         <ProtectedRoute requiredRoles={["admin", "superadmin"]}>
           <FamiliasList />
+        </ProtectedRoute>
+      </Route>
+
+      {/* Perfil + Mi QR */}
+      <Route path="/perfil">
+        <ProtectedRoute>
+          <Perfil />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/mi-qr">
+        <ProtectedRoute>
+          <MiQR />
+        </ProtectedRoute>
+      </Route>
+
+      {/* Novedades */}
+      <Route path="/novedades/:id">
+        <ProtectedRoute>
+          <NovedadDetalle />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/novedades">
+        <ProtectedRoute>
+          <Novedades />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/admin/novedades">
+        <ProtectedRoute requiredRoles={["admin", "superadmin"]}>
+          <AdminNovedades />
         </ProtectedRoute>
       </Route>
 

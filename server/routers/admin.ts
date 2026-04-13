@@ -127,6 +127,85 @@ export const adminRouter = router({
     }),
 
   /**
+   * T7-E1: Set user role — assign any role to a user by their Supabase auth UUID.
+   * Admin-only. Used from PersonaDetalle to promote/demote users.
+   */
+  setUserRole: superadminProcedure
+    .input(
+      z.object({
+        userId: uuidLike,
+        role: z.enum(["beneficiario", "voluntario", "admin", "superadmin"]),
+        nombre: z.string().optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const supabase = createAdminClient();
+      console.log(JSON.stringify({
+        audit: true,
+        action: "admin.setUserRole",
+        actor: ctx.user?.id ?? "unknown",
+        target_user_id: input.userId,
+        new_role: input.role,
+        target_nombre: input.nombre ?? "unknown",
+        ts: new Date().toISOString(),
+      }));
+      const { error } = await supabase.auth.admin.updateUserById(input.userId, {
+        app_metadata: { role: input.role },
+      });
+      if (error) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: `Error al asignar rol: ${error.message}`,
+        });
+      }
+      return { success: true, userId: input.userId, role: input.role };
+    }),
+
+  /**
+   * T7-D1: List ALL users (all roles including beneficiario) for admin directory.
+   */
+  getAllUsers: superadminProcedure
+    .input(
+      z.object({
+        page: z.number().int().min(1).default(1),
+        perPage: z.number().int().min(1).max(100).default(50),
+        role: z.enum(["beneficiario", "voluntario", "admin", "superadmin", "all"]).default("all"),
+        search: z.string().optional(),
+      })
+    )
+    .query(async ({ input }) => {
+      const supabase = createAdminClient();
+      const { data, error } = await supabase.auth.admin.listUsers({
+        page: input.page,
+        perPage: input.perPage,
+      });
+      if (error) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: `Error al obtener usuarios: ${error.message}`,
+        });
+      }
+      let users = (data.users ?? []).map((u) => ({
+        id: u.id,
+        email: u.email ?? "",
+        nombre: (u.user_metadata?.nombre as string) ?? (u.user_metadata?.name as string) ?? u.email ?? "",
+        role: (u.app_metadata?.role as string) ?? "beneficiario",
+        created_at: u.created_at,
+        last_sign_in_at: u.last_sign_in_at ?? null,
+      }));
+      if (input.role !== "all") {
+        users = users.filter((u) => u.role === input.role);
+      }
+      if (input.search) {
+        const q = input.search.toLowerCase();
+        users = users.filter(
+          (u) => u.nombre.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
+        );
+      }
+      return { users, total: users.length };
+    }),
+
+  /**
    * D-B13: Revoke staff access by setting app_metadata.role = null.
    * User's JWT is invalidated on next request.
    */

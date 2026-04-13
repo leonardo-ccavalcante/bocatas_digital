@@ -481,3 +481,54 @@
 - [x] ARCH-3: /familias/nueva?titular_id=:id — pre-cargar datos del titular desde persons (nombre, apellidos, teléfono, documento)
 - [x] ARCH-4: IntakeWizard Step 2 (Miembros) — buscador de personas del registro con dedup antes de crear nueva ficha
 - [x] ARCH-5: AppShell sidebar — "Familias" (admin+) como módulo separado
+
+## Task 7 — UI/UX Fixes + Role-Split Navigation + Announcements
+
+### Phase A: QR Camera Fix (Job 1)
+- [x] T7-A1: QRScanner.tsx — change container minHeight from 280px to 60vh, remove max-w-sm constraint
+
+### Phase B: Sede Selector Move (Job 2)
+- [x] T7-B1: AppShell.tsx — remove sede selector from sidebar (desktop + mobile)
+- [x] T7-B2: CheckIn.tsx — add sede Select at top of check-in form
+
+### Phase C: Role-Based Navigation (Job 3)
+- [x] T7-C1: AppShell.tsx — replace static NAV_ITEMS with getNavItems(role) function (admin/voluntario/beneficiario)
+- [x] T7-C2: Home.tsx — replace static TILES with role-based computed tiles
+- [x] T7-C3: AppShell.tsx — remove standalone Familias nav item (lives inside Programas)
+
+### Phase D: Familia Inside Programas (Job 4)
+- [x] T7-D1: Programas.tsx — add Familia card linking to /familias
+
+### Phase E: Personas Directory (Job 5)
+- [x] T7-E1: Personas.tsx — rewrite with admin directory (Avatar, search, links) + voluntario search mode
+
+### Phase F: Role Assignment (Job 6)
+- [x] T7-F1: server/routers/admin.ts — add setUserRole procedure (superadmin only)
+- [x] T7-F2: PersonaDetalle.tsx — add RoleSelector component (admin/superadmin only)
+
+### Phase G: Beneficiario Pages (Job 7)
+- [x] T7-G1: Create client/src/pages/Perfil.tsx (read-only own profile)
+- [x] T7-G2: Create client/src/pages/MiQR.tsx (own QR code display)
+- [x] T7-G3: server/routers/persons.ts — add getByUserId procedure if missing
+- [x] T7-G4: App.tsx — register /perfil and /mi-qr routes
+
+### Phase H: Announcements (Job 8)
+- [x] T7-H1: DB migration — create announcements table + RLS policies
+- [x] T7-H2: Create server/routers/announcements.ts (list, listAll, getById, create, deactivate)
+- [x] T7-H3: server/routers.ts — register announcements router
+- [x] T7-H4: database.types.ts — add announcements table types
+- [x] T7-H5: Create client/src/pages/Novedades.tsx (public feed)
+- [x] T7-H6: Create client/src/pages/NovedadDetalle.tsx (single announcement)
+- [x] T7-H7: Create client/src/pages/NovedadesAdmin.tsx (admin create/deactivate)
+- [x] T7-H8: App.tsx — register /novedades, /novedades/:id, /admin/novedades routes
+- [x] T7-H9: AppShell.tsx — add Novedades to beneficiario nav + admin nav
+
+### Phase I: TDD Tests
+- [x] T7-I1: Create server/announcements.test.ts (18 tests for announcements + nav roles)
+- [x] T7-I2: server/navRoles.test.ts — covered in announcements.test.ts
+
+### Phase J: Verification
+- [x] T7-J1: pnpm test --run → 369/369 ALL PASS (23 suites)
+- [x] T7-J2: npx tsc --noEmit → 0 errors
+- [x] T7-J3: pnpm build → build successful (13.61s)
+- [x] T7-J4: Checkpoint + push GitHub

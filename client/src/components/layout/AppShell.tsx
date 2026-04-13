@@ -1,17 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useAppStore } from "@/store/useAppStore";
-import { createClient } from "@/lib/supabase/client";
-import type { Database } from "@/lib/database.types";
 import type { BocatasRole } from "./ProtectedRoute";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Home,
   Users,
@@ -21,16 +12,14 @@ import {
   LogOut,
   Menu,
   X,
-  MapPin,
   BookOpen,
   UserCog,
-  UsersRound,
   ChevronLeft,
   ChevronRight,
+  Bell,
+  User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-type LocationRow = Database["public"]["Tables"]["locations"]["Row"];
 
 interface NavItem {
   label: string;
@@ -40,20 +29,46 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
+  // ── All roles ──
   { label: "Inicio", href: "/", icon: <Home className="h-5 w-5" /> },
-  { label: "Personas", href: "/personas", icon: <Users className="h-5 w-5" /> },
-  { label: "Check-in", href: "/checkin", icon: <QrCode className="h-5 w-5" /> },
-  { label: "Programas", href: "/programas", icon: <BookOpen className="h-5 w-5" /> },
+  { label: "Novedades", href: "/novedades", icon: <Bell className="h-5 w-5" /> },
+  // ── Beneficiario only ──
+  {
+    label: "Mi perfil",
+    href: "/perfil",
+    icon: <User className="h-5 w-5" />,
+    roles: ["beneficiario"],
+  },
+  {
+    label: "Mi QR",
+    href: "/mi-qr",
+    icon: <QrCode className="h-5 w-5" />,
+    roles: ["beneficiario"],
+  },
+  // ── Voluntario + admin ──
+  {
+    label: "Check-in",
+    href: "/checkin",
+    icon: <QrCode className="h-5 w-5" />,
+    roles: ["voluntario", "admin", "superadmin"],
+  },
+  {
+    label: "Personas",
+    href: "/personas",
+    icon: <Users className="h-5 w-5" />,
+    roles: ["voluntario", "admin", "superadmin"],
+  },
+  {
+    label: "Programas",
+    href: "/programas",
+    icon: <BookOpen className="h-5 w-5" />,
+    roles: ["voluntario", "admin", "superadmin"],
+  },
+  // ── Admin+ ──
   {
     label: "Dashboard",
     href: "/dashboard",
     icon: <BarChart3 className="h-5 w-5" />,
-    roles: ["admin", "superadmin"],
-  },
-  {
-    label: "Familias",
-    href: "/familias",
-    icon: <UsersRound className="h-5 w-5" />,
     roles: ["admin", "superadmin"],
   },
   {
@@ -82,21 +97,8 @@ interface AppShellProps {
 export default function AppShell({ children }: AppShellProps) {
   const [location] = useLocation();
   const { user, logout } = useAuth();
-  const { selectedLocation, setSelectedLocation, sidebarCollapsed, setSidebarCollapsed } = useAppStore();
-  const [locations, setLocations] = useState<LocationRow[]>([]);
+  const { sidebarCollapsed, setSidebarCollapsed } = useAppStore();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const supabase = useMemo(() => createClient(), []);
-
-  useEffect(() => {
-    supabase
-      .from("locations")
-      .select("*")
-      .eq("activo", true)
-      .order("nombre")
-      .then(({ data }) => {
-        if (data) setLocations(data);
-      });
-  }, [supabase]);
 
   const role = ((user?.role as BocatasRole | undefined) ?? "voluntario");
   const visibleNav = NAV_ITEMS.filter((item) => canAccess(item, role));
@@ -160,36 +162,7 @@ export default function AppShell({ children }: AppShellProps) {
           </button>
         </div>
 
-        {/* Location selector */}
-        {!sidebarCollapsed && (
-          <div className="px-3 py-3 border-b border-white/10">
-            <div className="flex items-center gap-1.5 mb-1.5">
-              <MapPin className="h-3 w-3 text-white/50" aria-hidden="true" />
-              <span className="text-[10px] text-white/50 font-semibold uppercase tracking-wider">Sede</span>
-            </div>
-            <Select
-              value={selectedLocation?.id ?? ""}
-              onValueChange={(id) => {
-                const loc = locations.find((l) => l.id === id);
-                if (loc) setSelectedLocation({ id: loc.id, nombre: loc.nombre, tipo: loc.tipo });
-              }}
-            >
-              <SelectTrigger
-                className="h-8 text-xs bg-white/10 border-white/20 text-white placeholder:text-white/50 focus:ring-white/30 hover:bg-white/15"
-                aria-label="Seleccionar sede"
-              >
-                <SelectValue placeholder="Seleccionar sede…" />
-              </SelectTrigger>
-              <SelectContent>
-                {locations.map((loc) => (
-                  <SelectItem key={loc.id} value={loc.id}>
-                    {loc.nombre}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+        {/* Sede selector moved to check-in page */}
 
         {/* Navigation */}
         <nav className="flex-1 py-3 px-2 space-y-0.5 overflow-y-auto" aria-label="Navegación principal">
@@ -306,31 +279,7 @@ export default function AppShell({ children }: AppShellProps) {
             </button>
           </div>
 
-          {/* Mobile location selector */}
-          <div className="px-4 py-3 border-b border-black/5">
-            <div className="flex items-center gap-1.5 mb-1.5">
-              <MapPin className="h-3 w-3 text-[#C41230]" />
-              <span className="text-[10px] text-[#5E5E5E] font-semibold uppercase tracking-wider">Sede activa</span>
-            </div>
-            <Select
-              value={selectedLocation?.id ?? ""}
-              onValueChange={(id) => {
-                const loc = locations.find((l) => l.id === id);
-                if (loc) setSelectedLocation({ id: loc.id, nombre: loc.nombre, tipo: loc.tipo });
-              }}
-            >
-              <SelectTrigger className="h-9 text-sm" aria-label="Seleccionar sede">
-                <SelectValue placeholder="Seleccionar sede…" />
-              </SelectTrigger>
-              <SelectContent>
-                {locations.map((loc) => (
-                  <SelectItem key={loc.id} value={loc.id}>
-                    {loc.nombre}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Mobile sede selector moved to check-in page */}
 
           <nav className="flex-1 overflow-y-auto py-3 px-3 flex flex-col gap-1">
             {visibleNav.map((item) => {

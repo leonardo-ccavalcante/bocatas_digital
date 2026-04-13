@@ -84,7 +84,7 @@ export default function ProgramaDetalle() {
   }, []);
 
   const { data: allActiveEnrollments, isLoading: loadingAllActive } = trpc.programs.getEnrollments.useQuery(
-    { programId: program?.id ?? "", estado: "activo", limit: 500, offset: 0 },
+    { programId: program?.id ?? "", estado: "activo", limit: 100, offset: 0 },
     { enabled: !!program?.id }
   );
 

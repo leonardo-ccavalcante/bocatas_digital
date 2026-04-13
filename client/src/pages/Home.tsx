@@ -11,6 +11,9 @@ import {
   Users,
   ArrowRight,
   Calendar,
+  Bell,
+  User,
+  BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -24,25 +27,60 @@ interface Tile {
 }
 
 const TILES: Tile[] = [
+  // ── Beneficiario tiles ──
+  {
+    label: "Mi perfil",
+    description: "Ver y actualizar mis datos personales",
+    href: "/perfil",
+    icon: User,
+    primary: true,
+    roles: ["beneficiario"],
+  },
+  {
+    label: "Mi código QR",
+    description: "Ver mi QR para el check-in en el comedor",
+    href: "/mi-qr",
+    icon: QrCode,
+    roles: ["beneficiario"],
+  },
+  {
+    label: "Novedades",
+    description: "Avisos y noticias de la asociación",
+    href: "/novedades",
+    icon: Bell,
+    roles: ["beneficiario"],
+  },
+  // ── Voluntario + admin tiles ──
   {
     label: "Check-in comedor",
     description: "Registrar asistencia al comedor hoy",
     href: "/checkin",
     icon: QrCode,
     primary: true,
+    roles: ["voluntario", "admin", "superadmin"],
   },
   {
     label: "Registrar persona",
     description: "Alta de nueva persona en el sistema",
     href: "/personas/nueva",
     icon: UserPlus,
+    roles: ["voluntario", "admin", "superadmin"],
   },
   {
     label: "Consultar ficha",
     description: "Buscar y ver ficha de persona",
     href: "/personas",
     icon: Search,
+    roles: ["voluntario", "admin", "superadmin"],
   },
+  {
+    label: "Programas",
+    description: "Ver programas activos y participantes",
+    href: "/programas",
+    icon: BookOpen,
+    roles: ["voluntario", "admin", "superadmin"],
+  },
+  // ── Admin tiles ──
   {
     label: "Dashboard",
     description: "Estadísticas y métricas del comedor",
@@ -61,7 +99,7 @@ const TILES: Tile[] = [
 
 function canSee(tile: Tile, role: BocatasRole): boolean {
   if (!tile.roles) return true;
-  return tile.roles.includes(role);
+  return (tile.roles as string[]).includes(role);
 }
 
 export default function Home() {
