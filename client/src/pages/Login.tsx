@@ -4,7 +4,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2 } from "lucide-react";
+import { Loader2, Info } from "lucide-react";
 
 /**
  * Login page — uses Manus OAuth as the single authentication method.
@@ -56,11 +56,14 @@ export default function LoginPage() {
             Iniciar sesión
           </Button>
 
-          <p className="text-xs text-center text-muted-foreground leading-relaxed">
-            Si es tu primera vez, se creará tu cuenta automáticamente.
-            <br />
-            El acceso está restringido a personal autorizado de Bocatas.
-          </p>
+          <div className="rounded-md bg-amber-50 border border-amber-200 px-4 py-3 flex gap-3 items-start">
+            <Info className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" aria-hidden="true" />
+            <p className="text-xs text-amber-800 leading-relaxed">
+              <span className="font-semibold block mb-0.5">Primera vez aquí?</span>
+              Si eres personal autorizado de Bocatas, se creará tu cuenta automáticamente al iniciar sesión.
+              Si no tienes acceso, contacta con el administrador.
+            </p>
+          </div>
         </CardContent>
       </Card>
     </div>

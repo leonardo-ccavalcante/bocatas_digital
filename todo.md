@@ -129,7 +129,7 @@
 - [ ] Habilitar Google OAuth en Supabase (Client ID + Secret de Google Cloud Console)
 - [ ] Configurar redirect URL en Supabase: https://bocatasdg-mvcpdsc2.manus.space/auth/callback
 - [ ] Reemplazar formulario email/password (dev-only) por Magic Link universal en producción
-- [ ] Login page: mensaje claro para nuevos usuarios ("Se creará tu cuenta automáticamente")
+- [x] Login page: mensaje claro para nuevos usuarios — Info alert con “Primera vez aquí?” + instrucciones de contacto
 - [ ] Verificar flujo completo: OAuth → callback → home
 
 ## Auth Migration — Manus OAuth
@@ -361,7 +361,7 @@
 - [x] I6: Missing RBAC Tests — 15 tests RBAC reales (adminProcedure, superadminProcedure, volunteer filtering, role hierarchy)
 
 ## MINOR BUGS
-- [ ] M1: Missing Rate Limiting — DEUDA TÉCNICA: auth guard es suficiente para dev; implementar en producción
+- [x] M1: Missing Rate Limiting — documentado en ARCHITECTURE.md con tabla de endpoints + código de referencia para producción
 - [x] M2: No Audit Logging — JSON audit log en createStaffUser y revokeStaffAccess (actor, target, ts)
 - [x] M3: KPI Query Limit — FALSE POSITIVE: no hay limit=500 en ninguna query de KPI
 - [x] M4: Redirect URL Validation — FALSE POSITIVE: no hay magic links; window.location.origin ya sigue patrón correcto del template
