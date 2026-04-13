@@ -81,8 +81,8 @@ export function QRScanner({ onDecoded, onCancel, isDemoMode = false }: QRScanner
       {!isDemoMode && (
         <div
           id={SCANNER_ID}
-          className="w-full rounded-xl overflow-hidden border-2 border-primary/30 bg-black"
-          style={{ minHeight: "60vh" }}
+          className="w-full rounded-xl overflow-hidden border-2 border-primary/30"
+          style={{ minHeight: "60vh", background: "transparent" }}
         />
       )}
 

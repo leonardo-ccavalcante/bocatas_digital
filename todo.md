@@ -545,3 +545,9 @@
 - [x] DBG-2: Fix role normalization: map "user" → "beneficiario" as fallback in AppShell + Home + ProtectedRoute
 - [x] DBG-3: Fixed sede hint — now reads "Selecciona una sede en Check-in"
 - [x] DBG-4: Verified: 369/369 tests pass, 0 TS errors, build green — checkpoint + publish done
+
+## Admin Bugs — Systematic Debug (2026-04-13)
+
+- [x] BUG-A1: QR Scanner — removed bg-black from container; html5-qrcode video now fills the div properly
+- [x] BUG-A2: Personas.tsx rewritten with real search directory (admin: search+link+avatar+nueva btn; voluntario: search-only)
+- [x] BUG-A3: Audited all admin routes — AdminConsentimientos is intentionally placeholder (superadmin-only, not yet implemented); all other admin pages are functional
