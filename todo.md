@@ -341,3 +341,28 @@
 - [x] D-G4: `EnrollmentPanel.test.tsx` — role-filtered rendering
 - [x] D-G5: `createStaffUser.test.ts` — valid/invalid inputs, role enforcement
 - [x] D-G6: `StaffUserList.test.tsx` — renders staff list, revoke action (logic tests in createStaffUser.test.ts)
+
+
+---
+
+## CRITICAL BUGS (Auditoría Exhaustiva - Fase 3)
+- [x] C1: Auth Identity Mismatch — documentado en ARCHITECTURE.md
+- [x] C3: RBAC Inconsistency — superadminProcedure exportado, adminProcedure permite admin|superadmin
+- [x] C4: Stale UI State — EnrollmentPanel invalida getPersonEnrollments correctamente
+- [x] C2: Env Var Confusion — FALSE POSITIVE (createAdminClient funciona correctamente, tests pasan)
+
+## IMPORTANT BUGS (En Progreso)
+- [x] I1: Unvalidated UUID Inputs — FALSE POSITIVE (todos los UUIDs ya validados con .uuid() o regex)
+- [x] I2: Missing Data Minimization — filterVisibleColumns + foto_perfil_url en EnrolledPersonsTable
+- [x] I2b: EnrolledPersonsTable — columna foto de perfil con Avatar + fallback iniciales
+- [x] I3: Server-Client Import Violation — documentado en ARCHITECTURE.md (patrón intencional)
+- [x] I4: Untyped RPC Results — ProgramWithCountsSchema con safeParse + null coercion en getAllWithCounts
+- [x] I5: N+1 Query — FALSE POSITIVE: loop tiene break en primera falta, máx 2-3 queries, no es N+1 real
+- [x] I6: Missing RBAC Tests — 15 tests RBAC reales (adminProcedure, superadminProcedure, volunteer filtering, role hierarchy)
+
+## MINOR BUGS
+- [ ] M1: Missing Rate Limiting — DEUDA TÉCNICA: auth guard es suficiente para dev; implementar en producción
+- [x] M2: No Audit Logging — JSON audit log en createStaffUser y revokeStaffAccess (actor, target, ts)
+- [x] M3: KPI Query Limit — FALSE POSITIVE: no hay limit=500 en ninguna query de KPI
+- [x] M4: Redirect URL Validation — FALSE POSITIVE: no hay magic links; window.location.origin ya sigue patrón correcto del template
+- [x] I2b: EnrolledPersonsTable — columna foto de perfil implementada con Avatar + fallback iniciales

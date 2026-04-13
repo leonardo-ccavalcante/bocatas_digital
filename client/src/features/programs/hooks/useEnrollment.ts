@@ -5,13 +5,17 @@ import { toast } from "sonner";
  * Enrolls a person in a program.
  * Returns consent warning if person lacks required consents (non-blocking).
  */
-export function useEnrollPerson(programId: string) {
+export function useEnrollPerson(programId: string, personId?: string) {
   const utils = trpc.useUtils();
 
   return trpc.programs.enrollPerson.useMutation({
     onSuccess: (result) => {
       // Invalidate enrollment list for this program
       utils.programs.getEnrollments.invalidate({ programId });
+      // Invalidate person's enrollments if personId provided (for PersonaDetalle)
+      if (personId) {
+        utils.programs.getPersonEnrollments.invalidate({ personId });
+      }
 
       if (result.consentWarning) {
         toast.warning("Inscripción realizada con advertencia", {
@@ -34,13 +38,17 @@ export function useEnrollPerson(programId: string) {
 /**
  * Unenrolls (completes) a person's enrollment.
  */
-export function useUnenrollPerson(programId: string) {
+export function useUnenrollPerson(programId: string, personId?: string) {
   const utils = trpc.useUtils();
 
   return trpc.programs.unenrollPerson.useMutation({
     onSuccess: () => {
       utils.programs.getEnrollments.invalidate({ programId });
       utils.programs.getAllWithCounts.invalidate();
+      // Invalidate person's enrollments if personId provided (for PersonaDetalle)
+      if (personId) {
+        utils.programs.getPersonEnrollments.invalidate({ personId });
+      }
       toast.success("Inscripción finalizada");
     },
     onError: (error) => {

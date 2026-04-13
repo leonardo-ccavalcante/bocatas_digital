@@ -321,7 +321,11 @@ export default function ProgramaDetalle() {
               </Dialog>
             )}
           </div>
-          <EnrolledPersonsTable programId={program.id} isAdmin={isAdmin} />
+          <EnrolledPersonsTable
+            programId={program.id}
+            isAdmin={isAdmin}
+            volunteerVisibleFields={(program as any).volunteer_visible_fields ?? []}
+          />
         </div>
       </div>
     </div>

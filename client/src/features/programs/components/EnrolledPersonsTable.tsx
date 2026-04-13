@@ -22,12 +22,16 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useEnrollments, useUnenrollPerson } from "../hooks/useEnrollment";
+import { filterVisibleColumns } from "../utils/volunteerVisibility";
 import type { EnrollmentEstado } from "../schemas";
 
 interface EnrolledPersonsTableProps {
   programId: string;
   isAdmin?: boolean;
+  /** Fields visible to volunteers. Empty = no restrictions. */
+  volunteerVisibleFields?: string[];
 }
 
 const ESTADO_BADGE: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
@@ -37,7 +41,16 @@ const ESTADO_BADGE: Record<string, { label: string; variant: "default" | "second
   pausado: { label: "Pausado", variant: "outline" },
 };
 
-export function EnrolledPersonsTable({ programId, isAdmin }: EnrolledPersonsTableProps) {
+const ALL_COLUMNS = ["foto", "nombre", "estado", "fecha_inscripcion", "notas"] as const;
+type ColumnKey = typeof ALL_COLUMNS[number];
+
+function getInitials(nombre: string | null, apellidos: string | null): string {
+  const n = (nombre ?? '').charAt(0);
+  const a = (apellidos ?? '').charAt(0);
+  return `${n}${a}`.toUpperCase() || '?';
+}
+
+export function EnrolledPersonsTable({ programId, isAdmin, volunteerVisibleFields = [] }: EnrolledPersonsTableProps) {
   const [search, setSearch] = useState("");
   const [estadoFilter, setEstadoFilter] = useState<EnrollmentEstado | undefined>("activo");
 
@@ -47,6 +60,13 @@ export function EnrolledPersonsTable({ programId, isAdmin }: EnrolledPersonsTabl
   });
 
   const unenroll = useUnenrollPerson(programId);
+
+  // Determine visible columns based on role and program config
+  const visibleCols = new Set<ColumnKey>(
+    filterVisibleColumns([...ALL_COLUMNS], volunteerVisibleFields, !!isAdmin) as ColumnKey[]
+  );
+
+  const colCount = visibleCols.size + (isAdmin ? 1 : 0);
 
   return (
     <div className="space-y-4">
@@ -84,55 +104,88 @@ export function EnrolledPersonsTable({ programId, isAdmin }: EnrolledPersonsTabl
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Persona</TableHead>
-              <TableHead className="hidden sm:table-cell">Estado</TableHead>
-              <TableHead className="hidden md:table-cell">Inscripción</TableHead>
-              <TableHead className="hidden lg:table-cell">Notas</TableHead>
+              {visibleCols.has("foto") && <TableHead className="w-12"></TableHead>}
+              {visibleCols.has("nombre") && <TableHead>Persona</TableHead>}
+              {visibleCols.has("estado") && <TableHead className="hidden sm:table-cell">Estado</TableHead>}
+              {visibleCols.has("fecha_inscripcion") && <TableHead className="hidden md:table-cell">Inscripción</TableHead>}
+              {visibleCols.has("notas") && <TableHead className="hidden lg:table-cell">Notas</TableHead>}
               {isAdmin && <TableHead className="text-right">Acciones</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={isAdmin ? 5 : 4} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={colCount} className="text-center py-8 text-muted-foreground">
                   Cargando...
                 </TableCell>
               </TableRow>
             ) : enrollments.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={isAdmin ? 5 : 4} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={colCount} className="text-center py-8 text-muted-foreground">
                   No hay personas inscritas
                 </TableCell>
               </TableRow>
             ) : (
               enrollments.map((enrollment) => (
                 <TableRow key={enrollment.id}>
-                  <TableCell>
-                    <Link
-                      href={`/personas/${enrollment.persons.id}`}
-                      className="hover:underline font-medium text-sm"
-                    >
-                      {enrollment.persons.apellidos}, {enrollment.persons.nombre}
-                    </Link>
-                    {enrollment.persons.restricciones_alimentarias && (
-                      <p className="text-xs text-amber-600 mt-0.5">
-                        ⚠ {enrollment.persons.restricciones_alimentarias}
-                      </p>
-                    )}
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell">
-                    <Badge variant={ESTADO_BADGE[enrollment.estado].variant} className="text-xs">
-                      {ESTADO_BADGE[enrollment.estado].label}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
-                    {enrollment.fecha_inicio
-                      ? new Date(enrollment.fecha_inicio).toLocaleDateString("es-ES")
-                      : "—"}
-                  </TableCell>
-                  <TableCell className="hidden lg:table-cell text-sm text-muted-foreground max-w-[200px] truncate">
-                    {enrollment.notas ?? "—"}
-                  </TableCell>
+                  {/* Avatar / Foto */}
+                  {visibleCols.has("foto") && (
+                    <TableCell className="w-12 pr-0">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage
+                          src={enrollment.persons.foto_perfil_url ?? undefined}
+                          alt={`${enrollment.persons.nombre} ${enrollment.persons.apellidos}`}
+                        />
+                        <AvatarFallback className="text-xs bg-muted">
+                          {getInitials(enrollment.persons.nombre ?? '', enrollment.persons.apellidos ?? '')}
+                        </AvatarFallback>
+                      </Avatar>
+                    </TableCell>
+                  )}
+
+                  {/* Nombre */}
+                  {visibleCols.has("nombre") && (
+                    <TableCell>
+                      <Link
+                        href={`/personas/${enrollment.persons.id}`}
+                        className="hover:underline font-medium text-sm"
+                      >
+                        {enrollment.persons.apellidos}, {enrollment.persons.nombre}
+                      </Link>
+                      {enrollment.persons.restricciones_alimentarias && (
+                        <p className="text-xs text-amber-600 mt-0.5">
+                          ⚠ {enrollment.persons.restricciones_alimentarias}
+                        </p>
+                      )}
+                    </TableCell>
+                  )}
+
+                  {/* Estado */}
+                  {visibleCols.has("estado") && (
+                    <TableCell className="hidden sm:table-cell">
+                      <Badge variant={ESTADO_BADGE[enrollment.estado].variant} className="text-xs">
+                        {ESTADO_BADGE[enrollment.estado].label}
+                      </Badge>
+                    </TableCell>
+                  )}
+
+                  {/* Fecha inscripción */}
+                  {visibleCols.has("fecha_inscripcion") && (
+                    <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
+                      {enrollment.fecha_inicio
+                        ? new Date(enrollment.fecha_inicio).toLocaleDateString("es-ES")
+                        : "—"}
+                    </TableCell>
+                  )}
+
+                  {/* Notas */}
+                  {visibleCols.has("notas") && (
+                    <TableCell className="hidden lg:table-cell text-sm text-muted-foreground max-w-[200px] truncate">
+                      {enrollment.notas ?? "—"}
+                    </TableCell>
+                  )}
+
+                  {/* Acciones (admin only) */}
                   {isAdmin && (
                     <TableCell className="text-right">
                       {enrollment.estado === "activo" && (

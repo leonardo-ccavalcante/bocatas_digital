@@ -35,6 +35,20 @@ const EnrollmentInputSchema = z.object({
   notas: z.string().max(500).optional(),
 });
 
+/** Validates shape of get_programs_with_counts RPC response */
+const ProgramWithCountsSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  slug: z.string(),
+  icon: z.string().nullable(),
+  is_default: z.boolean(),
+  is_active: z.boolean(),
+  display_order: z.number(),
+  volunteer_can_access: z.boolean(),
+  active_enrollments: z.number().nullable().transform(v => v ?? 0),
+  total_enrollments: z.number().nullable().transform(v => v ?? 0),
+}).passthrough();
+
 export const programsRouter = router({
   // ─── Job 1: Programs Catalog ─────────────────────────────────────────────
 
@@ -61,21 +75,27 @@ export const programsRouter = router({
 
   /** Returns all programs with enrollment counts (admin+) */
   getAllWithCounts: protectedProcedure.query(async ({ ctx }) => {
-    if (ctx.user.role !== "admin") {
+    if (ctx.user.role !== "admin" && ctx.user.role !== "superadmin") {
       throw new TRPCError({ code: "FORBIDDEN", message: "Solo administradores pueden ver los conteos" });
     }
     const supabase = createAdminClient();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await (supabase as any).rpc("get_programs_with_counts");
     if (error) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
-    return data ?? [];
+    // Validate and coerce RPC response shape (null counts → 0)
+    const parsed = z.array(ProgramWithCountsSchema).safeParse(data ?? []);
+    if (!parsed.success) {
+      console.error("[programs.getAllWithCounts] RPC shape mismatch:", parsed.error.flatten());
+      return [];
+    }
+    return parsed.data;
   }),
 
   /** Returns single program by slug (admin+) */
   getBySlug: protectedProcedure
     .input(z.object({ slug: z.string() }))
     .query(async ({ ctx, input }) => {
-      if (ctx.user.role !== "admin") {
+      if (ctx.user.role !== "admin" && ctx.user.role !== "superadmin") {
         throw new TRPCError({ code: "FORBIDDEN" });
       }
       const supabase = createAdminClient();
@@ -95,7 +115,7 @@ export const programsRouter = router({
   create: protectedProcedure
     .input(ProgramInputSchema)
     .mutation(async ({ ctx, input }) => {
-      if (ctx.user.role !== "admin") {
+      if (ctx.user.role !== "admin" && ctx.user.role !== "superadmin") {
         throw new TRPCError({ code: "FORBIDDEN" });
       }
       const supabase = createAdminClient();
@@ -136,7 +156,7 @@ export const programsRouter = router({
   update: protectedProcedure
     .input(z.object({ id: uuidLike, data: ProgramInputSchema.partial() }))
     .mutation(async ({ ctx, input }) => {
-      if (ctx.user.role !== "admin") {
+      if (ctx.user.role !== "admin" && ctx.user.role !== "superadmin") {
         throw new TRPCError({ code: "FORBIDDEN" });
       }
       const supabase = createAdminClient();
@@ -164,7 +184,7 @@ export const programsRouter = router({
   deactivate: protectedProcedure
     .input(z.object({ id: uuidLike }))
     .mutation(async ({ ctx, input }) => {
-      if (ctx.user.role !== "admin") {
+      if (ctx.user.role !== "admin" && ctx.user.role !== "superadmin") {
         throw new TRPCError({ code: "FORBIDDEN" });
       }
       const supabase = createAdminClient();
@@ -199,7 +219,7 @@ export const programsRouter = router({
       offset: z.number().int().min(0).default(0),
     }))
     .query(async ({ ctx, input }) => {
-      if (ctx.user.role !== "admin") {
+      if (ctx.user.role !== "admin" && ctx.user.role !== "superadmin") {
         throw new TRPCError({ code: "FORBIDDEN" });
       }
       const supabase = createAdminClient();
@@ -229,7 +249,7 @@ export const programsRouter = router({
   enrollPerson: protectedProcedure
     .input(EnrollmentInputSchema)
     .mutation(async ({ ctx, input }) => {
-      if (ctx.user.role !== "admin") {
+      if (ctx.user.role !== "admin" && ctx.user.role !== "superadmin") {
         throw new TRPCError({ code: "FORBIDDEN" });
       }
       const supabase = createAdminClient();
@@ -295,7 +315,7 @@ export const programsRouter = router({
   getPersonEnrollments: protectedProcedure
     .input(z.object({ personId: uuidLike }))
     .query(async ({ ctx, input }) => {
-      if (ctx.user.role !== "admin") {
+      if (ctx.user.role !== "admin" && ctx.user.role !== "superadmin") {
         throw new TRPCError({ code: "FORBIDDEN" });
       }
       const supabase = createAdminClient();
@@ -318,7 +338,7 @@ export const programsRouter = router({
   unenrollPerson: protectedProcedure
     .input(z.object({ enrollmentId: uuidLike, notas: z.string().optional() }))
     .mutation(async ({ ctx, input }) => {
-      if (ctx.user.role !== "admin") {
+      if (ctx.user.role !== "admin" && ctx.user.role !== "superadmin") {
         throw new TRPCError({ code: "FORBIDDEN" });
       }
       const supabase = createAdminClient();

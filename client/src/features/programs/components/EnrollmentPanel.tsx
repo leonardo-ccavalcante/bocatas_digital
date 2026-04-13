@@ -48,8 +48,8 @@ export function EnrollmentPanel({ personId, isAdmin }: EnrollmentPanelProps) {
 
   const availablePrograms = programs.filter((p) => !enrolledProgramIds.has(p.id) && p.is_active);
 
-  const enroll = useEnrollPerson(selectedProgramId);
-  const unenroll = useUnenrollPerson(selectedProgramId);
+  const enroll = useEnrollPerson(selectedProgramId, personId);
+  const unenroll = useUnenrollPerson(selectedProgramId, personId);
 
   const handleEnroll = () => {
     if (!selectedProgramId) return;

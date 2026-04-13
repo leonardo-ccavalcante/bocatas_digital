@@ -11,23 +11,14 @@
  */
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { router, protectedProcedure } from "../_core/trpc";
+import { router, superadminProcedure } from "../\_core/trpc";
 import { createAdminClient } from "../../client/src/lib/supabase/server";
 
 const uuidLike = z
   .string()
   .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, "Invalid UUID format");
 
-/** Middleware: only superadmin can access these procedures */
-const superadminProcedure = protectedProcedure.use(({ ctx, next }) => {
-  if (ctx.user.role !== "superadmin") {
-    throw new TRPCError({
-      code: "FORBIDDEN",
-      message: "No tienes permisos para esta página",
-    });
-  }
-  return next({ ctx });
-});
+// Using exported superadminProcedure from server/_core/trpc
 
 export const adminRouter = router({
   /**
@@ -82,8 +73,18 @@ export const adminRouter = router({
         }),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const supabase = createAdminClient();
+
+      // M2: Audit log — critical action
+      console.log(JSON.stringify({
+        audit: true,
+        action: "admin.createStaffUser",
+        actor: ctx.user?.id ?? "unknown",
+        target_email: input.email,
+        target_role: input.role,
+        ts: new Date().toISOString(),
+      }));
 
       const { data, error } = await supabase.auth.admin.createUser({
         email: input.email,
@@ -136,8 +137,18 @@ export const adminRouter = router({
         nombre: z.string().optional(), // for confirmation message
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const supabase = createAdminClient();
+
+      // M2: Audit log — critical action
+      console.log(JSON.stringify({
+        audit: true,
+        action: "admin.revokeStaffAccess",
+        actor: ctx.user?.id ?? "unknown",
+        target_user_id: input.userId,
+        target_nombre: input.nombre ?? "unknown",
+        ts: new Date().toISOString(),
+      }));
 
       const { error } = await supabase.auth.admin.updateUserById(input.userId, {
         app_metadata: {
