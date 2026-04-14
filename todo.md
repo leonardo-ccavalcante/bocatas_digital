@@ -602,4 +602,9 @@ All OCR-related bugs and features have been successfully implemented and tested:
 
 - [x] FEATURE-PERSONAS-TABLE: Display all persons in table view by default for admin
 - [x] FEATURE-PERSONAS-GDPR: Show admin-only GDPR columns (Tipo Documento, Número Documento, Situación Legal)
-- [ ] FEATURE-PERSONAS-ROLE: Add role management — admin can change person's role (admin, superadmin, voluntario, beneficiario)
+- [x] FEATURE-PERSONAS-ROLE: Add role management — admin can change person's role (admin, superadmin, voluntario, beneficiario)
+
+## Bug Fixes — Systematic Debugging (2026-04-14)
+
+- [x] BUG-PERSONAS-ROLE-DROPDOWN: Role dropdown fails silently — FIXED: Added missing `useState` import to PersonsTable.tsx
+- [x] BUG-PERSONAS-DETAIL-UUID: Person detail page shows "No se pudo cargar la ficha" — ROOT CAUSE: Invalid UUIDs in seed data (format `b0000000-0000-0000-0000-*` fails validation). FIXED: Updated seed migration to use valid format `b0000000-0000-0000-a000-*`
