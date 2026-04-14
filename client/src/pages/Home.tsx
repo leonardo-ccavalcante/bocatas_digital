@@ -52,8 +52,8 @@ const TILES: Tile[] = [
   },
   // ── Voluntario + admin tiles ──
   {
-    label: "Check-in comedor",
-    description: "Registrar asistencia al comedor hoy",
+    label: "Check-in",
+    description: "Registrar asistencia hoy",
     href: "/checkin",
     icon: QrCode,
     primary: true,

@@ -561,3 +561,8 @@
 
 - [x] BUG-QR3: QR Scanner — replaced html5-qrcode with native getUserMedia+jsQR; video fills container via CSS (width:100% height:100% object-fit:cover); 369/369 tests pass
 - [x] BUG-QR4: QR Generator (MiQR) — replaced fake canvas hash-pattern with real qrcode npm package; QRCodeCard (beneficiary) was already correct; checkinMachine UUID regex correctly parses JSON payload
+
+## UI Text Changes (2026-04-14)
+
+- [x] TEXT-1: Home.tsx — changed "Check-in comedor" tile title to "Check-in"
+- [x] TEXT-2: Home.tsx — adapted subtitle from "Registrar asistencia al comedor hoy" to "Registrar asistencia hoy"
