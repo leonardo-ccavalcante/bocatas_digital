@@ -571,3 +571,7 @@
 
 - [x] BUG-OCR-1: Document OCR failing — FIXED: parameter mismatch (image → imageBase64) in useOCRDocument.ts
 - [x] BUG-LOGO-1: Replace baguette icon (🥖) with Tribú Los Bocatas circular logo — FIXED: replaced in AppShell.tsx (4 places) + Login.tsx (1 place)
+
+## OCR Data Persistence (2026-04-14)
+
+- [ ] FEATURE-OCR-PERSIST: Persist OCR extracted data in registration form state so user doesn't need to re-upload if navigating back to step 1 and returning to step 2
