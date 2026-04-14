@@ -547,18 +547,19 @@ export function RegistrationWizard() {
         {/* ── Step 2: Documento (OCR offered only if not yet used) ── */}
         {step === 2 && (
           <div className="space-y-4">
-            {!ocrUsed ? (
+            {/* Check if OCR data is already populated in form fields */}
+            {watch("numero_documento") || watch("tipo_documento") ? (
+              <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700">
+                <CheckCircle className="h-4 w-4 shrink-0" />
+                <span>Datos del documento ya extraídos. Revisa y edita si es necesario.</span>
+              </div>
+            ) : (
               <>
                 <p className="text-sm text-muted-foreground">
                   Puedes escanear el documento para rellenar los campos automáticamente.
                 </p>
                 <DocumentCaptureInline onExtracted={handleOCRExtracted} />
               </>
-            ) : (
-              <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700">
-                <CheckCircle className="h-4 w-4 shrink-0" />
-                <span>Datos del documento ya extraídos. Revisa y edita si es necesario.</span>
-              </div>
             )}
 
             <div className="grid grid-cols-2 gap-3">

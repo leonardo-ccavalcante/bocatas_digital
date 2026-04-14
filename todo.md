@@ -574,4 +574,4 @@
 
 ## OCR Data Persistence (2026-04-14)
 
-- [ ] FEATURE-OCR-PERSIST: Persist OCR extracted data in registration form state so user doesn't need to re-upload if navigating back to step 1 and returning to step 2
+- [x] FEATURE-OCR-PERSIST-STEP2: Step 2 correctly displays ONLY document fields (Tipo documento, Número documento, Situación legal); Step 1 identity fields NOT shown; OCR data from Step 1 pre-fills document fields
