@@ -1,13 +1,14 @@
 /**
  * Personas.tsx — Person directory page.
  *
- * Admin/superadmin: full directory with search, avatar, and links to ficha.
+ * Admin/superadmin: full directory table with GDPR info.
  * Voluntario: search-only mode (min 2 chars) to look up a person quickly.
  */
 import { useState } from "react";
 import { Link } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useSearchPersons } from "@/features/persons/hooks/useSearchPersons";
+import { PersonsTable } from "@/features/persons/components/PersonsTable";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -64,7 +65,7 @@ export default function Personas() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             className="pl-9"
-            placeholder={isAdmin ? "Buscar por nombre o apellidos…" : "Escribe al menos 2 caracteres para buscar…"}
+            placeholder={isAdmin ? "Filtrar por nombre o apellidos…" : "Escribe al menos 2 caracteres para buscar…"}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             autoFocus={isVoluntario}
@@ -77,6 +78,13 @@ export default function Personas() {
 
       {/* ── Results ────────────────────────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto px-4 pb-6">
+        {/* Admin: Show table by default */}
+        {isAdmin && query.trim().length === 0 && (
+          <div className="mt-4">
+            <PersonsTable />
+          </div>
+        )}
+
         {/* Loading */}
         {(isLoading || isFetching) && query.trim().length >= 2 && (
           <div className="flex justify-center py-8">
@@ -85,7 +93,7 @@ export default function Personas() {
         )}
 
         {/* Empty search prompt */}
-        {!isLoading && !isFetching && query.trim().length < 2 && (
+        {!isLoading && !isFetching && query.trim().length < 2 && !isAdmin && (
           <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground">
             <Users className="h-12 w-12 mb-3 opacity-30" />
             <p className="text-sm font-medium">Busca una persona</p>
@@ -110,8 +118,8 @@ export default function Personas() {
           </div>
         )}
 
-        {/* Results list */}
-        {!isLoading && results && results.length > 0 && (
+        {/* Results list (search mode) */}
+        {!isLoading && results && results.length > 0 && query.trim().length >= 2 && (
           <ul className="divide-y divide-border rounded-xl border overflow-hidden mt-2">
             {results.map((person) => (
               <li key={person.id}>

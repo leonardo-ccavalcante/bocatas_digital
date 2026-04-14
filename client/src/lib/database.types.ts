@@ -663,6 +663,7 @@ export type Database = {
           persona_referencia: string | null
           recorrido_migratorio: string | null
           restricciones_alimentarias: string | null
+          role: string
           situacion_laboral:
             | Database["public"]["Enums"]["situacion_laboral"]
             | null
@@ -712,6 +713,7 @@ export type Database = {
           persona_referencia?: string | null
           recorrido_migratorio?: string | null
           restricciones_alimentarias?: string | null
+          role?: string
           situacion_laboral?:
             | Database["public"]["Enums"]["situacion_laboral"]
             | null
@@ -761,6 +763,7 @@ export type Database = {
           persona_referencia?: string | null
           recorrido_migratorio?: string | null
           restricciones_alimentarias?: string | null
+          role?: string
           situacion_laboral?:
             | Database["public"]["Enums"]["situacion_laboral"]
             | null

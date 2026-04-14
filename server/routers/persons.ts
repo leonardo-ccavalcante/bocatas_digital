@@ -199,6 +199,29 @@ export const personsRouter = router({
     }),
 
   /**
+   * Get all persons (admin view).
+   * Uses service role key to bypass RLS.
+   */
+  getAll: protectedProcedure.query(async () => {
+    const supabase = createAdminClient();
+
+    const { data, error } = await supabase
+      .from("persons")
+      .select("id, nombre, apellidos, fecha_nacimiento, foto_perfil_url, fase_itinerario, created_at, tipo_documento, numero_documento, situacion_legal, fecha_llegada_espana, role")
+      .is("deleted_at", null)
+      .order("nombre");
+
+    if (error) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: `Error al obtener personas: ${error.message}`,
+      });
+    }
+
+    return data ?? [];
+  }),
+
+  /**
    * Search persons by name.
    * Uses service role key to bypass RLS.
    */
@@ -389,6 +412,44 @@ export const personsRouter = router({
         });
       }
       return data;
+    }),
+
+  /**
+   * Update a person's role (admin/superadmin only).
+   * Validates role against allowed enum values.
+   */
+  updateRole: protectedProcedure
+    .input(
+      z.object({
+        personId: z.string().uuid("Invalid person ID"),
+        newRole: z.enum(["user", "admin", "superadmin", "voluntario", "beneficiario"]),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Only admin/superadmin can change roles
+      if (ctx.user.role !== "admin" && ctx.user.role !== "superadmin") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Solo admin puede cambiar roles" });
+      }
+
+      const supabase = createAdminClient();
+      const { data, error } = await supabase
+        .from("persons")
+        .update({ role: input.newRole })
+        .eq("id", input.personId)
+        .select("id, role")
+        .single();
+
+      if (error) {
+        if (error.code === "PGRST116") {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Persona no encontrada" });
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: `Error al actualizar rol: ${error.message}`,
+        });
+      }
+
+      return { success: true, newRole: data.role };
     }),
 
   /**

@@ -588,3 +588,18 @@ All OCR-related bugs and features have been successfully implemented and tested:
 - [x] All 369 tests passing, 0 TypeScript errors
 
 **Status:** Ready for production. OCR is fully functional end-to-end.
+
+
+## Personas Page Issues (2026-04-14)
+
+- [ ] ISSUE-PERSONAS-1: Display all users in table view on page load (currently requires search)
+- [ ] ISSUE-PERSONAS-2: Person detail page broken when clicking on a person
+- [ ] ISSUE-PERSONAS-3: Mobile responsiveness issues (sidebar vs mobile layout)
+- [ ] ISSUE-PERSONAS-4: Navigation back to home not easy/best practices
+
+
+## Personas Page Improvements (2026-04-14)
+
+- [x] FEATURE-PERSONAS-TABLE: Display all persons in table view by default for admin
+- [x] FEATURE-PERSONAS-GDPR: Show admin-only GDPR columns (Tipo Documento, Número Documento, Situación Legal)
+- [ ] FEATURE-PERSONAS-ROLE: Add role management — admin can change person's role (admin, superadmin, voluntario, beneficiario)

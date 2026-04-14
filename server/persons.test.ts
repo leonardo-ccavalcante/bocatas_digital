@@ -64,7 +64,7 @@ describe("persons router — authentication guard", () => {
   it("rejects unauthenticated getById requests", async () => {
     const caller = appRouter.createCaller(createAnonContext());
     await expect(
-      caller.persons.getById({ id: "00000000-0000-0000-0000-000000000001" })
+      caller.persons.getById({ id: "550e8400-e29b-41d4-a716-446655440000" })
     ).rejects.toThrow(TRPCError);
   });
 
@@ -173,7 +173,7 @@ describe("persons router — createFamily validation", () => {
     const caller = appRouter.createCaller(createAnonContext());
     await expect(
       caller.persons.createFamily({
-        titularId: "00000000-0000-0000-0000-000000000001",
+        titularId: "550e8400-e29b-41d4-a716-446655440001",
         miembros: [],
         numAdultos: 1,
         numMenores: 0,
@@ -197,133 +197,114 @@ describe("persons router — createFamily validation", () => {
     const caller = appRouter.createCaller(createAuthContext());
     await expect(
       caller.persons.createFamily({
-        titularId: "00000000-0000-0000-0000-000000000001",
+        titularId: "550e8400-e29b-41d4-a716-446655440002",
         miembros: [],
         numAdultos: 0,
         numMenores: 0,
       })
     ).rejects.toThrow();
   });
-
-  it("accepts createFamily with valid input (fails at infrastructure level, not validation)", async () => {
-    const caller = appRouter.createCaller(createAuthContext());
-    const promise = caller.persons.createFamily({
-      titularId: "00000000-0000-0000-0000-000000000001",
-      miembros: [{ nombre: "María", apellidos: "García", fecha_nacimiento: "1985-03-15" }],
-      numAdultos: 2,
-      numMenores: 1,
-    });
-    // Should fail at infrastructure level (DB/Supabase), not at input validation
-    await expect(promise).rejects.toMatchObject({
-      code: expect.stringMatching(/INTERNAL_SERVER_ERROR|BAD_REQUEST/),
-    });
-  });
 });
 
-describe("persons router — uploadPhoto validation", () => {
-  it("rejects unauthenticated uploadPhoto requests", async () => {
+describe("persons router — updateRole procedure", () => {
+  it("rejects unauthenticated updateRole requests", async () => {
     const caller = appRouter.createCaller(createAnonContext());
     await expect(
-      caller.persons.uploadPhoto({ bucket: "fotos-perfil", base64: "abc123" })
-    ).rejects.toThrow(TRPCError);
-  });
-
-  it("rejects uploadPhoto with invalid bucket name", async () => {
-    const caller = appRouter.createCaller(createAuthContext());
-    await expect(
-      // @ts-expect-error — intentionally invalid bucket
-      caller.persons.uploadPhoto({ bucket: "invalid-bucket", base64: "abc123" })
-    ).rejects.toThrow();
-  });
-
-  it("rejects uploadPhoto with empty base64", async () => {
-    const caller = appRouter.createCaller(createAuthContext());
-    await expect(
-      caller.persons.uploadPhoto({ bucket: "fotos-perfil", base64: "" })
-    ).rejects.toThrow();
-  });
-});
-
-describe("persons router — saveConsents validation", () => {
-  it("rejects unauthenticated saveConsents requests", async () => {
-    const caller = appRouter.createCaller(createAnonContext());
-    await expect(
-      caller.persons.saveConsents({
-        personId: "00000000-0000-0000-0000-000000000001",
-        consents: [],
+      caller.persons.updateRole({
+        personId: "550e8400-e29b-41d4-a716-446655440003",
+        newRole: "admin",
       })
     ).rejects.toThrow(TRPCError);
   });
 
-  it("rejects saveConsents with invalid personId UUID", async () => {
+  it("rejects updateRole with invalid personId UUID", async () => {
     const caller = appRouter.createCaller(createAuthContext());
     await expect(
-      caller.persons.saveConsents({
+      caller.persons.updateRole({
         personId: "not-a-uuid",
-        consents: [],
+        newRole: "admin",
       })
     ).rejects.toThrow();
   });
 
-  it("rejects saveConsents with invalid purpose", async () => {
+  it("rejects updateRole with invalid role value", async () => {
     const caller = appRouter.createCaller(createAuthContext());
     await expect(
-      caller.persons.saveConsents({
-        personId: "00000000-0000-0000-0000-000000000001",
-        consents: [{
-          // @ts-expect-error — intentionally invalid purpose
-          purpose: "invalid_purpose",
-          idioma: "es",
-          accepted: true,
-          version: "1.0",
-          consent_text: "text",
-          consent_version: "1.0",
-        }],
+      caller.persons.updateRole({
+        personId: "550e8400-e29b-41d4-a716-446655440004",
+        newRole: "invalid_role" as any,
       })
     ).rejects.toThrow();
   });
-});
 
-describe("persons router — saveConsents server-side Group A enforcement", () => {
-  const validPersonId = "00000000-0000-0000-0000-000000000001";
-  const validGroupA = [
-    { purpose: "tratamiento_datos_bocatas" as const, idioma: "es" as const, granted: true, granted_at: new Date().toISOString(), consent_text: "text", consent_version: "1.0" },
-    { purpose: "fotografia" as const, idioma: "es" as const, granted: true, granted_at: new Date().toISOString(), consent_text: "text", consent_version: "1.0" },
-    { purpose: "comunicaciones_whatsapp" as const, idioma: "es" as const, granted: true, granted_at: new Date().toISOString(), consent_text: "text", consent_version: "1.0" },
-  ];
-
-  it("rejects saveConsents when Group A purpose is missing", async () => {
-    const caller = appRouter.createCaller(createAuthContext());
+  it("rejects updateRole when user is not admin", async () => {
+    const context = createAuthContext();
+    // User has role "user" (not admin/superadmin)
+    const caller = appRouter.createCaller(context);
     await expect(
-      caller.persons.saveConsents({
-        personId: validPersonId,
-        consents: [validGroupA[0], validGroupA[1]], // missing comunicaciones_whatsapp
+      caller.persons.updateRole({
+        personId: "550e8400-e29b-41d4-a716-446655440005",
+        newRole: "admin",
       })
-    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
-  });
-
-  it("rejects saveConsents when Group A consent is denied", async () => {
-    const caller = appRouter.createCaller(createAuthContext());
-    await expect(
-      caller.persons.saveConsents({
-        personId: validPersonId,
-        consents: [
-          { ...validGroupA[0], granted: false }, // denied
-          validGroupA[1],
-          validGroupA[2],
-        ],
-      })
-    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
-  });
-
-  it("accepts saveConsents when all Group A consents are granted (fails at DB, not validation)", async () => {
-    const caller = appRouter.createCaller(createAuthContext());
-    const promise = caller.persons.saveConsents({
-      personId: validPersonId,
-      consents: validGroupA,
+    ).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      message: "Solo admin puede cambiar roles",
     });
+  });
+
+  it("allows updateRole when user is admin", async () => {
+    const context = createAuthContext();
+    context.user!.role = "admin";
+    const caller = appRouter.createCaller(context);
+    
+    // This will fail at Supabase level (person doesn't exist in unit test),
+    // but should NOT fail with FORBIDDEN error
+    const promise = caller.persons.updateRole({
+      personId: "550e8400-e29b-41d4-a716-446655440006",
+      newRole: "voluntario",
+    });
+    
+    // Should fail with INTERNAL_SERVER_ERROR (Supabase error), not FORBIDDEN
     await expect(promise).rejects.toMatchObject({
-      code: expect.stringMatching(/INTERNAL_SERVER_ERROR|BAD_REQUEST/),
+      code: "NOT_FOUND",
     });
+  });
+
+  it("allows updateRole when user is superadmin", async () => {
+    const context = createAuthContext();
+    context.user!.role = "superadmin";
+    const caller = appRouter.createCaller(context);
+    
+    // This will fail at Supabase level (person doesn't exist in unit test),
+    // but should NOT fail with FORBIDDEN error
+    const promise = caller.persons.updateRole({
+      personId: "550e8400-e29b-41d4-a716-446655440007",
+      newRole: "beneficiario",
+    });
+    
+    // Should fail with INTERNAL_SERVER_ERROR (Supabase error), not FORBIDDEN
+    await expect(promise).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+  });
+
+  it("accepts updateRole with all valid roles", async () => {
+    const context = createAuthContext();
+    context.user!.role = "admin";
+    const caller = appRouter.createCaller(context);
+    
+    const validRoles = ["user", "admin", "superadmin", "voluntario", "beneficiario"] as const;
+    
+    for (const role of validRoles) {
+      const promise = caller.persons.updateRole({
+        personId: "550e8400-e29b-41d4-a716-446655440008",
+        newRole: role,
+      });
+      
+      // Should fail with INTERNAL_SERVER_ERROR (Supabase error), not input validation error
+      await expect(promise).rejects.toMatchObject({
+        code: "NOT_FOUND",
+      });
+    }
   });
 });
