@@ -41,7 +41,7 @@ export default function LoginPage() {
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="text-center space-y-2 pb-4">
           <img
-            src="/bocatas-logo.jpg"
+            src="/bocatas-logo.png"
             alt="Bocatas"
             className="h-20 w-20 rounded-full object-cover mx-auto mb-2"
           />

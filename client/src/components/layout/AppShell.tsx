@@ -141,7 +141,7 @@ export default function AppShell({ children }: AppShellProps) {
             <div className="flex items-center gap-2.5">
               {/* Bocatas logo circle */}
               <img
-                src="/bocatas-logo.jpg"
+                src="/bocatas-logo.png"
                 alt="Bocatas"
                 className="w-9 h-9 rounded-full object-cover shrink-0"
               />
@@ -153,7 +153,7 @@ export default function AppShell({ children }: AppShellProps) {
           )}
           {sidebarCollapsed && (
             <img
-              src="/bocatas-logo.jpg"
+              src="/bocatas-logo.png"
               alt="Bocatas"
               className="w-9 h-9 rounded-full object-cover"
             />
@@ -243,7 +243,7 @@ export default function AppShell({ children }: AppShellProps) {
         <header className="md:hidden sticky top-0 z-50 flex items-center justify-between px-4 py-3 bg-white border-b border-black/5 shadow-sm">
           <div className="flex items-center gap-2.5">
             <img
-              src="/bocatas-logo.jpg"
+              src="/bocatas-logo.png"
               alt="Bocatas"
               className="w-9 h-9 rounded-full object-cover shrink-0"
             />
@@ -278,7 +278,7 @@ export default function AppShell({ children }: AppShellProps) {
           <div className="flex items-center justify-between p-4 border-b border-black/5">
             <div className="flex items-center gap-2.5">
               <img
-                src="/bocatas-logo.jpg"
+                src="/bocatas-logo.png"
                 alt="Bocatas"
                 className="w-9 h-9 rounded-full object-cover"
               />

@@ -569,5 +569,5 @@
 
 ## Bug Fixes — OCR + Logo (2026-04-14)
 
-- [ ] BUG-OCR-1: Document OCR failing with error "Error al procesar el documento. Continúa rellenando manualmente."
-- [ ] BUG-LOGO-1: Replace baguette icon (🥖) with Tribú Los Bocatas circular logo
+- [x] BUG-OCR-1: Document OCR failing — FIXED: parameter mismatch (image → imageBase64) in useOCRDocument.ts
+- [x] BUG-LOGO-1: Replace baguette icon (🥖) with Tribú Los Bocatas circular logo — FIXED: replaced in AppShell.tsx (4 places) + Login.tsx (1 place)
