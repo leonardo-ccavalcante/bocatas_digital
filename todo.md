@@ -615,3 +615,7 @@ All OCR-related bugs and features have been successfully implemented and tested:
 - [x] FEATURE-FASE-EDIT-2: Update PersonsTable to show Fase Itinerario as editable dropdown (admin only)
 - [x] FEATURE-FASE-EDIT-3: Write tests for updateFaseItinerario procedure
 - [x] FEATURE-FASE-EDIT-4: Verify all tests pass and no regressions
+
+## Landing Page Updates (2026-04-14)
+
+- [x] UPDATE-LANDING-WELCOME: Update welcome text with better copy about Bocatas Digital platform

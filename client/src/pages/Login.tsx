@@ -45,9 +45,9 @@ export default function LoginPage() {
             alt="Bocatas"
             className="h-20 w-20 rounded-full object-cover mx-auto mb-2"
           />
-          <CardTitle className="text-2xl font-bold text-amber-900">Bocatas Digital</CardTitle>
-          <CardDescription className="text-amber-700">
-            Plataforma de gestión del comedor social
+          <CardTitle className="text-2xl font-bold text-amber-900">Bienvenidos a Bocatas Digital</CardTitle>
+          <CardDescription className="text-amber-700 text-sm">
+            La plataforma de gestión integral de Bocatas
           </CardDescription>
         </CardHeader>
 
@@ -63,9 +63,8 @@ export default function LoginPage() {
           <div className="rounded-md bg-amber-50 border border-amber-200 px-4 py-3 flex gap-3 items-start">
             <Info className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" aria-hidden="true" />
             <p className="text-xs text-amber-800 leading-relaxed">
-              <span className="font-semibold block mb-0.5">Primera vez aquí?</span>
-              Si eres personal autorizado de Bocatas, se creará tu cuenta automáticamente al iniciar sesión.
-              Si no tienes acceso, contacta con el administrador.
+              <span className="font-semibold block mb-1">¿Primera vez aquí?</span>
+              Una vez que ingreses, podrás acceder a tu sistema de gestión para registros, seguimiento de participantes y más información. Si eres personal autorizado de Bocatas, tu cuenta se creará automáticamente. Para registrarte en nuestras bases de datos, contacta con el equipo de Bocatas.
             </p>
           </div>
         </CardContent>
