@@ -308,3 +308,107 @@ describe("persons router — updateRole procedure", () => {
     }
   });
 });
+
+
+describe("persons router — updateFaseItinerario procedure", () => {
+  it("rejects unauthenticated updateFaseItinerario requests", async () => {
+    const caller = appRouter.createCaller(createAnonContext());
+    await expect(
+      caller.persons.updateFaseItinerario({
+        personId: "550e8400-e29b-41d4-a716-446655440009",
+        newFaseItinerario: "formacion",
+      })
+    ).rejects.toThrow(TRPCError);
+  });
+
+  it("rejects updateFaseItinerario with invalid personId UUID", async () => {
+    const caller = appRouter.createCaller(createAuthContext());
+    await expect(
+      caller.persons.updateFaseItinerario({
+        personId: "not-a-uuid",
+        newFaseItinerario: "formacion",
+      })
+    ).rejects.toThrow();
+  });
+
+  it("rejects updateFaseItinerario with invalid fase value", async () => {
+    const caller = appRouter.createCaller(createAuthContext());
+    await expect(
+      caller.persons.updateFaseItinerario({
+        personId: "550e8400-e29b-41d4-a716-446655440010",
+        newFaseItinerario: "invalid_fase" as any,
+      })
+    ).rejects.toThrow();
+  });
+
+  it("rejects updateFaseItinerario when user is not admin", async () => {
+    const context = createAuthContext();
+    // User has role "user" (not admin/superadmin)
+    const caller = appRouter.createCaller(context);
+    await expect(
+      caller.persons.updateFaseItinerario({
+        personId: "550e8400-e29b-41d4-a716-446655440011",
+        newFaseItinerario: "formacion",
+      })
+    ).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      message: "Solo admin puede cambiar fase itinerario",
+    });
+  });
+
+  it("allows updateFaseItinerario when user is admin", async () => {
+    const context = createAuthContext();
+    context.user!.role = "admin";
+    const caller = appRouter.createCaller(context);
+    
+    // This will fail at Supabase level (person doesn't exist in unit test),
+    // but should NOT fail with FORBIDDEN error
+    const promise = caller.persons.updateFaseItinerario({
+      personId: "550e8400-e29b-41d4-a716-446655440012",
+      newFaseItinerario: "estabilizacion",
+    });
+    
+    // Should fail with NOT_FOUND (Supabase error), not FORBIDDEN
+    await expect(promise).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+  });
+
+  it("allows updateFaseItinerario when user is superadmin", async () => {
+    const context = createAuthContext();
+    context.user!.role = "superadmin";
+    const caller = appRouter.createCaller(context);
+    
+    // This will fail at Supabase level (person doesn't exist in unit test),
+    // but should NOT fail with FORBIDDEN error
+    const promise = caller.persons.updateFaseItinerario({
+      personId: "550e8400-e29b-41d4-a716-446655440013",
+      newFaseItinerario: "insercion_laboral",
+    });
+    
+    // Should fail with NOT_FOUND (Supabase error), not FORBIDDEN
+    await expect(promise).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+  });
+
+  it("accepts updateFaseItinerario with all valid fase values", async () => {
+    const context = createAuthContext();
+    context.user!.role = "admin";
+    const caller = appRouter.createCaller(context);
+    
+    const validFases = ["acogida", "estabilizacion", "formacion", "insercion_laboral", "autonomia"] as const;
+    
+    for (const fase of validFases) {
+      const promise = caller.persons.updateFaseItinerario({
+        personId: "550e8400-e29b-41d4-a716-446655440014",
+        newFaseItinerario: fase,
+      });
+      
+      // Should fail with NOT_FOUND (Supabase error), not input validation error
+      await expect(promise).rejects.toMatchObject({
+        code: "NOT_FOUND",
+      });
+    }
+  });
+});

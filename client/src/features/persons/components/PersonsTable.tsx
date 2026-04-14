@@ -17,12 +17,23 @@ const ROLE_LABELS: Record<string, string> = {
 
 const ROLE_OPTIONS = ["user", "admin", "superadmin", "voluntario", "beneficiario"] as const;
 
+const FASE_ITINERARIO_LABELS: Record<string, string> = {
+  acogida: "Acogida",
+  estabilizacion: "Estabilización",
+  formacion: "Formación",
+  insercion_laboral: "Inserción Laboral",
+  autonomia: "Autonomía",
+};
+
+const FASE_ITINERARIO_OPTIONS = ["acogida", "estabilizacion", "formacion", "insercion_laboral", "autonomia"] as const;
+
 export function PersonsTable() {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin" || user?.role === "superadmin";
 
   const { data: persons = [], isLoading, error } = trpc.persons.getAll.useQuery();
   const updateRoleMutation = trpc.persons.updateRole.useMutation();
+  const updateFaseItinerarioMutation = trpc.persons.updateFaseItinerario.useMutation();
 
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
@@ -38,6 +49,23 @@ export function PersonsTable() {
       toast.success("Rol actualizado correctamente");
     } catch (err: any) {
       toast.error(err.message || "Error al actualizar rol");
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const handleFaseItinerarioChange = async (personId: string, newFase: string) => {
+    if (!isAdmin) return;
+
+    setUpdatingId(personId);
+    try {
+      await updateFaseItinerarioMutation.mutateAsync({
+        personId,
+        newFaseItinerario: newFase as typeof FASE_ITINERARIO_OPTIONS[number],
+      });
+      toast.success("Fase itinerario actualizada correctamente");
+    } catch (err: any) {
+      toast.error(err.message || "Error al actualizar fase itinerario");
     } finally {
       setUpdatingId(null);
     }
@@ -100,10 +128,29 @@ export function PersonsTable() {
                   ? new Date(person.fecha_nacimiento).toLocaleDateString("es-ES")
                   : "—"}
               </td>
-              <td className="px-3 py-2 text-xs">
-                <span className="inline-block bg-[#C41230]/10 text-[#C41230] px-2 py-1 rounded">
-                  {person.fase_itinerario || "—"}
-                </span>
+              <td className="px-3 py-2">
+                {isAdmin ? (
+                  <Select
+                    defaultValue={person.fase_itinerario || "acogida"}
+                    onValueChange={(value) => handleFaseItinerarioChange(person.id, value)}
+                    disabled={updatingId === person.id}
+                  >
+                    <SelectTrigger className="w-[140px] h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {FASE_ITINERARIO_OPTIONS.map((fase) => (
+                        <SelectItem key={fase} value={fase}>
+                          {FASE_ITINERARIO_LABELS[fase]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <span className="inline-block bg-[#C41230]/10 text-[#C41230] px-2 py-1 rounded text-xs">
+                    {person.fase_itinerario || "—"}
+                  </span>
+                )}
               </td>
               {isAdmin && (
                 <>

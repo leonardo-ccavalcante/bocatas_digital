@@ -608,3 +608,10 @@ All OCR-related bugs and features have been successfully implemented and tested:
 
 - [x] BUG-PERSONAS-ROLE-DROPDOWN: Role dropdown fails silently — FIXED: Added missing `useState` import to PersonsTable.tsx
 - [x] BUG-PERSONAS-DETAIL-UUID: Person detail page shows "No se pudo cargar la ficha" — ROOT CAUSE: Invalid UUIDs in seed data (format `b0000000-0000-0000-0000-*` fails validation). FIXED: Updated seed migration to use valid format `b0000000-0000-0000-a000-*`
+
+## Fase Itinerario Editability (2026-04-14)
+
+- [x] FEATURE-FASE-EDIT-1: Create updateFaseItinerario tRPC procedure (admin/superadmin only)
+- [x] FEATURE-FASE-EDIT-2: Update PersonsTable to show Fase Itinerario as editable dropdown (admin only)
+- [x] FEATURE-FASE-EDIT-3: Write tests for updateFaseItinerario procedure
+- [x] FEATURE-FASE-EDIT-4: Verify all tests pass and no regressions

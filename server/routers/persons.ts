@@ -453,6 +453,45 @@ export const personsRouter = router({
     }),
 
   /**
+   * Update a person's fase itinerario (itinerary phase).
+   * Only admin/superadmin can change this field.
+   * Uses service role key to bypass RLS.
+   */
+  updateFaseItinerario: protectedProcedure
+    .input(
+      z.object({
+        personId: z.string().uuid("Invalid person ID"),
+        newFaseItinerario: FaseItinerarioEnum,
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Only admin/superadmin can change fase itinerario
+      if (ctx.user.role !== "admin" && ctx.user.role !== "superadmin") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Solo admin puede cambiar fase itinerario" });
+      }
+
+      const supabase = createAdminClient();
+      const { data, error } = await supabase
+        .from("persons")
+        .update({ fase_itinerario: input.newFaseItinerario })
+        .eq("id", input.personId)
+        .select("id, fase_itinerario")
+        .single();
+
+      if (error) {
+        if (error.code === "PGRST116") {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Persona no encontrada" });
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: `Error al actualizar fase itinerario: ${error.message}`,
+        });
+      }
+
+      return { success: true, newFaseItinerario: data.fase_itinerario };
+    }),
+
+  /**
    * getCheckinHistory — paginated check-in history for a person.
    * Returns { rows, total, hasMore } with location name, program, method, date, time.
    * Admin-only: protectedProcedure (any authenticated user can view for now).
