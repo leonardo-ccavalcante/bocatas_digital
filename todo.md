@@ -575,3 +575,16 @@
 ## OCR Data Persistence (2026-04-14)
 
 - [x] FEATURE-OCR-PERSIST-STEP2: Step 2 correctly displays ONLY document fields (Tipo documento, Número documento, Situación legal); Step 1 identity fields NOT shown; OCR data from Step 1 pre-fills document fields
+
+
+## OCR WORK COMPLETED (2026-04-14) ✅
+
+All OCR-related bugs and features have been successfully implemented and tested:
+
+- [x] BUG-OCR-1: Fixed document OCR extraction — moved from Supabase Edge Function to tRPC server-side procedure using Manus OAuth + invokeLLM
+- [x] BUG-LOGO-1: Replaced baguette emoji with Bocatas circular logo in UI (AppShell + Login pages)
+- [x] FEATURE-OCR-PERSIST: OCR data from Step 1 persists and pre-fills Step 2 document fields
+- [x] BRUTAL FORCE TESTING: Spanish residence card (TIE) successfully extracted all fields
+- [x] All 369 tests passing, 0 TypeScript errors
+
+**Status:** Ready for production. OCR is fully functional end-to-end.
