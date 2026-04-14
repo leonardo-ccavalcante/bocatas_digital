@@ -9,10 +9,11 @@ export function useOCRDocument() {
     mutationFn: async ({ base64Image, mimeType = "image/jpeg" }) => {
       // Call the Supabase Edge Function
       const { data, error } = await supabase.functions.invoke("extract-document", {
-        body: { image: base64Image, mimeType },
+        body: { imageBase64: base64Image, mimeType },
       });
 
       if (error) {
+        console.error("OCR Edge Function error:", error);
         throw new Error(`OCR Edge Function error: ${error.message}`);
       }
 

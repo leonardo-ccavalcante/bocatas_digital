@@ -140,9 +140,11 @@ export default function AppShell({ children }: AppShellProps) {
           {!sidebarCollapsed && (
             <div className="flex items-center gap-2.5">
               {/* Bocatas logo circle */}
-              <div className="w-9 h-9 rounded-full bg-white/15 border-2 border-white/30 flex items-center justify-center shrink-0">
-                <span className="text-lg leading-none" role="img" aria-label="Bocatas">🥖</span>
-              </div>
+              <img
+                src="/bocatas-logo.jpg"
+                alt="Bocatas"
+                className="w-9 h-9 rounded-full object-cover shrink-0"
+              />
               <div className="leading-tight">
                 <p className="font-bold text-sm text-white">Bocatas</p>
                 <p className="text-[10px] text-white/60 font-medium">Digital</p>
@@ -150,9 +152,11 @@ export default function AppShell({ children }: AppShellProps) {
             </div>
           )}
           {sidebarCollapsed && (
-            <div className="w-9 h-9 rounded-full bg-white/15 border-2 border-white/30 flex items-center justify-center">
-              <span className="text-lg leading-none" role="img" aria-label="Bocatas">🥖</span>
-            </div>
+            <img
+              src="/bocatas-logo.jpg"
+              alt="Bocatas"
+              className="w-9 h-9 rounded-full object-cover"
+            />
           )}
           <button
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -238,9 +242,11 @@ export default function AppShell({ children }: AppShellProps) {
       <div className="flex flex-col flex-1 overflow-hidden">
         <header className="md:hidden sticky top-0 z-50 flex items-center justify-between px-4 py-3 bg-white border-b border-black/5 shadow-sm">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-full border-2 border-[#C41230] bg-[#C41230]/10 flex items-center justify-center shrink-0">
-              <span className="text-base" role="img" aria-label="Bocatas">🥖</span>
-            </div>
+            <img
+              src="/bocatas-logo.jpg"
+              alt="Bocatas"
+              className="w-9 h-9 rounded-full object-cover shrink-0"
+            />
             <span className="font-bold text-base text-[#C41230]">Bocatas Digital</span>
           </div>
           <button
@@ -271,9 +277,11 @@ export default function AppShell({ children }: AppShellProps) {
         >
           <div className="flex items-center justify-between p-4 border-b border-black/5">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-full border-2 border-[#C41230] bg-[#C41230]/10 flex items-center justify-center">
-                <span className="text-base" role="img" aria-label="Bocatas">🥖</span>
-              </div>
+              <img
+                src="/bocatas-logo.jpg"
+                alt="Bocatas"
+                className="w-9 h-9 rounded-full object-cover"
+              />
               <span className="font-bold text-base text-[#C41230]">Bocatas Digital</span>
             </div>
             <button

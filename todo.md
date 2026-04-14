@@ -566,3 +566,8 @@
 
 - [x] TEXT-1: Home.tsx — changed "Check-in comedor" tile title to "Check-in"
 - [x] TEXT-2: Home.tsx — adapted subtitle from "Registrar asistencia al comedor hoy" to "Registrar asistencia hoy"
+
+## Bug Fixes — OCR + Logo (2026-04-14)
+
+- [ ] BUG-OCR-1: Document OCR failing with error "Error al procesar el documento. Continúa rellenando manualmente."
+- [ ] BUG-LOGO-1: Replace baguette icon (🥖) with Tribú Los Bocatas circular logo

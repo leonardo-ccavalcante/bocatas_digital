@@ -40,7 +40,11 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 to-orange-100 p-4">
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="text-center space-y-2 pb-4">
-          <div className="text-5xl mb-2" role="img" aria-label="Pan bocata">🥖</div>
+          <img
+            src="/bocatas-logo.jpg"
+            alt="Bocatas"
+            className="h-20 w-20 rounded-full object-cover mx-auto mb-2"
+          />
           <CardTitle className="text-2xl font-bold text-amber-900">Bocatas Digital</CardTitle>
           <CardDescription className="text-amber-700">
             Plataforma de gestión del comedor social
