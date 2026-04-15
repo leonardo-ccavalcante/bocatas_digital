@@ -178,7 +178,7 @@ export function MemberConsentCollector({
             </CardHeader>
             <CardContent className="space-y-3">
               {/* Status indicators */}
-              <div className="flex gap-4 text-xs">
+              <div className="flex gap-2 md:gap-4 text-xs">
                 <span className={status.consentSigned ? "text-green-700" : "text-muted-foreground"}>
                   {status.consentSigned ? "✓" : "○"} Consentimiento RGPD
                 </span>
@@ -215,7 +215,7 @@ export function MemberConsentCollector({
                         conforme al RGPD (UE) 2016/679.
                       </p>
                       <textarea
-                        className="w-full h-20 border rounded p-2 text-xs bg-white"
+                        className="w-full h-20 md:h-24 border rounded p-2 text-xs bg-white"
                         placeholder="[Área de firma — en producción usar SignatureCapture component]"
                         value={signatureData}
                         onChange={(e) => setSignatureData(e.target.value)}

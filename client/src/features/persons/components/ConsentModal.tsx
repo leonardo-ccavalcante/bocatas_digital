@@ -111,7 +111,7 @@ export function ConsentModal({ open, personId, templates, onClose, onSaved }: Co
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-[95vw] md:max-w-lg">
         <DialogHeader>
           <DialogTitle>Consentimientos RGPD</DialogTitle>
           <DialogDescription>
@@ -119,7 +119,7 @@ export function ConsentModal({ open, personId, templates, onClose, onSaved }: Co
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="max-h-[60vh] pr-2">
+        <ScrollArea className="max-h-[70vh] pr-2">
           <div className="space-y-4">
             {templates.length === 0 && (
               <div className="flex items-center gap-2 rounded-md bg-muted p-3 text-sm text-muted-foreground">

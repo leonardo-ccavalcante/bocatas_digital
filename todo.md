@@ -619,3 +619,310 @@ All OCR-related bugs and features have been successfully implemented and tested:
 ## Landing Page Updates (2026-04-14)
 
 - [x] UPDATE-LANDING-WELCOME: Update welcome text with better copy about Bocatas Digital platform
+
+
+---
+
+## COMPREHENSIVE AUDIT & REVIEW (2026-04-14)
+
+### Phase 1: Responsiveness Audit - Desktop & Mobile Testing
+
+#### Breakpoints to Test
+- [ ] AUDIT-RESP-1: Mobile (320px - iPhone SE/12 mini)
+- [ ] AUDIT-RESP-2: Mobile (375px - iPhone 12/13/14)
+- [ ] AUDIT-RESP-3: Mobile (414px - iPhone 12 Pro Max)
+- [ ] AUDIT-RESP-4: Tablet (768px - iPad)
+- [ ] AUDIT-RESP-5: Desktop (1024px - MacBook Air)
+- [ ] AUDIT-RESP-6: Desktop (1440px - Windows/MacBook Pro)
+- [ ] AUDIT-RESP-7: Desktop (1920px - Large monitors)
+
+#### Page: Login/Home (Unauthenticated)
+- [ ] AUDIT-LOGIN-1: Logo and title centered on all breakpoints
+- [ ] AUDIT-LOGIN-2: Login button full width on mobile, appropriate width on desktop
+- [ ] AUDIT-LOGIN-3: Info box readable on mobile (text size, padding)
+- [ ] AUDIT-LOGIN-4: No horizontal scroll on any breakpoint
+- [ ] AUDIT-LOGIN-5: Touch targets ≥44px on mobile
+- [ ] AUDIT-LOGIN-6: Form inputs accessible via keyboard
+
+#### Page: Inicio/Dashboard (All Roles)
+- [ ] AUDIT-HOME-1: Greeting text responsive on mobile
+- [ ] AUDIT-HOME-2: Dispatch tiles stack vertically on mobile, 2-col on tablet, 4-col on desktop
+- [ ] AUDIT-HOME-3: Tile text readable on all breakpoints
+- [ ] AUDIT-HOME-4: Sidebar collapses/hides on mobile (hamburger menu)
+- [ ] AUDIT-HOME-5: No horizontal scroll on mobile
+- [ ] AUDIT-HOME-6: Location selector accessible on mobile
+- [ ] AUDIT-HOME-7: User profile section visible and accessible on all breakpoints
+
+#### Page: Personas (Admin/Superadmin)
+- [ ] AUDIT-PERSONAS-1: Table scrolls horizontally on mobile (not page)
+- [ ] AUDIT-PERSONAS-2: Search input full width on mobile
+- [ ] AUDIT-PERSONAS-3: Role dropdown works on mobile (touch-friendly)
+- [ ] AUDIT-PERSONAS-4: Fase Itinerario dropdown works on mobile
+- [ ] AUDIT-PERSONAS-5: "Ver" button accessible on mobile
+- [ ] AUDIT-PERSONAS-6: Table columns readable on tablet (font size, padding)
+- [ ] AUDIT-PERSONAS-7: No text truncation without indication on mobile
+- [ ] AUDIT-PERSONAS-8: GDPR columns (Tipo Documento, Número, Situación) visible on admin view
+
+#### Page: Persona Detail (All Roles)
+- [ ] AUDIT-PERSONA-DETAIL-1: Back button visible and accessible on mobile
+- [ ] AUDIT-PERSONA-DETAIL-2: Form fields stack vertically on mobile
+- [ ] AUDIT-PERSONA-DETAIL-3: Form inputs full width on mobile, appropriate width on desktop
+- [ ] AUDIT-PERSONA-DETAIL-4: Edit buttons accessible on mobile
+- [ ] AUDIT-PERSONA-DETAIL-5: Read-only fields clearly distinguished from editable
+- [ ] AUDIT-PERSONA-DETAIL-6: Save/Cancel buttons accessible on mobile
+
+#### Page: Check-in (All Roles)
+- [ ] AUDIT-CHECKIN-1: Location selector visible and accessible
+- [ ] AUDIT-CHECKIN-2: Check-in form responsive on mobile
+- [ ] AUDIT-CHECKIN-3: Submit button full width on mobile
+- [ ] AUDIT-CHECKIN-4: Success/error messages readable on all breakpoints
+- [ ] AUDIT-CHECKIN-5: Date/time pickers accessible on mobile
+
+#### Page: Programs (All Roles)
+- [ ] AUDIT-PROGRAMS-1: Program list responsive on mobile
+- [ ] AUDIT-PROGRAMS-2: Program cards stack on mobile, grid on desktop
+- [ ] AUDIT-PROGRAMS-3: Enrollment button accessible on mobile
+- [ ] AUDIT-PROGRAMS-4: Program details readable on all breakpoints
+
+#### Page: Novedades (All Roles)
+- [ ] AUDIT-NOVEDADES-1: Announcements list responsive on mobile
+- [ ] AUDIT-NOVEDADES-2: Announcement cards readable on all breakpoints
+- [ ] AUDIT-NOVEDADES-3: Admin create button accessible on mobile (if applicable)
+
+#### Page: Dashboard (Admin/Superadmin)
+- [ ] AUDIT-DASHBOARD-1: Charts responsive on mobile (not cut off)
+- [ ] AUDIT-DASHBOARD-2: KPI cards stack on mobile, grid on desktop
+- [ ] AUDIT-DASHBOARD-3: Filters accessible on mobile
+- [ ] AUDIT-DASHBOARD-4: Export buttons accessible on mobile
+
+#### Navigation & Sidebar
+- [ ] AUDIT-NAV-1: Sidebar hamburger menu visible on mobile
+- [ ] AUDIT-NAV-2: Sidebar navigation items accessible via touch
+- [ ] AUDIT-NAV-3: Active page indicator visible on all breakpoints
+- [ ] AUDIT-NAV-4: User profile menu accessible on mobile
+- [ ] AUDIT-NAV-5: Logout button accessible on mobile
+
+---
+
+### Phase 2: Feature Completeness & Functionality Audit
+
+#### Login/Authentication
+- [ ] AUDIT-AUTH-1: Unauthenticated users cannot access protected routes
+- [ ] AUDIT-AUTH-2: Login redirects to home after successful authentication
+- [ ] AUDIT-AUTH-3: Logout clears session and redirects to login
+- [ ] AUDIT-AUTH-4: User role persists across page reloads
+- [ ] AUDIT-AUTH-5: Expired sessions redirect to login
+
+#### Personas Page (Admin/Superadmin)
+- [ ] AUDIT-PERSONAS-FUNC-1: Table displays all persons from database
+- [ ] AUDIT-PERSONAS-FUNC-2: Search filters persons by name/apellidos
+- [ ] AUDIT-PERSONAS-FUNC-3: Role dropdown changes person's role
+- [ ] AUDIT-PERSONAS-FUNC-4: Fase Itinerario dropdown changes phase
+- [ ] AUDIT-PERSONAS-FUNC-5: "Ver" button navigates to person detail
+- [ ] AUDIT-PERSONAS-FUNC-6: GDPR columns visible only to admin/superadmin
+- [ ] AUDIT-PERSONAS-FUNC-7: Non-admin users see read-only badge for role
+- [ ] AUDIT-PERSONAS-FUNC-8: Non-admin users see read-only badge for fase
+
+#### Persona Detail Page
+- [ ] AUDIT-PERSONA-DETAIL-FUNC-1: Page loads person data correctly
+- [ ] AUDIT-PERSONA-DETAIL-FUNC-2: Back button returns to Personas list
+- [ ] AUDIT-PERSONA-DETAIL-FUNC-3: Edit mode available for authorized users
+- [ ] AUDIT-PERSONA-DETAIL-FUNC-4: Save persists changes to database
+- [ ] AUDIT-PERSONA-DETAIL-FUNC-5: Cancel discards unsaved changes
+- [ ] AUDIT-PERSONA-DETAIL-FUNC-6: Validation prevents invalid data
+- [ ] AUDIT-PERSONA-DETAIL-FUNC-7: Error messages display on save failure
+
+#### Check-in Feature
+- [ ] AUDIT-CHECKIN-FUNC-1: Location selector required before check-in
+- [ ] AUDIT-CHECKIN-FUNC-2: Check-in records timestamp
+- [ ] AUDIT-CHECKIN-FUNC-3: Check-in persists to database
+- [ ] AUDIT-CHECKIN-FUNC-4: Success message displays after check-in
+- [ ] AUDIT-CHECKIN-FUNC-5: Duplicate check-in prevention (if applicable)
+
+#### Programs Page
+- [ ] AUDIT-PROGRAMS-FUNC-1: All programs display correctly
+- [ ] AUDIT-PROGRAMS-FUNC-2: Enrollment button works for authorized users
+- [ ] AUDIT-PROGRAMS-FUNC-3: Enrollment persists to database
+- [ ] AUDIT-PROGRAMS-FUNC-4: Program details load correctly
+
+#### Dashboard (Admin/Superadmin)
+- [ ] AUDIT-DASHBOARD-FUNC-1: KPIs calculate correctly
+- [ ] AUDIT-DASHBOARD-FUNC-2: Charts render without errors
+- [ ] AUDIT-DASHBOARD-FUNC-3: Filters work correctly
+- [ ] AUDIT-DASHBOARD-FUNC-4: Export functionality works (if implemented)
+
+#### Novedades/Announcements
+- [ ] AUDIT-NOVEDADES-FUNC-1: Announcements display correctly
+- [ ] AUDIT-NOVEDADES-FUNC-2: Admin can create announcements (if implemented)
+- [ ] AUDIT-NOVEDADES-FUNC-3: Announcements persist to database
+
+---
+
+### Phase 3: Code Quality & Best Practices Audit
+
+#### Performance
+- [ ] AUDIT-PERF-1: Home page loads in <2s (Lighthouse)
+- [ ] AUDIT-PERF-2: Personas table loads in <3s with full data
+- [ ] AUDIT-PERF-3: No unnecessary re-renders (React DevTools Profiler)
+- [ ] AUDIT-PERF-4: Images optimized (WebP, lazy loading)
+- [ ] AUDIT-PERF-5: API responses cached appropriately (React Query)
+- [ ] AUDIT-PERF-6: Bundle size reasonable (<500KB gzipped)
+- [ ] AUDIT-PERF-7: No console errors or warnings on any page
+
+#### Accessibility (WCAG 2.1 AA)
+- [ ] AUDIT-A11Y-1: All buttons have accessible labels
+- [ ] AUDIT-A11Y-2: Form inputs have associated labels
+- [ ] AUDIT-A11Y-3: Color contrast meets WCAG AA (4.5:1 for text)
+- [ ] AUDIT-A11Y-4: Keyboard navigation works on all pages
+- [ ] AUDIT-A11Y-5: Focus indicators visible on all interactive elements
+- [ ] AUDIT-A11Y-6: Dropdowns accessible via keyboard (arrow keys, Enter)
+- [ ] AUDIT-A11Y-7: Tables have proper headers and scope
+- [ ] AUDIT-A11Y-8: Error messages associated with form fields
+- [ ] AUDIT-A11Y-9: Loading states announced to screen readers
+- [ ] AUDIT-A11Y-10: Modal dialogs trap focus properly
+
+#### Security
+- [ ] AUDIT-SEC-1: No hardcoded secrets in code
+- [ ] AUDIT-SEC-2: API keys protected (environment variables)
+- [ ] AUDIT-SEC-3: CORS configured correctly
+- [ ] AUDIT-SEC-4: CSRF protection enabled
+- [ ] AUDIT-SEC-5: SQL injection prevention (Supabase RLS)
+- [ ] AUDIT-SEC-6: XSS protection (React escaping)
+- [ ] AUDIT-SEC-7: Authentication tokens secure (httpOnly cookies)
+- [ ] AUDIT-SEC-8: Sensitive data not logged to console
+
+#### Error Handling
+- [ ] AUDIT-ERROR-1: Network errors display user-friendly messages
+- [ ] AUDIT-ERROR-2: Validation errors display inline
+- [ ] AUDIT-ERROR-3: 404 errors handled gracefully
+- [ ] AUDIT-ERROR-4: 500 errors show retry option
+- [ ] AUDIT-ERROR-5: Offline state handled (if applicable)
+- [ ] AUDIT-ERROR-6: Form submission errors don't lose user input
+
+#### Code Organization
+- [ ] AUDIT-CODE-1: Components are focused (single responsibility)
+- [ ] AUDIT-CODE-2: No prop drilling (use Context/Zustand where appropriate)
+- [ ] AUDIT-CODE-3: Custom hooks extracted for reusable logic
+- [ ] AUDIT-CODE-4: Consistent file structure across features
+- [ ] AUDIT-CODE-5: No dead code or unused imports
+- [ ] AUDIT-CODE-6: Comments explain "why", not "what"
+- [ ] AUDIT-CODE-7: Type safety: no 'any' types
+- [ ] AUDIT-CODE-8: Consistent naming conventions
+
+#### Testing
+- [ ] AUDIT-TEST-1: All tRPC procedures have tests
+- [ ] AUDIT-TEST-2: Critical user workflows have E2E tests
+- [ ] AUDIT-TEST-3: Test coverage >80% for critical paths
+- [ ] AUDIT-TEST-4: Tests are maintainable (not brittle)
+- [ ] AUDIT-TEST-5: Tests document expected behavior
+
+---
+
+### Phase 4: User Role-Specific Testing
+
+#### Unauthenticated User
+- [ ] AUDIT-ROLE-UNAUTH-1: Cannot access /personas
+- [ ] AUDIT-ROLE-UNAUTH-2: Cannot access /checkin
+- [ ] AUDIT-ROLE-UNAUTH-3: Cannot access /dashboard
+- [ ] AUDIT-ROLE-UNAUTH-4: Redirected to /login from protected routes
+- [ ] AUDIT-ROLE-UNAUTH-5: Can view login page
+
+#### Beneficiario Role
+- [ ] AUDIT-ROLE-BENE-1: Can access /inicio (home)
+- [ ] AUDIT-ROLE-BENE-2: Can see dispatch tiles (Registrar, Check-in, Consultar)
+- [ ] AUDIT-ROLE-BENE-3: Cannot access /personas
+- [ ] AUDIT-ROLE-BENE-4: Cannot access /dashboard
+- [ ] AUDIT-ROLE-BENE-5: Cannot see admin-only navigation items
+
+#### Voluntario Role
+- [ ] AUDIT-ROLE-VOL-1: Can access /inicio (home)
+- [ ] AUDIT-ROLE-VOL-2: Can see dispatch tiles
+- [ ] AUDIT-ROLE-VOL-3: Cannot access /personas (or sees read-only)
+- [ ] AUDIT-ROLE-VOL-4: Cannot access /dashboard
+- [ ] AUDIT-ROLE-VOL-5: Cannot modify person data
+
+#### Admin Role
+- [ ] AUDIT-ROLE-ADMIN-1: Can access all pages
+- [ ] AUDIT-ROLE-ADMIN-2: Can edit person data
+- [ ] AUDIT-ROLE-ADMIN-3: Can change person roles
+- [ ] AUDIT-ROLE-ADMIN-4: Can change Fase Itinerario
+- [ ] AUDIT-ROLE-ADMIN-5: Can access /dashboard
+- [ ] AUDIT-ROLE-ADMIN-6: Can see admin navigation items
+- [ ] AUDIT-ROLE-ADMIN-7: Cannot access superadmin-only features
+
+#### Superadmin Role
+- [ ] AUDIT-ROLE-SUPER-1: Can access all pages
+- [ ] AUDIT-ROLE-SUPER-2: Can edit all person data
+- [ ] AUDIT-ROLE-SUPER-3: Can change person roles (including to admin)
+- [ ] AUDIT-ROLE-SUPER-4: Can change Fase Itinerario
+- [ ] AUDIT-ROLE-SUPER-5: Can access /dashboard
+- [ ] AUDIT-ROLE-SUPER-6: Can see all admin features
+- [ ] AUDIT-ROLE-SUPER-7: Can access superadmin-only features
+
+---
+
+### Phase 5: Issues Found & Categorization
+
+#### Responsive Issues (Will be documented during testing)
+- [ ] ISSUE-RESP-[#]: [Description] - Severity: [Critical/High/Medium/Low]
+
+#### Functional Issues (Will be documented during testing)
+- [ ] ISSUE-FUNC-[#]: [Description] - Severity: [Critical/High/Medium/Low]
+
+#### Code Quality Issues (Will be documented during testing)
+- [ ] ISSUE-QUALITY-[#]: [Description] - Severity: [Critical/High/Medium/Low]
+
+#### Accessibility Issues (Will be documented during testing)
+- [ ] ISSUE-A11Y-[#]: [Description] - Severity: [Critical/High/Medium/Low]
+
+#### Performance Issues (Will be documented during testing)
+- [ ] ISSUE-PERF-[#]: [Description] - Severity: [Critical/High/Medium/Low]
+
+---
+
+### Phase 6: Fixes Execution (Subagent-Driven Development)
+
+#### Critical Issues (Blocking)
+- [ ] FIX-CRITICAL-[#]: [Issue] - Status: [Pending/In Progress/Fixed]
+
+#### High Priority Issues
+- [ ] FIX-HIGH-[#]: [Issue] - Status: [Pending/In Progress/Fixed]
+
+#### Medium Priority Issues
+- [ ] FIX-MEDIUM-[#]: [Issue] - Status: [Pending/In Progress/Fixed]
+
+#### Low Priority Issues (Nice-to-have)
+- [ ] FIX-LOW-[#]: [Issue] - Status: [Pending/In Progress/Fixed]
+
+---
+
+### Phase 7: Code Review & Final Verification
+
+- [ ] REVIEW-1: Request comprehensive code review of all changes
+- [ ] REVIEW-2: Receive and process code review feedback
+- [ ] REVIEW-3: Implement code review suggestions
+- [ ] REVIEW-4: Re-verify all tests pass
+- [ ] REVIEW-5: Verify no regressions introduced
+- [ ] REVIEW-6: Final checkpoint before delivery
+
+
+## Consents Pages Responsiveness Audit (2026-04-14)
+
+- [ ] AUDIT-CONSENTS-1: Fix duplicate useState import in PersonsTable.tsx
+- [ ] AUDIT-CONSENTS-2: Review Consents list page responsiveness on mobile (320px-414px)
+- [ ] AUDIT-CONSENTS-3: Review Consents detail page responsiveness on mobile
+- [ ] AUDIT-CONSENTS-4: Check document upload/preview responsiveness
+- [ ] AUDIT-CONSENTS-5: Verify form fields readable on mobile
+- [ ] AUDIT-CONSENTS-6: Test consent template selection on mobile
+- [ ] AUDIT-CONSENTS-7: Check PDF viewer responsiveness
+- [ ] AUDIT-CONSENTS-8: Verify touch targets are 44px minimum
+- [ ] AUDIT-CONSENTS-9: Test keyboard navigation on Consents pages
+- [ ] AUDIT-CONSENTS-10: Check color contrast on Consents pages
+
+
+## CRITICAL BUG — Announcements Table UUID Validation (2026-04-15)
+
+- [x] BUG-ANNOUNCEMENTS-UUID-1: Announcements table uses BIGINT id instead of UUID
+- [x] BUG-ANNOUNCEMENTS-UUID-2: Root cause: /novedades/:id navigation fails because announcements.id is integer, not UUID
+- [x] BUG-ANNOUNCEMENTS-UUID-3: Fix: Created migration to change announcements.id from BIGINT to UUID
+- [x] BUG-ANNOUNCEMENTS-UUID-4: Verified: All 373 tests pass, no regressions
