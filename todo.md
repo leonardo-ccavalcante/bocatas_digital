@@ -926,3 +926,42 @@ All OCR-related bugs and features have been successfully implemented and tested:
 - [x] BUG-ANNOUNCEMENTS-UUID-2: Root cause: /novedades/:id navigation fails because announcements.id is integer, not UUID
 - [x] BUG-ANNOUNCEMENTS-UUID-3: Fix: Created migration to change announcements.id from BIGINT to UUID
 - [x] BUG-ANNOUNCEMENTS-UUID-4: Verified: All 373 tests pass, no regressions
+
+
+---
+
+## Familias Program Improvements (2026-04-15)
+
+### Phase 1: Member Management ✅ (In Progress)
+- [x] SPEC-FAMILIAS-MEMBERS: Design specification written (/docs/superpowers/specs/2026-04-15-familias-improvements-design.md)
+- [x] PLAN-FAMILIAS-MEMBERS: Implementation plan created (/docs/superpowers/plans/2026-04-15-familias-improvements.md)
+- [x] MIGRATION-FAMILIA-MIEMBROS: Table migration created (/home/ubuntu/upload/2026-04-15-familias-members.sql)
+- [x] TESTS-MEMBER-CRUD: 18 tests written and passing (server/familias-members.test.ts)
+- [x] ROUTER-MEMBER-CRUD: tRPC procedures added (getMembers, addMember, updateMember, deleteMember)
+- [ ] COMPONENT-MEMBER-MODAL: MemberManagementModal component (TODO: Next session)
+
+### Phase 2: Document Upload Validation (TODO: Next session)
+- [ ] SPEC-DOCUMENT-UPLOAD: Design specification
+- [ ] MIGRATION-DOCUMENT-UPLOAD: Table migration for upload history
+- [ ] ROUTER-DOCUMENT-UPLOAD: tRPC procedures for upload + history
+- [ ] COMPONENT-DOCUMENT-MODAL: DocumentUploadModal with history log
+
+### Phase 3: Social Reports & Delivery Management (TODO: Next session)
+- [ ] SPEC-SOCIAL-REPORTS: Design specification
+- [ ] ROUTER-SOCIAL-REPORTS: tRPC procedures for reports
+- [ ] COMPONENT-SOCIAL-REPORTS: SocialReportPanel component
+- [ ] COMPONENT-DELIVERY-PHOTOS: DeliveryPhotosPanel component
+
+### Phase 4: Batch Import/Export (TODO: Next session)
+- [ ] SPEC-BATCH-IMPORT-EXPORT: Design specification
+- [ ] ROUTER-BATCH-EXPORT: Export with 3 modes (Update/Audit/Verify)
+- [ ] ROUTER-BATCH-IMPORT: Import with validation and conflict resolution
+- [ ] COMPONENT-EXPORT-MODAL: ExportFamiliesModal with mode selection
+- [ ] COMPONENT-IMPORT-MODAL: ImportFamiliesModal with progress tracking
+
+### Phase 5: Integration & Testing (TODO: Next session)
+- [ ] INTEGRATION-FAMILIAS: Integrate all components into Familias page
+- [ ] E2E-MEMBER-MANAGEMENT: End-to-end tests for member workflows
+- [ ] E2E-BATCH-OPERATIONS: Batch import/export tests
+- [ ] CODE-REVIEW: Comprehensive code review
+- [ ] FINAL-VERIFICATION: User acceptance testing
