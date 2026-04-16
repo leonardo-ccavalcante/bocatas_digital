@@ -813,4 +813,49 @@ export const familiesRouter = router({
       if (error) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
       return { success: true };
     }),
+
+  // Document Upload (using existing family_member_documents table)
+
+  /** GET document upload history for a family */
+  getDocumentHistory: adminProcedure
+    .input(z.object({ familyId: uuidLike }))
+    .query(async ({ input }) => {
+      const db = createAdminClient();
+      const { data, error } = await db
+        .from("family_member_documents")
+        .select("id, documento_tipo, documento_url, fecha_upload, verified_by, created_at")
+        .eq("family_id", input.familyId)
+        .is("deleted_at", null)
+        .order("fecha_upload", { ascending: false });
+      if (error) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+      return data ?? [];
+    }),
+
+  /** UPDATE document URL for a family member */
+  updateMemberDocument: adminProcedure
+    .input(
+      z.object({
+        familyId: uuidLike,
+        memberIndex: z.number().int().min(0),
+        documentoTipo: z.string(),
+        documentoUrl: z.string().url(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = createAdminClient();
+      const { data, error } = await db
+        .from("family_member_documents")
+        .update({
+          documento_url: input.documentoUrl,
+          fecha_upload: new Date().toISOString(),
+          verified_by: ctx.user.id,
+        })
+        .eq("family_id", input.familyId)
+        .eq("member_index", input.memberIndex)
+        .eq("documento_tipo", input.documentoTipo)
+        .select()
+        .single();
+      if (error) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+      return data;
+    }),
 });

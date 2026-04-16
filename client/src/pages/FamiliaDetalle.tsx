@@ -15,6 +15,7 @@ import { GufPanel } from "@/features/families/components/GufPanel";
 import { SocialReportPanel } from "@/features/families/components/SocialReportPanel";
 import { DeactivationForm } from "@/features/families/components/DeactivationForm";
 import { MemberManagementModal } from "@/components/MemberManagementModal";
+import { DocumentUploadModal } from "@/components/DocumentUploadModal";
 
 function DocChecklistItem({ label, checked, familyId, field }: {
   label: string;
@@ -44,6 +45,7 @@ export default function FamiliaDetalle() {
   const [, navigate] = useLocation();
   const [tab, setTab] = useState("info");
   const [memberModalOpen, setMemberModalOpen] = useState(false);
+  const [docModalOpen, setDocModalOpen] = useState<string | null>(null);
 
   const { data: family, isLoading } = useFamiliaById(id ?? "");
   const { data: deliveries } = useDeliveries(id ?? "");
@@ -203,12 +205,32 @@ export default function FamiliaDetalle() {
         <TabsContent value="docs" className="space-y-4 mt-4">
           <Card>
             <CardHeader><CardTitle className="text-sm">Checklist de documentación</CardTitle></CardHeader>
-            <CardContent className="divide-y">
+            <CardContent className="space-y-3">
               <DocChecklistItem label="Documentos de identidad" checked={!!family.docs_identidad} familyId={id!} field="docs_identidad" />
               <DocChecklistItem label="Padrón municipal" checked={!!family.padron_recibido} familyId={id!} field="padron_recibido" />
               <DocChecklistItem label="Justificante de ingresos" checked={!!family.justificante_recibido} familyId={id!} field="justificante_recibido" />
               <DocChecklistItem label="Consentimiento Bocatas" checked={!!family.consent_bocatas} familyId={id!} field="consent_bocatas" />
               <DocChecklistItem label="Consentimiento Banco de Alimentos" checked={!!family.consent_banco_alimentos} familyId={id!} field="consent_banco_alimentos" />
+            </CardContent>
+          </Card>
+          
+          {/* Document Upload Section */}
+          <Card>
+            <CardHeader><CardTitle className="text-sm">Carga de Documentos</CardTitle></CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {["DNI", "Pasaporte", "Comprobante domicilio"].map((docType) => (
+                  <Button
+                    key={docType}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setDocModalOpen(docType)}
+                    className="justify-start"
+                  >
+                    {docType}
+                  </Button>
+                ))}
+              </div>
             </CardContent>
           </Card>
           <SocialReportPanel
@@ -267,6 +289,16 @@ export default function FamiliaDetalle() {
         open={memberModalOpen}
         onOpenChange={setMemberModalOpen}
       />
+
+      {/* Document Upload Modal */}
+      {docModalOpen && (
+        <DocumentUploadModal
+          familyId={id!}
+          documentType={docModalOpen}
+          open={!!docModalOpen}
+          onOpenChange={(open) => !open && setDocModalOpen(null)}
+        />
+      )}
     </div>
   );
 }
