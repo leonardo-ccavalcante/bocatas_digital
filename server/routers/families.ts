@@ -2,6 +2,8 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, adminProcedure, protectedProcedure, superadminProcedure } from "../_core/trpc";
 import { createAdminClient } from "../../client/src/lib/supabase/server";
+import { generateFamiliesCSV, type ExportMode } from "../csvExport";
+import { validateFamiliesCSV, parseFamiliesCSV } from "../csvImport";
 
 const uuidLike = z
   .string()
@@ -900,5 +902,143 @@ export const familiesRouter = router({
         .single();
       if (error) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
       return data;
+    }),
+
+  // CSV Export/Import
+
+  /** EXPORT families to CSV */
+  exportFamilies: adminProcedure
+    .input(
+      z.object({
+        mode: z.enum(["update", "audit", "verify"]).default("update"),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = createAdminClient();
+      const { data: families, error } = await db
+        .from("families")
+        .select(
+          `id, familia_numero, nombre_familia, contacto_principal, telefono, direccion, 
+           estado, fecha_creacion, miembros_count, docs_identidad, padron_recibido, 
+           justificante_recibido, consent_bocatas, consent_banco_alimentos, 
+           informe_social, informe_social_fecha, alta_en_guf, fecha_alta_guf, guf_verified_at`
+        )
+        .is("deleted_at", null)
+        .order("familia_numero", { ascending: true });
+
+      if (error) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+
+      const csv = generateFamiliesCSV(families as any, input.mode as ExportMode);
+      return {
+        csv,
+        recordCount: families?.length ?? 0,
+        mode: input.mode,
+      };
+    }),
+
+  /** VALIDATE CSV before import */
+  validateCSVImport: adminProcedure
+    .input(
+      z.object({
+        csv: z.string(),
+      })
+    )
+    .query(({ input }) => {
+      return validateFamiliesCSV(input.csv);
+    }),
+
+  /** IMPORT families from CSV */
+  importFamilies: adminProcedure
+    .input(
+      z.object({
+        csv: z.string(),
+        mergeStrategy: z.enum(["overwrite", "merge", "skip"]).default("merge"),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      // Validate first
+      const validation = validateFamiliesCSV(input.csv);
+      if (!validation.isValid) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `CSV validation failed: ${validation.errors.join("; ")}`,
+        });
+      }
+
+      // Parse families
+      const parsedFamilies = parseFamiliesCSV(input.csv);
+      const db = createAdminClient();
+
+      let successCount = 0;
+      let errorCount = 0;
+      const errors: string[] = [];
+
+      // Process each family
+      for (const familia of parsedFamilies) {
+        try {
+          const familiaNumero = String(familia.familia_numero);
+
+          // Check if family exists
+          const { data: existing } = await db
+            .from("families")
+            .select("id")
+            .eq("familia_numero", familiaNumero)
+            .single();
+
+          if (existing && input.mergeStrategy === "skip") {
+            // Skip existing
+            continue;
+          }
+
+          // Prepare data
+          const familyData = {
+            familia_numero: familiaNumero,
+            nombre_familia: String(familia.nombre_familia),
+            contacto_principal: String(familia.contacto_principal),
+            telefono: familia.telefono ? String(familia.telefono) : null,
+            direccion: familia.direccion ? String(familia.direccion) : null,
+            estado: familia.estado ? String(familia.estado).toLowerCase() : "activo",
+            fecha_creacion: familia.fecha_creacion ? new Date(String(familia.fecha_creacion)).toISOString() : new Date().toISOString(),
+            miembros_count: familia.miembros_count ? Number(familia.miembros_count) : 0,
+            docs_identidad: familia.docs_identidad === true || String(familia.docs_identidad).toLowerCase() === "true",
+            padron_recibido: familia.padron_recibido === true || String(familia.padron_recibido).toLowerCase() === "true",
+            justificante_recibido: familia.justificante_recibido === true || String(familia.justificante_recibido).toLowerCase() === "true",
+            consent_bocatas: familia.consent_bocatas === true || String(familia.consent_bocatas).toLowerCase() === "true",
+            consent_banco_alimentos: familia.consent_banco_alimentos === true || String(familia.consent_banco_alimentos).toLowerCase() === "true",
+            informe_social: familia.informe_social === true || String(familia.informe_social).toLowerCase() === "true",
+            informe_social_fecha: familia.informe_social_fecha ? new Date(String(familia.informe_social_fecha)).toISOString() : null,
+            alta_en_guf: familia.alta_en_guf === true || String(familia.alta_en_guf).toLowerCase() === "true",
+            fecha_alta_guf: familia.fecha_alta_guf ? new Date(String(familia.fecha_alta_guf)).toISOString() : null,
+            guf_verified_at: familia.guf_verified_at ? new Date(String(familia.guf_verified_at)).toISOString() : null,
+          };
+
+          if (existing) {
+            // Update existing
+            const { error } = await db
+              .from("families")
+              .update(familyData)
+              .eq("id", existing.id);
+            if (error) throw error;
+          } else {
+            // Create new
+            const { error } = await db.from("families").insert([familyData]);
+            if (error) throw error;
+          }
+
+          successCount++;
+        } catch (error) {
+          errorCount++;
+          errors.push(`${familia.familia_numero}: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+
+      return {
+        successCount,
+        errorCount,
+        totalCount: parsedFamilies.length,
+        errors,
+        importedBy: ctx.user.id,
+        importedAt: new Date().toISOString(),
+      };
     }),
 });
