@@ -858,4 +858,47 @@ export const familiesRouter = router({
       if (error) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
       return data;
     }),
+
+  // Delivery Document Management
+
+  /** GET delivery documents with audit trail */
+  getDeliveryDocuments: adminProcedure
+    .input(z.object({ familyId: uuidLike }))
+    .query(async ({ input }) => {
+      const db = createAdminClient();
+      const { data, error } = await db
+        .from("consents")
+        .select("id, delivery_id, recogido_por_documento_url, verified_by, created_at, updated_at")
+        .eq("family_id", input.familyId)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false });
+      if (error) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+      return data ?? [];
+    }),
+
+  /** UPLOAD delivery document (pickup authorization) */
+  uploadDeliveryDocument: adminProcedure
+    .input(
+      z.object({
+        familyId: uuidLike,
+        deliveryId: uuidLike,
+        documentUrl: z.string().url(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = createAdminClient();
+      const { data, error } = await db
+        .from("consents")
+        .update({
+          recogido_por_documento_url: input.documentUrl,
+          verified_by: ctx.user.id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("family_id", input.familyId)
+        .eq("delivery_id", input.deliveryId)
+        .select()
+        .single();
+      if (error) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+      return data;
+    }),
 });

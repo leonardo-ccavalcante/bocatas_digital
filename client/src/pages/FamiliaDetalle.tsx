@@ -16,6 +16,7 @@ import { SocialReportPanel } from "@/features/families/components/SocialReportPa
 import { DeactivationForm } from "@/features/families/components/DeactivationForm";
 import { MemberManagementModal } from "@/components/MemberManagementModal";
 import { DocumentUploadModal } from "@/components/DocumentUploadModal";
+import { DeliveryDocumentModal } from "@/components/DeliveryDocumentModal";
 
 function DocChecklistItem({ label, checked, familyId, field }: {
   label: string;
@@ -46,6 +47,7 @@ export default function FamiliaDetalle() {
   const [tab, setTab] = useState("info");
   const [memberModalOpen, setMemberModalOpen] = useState(false);
   const [docModalOpen, setDocModalOpen] = useState<string | null>(null);
+  const [deliveryDocModalOpen, setDeliveryDocModalOpen] = useState<string | null>(null);
 
   const { data: family, isLoading } = useFamiliaById(id ?? "");
   const { data: deliveries } = useDeliveries(id ?? "");
@@ -257,18 +259,31 @@ export default function FamiliaDetalle() {
             <div className="space-y-2">
               {deliveries.map((d) => (
                 <Card key={d.id}>
-                  <CardContent className="flex items-center justify-between py-3 px-4 text-sm">
-                    <div>
-                      <p className="font-medium">{new Date(d.fecha_entrega).toLocaleDateString("es-ES")}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Recogido por: {d.recogido_por}
-                        {d.es_autorizado ? " (autorizado)" : ""}
-                      </p>
+                  <CardContent className="space-y-3 py-3 px-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium text-sm">{new Date(d.fecha_entrega).toLocaleDateString("es-ES")}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Recogido por: {d.recogido_por}
+                          {d.es_autorizado ? " (autorizado)" : ""}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-muted-foreground">
+                          F+H: {d.kg_frutas_hortalizas}kg · Carne: {d.kg_carne}kg
+                        </p>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-xs text-muted-foreground">
-                        F+H: {d.kg_frutas_hortalizas}kg · Carne: {d.kg_carne}kg
-                      </p>
+                    
+                    {/* Delivery Document Button */}
+                    <div className="flex justify-end pt-2 border-t">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setDeliveryDocModalOpen(d.id)}
+                      >
+                        Documento de Entrega
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -297,6 +312,17 @@ export default function FamiliaDetalle() {
           documentType={docModalOpen}
           open={!!docModalOpen}
           onOpenChange={(open) => !open && setDocModalOpen(null)}
+        />
+      )}
+
+      {/* Delivery Document Modal */}
+      {deliveryDocModalOpen && (
+        <DeliveryDocumentModal
+          familyId={id!}
+          deliveryId={deliveryDocModalOpen}
+          deliveryDate={deliveries?.find((d) => d.id === deliveryDocModalOpen)?.fecha_entrega || new Date().toISOString()}
+          open={!!deliveryDocModalOpen}
+          onOpenChange={(open) => !open && setDeliveryDocModalOpen(null)}
         />
       )}
     </div>

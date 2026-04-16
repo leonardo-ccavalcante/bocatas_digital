@@ -47,8 +47,8 @@ export function SocialReportPanel({ familyId, informeSocial, informeSocialFecha 
       id: familyId,
       field: "informe_social",
       value: true,
+      informe_social_fecha: localFecha || undefined,
     });
-    // Also update the date via a separate call if needed
   };
 
   return (
