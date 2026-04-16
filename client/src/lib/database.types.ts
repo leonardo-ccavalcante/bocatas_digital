@@ -538,6 +538,60 @@ export type Database = {
           },
         ]
       }
+      familia_miembros: {
+        Row: {
+          id: string
+          familia_id: string
+          nombre: string
+          rol: string
+          relacion: string | null
+          estado: string
+          fecha_nacimiento: string | null
+          documentacion_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          familia_id: string
+          nombre: string
+          rol: string
+          relacion?: string | null
+          estado?: string
+          fecha_nacimiento?: string | null
+          documentacion_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          familia_id?: string
+          nombre?: string
+          rol?: string
+          relacion?: string | null
+          estado?: string
+          fecha_nacimiento?: string | null
+          documentacion_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "familia_miembros_familia_id_fkey"
+            columns: ["familia_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "familia_miembros_documentacion_id_fkey"
+            columns: ["documentacion_id"]
+            isOneToOne: false
+            referencedRelation: "family_member_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       grants: {
         Row: {
           created_at: string

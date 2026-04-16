@@ -14,6 +14,7 @@ import { useFamiliaById, useDeliveries, useReactivateFamilia, useUpdateFamiliaDo
 import { GufPanel } from "@/features/families/components/GufPanel";
 import { SocialReportPanel } from "@/features/families/components/SocialReportPanel";
 import { DeactivationForm } from "@/features/families/components/DeactivationForm";
+import { MemberManagementModal } from "@/components/MemberManagementModal";
 
 function DocChecklistItem({ label, checked, familyId, field }: {
   label: string;
@@ -42,6 +43,7 @@ export default function FamiliaDetalle() {
   const { id } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
   const [tab, setTab] = useState("info");
+  const [memberModalOpen, setMemberModalOpen] = useState(false);
 
   const { data: family, isLoading } = useFamiliaById(id ?? "");
   const { data: deliveries } = useDeliveries(id ?? "");
@@ -166,32 +168,25 @@ export default function FamiliaDetalle() {
             </Card>
           </div>
 
-          {/* Members list */}
-          {miembros.length > 0 && (
-            <Card>
-              <CardHeader><CardTitle className="text-sm">Miembros del hogar</CardTitle></CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {miembros.map((m, idx) => {
-                    const member = m as Record<string, unknown>;
-                    return (
-                      <div key={idx} className="flex items-center justify-between p-2 border rounded text-sm">
-                        <div>
-                          <p className="font-medium">{member.nombre as string} {member.apellidos as string}</p>
-                          <p className="text-xs text-muted-foreground">{member.parentesco as string}</p>
-                        </div>
-                        {!!member.person_id && (
-                          <Link href={`/personas/${member.person_id as string}`}>
-                            <Button variant="link" size="sm" className="h-auto p-0 text-xs">Ver ficha</Button>
-                          </Link>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          {/* Members Management */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-sm">Miembros de la Familia</CardTitle>
+              <Button
+                size="sm"
+                onClick={() => setMemberModalOpen(true)}
+              >
+                Gestionar Miembros
+              </Button>
+            </CardHeader>
+            <CardContent className="text-sm text-muted-foreground">
+              {miembros.length > 0 ? (
+                <p>{miembros.length} miembro(s) registrado(s) en el sistema antiguo</p>
+              ) : (
+                <p>No hay miembros registrados. Usa el botón arriba para agregar miembros.</p>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Authorized person */}
           {family.autorizado && (
@@ -265,6 +260,13 @@ export default function FamiliaDetalle() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Member Management Modal */}
+      <MemberManagementModal
+        familiaId={id!}
+        open={memberModalOpen}
+        onOpenChange={setMemberModalOpen}
+      />
     </div>
   );
 }
