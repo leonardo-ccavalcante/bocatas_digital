@@ -8,7 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-import { Upload, AlertTriangle, CheckCircle, Loader2 } from "lucide-react";
+import { Upload, AlertTriangle, CheckCircle, Loader2, Download, FileText } from "lucide-react";
 
 interface ImportFamiliesModalProps {
   open: boolean;
@@ -112,6 +112,24 @@ export function ImportFamiliesModal({ open, onOpenChange, onImportSuccess }: Imp
         </DialogHeader>
 
         <div className="space-y-6">
+          {/* Template & Guide Links */}
+          <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <FileText className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+              <div className="flex-1 space-y-2">
+                <p className="text-sm font-medium text-blue-900 dark:text-blue-100">¿Necesitas ayuda?</p>
+                <div className="flex flex-wrap gap-2">
+                  <a href="/familias-template.csv" download className="inline-flex items-center gap-1 text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded transition">
+                    <Download className="w-3 h-3" /> Descargar Plantilla
+                  </a>
+                  <a href="/CSV-IMPORT-GUIDE.md" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs bg-blue-100 hover:bg-blue-200 dark:bg-blue-900 dark:hover:bg-blue-800 text-blue-900 dark:text-blue-100 px-3 py-1 rounded transition">
+                    <FileText className="w-3 h-3" /> Ver Guía
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* File Upload */}
           <div>
             <Label htmlFor="csv-file" className="text-base font-medium mb-2 block">
