@@ -6,14 +6,18 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, Plus, Search, ChevronRight } from "lucide-react";
+import { Users, Plus, Search, ChevronRight, Download, Upload } from "lucide-react";
 import { useFamiliasList } from "@/features/families/hooks/useFamilias";
+import { ExportFamiliesModal } from "@/components/ExportFamiliesModal";
+import { ImportFamiliesModal } from "@/components/ImportFamiliesModal";
 
 export default function FamiliasList() {
   const [search, setSearch] = useState("");
   const [estado, setEstado] = useState<"activa" | "baja" | "all">("activa");
   const [sinGuf, setSinGuf] = useState(false);
   const [sinInforme, setSinInforme] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
 
   const { data: families, isLoading } = useFamiliasList({
     search: search || undefined,
@@ -35,12 +39,24 @@ export default function FamiliasList() {
               </p>
             </div>
           </div>
-          <Link href="/familias/nueva">
-            <Button>
-              <Plus className="mr-2 h-4 w-4" /> Nueva familia
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setExportOpen(true)}>
+              <Download className="mr-2 h-4 w-4" /> Exportar CSV
             </Button>
-          </Link>
+            <Button variant="outline" onClick={() => setImportOpen(true)}>
+              <Upload className="mr-2 h-4 w-4" /> Importar CSV
+            </Button>
+            <Link href="/familias/nueva">
+              <Button>
+                <Plus className="mr-2 h-4 w-4" /> Nueva familia
+              </Button>
+            </Link>
+          </div>
         </div>
+
+        {/* CSV Modals */}
+        <ExportFamiliesModal open={exportOpen} onOpenChange={setExportOpen} />
+        <ImportFamiliesModal open={importOpen} onOpenChange={setImportOpen} />
 
         {/* Filters */}
         <div className="flex flex-wrap gap-3">
@@ -147,3 +163,5 @@ export default function FamiliasList() {
     </div>
   );
 }
+
+FamiliasList.displayName = "FamiliasList";
