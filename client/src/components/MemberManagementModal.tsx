@@ -209,7 +209,7 @@ export function MemberManagementModal({
                     <SelectValue placeholder="Seleccionar relación" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Sin especificar</SelectItem>
+                    <SelectItem value="unspecified">Sin especificar</SelectItem>
                     <SelectItem value="parent">Padre/Madre</SelectItem>
                     <SelectItem value="child">Hijo/Hija</SelectItem>
                     <SelectItem value="sibling">Hermano/Hermana</SelectItem>
