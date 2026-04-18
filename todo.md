@@ -1012,12 +1012,14 @@ All OCR-related bugs and features have been successfully implemented and tested:
 - [ ] UPDATE-CSV-GUIDE: Update guide with UUID column explanations
 - [ ] TEST-EDGE-CASES: Test with missing/invalid UUIDs
 
-### Phase 6: Member UUID Support in CSV (NEW REQUIREMENT)
-- [ ] DESIGN-MEMBER-CSV: Design CSV structure for member data with UUIDs
-- [ ] UPDATE-EXPORT-MEMBERS: Extend export to include member rows with member_id (UUID)
-- [ ] UPDATE-IMPORT-MEMBERS: Extend import to parse and match members by UUID
-- [ ] TEST-MEMBER-UUIDS: Test member UUID export/import
-- [ ] UPDATE-TEMPLATE: Update template to include member UUIDs
+### Phase 6: Member UUID Support in CSV ✅ COMPLETED
+- [x] DESIGN-MEMBER-CSV: Design CSV structure for member data with UUIDs (/docs/CSV-DESIGN-WITH-MEMBERS.md)
+- [x] UPDATE-EXPORT-MEMBERS: Extend export to include member rows with member_id (UUID) (csvExportWithMembers.ts)
+- [x] UPDATE-IMPORT-MEMBERS: Extend import to parse and match members by UUID (csvImportWithMembers.ts)
+- [x] TEST-MEMBER-UUIDS: Test member UUID export/import (11 tests, all passing)
+- [x] UPDATE-TEMPLATE: Update template to include member UUIDs (familias-template-with-members.csv)
+- [x] ROUTER-INTEGRATION: Integrate into tRPC routers (3 new procedures added)
+- [x] UPDATE-CSV-GUIDE: Comprehensive guide with member UUID support (CSV-IMPORT-GUIDE-WITH-MEMBERS.md)
 
 ### Phase 7: Checkpoint & Delivery
 - [ ] FINAL-VERIFICATION: All tests passing with family and member UUID support
