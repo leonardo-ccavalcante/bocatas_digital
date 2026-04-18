@@ -862,8 +862,167 @@ export const familiesRouter = router({
     }),
 
 
-  // CSV Export/Import
+  // ─── Job 10: CSV Export ────────────────────────────────────────────────
+  /** GET CSV export of families data */
+  exportFamilies: adminProcedure
+    .input(z.object({ mode: z.enum(["update", "audit", "verify"]) }))
+    .query(async ({ input }) => {
+      const db = createAdminClient();
 
-  // CSV Export/Import will be implemented in Phase 5 with proper data model
-  // (Families with Members - not just families alone)
+      // Fetch all active families with member counts
+      const { data: families, error } = await db
+        .from("families")
+        .select(
+          `id, familia_numero, estado, num_adultos, num_menores_18,
+           persona_recoge, autorizado, alta_en_guf, fecha_alta_guf,
+           informe_social, informe_social_fecha, guf_verified_at,
+           created_at, deleted_at,
+           persons!titular_id(nombre, apellidos, telefono)`
+        )
+        .is("deleted_at", null)
+        .order("familia_numero", { ascending: true });
+
+      if (error) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+
+      // Transform to CSV-friendly format
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const csvFamilies = (families ?? []).map((f: any) => ({
+        id: f.id,
+        familia_numero: f.familia_numero?.toString() ?? "",
+        nombre_familia: f.persons?.nombre ?? "",
+        contacto_principal: f.persona_recoge ?? "",
+        telefono: f.persons?.telefono ?? "",
+        direccion: "",
+        estado: f.estado ?? "activa",
+        fecha_creacion: f.created_at?.split("T")[0] ?? "",
+        miembros_count: (f.num_adultos ?? 0) + (f.num_menores_18 ?? 0),
+        docs_identidad: false,
+        padron_recibido: false,
+        justificante_recibido: false,
+        consent_bocatas: false,
+        consent_banco_alimentos: false,
+        informe_social: f.informe_social ?? false,
+        informe_social_fecha: f.informe_social_fecha ?? null,
+        alta_en_guf: f.alta_en_guf ?? false,
+        fecha_alta_guf: f.fecha_alta_guf ?? null,
+        guf_verified_at: f.guf_verified_at ?? null,
+      }));
+
+      const csv = generateFamiliesCSV(csvFamilies, input.mode);
+      return {
+        csv,
+        recordCount: csvFamilies.length,
+        mode: input.mode,
+      };
+    }),
+
+  // ─── Job 10: CSV Import Validation ──────────────────────────────────────
+  /** POST validate CSV before import */
+  validateCSVImport: adminProcedure
+    .input(z.object({ csvContent: z.string() }))
+    .query(async ({ input }) => {
+      const result = validateFamiliesCSV(input.csvContent);
+      return result;
+    }),
+
+  // ─── Job 10: CSV Import ─────────────────────────────────────────────────
+  /** POST import families from CSV */
+  importFamilies: adminProcedure
+    .input(
+      z.object({
+        csvContent: z.string(),
+        mergeStrategy: z.enum(["overwrite", "merge", "skip"]).default("merge"),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = createAdminClient();
+
+      // Validate CSV first
+      const validation = validateFamiliesCSV(input.csvContent);
+      if (!validation.isValid) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `CSV validation failed: ${validation.errors.join(", ")}`,
+        });
+      }
+
+      // Parse CSV
+      const parsedFamilies = parseFamiliesCSV(input.csvContent);
+
+      let successCount = 0;
+      let errorCount = 0;
+      const errors: string[] = [];
+
+      // Process each family
+      for (const family of parsedFamilies) {
+        try {
+          const familiaNumero = family.familia_numero as number;
+
+          // Check if family exists
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { data: existing } = await db
+            .from("families")
+            .select("id, persona_recoge")
+            .eq("familia_numero", familiaNumero)
+            .single();
+
+          if (existing && input.mergeStrategy === "skip") {
+            continue;
+          }
+
+          if (existing && input.mergeStrategy === "overwrite") {
+            // Update existing family
+            const { error } = await db
+              .from("families")
+              .update({
+                persona_recoge: (family.contacto_principal as string | null) ?? existing.persona_recoge,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", existing.id);
+
+            if (error) throw error;
+            successCount++;
+          } else if (existing && input.mergeStrategy === "merge") {
+            // Merge strategy: only update empty fields
+            const updates: any = { updated_at: new Date().toISOString() };
+            if (family.contacto_principal && !existing.persona_recoge) {
+              updates.persona_recoge = family.contacto_principal;
+            }
+
+            const { error } = await db
+              .from("families")
+              .update(updates)
+              .eq("id", existing.id);
+
+            if (error) throw error;
+            successCount++;
+          } else if (!existing) {
+            // Create new family
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { error } = await db.from("families").insert({
+              familia_numero: familiaNumero,
+              persona_recoge: (family.contacto_principal as string | null) ?? "",
+              estado: "activa",
+            } as any);
+
+            if (error) throw error;
+            successCount++;
+          }
+        } catch (err) {
+          errorCount++;
+          errors.push(
+            `Familia ${family.familia_numero}: ${err instanceof Error ? err.message : "Unknown error"}`
+          );
+        }
+      }
+
+      return {
+        success: true,
+        successCount,
+        errorCount,
+        totalProcessed: parsedFamilies.length,
+        errors: errors.slice(0, 10), // Return first 10 errors
+        mergeStrategy: input.mergeStrategy,
+      };
+    }),
 });

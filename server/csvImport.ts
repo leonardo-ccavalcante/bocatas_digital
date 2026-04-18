@@ -120,6 +120,16 @@ export function validateFamiliesCSV(csv: string): ImportValidationResult {
     };
   }
 
+  // Check if CSV has only header (no data rows)
+  if (rows.length === 1) {
+    return {
+      isValid: false,
+      errors: ['CSV contains only header, no data rows'],
+      warnings,
+      recordCount: 0,
+    };
+  }
+
   // Validate data rows
   const seenFamiliaIds = new Set<string>();
   let recordCount = 0;
@@ -143,9 +153,14 @@ export function validateFamiliesCSV(csv: string): ImportValidationResult {
       }
     }
 
-    // Check for duplicates
+    // Check for duplicates and validate familia_numero format
     const familiaNumero = String(familia.familia_numero || '').trim();
     if (familiaNumero) {
+      // Validate that familia_numero is not empty and contains only alphanumeric, hyphens, underscores
+      if (!/^[a-zA-Z0-9_-]+$/.test(familiaNumero)) {
+        errors.push(`Row ${rowIndex + 1}: familia_numero must contain only alphanumeric characters, hyphens, or underscores, got "${familiaNumero}"`);
+      }
+      // Check for duplicates
       if (seenFamiliaIds.has(familiaNumero)) {
         errors.push(`Row ${rowIndex + 1}: Duplicate familia_numero "${familiaNumero}"`);
       } else {
