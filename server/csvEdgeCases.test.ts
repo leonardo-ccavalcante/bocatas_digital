@@ -310,7 +310,7 @@ describe("CSV Export/Import Edge Cases", () => {
       expect(fields).toContain("nombre_familia");
     });
 
-    it("should export with verify mode (minimal fields)", () => {
+    it("should export with verify mode (minimal fields + familia_id UUID)", () => {
       const families = [
         {
           id: "test-1",
@@ -338,8 +338,9 @@ describe("CSV Export/Import Edge Cases", () => {
       const csv = generateFamiliesCSV(families, "verify");
       const header = csv.split("\n")[0];
       const fields = header.split(",");
-      expect(fields.length).toBe(4);
-      expect(fields).toEqual(["familia_numero", "nombre_familia", "contacto_principal", "estado"]);
+      // familia_id (UUID) is now always first column for reliable import matching
+      expect(fields.length).toBe(5);
+      expect(fields).toEqual(["familia_id", "familia_numero", "nombre_familia", "contacto_principal", "estado"]);
     });
   });
 

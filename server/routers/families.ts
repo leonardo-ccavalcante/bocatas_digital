@@ -955,16 +955,26 @@ export const familiesRouter = router({
 
       // Process each family
       for (const family of parsedFamilies) {
+        const familiaNumero = family.familia_numero as number;
+        const familiaId = family.familia_id as string | undefined;
+        
         try {
-          const familiaNumero = family.familia_numero as number;
 
           // Check if family exists
+          // PRIORITY: Use familia_id (UUID) if provided for reliable matching
+          // FALLBACK: Use familia_numero if no UUID provided
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const { data: existing } = await db
-            .from("families")
-            .select("id, persona_recoge")
-            .eq("familia_numero", familiaNumero)
-            .single();
+          let query = db.from("families").select("id, persona_recoge");
+          
+          if (familiaId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(familiaId)) {
+            // Use UUID for matching (most reliable)
+            query = query.eq("id", familiaId);
+          } else {
+            // Fallback to familia_numero
+            query = query.eq("familia_numero", familiaNumero);
+          }
+          
+          const { data: existing } = await query.single();
 
           if (existing && input.mergeStrategy === "skip") {
             continue;
@@ -998,20 +1008,29 @@ export const familiesRouter = router({
             successCount++;
           } else if (!existing) {
             // Create new family
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const { error } = await db.from("families").insert({
+            // If familia_id (UUID) is provided, use it; otherwise let database generate one
+            const newFamilyData: any = {
               familia_numero: familiaNumero,
               persona_recoge: (family.contacto_principal as string | null) ?? "",
               estado: "activa",
-            } as any);
+            };
+            
+            // Only set id if familia_id is provided and valid
+            if (familiaId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(familiaId)) {
+              newFamilyData.id = familiaId;
+            }
+            
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { error } = await db.from("families").insert(newFamilyData as any);
 
             if (error) throw error;
             successCount++;
           }
         } catch (err) {
           errorCount++;
+          const familiaIdentifier = familiaId ? `UUID ${familiaId}` : `#${family.familia_numero}`;
           errors.push(
-            `Familia ${family.familia_numero}: ${err instanceof Error ? err.message : "Unknown error"}`
+            `Familia ${familiaIdentifier}: ${err instanceof Error ? err.message : "Unknown error"}`
           );
         }
       }

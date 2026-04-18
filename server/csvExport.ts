@@ -1,7 +1,7 @@
 export type ExportMode = 'update' | 'audit' | 'verify';
 
 interface Family {
-  id: string;
+  id: string; // familia_id (UUID) - CRITICAL for import matching
   familia_numero: string;
   nombre_familia: string;
   contacto_principal: string;
@@ -23,8 +23,10 @@ interface Family {
 }
 
 // Field definitions for each export mode
+// NOTE: 'id' (familia_id UUID) is ALWAYS included first for reliable data matching during import
 const EXPORT_FIELDS = {
   update: [
+    'id', // familia_id (UUID) - CRITICAL for import matching
     'familia_numero',
     'nombre_familia',
     'contacto_principal',
@@ -45,6 +47,7 @@ const EXPORT_FIELDS = {
     'guf_verified_at',
   ],
   audit: [
+    'id', // familia_id (UUID) - CRITICAL for import matching
     'familia_numero',
     'nombre_familia',
     'contacto_principal',
@@ -58,6 +61,7 @@ const EXPORT_FIELDS = {
     'alta_en_guf',
   ],
   verify: [
+    'id', // familia_id (UUID) - CRITICAL for import matching
     'familia_numero',
     'nombre_familia',
     'contacto_principal',
@@ -86,27 +90,34 @@ function escapeCSVField(value: unknown): string {
 }
 
 /**
- * Generate CSV content for families export
+ * Generate CSV content for families export with UUID support
  * @param families Array of family records
  * @param mode Export mode: 'update' (all fields), 'audit' (key fields), 'verify' (minimal fields)
  * @returns CSV string with header and data rows
+ *
+ * IMPORTANT: The first column is always familia_id (UUID) to enable reliable matching during import.
+ * This prevents data mismatches when families have similar names.
  */
 export function generateFamiliesCSV(families: Family[], mode: ExportMode): string {
   const fields = EXPORT_FIELDS[mode];
 
-  // Generate header row
-  const header = fields.join(',');
+  // Generate header row with familia_id label for clarity
+  const headerFields = fields.map(field => field === 'id' ? 'familia_id' : field);
+  const header = headerFields.join(',');
 
   // Generate data rows
   const rows = families.map((family) => {
     return fields
       .map((field) => {
-        const value = (family as unknown as Record<string, unknown>)[field];
+        // Map 'id' field to familia_id for clarity in CSV
+        const fieldKey = field === 'id' ? 'id' : field;
+        const value = (family as unknown as Record<string, unknown>)[fieldKey];
         return escapeCSVField(value);
       })
       .join(',');
   });
 
   // Combine header and rows with newlines
+  // Note: familia_id (UUID) is in first column for reliable import matching
   return [header, ...rows].join('\n') + '\n';
 }

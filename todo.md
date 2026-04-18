@@ -978,3 +978,48 @@ All OCR-related bugs and features have been successfully implemented and tested:
 - [x] ACCESSIBILITY: Modal has close buttons and keyboard support
 - [x] CODE-REVIEW: All procedures follow tRPC best practices
 - [x] FINAL-VERIFICATION: User acceptance testing passed (export works)
+
+
+## CRITICAL FIX: UUID Support in CSV Export/Import (2026-04-18)
+
+### Phase 1: UUID Analysis & Planning
+- [ ] ANALYZE-CSV-STRUCTURE: Document current CSV columns and missing UUIDs
+- [ ] PLAN-UUID-COLUMNS: Design new CSV structure with familia_id and miembro_id
+- [ ] PLAN-UUID-VALIDATION: Design UUID validation and conflict resolution strategy
+
+### Phase 2: CSV Export with UUIDs
+- [ ] UPDATE-EXPORT-STRUCTURE: Add familia_id and miembro_id to export columns
+- [ ] UPDATE-EXPORT-FUNCTION: Modify generateFamiliesCSV to include UUIDs
+- [ ] UPDATE-TEMPLATE: Update template file with new UUID columns
+- [ ] TEST-EXPORT-UUIDS: Verify export includes correct UUIDs
+
+### Phase 3: CSV Import with UUID Matching
+- [ ] UPDATE-IMPORT-PARSER: Parse familia_id and miembro_id from CSV
+- [ ] UPDATE-IMPORT-MATCHING: Use UUIDs to match families/members instead of names
+- [ ] UPDATE-IMPORT-VALIDATION: Validate UUIDs exist in database before import
+- [ ] HANDLE-UUID-CONFLICTS: Implement conflict resolution (update vs skip vs error)
+
+### Phase 4: UUID Validation & Error Handling
+- [ ] VALIDATE-UUID-FORMAT: Check UUID format (v4) in CSV
+- [ ] VALIDATE-UUID-EXISTS: Verify UUIDs exist in database
+- [ ] ERROR-MESSAGES: Clear error messages for UUID mismatches
+- [ ] FALLBACK-STRATEGY: Define behavior when UUID not found (skip, create new, error)
+
+### Phase 5: Testing & Documentation
+- [ ] TEST-EXPORT-WITH-MEMBERS: Export family with members and verify UUIDs
+- [ ] TEST-IMPORT-UUID-MATCHING: Import CSV and verify correct UUID matching
+- [ ] TEST-UUID-CONFLICTS: Test conflict resolution scenarios
+- [ ] UPDATE-CSV-GUIDE: Update guide with UUID column explanations
+- [ ] TEST-EDGE-CASES: Test with missing/invalid UUIDs
+
+### Phase 6: Member UUID Support in CSV (NEW REQUIREMENT)
+- [ ] DESIGN-MEMBER-CSV: Design CSV structure for member data with UUIDs
+- [ ] UPDATE-EXPORT-MEMBERS: Extend export to include member rows with member_id (UUID)
+- [ ] UPDATE-IMPORT-MEMBERS: Extend import to parse and match members by UUID
+- [ ] TEST-MEMBER-UUIDS: Test member UUID export/import
+- [ ] UPDATE-TEMPLATE: Update template to include member UUIDs
+
+### Phase 7: Checkpoint & Delivery
+- [ ] FINAL-VERIFICATION: All tests passing with family and member UUID support
+- [ ] UPDATE-CHANGELOG: Document UUID support in CSV
+- [ ] SAVE-CHECKPOINT: Save checkpoint with UUID fixes

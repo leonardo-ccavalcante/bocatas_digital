@@ -3,20 +3,22 @@ export interface ImportValidationResult {
   errors: string[];
   warnings: string[];
   recordCount: number;
+  familyCount: number;
+  memberCount: number;
 }
 
-interface ParsedFamily {
+interface ParsedRow {
   [key: string]: unknown;
 }
 
 // Required fields for CSV import
-// NOTE: familia_id is now optional but HIGHLY RECOMMENDED for reliable matching
-// If familia_id is provided, it will be used for matching instead of familia_numero
-const REQUIRED_FIELDS = ['familia_numero', 'nombre_familia', 'contacto_principal'];
-const OPTIONAL_UUID_FIELD = 'familia_id';
+const REQUIRED_FAMILY_FIELDS = ['familia_numero', 'nombre_familia', 'contacto_principal'];
+const REQUIRED_MEMBER_FIELDS = ['miembro_nombre', 'miembro_rol'];
 
 // Valid enum values
 const VALID_ESTADOS = ['activo', 'inactivo', 'suspendido'];
+const VALID_MIEMBRO_ROLES = ['head_of_household', 'dependent', 'other'];
+const VALID_MIEMBRO_RELACIONES = ['parent', 'child', 'sibling', 'spouse', 'other'];
 
 /**
  * Parse CSV string into rows
@@ -34,19 +36,15 @@ function parseCSVRows(csv: string): string[][] {
 
     if (char === '"') {
       if (insideQuotes && nextChar === '"') {
-        // Escaped quote
         currentField += '"';
-        i++; // Skip next quote
+        i++;
       } else {
-        // Toggle quote state
         insideQuotes = !insideQuotes;
       }
     } else if (char === ',' && !insideQuotes) {
-      // End of field
       currentRow.push(currentField.trim());
       currentField = '';
     } else if ((char === '\n' || char === '\r') && !insideQuotes) {
-      // End of row
       if (currentField || currentRow.length > 0) {
         currentRow.push(currentField.trim());
         if (currentRow.some(f => f.length > 0)) {
@@ -55,7 +53,6 @@ function parseCSVRows(csv: string): string[][] {
         currentRow = [];
         currentField = '';
       }
-      // Skip \r\n
       if (char === '\r' && nextChar === '\n') {
         i++;
       }
@@ -64,7 +61,6 @@ function parseCSVRows(csv: string): string[][] {
     }
   }
 
-  // Add last field and row
   if (currentField || currentRow.length > 0) {
     currentRow.push(currentField.trim());
     if (currentRow.some(f => f.length > 0)) {
@@ -76,19 +72,27 @@ function parseCSVRows(csv: string): string[][] {
 }
 
 /**
- * Validate CSV structure and data
+ * Validate UUID v4 format
  */
-export function validateFamiliesCSV(csv: string): ImportValidationResult {
+function isValidUUID(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+}
+
+/**
+ * Validate CSV structure and data for families + members
+ */
+export function validateFamiliesWithMembersCSV(csv: string): ImportValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  // Check if CSV is empty
   if (!csv || !csv.trim()) {
     return {
       isValid: false,
       errors: ['CSV file is empty'],
       warnings: [],
       recordCount: 0,
+      familyCount: 0,
+      memberCount: 0,
     };
   }
 
@@ -100,6 +104,8 @@ export function validateFamiliesCSV(csv: string): ImportValidationResult {
       errors: ['No data found in CSV'],
       warnings: [],
       recordCount: 0,
+      familyCount: 0,
+      memberCount: 0,
     };
   }
 
@@ -108,7 +114,7 @@ export function validateFamiliesCSV(csv: string): ImportValidationResult {
   const headerMap = new Map(headers.map((h, i) => [h.toLowerCase(), i]));
 
   // Validate required headers
-  for (const required of REQUIRED_FIELDS) {
+  for (const required of REQUIRED_FAMILY_FIELDS) {
     if (!headerMap.has(required.toLowerCase())) {
       errors.push(`Missing required header: ${required}`);
     }
@@ -120,103 +126,117 @@ export function validateFamiliesCSV(csv: string): ImportValidationResult {
       errors,
       warnings,
       recordCount: 0,
+      familyCount: 0,
+      memberCount: 0,
     };
   }
 
-  // Check if CSV has only header (no data rows)
   if (rows.length === 1) {
     return {
       isValid: false,
       errors: ['CSV contains only header, no data rows'],
       warnings,
       recordCount: 0,
+      familyCount: 0,
+      memberCount: 0,
     };
   }
 
   // Validate data rows
   const seenFamiliaIds = new Set<string>();
+  const seenMiembroIds = new Set<string>();
   let recordCount = 0;
+  let familyCount = 0;
+  let memberCount = 0;
+  let lastFamiliaId = '';
 
   for (let rowIndex = 1; rowIndex < rows.length; rowIndex++) {
     const row = rows[rowIndex];
-    const familia: ParsedFamily = {};
+    const record: ParsedRow = {};
 
     // Map row values to headers
     for (let colIndex = 0; colIndex < headers.length; colIndex++) {
       const header = headers[colIndex];
       const value = row[colIndex] || '';
-      familia[header] = value;
+      record[header] = value;
     }
 
-    // Check required fields
-    for (const required of REQUIRED_FIELDS) {
-      const value = familia[required];
+    // Check required family fields
+    for (const required of REQUIRED_FAMILY_FIELDS) {
+      const value = record[required];
       if (!value || String(value).trim() === '') {
         errors.push(`Row ${rowIndex + 1}: Missing required field "${required}"`);
       }
     }
 
-    // Check for duplicates and validate familia_id (UUID) or familia_numero
-    const familiaId = String(familia.familia_id || '').trim();
-    const familiaNumero = String(familia.familia_numero || '').trim();
-    
-    // Prioritize familia_id (UUID) if provided
+    // Validate familia_id (UUID) if provided
+    const familiaId = String(record.familia_id || '').trim();
     if (familiaId) {
-      // Validate UUID v4 format (8-4-4-4-12 hex digits)
-      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(familiaId)) {
+      if (!isValidUUID(familiaId)) {
         errors.push(`Row ${rowIndex + 1}: Invalid familia_id format "${familiaId}" (must be valid UUID v4)`);
       }
-      // Check for duplicate UUIDs
       if (seenFamiliaIds.has(familiaId)) {
         errors.push(`Row ${rowIndex + 1}: Duplicate familia_id "${familiaId}"`);
       } else {
         seenFamiliaIds.add(familiaId);
-      }
-    } else if (familiaNumero) {
-      // Fallback: validate familia_numero if no familia_id provided
-      // Validate that familia_numero is not empty and contains only alphanumeric, hyphens, underscores
-      if (!/^[a-zA-Z0-9_-]+$/.test(familiaNumero)) {
-        errors.push(`Row ${rowIndex + 1}: familia_numero must contain only alphanumeric characters, hyphens, or underscores, got "${familiaNumero}"`);
-      }
-      // Check for duplicates
-      if (seenFamiliaIds.has(familiaNumero)) {
-        errors.push(`Row ${rowIndex + 1}: Duplicate familia_numero "${familiaNumero}"`);
-      } else {
-        seenFamiliaIds.add(familiaNumero);
-      }
-    }
-
-    // Validate data types and values
-    if (familia.miembros_count) {
-      const count = Number(familia.miembros_count);
-      if (isNaN(count) || count < 0) {
-        warnings.push(`Row ${rowIndex + 1}: Invalid miembros_count "${familia.miembros_count}" (should be a positive number)`);
-      }
-    }
-
-    if (familia.estado) {
-      const estado = String(familia.estado).toLowerCase();
-      if (!VALID_ESTADOS.includes(estado)) {
-        warnings.push(`Row ${rowIndex + 1}: Invalid estado "${familia.estado}" (should be one of: ${VALID_ESTADOS.join(', ')})`);
-      }
-    }
-
-    // Validate boolean fields
-    const booleanFields = ['docs_identidad', 'padron_recibido', 'justificante_recibido', 'consent_bocatas', 'consent_banco_alimentos', 'informe_social', 'alta_en_guf'];
-    for (const field of booleanFields) {
-      if (familia[field]) {
-        const value = String(familia[field]).toLowerCase();
-        if (!['true', 'false', '1', '0', 'yes', 'no'].includes(value)) {
-          warnings.push(`Row ${rowIndex + 1}: Invalid ${field} "${familia[field]}" (should be true/false)`);
+        if (familiaId !== lastFamiliaId) {
+          familyCount++;
+          lastFamiliaId = familiaId;
         }
       }
     }
 
+    // Validate miembro_id (UUID) if provided
+    const miembroId = String(record.miembro_id || '').trim();
+    if (miembroId) {
+      if (!isValidUUID(miembroId)) {
+        errors.push(`Row ${rowIndex + 1}: Invalid miembro_id format "${miembroId}" (must be valid UUID v4)`);
+      }
+      if (seenMiembroIds.has(miembroId)) {
+        errors.push(`Row ${rowIndex + 1}: Duplicate miembro_id "${miembroId}"`);
+      } else {
+        seenMiembroIds.add(miembroId);
+        memberCount++;
+      }
+    }
+
+    // Validate miembro_rol if provided
+    if (record.miembro_rol) {
+      const rol = String(record.miembro_rol).toLowerCase();
+      if (!VALID_MIEMBRO_ROLES.includes(rol)) {
+        warnings.push(`Row ${rowIndex + 1}: Invalid miembro_rol "${record.miembro_rol}" (should be one of: ${VALID_MIEMBRO_ROLES.join(', ')})`);
+      }
+    }
+
+    // Validate miembro_relacion if provided
+    if (record.miembro_relacion) {
+      const relacion = String(record.miembro_relacion).toLowerCase();
+      if (!VALID_MIEMBRO_RELACIONES.includes(relacion)) {
+        warnings.push(`Row ${rowIndex + 1}: Invalid miembro_relacion "${record.miembro_relacion}" (should be one of: ${VALID_MIEMBRO_RELACIONES.join(', ')})`);
+      }
+    }
+
+    // Validate estado if provided
+    if (record.estado) {
+      const estado = String(record.estado).toLowerCase();
+      if (!VALID_ESTADOS.includes(estado)) {
+        warnings.push(`Row ${rowIndex + 1}: Invalid estado "${record.estado}" (should be one of: ${VALID_ESTADOS.join(', ')})`);
+      }
+    }
+
+    // Validate miembro_estado if provided
+    if (record.miembro_estado) {
+      const miembroEstado = String(record.miembro_estado).toLowerCase();
+      if (!['activo', 'inactivo'].includes(miembroEstado)) {
+        warnings.push(`Row ${rowIndex + 1}: Invalid miembro_estado "${record.miembro_estado}" (should be activo or inactivo)`);
+      }
+    }
+
     // Validate date fields
-    const dateFields = ['fecha_creacion', 'informe_social_fecha', 'fecha_alta_guf', 'guf_verified_at'];
+    const dateFields = ['fecha_creacion', 'informe_social_fecha', 'fecha_alta_guf', 'guf_verified_at', 'miembro_fecha_nacimiento'];
     for (const field of dateFields) {
-      if (familia[field] && String(familia[field]).trim()) {
-        const dateStr = String(familia[field]);
+      if (record[field] && String(record[field]).trim()) {
+        const dateStr = String(record[field]);
         const date = new Date(dateStr);
         if (isNaN(date.getTime())) {
           warnings.push(`Row ${rowIndex + 1}: Invalid date format for ${field} "${dateStr}"`);
@@ -232,15 +252,16 @@ export function validateFamiliesCSV(csv: string): ImportValidationResult {
     errors,
     warnings,
     recordCount,
+    familyCount,
+    memberCount,
   };
 }
 
 /**
- * Parse CSV string into family objects
- * If familia_id (UUID) is present, it will be used as the unique identifier for matching
- * Otherwise, familia_numero will be used for matching
+ * Parse CSV string into family and member objects
+ * Returns array of rows with both family and member data
  */
-export function parseFamiliesCSV(csv: string): ParsedFamily[] {
+export function parseFamiliesWithMembersCSV(csv: string): ParsedRow[] {
   const rows = parseCSVRows(csv);
 
   if (rows.length === 0) {
@@ -248,11 +269,11 @@ export function parseFamiliesCSV(csv: string): ParsedFamily[] {
   }
 
   const headers = rows[0];
-  const families: ParsedFamily[] = [];
+  const records: ParsedRow[] = [];
 
   for (let rowIndex = 1; rowIndex < rows.length; rowIndex++) {
     const row = rows[rowIndex];
-    const familia: ParsedFamily = {};
+    const record: ParsedRow = {};
 
     for (let colIndex = 0; colIndex < headers.length; colIndex++) {
       const header = headers[colIndex];
@@ -260,20 +281,20 @@ export function parseFamiliesCSV(csv: string): ParsedFamily[] {
 
       // Convert string values to appropriate types
       if (value === '' || value === 'null' || value === 'undefined') {
-        familia[header] = null;
+        record[header] = null;
       } else if (value.toLowerCase() === 'true') {
-        familia[header] = true;
+        record[header] = true;
       } else if (value.toLowerCase() === 'false') {
-        familia[header] = false;
+        record[header] = false;
       } else if (!isNaN(Number(value)) && value !== '') {
-        familia[header] = Number(value);
+        record[header] = Number(value);
       } else {
-        familia[header] = value;
+        record[header] = value;
       }
     }
 
-    families.push(familia);
+    records.push(record);
   }
 
-  return families;
+  return records;
 }
