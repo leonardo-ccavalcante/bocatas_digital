@@ -32,12 +32,12 @@ export function ImportFamiliesModal({ open, onOpenChange, onImportSuccess }: Imp
   const [isValidating, setIsValidating] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
 
-  const validateMutation = (trpc.families as any).validateCSVImport.useQuery(
-    { csv: csvContent },
+  const validateMutation = (trpc.families as any).validateCSVImportWithMembers.useQuery(
+    { csvContent },
     { enabled: false }
   );
 
-  const importMutation = (trpc.families as any).importFamilies.useMutation({
+  const importMutation = (trpc.families as any).importFamiliesWithMembers.useMutation({
     onSuccess: (result: any) => {
       toast.success(
         `${result.successCount} familias importadas exitosamente${result.errorCount > 0 ? `, ${result.errorCount} errores` : ""}`
@@ -91,7 +91,7 @@ export function ImportFamiliesModal({ open, onOpenChange, onImportSuccess }: Imp
     setIsImporting(true);
     try {
       await importMutation.mutateAsync({
-        csv: csvContent,
+        csvContent,
         mergeStrategy,
       });
     } catch (error) {

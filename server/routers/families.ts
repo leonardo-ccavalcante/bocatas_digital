@@ -886,34 +886,56 @@ export const familiesRouter = router({
 
       if (error) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
 
-      // Transform to CSV-friendly format
+      // Fetch all family members
+      const { data: members, error: membersError } = await db
+        .from("familia_miembros")
+        .select("id, familia_id, nombre, rol, relacion, fecha_nacimiento, estado")
+        .is("deleted_at", null);
+
+      if (membersError) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: membersError.message });
+
+      // Transform to CSV-friendly format with members
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const csvFamilies = (families ?? []).map((f: any) => ({
-        id: f.id,
-        familia_numero: f.familia_numero?.toString() ?? "",
-        nombre_familia: f.persons?.nombre ?? "",
-        contacto_principal: f.persona_recoge ?? "",
-        telefono: f.persons?.telefono ?? "",
-        direccion: "",
-        estado: f.estado ?? "activa",
-        fecha_creacion: f.created_at?.split("T")[0] ?? "",
-        miembros_count: (f.num_adultos ?? 0) + (f.num_menores_18 ?? 0),
-        docs_identidad: false,
-        padron_recibido: false,
-        justificante_recibido: false,
-        consent_bocatas: false,
-        consent_banco_alimentos: false,
-        informe_social: f.informe_social ?? false,
-        informe_social_fecha: f.informe_social_fecha ?? null,
-        alta_en_guf: f.alta_en_guf ?? false,
-        fecha_alta_guf: f.fecha_alta_guf ?? null,
-        guf_verified_at: f.guf_verified_at ?? null,
+      const familiesWithMembers = (families ?? []).map((f: any) => ({
+        family: {
+          id: f.id,
+          familia_numero: f.familia_numero?.toString() ?? "",
+          nombre_familia: f.persons?.nombre ?? "",
+          contacto_principal: f.persona_recoge ?? "",
+          telefono: f.persons?.telefono ?? "",
+          direccion: "",
+          estado: f.estado ?? "activo",
+          fecha_creacion: f.created_at?.split("T")[0] ?? "",
+          miembros_count: (f.num_adultos ?? 0) + (f.num_menores_18 ?? 0),
+          docs_identidad: false,
+          padron_recibido: false,
+          justificante_recibido: false,
+          consent_bocatas: false,
+          consent_banco_alimentos: false,
+          informe_social: f.informe_social ?? false,
+          informe_social_fecha: f.informe_social_fecha ?? null,
+          alta_en_guf: f.alta_en_guf ?? false,
+          fecha_alta_guf: f.fecha_alta_guf ?? null,
+          guf_verified_at: f.guf_verified_at ?? null,
+        },
+        members: (members ?? [])
+          .filter((m: any) => m.familia_id === f.id)
+          .map((m: any) => ({
+            id: m.id,
+            familia_id: m.familia_id,
+            nombre: m.nombre,
+            rol: m.rol,
+            relacion: m.relacion,
+            fecha_nacimiento: m.fecha_nacimiento,
+            estado: m.estado,
+          })),
       }));
 
-      const csv = generateFamiliesCSV(csvFamilies, input.mode);
+      const csv = generateFamiliesCSVWithMembers(familiesWithMembers, input.mode);
       return {
         csv,
-        recordCount: csvFamilies.length,
+        recordCount: familiesWithMembers.length,
+        memberCount: members?.length ?? 0,
         mode: input.mode,
       };
     }),

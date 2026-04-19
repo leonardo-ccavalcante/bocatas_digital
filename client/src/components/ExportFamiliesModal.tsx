@@ -37,7 +37,7 @@ export function ExportFamiliesModal({ open, onOpenChange }: ExportFamiliesModalP
   const [selectedMode, setSelectedMode] = useState<ExportMode>("update");
   const [isExporting, setIsExporting] = useState(false);
 
-  const exportMutation = (trpc.families as any).exportFamilies.useQuery(
+  const exportMutation = (trpc.families as any).exportFamiliesWithMembers.useQuery(
     { mode: selectedMode },
     { enabled: false }
   );
