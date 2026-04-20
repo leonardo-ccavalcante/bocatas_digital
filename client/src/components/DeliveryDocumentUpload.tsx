@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { AlertCircle, CheckCircle, Upload, Loader2 } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
+import { DeliveryEditableTable } from './DeliveryEditableTable';
 
 interface DeliveryDocumentUploadProps {
   onSuccess?: (batchId: string) => void;
@@ -193,42 +194,20 @@ export const DeliveryDocumentUpload: React.FC<DeliveryDocumentUploadProps> = ({
             )}
           </div>
 
-          {/* Rows Preview */}
+          {/* Rows Preview & Edit */}
           <div className="mb-6">
             <h3 className="font-semibold mb-3">
               Entregas Detectadas ({extractedData.rows.length})
             </h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-100">
-                  <tr>
-                    <th className="text-left p-2">Familia</th>
-                    <th className="text-left p-2">Recibió</th>
-                    <th className="text-right p-2">Frutas/Hort.</th>
-                    <th className="text-right p-2">Carne</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {extractedData.rows.slice(0, 5).map((row: any, idx: number) => (
-                    <tr key={idx} className="border-t">
-                      <td className="p-2 font-mono text-xs">{row.familia_id.slice(0, 8)}...</td>
-                      <td className="p-2">{row.persona_recibio}</td>
-                      <td className="text-right p-2">
-                        {row.frutas_hortalizas_cantidad} {row.frutas_hortalizas_unidad}
-                      </td>
-                      <td className="text-right p-2">
-                        {row.carne_cantidad} {row.carne_unidad}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {extractedData.rows.length > 5 && (
-              <p className="text-xs text-gray-600 mt-2">
-                +{extractedData.rows.length - 5} más...
-              </p>
-            )}
+            <DeliveryEditableTable
+              rows={extractedData.rows}
+              onRowsChange={(updatedRows) => {
+                setExtractedData((prev: any) => ({
+                  ...prev,
+                  rows: updatedRows,
+                }));
+              }}
+            />
           </div>
 
           {error && (
