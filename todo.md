@@ -1025,3 +1025,41 @@ All OCR-related bugs and features have been successfully implemented and tested:
 - [x] FINAL-VERIFICATION: All 468 tests passing with family and member UUID support
 - [x] UPDATE-CHANGELOG: UUID support fully implemented in CSV export/import
 - [x] SAVE-CHECKPOINT: Checkpoint saved with UUID fixes (surgical fix to exportFamilies)
+
+
+## Phase 8: OCR Delivery Document Upload (NEW - In Planning)
+
+### Phase 8.1: Database Schema & Migrations
+- [ ] SCHEMA-ENTREGAS: Add entregas table to drizzle/schema.ts
+- [ ] MIGRATION-ENTREGAS: Generate and apply migration
+- [ ] DB-HELPERS: Add query helpers (getEntregasByFamilia, createEntrega, etc.)
+
+### Phase 8.2: Backend OCR Extraction & Validation
+- [ ] OCR-EXTRACTION: Create ocrDeliveryExtraction.ts with extraction logic
+- [ ] OCR-EXTRACTION-TESTS: 15+ tests for OCR parsing
+- [ ] VALIDATION-MODULE: Create validateDeliveryRow.ts
+- [ ] VALIDATION-TESTS: 20+ tests for validation logic
+- [ ] TRPC-ENTREGAS: Create entregas router with upload/save procedures
+- [ ] TRPC-TESTS: Integration tests for full flow
+
+### Phase 8.3: Frontend Upload & Confirmation UI
+- [ ] COMPONENT-UPLOAD: DeliveryDocumentUpload.tsx main component
+- [ ] COMPONENT-UPLOAD-ZONE: DocumentUploadZone.tsx with drag-drop
+- [ ] COMPONENT-PREVIEW: DeliveryPreviewTable.tsx read-only preview
+- [ ] COMPONENT-EDIT: DeliveryEditableTable.tsx with cell editing
+- [ ] COMPONENT-WARNINGS: ValidationWarnings.tsx error display
+- [ ] INTEGRATION-ENTREGAS-TAB: Add button to FamiliaDetalle.tsx
+
+### Phase 8.4: Testing & Error Handling
+- [ ] UNIT-TESTS-OCR: Comprehensive OCR extraction tests
+- [ ] UNIT-TESTS-VALIDATION: Comprehensive validation tests
+- [ ] INTEGRATION-TESTS: Full upload → save flow tests
+- [ ] FRONTEND-TESTS: Component state and interaction tests
+- [ ] ERROR-HANDLING: All error paths covered with clear messages
+
+### Phase 8.5: Integration & Polish
+- [ ] INTEGRATION-FINAL: End-to-end testing with real documents
+- [ ] LOADING-STATES: Add loading indicators during processing
+- [ ] ACCESSIBILITY: Keyboard navigation and screen reader support
+- [ ] DOCUMENTATION: Code comments and usage guide
+- [ ] CHECKPOINT: Save checkpoint after completion
