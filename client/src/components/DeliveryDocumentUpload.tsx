@@ -1,0 +1,263 @@
+import React, { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { AlertCircle, CheckCircle, Upload, Loader2 } from 'lucide-react';
+import { trpc } from '@/lib/trpc';
+
+interface DeliveryDocumentUploadProps {
+  onSuccess?: (batchId: string) => void;
+  onError?: (message: string) => void;
+}
+
+export const DeliveryDocumentUpload: React.FC<DeliveryDocumentUploadProps> = ({
+  onSuccess,
+  onError,
+}) => {
+  const [step, setStep] = useState<'upload' | 'preview' | 'confirm'>('upload');
+  const [file, setFile] = useState<File | null>(null);
+  const [ocrText, setOcrText] = useState('');
+  const [extractedData, setExtractedData] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const extractMutation = trpc.entregas.extractFromOCR.useMutation();
+  const saveMutation = trpc.entregas.saveBatch.useMutation();
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (!selectedFile) return;
+
+    setFile(selectedFile);
+    setError(null);
+
+    // TODO: In production, call Manus OCR API to extract text from image
+    // For now, prompt user to paste OCR text
+    setStep('preview');
+  };
+
+  const handleExtract = async () => {
+    if (!ocrText.trim()) {
+      setError('Por favor ingresa el texto OCR');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const result = await extractMutation.mutateAsync({
+        imageUrl: 'https://placeholder.com/image.jpg', // TODO: Upload to storage
+        ocrText,
+      });
+
+      if (result.success && result.data) {
+        setExtractedData(result.data);
+        setStep('confirm');
+      } else {
+        setError(result.message || 'Error en extracción');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error desconocido');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!extractedData) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const result = await saveMutation.mutateAsync({
+        header: extractedData.header,
+        rows: extractedData.rows,
+        documentImageUrl: 'https://placeholder.com/image.jpg', // TODO: Upload to storage
+      });
+
+      if (result.success) {
+        onSuccess?.(result.batchId);
+        // Reset form
+        setStep('upload');
+        setFile(null);
+        setOcrText('');
+        setExtractedData(null);
+      } else {
+        setError(result.message || 'Error al guardar');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error desconocido');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="w-full max-w-2xl mx-auto p-4">
+      {/* Step 1: Upload */}
+      {step === 'upload' && (
+        <Card className="p-6">
+          <h2 className="text-2xl font-bold mb-4">Cargar Documento de Entrega</h2>
+          <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+            <Upload className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+            <p className="text-gray-600 mb-4">Arrastra tu documento aquí o haz clic para seleccionar</p>
+            <input
+              type="file"
+              accept="image/*,.pdf"
+              onChange={handleFileUpload}
+              className="hidden"
+              id="file-upload"
+            />
+            <label htmlFor="file-upload">
+              <Button asChild variant="outline">
+                <span>Seleccionar Archivo</span>
+              </Button>
+            </label>
+            {file && <p className="mt-4 text-sm text-green-600">✓ {file.name}</p>}
+          </div>
+        </Card>
+      )}
+
+      {/* Step 2: OCR Text Input */}
+      {step === 'preview' && (
+        <Card className="p-6">
+          <h2 className="text-2xl font-bold mb-4">Ingresa Texto OCR</h2>
+          <p className="text-sm text-gray-600 mb-4">
+            Pega el texto extraído del documento por OCR:
+          </p>
+          <textarea
+            value={ocrText}
+            onChange={(e) => setOcrText(e.target.value)}
+            placeholder="Número de Albarán: ALB-2026-04-20-001..."
+            className="w-full h-40 p-3 border border-gray-300 rounded-lg font-mono text-sm"
+          />
+
+          {error && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg flex gap-2">
+              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+              <p className="text-sm text-red-700">{error}</p>
+            </div>
+          )}
+
+          <div className="mt-6 flex gap-3">
+            <Button variant="outline" onClick={() => setStep('upload')}>
+              Atrás
+            </Button>
+            <Button onClick={handleExtract} disabled={loading || !ocrText.trim()}>
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Extrayendo...
+                </>
+              ) : (
+                'Extraer Datos'
+              )}
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {/* Step 3: Confirm & Save */}
+      {step === 'confirm' && extractedData && (
+        <Card className="p-6">
+          <h2 className="text-2xl font-bold mb-4">Confirmar Extracción</h2>
+
+          {/* Header Info */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <h3 className="font-semibold mb-3">Información del Lote</h3>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="text-gray-600">Albarán</p>
+                <p className="font-mono">{extractedData.header.numero_albaran}</p>
+              </div>
+              <div>
+                <p className="text-gray-600">Reparto</p>
+                <p className="font-mono">{extractedData.header.numero_reparto}</p>
+              </div>
+              <div>
+                <p className="text-gray-600">Fecha</p>
+                <p>{extractedData.header.fecha_reparto}</p>
+              </div>
+              <div>
+                <p className="text-gray-600">Personas</p>
+                <p>{extractedData.header.total_personas_asistidas}</p>
+              </div>
+            </div>
+            {extractedData.header.warnings.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-blue-200">
+                <p className="text-xs text-blue-700">
+                  ⚠️ {extractedData.header.warnings.join(', ')}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Rows Preview */}
+          <div className="mb-6">
+            <h3 className="font-semibold mb-3">
+              Entregas Detectadas ({extractedData.rows.length})
+            </h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-100">
+                  <tr>
+                    <th className="text-left p-2">Familia</th>
+                    <th className="text-left p-2">Recibió</th>
+                    <th className="text-right p-2">Frutas/Hort.</th>
+                    <th className="text-right p-2">Carne</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {extractedData.rows.slice(0, 5).map((row: any, idx: number) => (
+                    <tr key={idx} className="border-t">
+                      <td className="p-2 font-mono text-xs">{row.familia_id.slice(0, 8)}...</td>
+                      <td className="p-2">{row.persona_recibio}</td>
+                      <td className="text-right p-2">
+                        {row.frutas_hortalizas_cantidad} {row.frutas_hortalizas_unidad}
+                      </td>
+                      <td className="text-right p-2">
+                        {row.carne_cantidad} {row.carne_unidad}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {extractedData.rows.length > 5 && (
+              <p className="text-xs text-gray-600 mt-2">
+                +{extractedData.rows.length - 5} más...
+              </p>
+            )}
+          </div>
+
+          {error && (
+            <div className="mb-6 p-3 bg-red-50 border border-red-200 rounded-lg flex gap-2">
+              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+              <p className="text-sm text-red-700">{error}</p>
+            </div>
+          )}
+
+          <div className="flex gap-3">
+            <Button variant="outline" onClick={() => setStep('preview')}>
+              Atrás
+            </Button>
+            <Button onClick={handleSave} disabled={loading}>
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Guardando...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Guardar Lote
+                </>
+              )}
+            </Button>
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+};
