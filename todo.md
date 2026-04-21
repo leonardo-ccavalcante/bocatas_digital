@@ -848,7 +848,7 @@ All OCR-related bugs and features have been successfully implemented and tested:
 - [x] AUDIT-ROLE-ADMIN-4: Can change Fase Itinerario (fase dropdown verified)
 - [x] AUDIT-ROLE-ADMIN-5: Can access /dashboard (Dashboard page verified)
 - [x] AUDIT-ROLE-ADMIN-6: Can see admin navigation items (NAV_ITEMS roles verified)
-- [ ] AUDIT-ROLE-ADMIN-7: Cannot access superadmin-only features (needs implementation)
+- [x] AUDIT-ROLE-ADMIN-7: Cannot access superadmin-only features (routes restricted via ProtectedRoute requiredRoles)
 
 #### Superadmin Role
 - [x] AUDIT-ROLE-SUPER-1: Can access all pages (role check verified)
