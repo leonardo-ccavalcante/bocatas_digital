@@ -254,7 +254,16 @@ export default function FamiliaDetalle() {
         </TabsContent>
 
         {/* Tab: Entregas */}
-        <TabsContent value="entregas" className="mt-4">
+        <TabsContent value="entregas" className="mt-4 space-y-4">
+          {/* Upload Entregas Button */}
+          <Button
+            onClick={() => setDeliveryDocModalOpen('upload')}
+            className="w-full sm:w-auto"
+          >
+            <Package className="mr-2 h-4 w-4" />
+            Subir Documento de Entregas
+          </Button>
+
           {deliveries && deliveries.length > 0 ? (
             <div className="space-y-2">
               {deliveries.map((d) => (
