@@ -1064,3 +1064,26 @@ All OCR-related bugs and features have been successfully implemented and tested:
 - [x] ACCESSIBILITY: Basic keyboard support via form inputs
 - [x] DOCUMENTATION: Code comments added to all functions
 - [x] CHECKPOINT: Phase 8 complete - ready for delivery
+
+## CSV Template Download Feature (2026-04-21)
+
+### Implementation Complete
+- [x] FEATURE-CSV-TEMPLATE: CSV template generator with sample data (entregas_template_YYYY-MM-DD.csv)
+- [x] FEATURE-CSV-GUIDE: Comprehensive guide with all required columns and examples
+- [x] FEATURE-DOWNLOAD-UTIL: File download utility function (client/src/utils/downloadFile.ts)
+- [x] FEATURE-TRPC-PROCEDURE: tRPC downloadTemplate query procedure in entregas router
+- [x] FEATURE-UI-BUTTON: Download button in DeliveryDocumentUpload modal (Step 2: OCR Input)
+- [x] FEATURE-INSTRUCTIONS: Clear instructions and help text for users
+- [x] FEATURE-TESTING: TypeScript verification passed (0 errors)
+
+### Files Created/Modified
+- [x] server/csvTemplateGenerator.ts - Template generation function
+- [x] server/routers/entregas.ts - Added downloadTemplate procedure
+- [x] client/src/utils/downloadFile.ts - File download utility
+- [x] client/src/components/DeliveryDocumentUpload.tsx - Added download button and handler
+
+### User Experience
+- Users see a blue info box with "¿Necesitas ayuda con el formato?" before OCR text input
+- Download button downloads both CSV template and guide file
+- Clear instructions help users understand required data structure
+- Sample data shows realistic examples for all fields

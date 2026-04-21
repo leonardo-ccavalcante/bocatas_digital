@@ -1,4 +1,4 @@
-import { router, protectedProcedure } from '../_core/trpc';
+import { router, protectedProcedure, publicProcedure } from '../_core/trpc';
 import { z } from 'zod';
 import {
   extractDeliveriesFromOCR,
@@ -6,6 +6,7 @@ import {
   ExtractedBatchHeader,
   ExtractedDeliveryRow,
 } from '../ocrDeliveryExtraction';
+import { generateEntregasCSVTemplate } from '../csvTemplateGenerator';
 
 /**
  * Entregas (delivery) router
@@ -207,4 +208,17 @@ export const entregasRouter = router({
         };
       }
     }),
+
+  /**
+   * Download CSV template with sample data and guide
+   * Output: CSV content, guide content, and filename
+   */
+  downloadTemplate: publicProcedure.query(async () => {
+    const { csvContent, guideContent, fileName } = generateEntregasCSVTemplate();
+    return {
+      csvContent,
+      guideContent,
+      fileName,
+    };
+  }),
 });

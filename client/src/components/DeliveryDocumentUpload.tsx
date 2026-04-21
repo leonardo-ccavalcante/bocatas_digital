@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { AlertCircle, CheckCircle, Upload, Loader2 } from 'lucide-react';
+import { AlertCircle, CheckCircle, Upload, Loader2, Download } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { DeliveryEditableTable } from './DeliveryEditableTable';
+import { downloadFile } from '@/utils/downloadFile';
+import { toast } from 'sonner';
 
 interface DeliveryDocumentUploadProps {
   onSuccess?: (batchId: string) => void;
@@ -23,6 +25,27 @@ export const DeliveryDocumentUpload: React.FC<DeliveryDocumentUploadProps> = ({
 
   const extractMutation = trpc.entregas.extractFromOCR.useMutation();
   const saveMutation = trpc.entregas.saveBatch.useMutation();
+  const { data: templateData } = trpc.entregas.downloadTemplate.useQuery();
+
+  const handleDownloadTemplate = () => {
+    if (!templateData) {
+      toast.error('Plantilla no disponible');
+      return;
+    }
+    
+    try {
+      const { csvContent, guideContent, fileName } = templateData;
+      
+      downloadFile(csvContent, fileName, 'text/csv');
+      const guideFileName = fileName.replace('.csv', '_GUIA.md');
+      downloadFile(guideContent, guideFileName, 'text/markdown');
+      
+      toast.success('Plantilla descargada exitosamente');
+    } catch (error) {
+      console.error('Error downloading template:', error);
+      toast.error('Error al descargar la plantilla');
+    }
+  };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -124,6 +147,22 @@ export const DeliveryDocumentUpload: React.FC<DeliveryDocumentUploadProps> = ({
       {step === 'preview' && (
         <Card className="p-6">
           <h2 className="text-2xl font-bold mb-4">Ingresa Texto OCR</h2>
+          
+          {/* Template Download Section */}
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <h3 className="font-semibold text-blue-900 mb-2">¿Necesitas ayuda con el formato?</h3>
+            <p className="text-sm text-blue-800 mb-3">
+              Descarga la plantilla CSV con ejemplos y una guía completa para entender qué información necesitas incluir.
+            </p>
+            <button
+              onClick={handleDownloadTemplate}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+            >
+              <Download className="w-4 h-4" />
+              Descargar Plantilla CSV + Guía
+            </button>
+          </div>
+          
           <p className="text-sm text-gray-600 mb-4">
             Pega el texto extraído del documento por OCR:
           </p>
