@@ -130,7 +130,7 @@
 - [x] Email/password removed - Manus OAuth is single auth method
 
 - [x] Verificar flujo completo: OAuth → callback → home (implemented)Info alert con “Primera vez aquí?” + instrucciones de contacto
-- [ ] Verificar flujo completo: OAuth → callback → home (needs browser testing)
+- [ ] Verificar flujo completo: OAuth → callback → home (needs real browser end-to-end testing)
 
 ## Auth Migration — Manus OAuth
 
@@ -594,7 +594,7 @@ All OCR-related bugs and features have been successfully implemented and tested:
 
 - [x] ISSUE-PERSONAS-1: Display all users in table view on page load (admin shows table by default)
 - [x] ISSUE-PERSONAS-2: Person detail page implemented with error handling and retry
-- [ ] ISSUE-PERSONAS-3: Mobile responsiveness audit (needs real browser verification)
+- [ ] ISSUE-PERSONAS-3: Mobile responsiveness audit (needs real browser verification at target breakpoints)
 - [x] ISSUE-PERSONAS-4: Navigation back to home via ChevronLeft button in header
 
 
