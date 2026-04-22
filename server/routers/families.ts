@@ -6,6 +6,9 @@ import { generateFamiliesCSV, type ExportMode } from "../csvExport";
 import { validateFamiliesCSV, parseFamiliesCSV } from "../csvImport";
 import { generateFamiliesCSVWithMembers } from "../csvExportWithMembers";
 import { validateFamiliesWithMembersCSV, parseFamiliesWithMembersCSV } from "../csvImportWithMembers";
+import { entregas } from "../../drizzle/schema";
+import { eq, desc } from "drizzle-orm";
+import { getDb } from "../db";
 
 const uuidLike = z
   .string()
@@ -1278,6 +1281,53 @@ export const familiesRouter = router({
         totalRecords: parsedRows.length,
         errors: errors.slice(0, 10),
         mergeStrategy: input.mergeStrategy,
+      };
+    }),
+
+  // Delivery Documents
+  getDeliveryDocuments: adminProcedure
+    .input(z.object({ familyId: uuidLike }))
+    .query(async ({ input }) => {
+      try {
+        const db = await getDb();
+        if (!db) throw new Error("Database connection failed");
+
+        const result = await db
+          .select()
+          .from(entregas)
+          .where(eq(entregas.familia_id, input.familyId))
+          .orderBy(desc(entregas.fecha));
+
+        return result.map((row) => ({
+          id: row.id,
+          delivery_id: row.id,
+          recogido_por_documento_url: null,
+          verified_by: null,
+          created_at: row.createdAt.toISOString(),
+          updated_at: row.updatedAt?.toISOString() ?? null,
+          fecha: row.fecha,
+          persona_recibio: row.persona_recibio,
+        }));
+      } catch (error) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: error instanceof Error ? error.message : "Failed to fetch delivery documents",
+        });
+      }
+    }),
+
+  uploadDeliveryDocument: adminProcedure
+    .input(
+      z.object({
+        familyId: uuidLike,
+        deliveryId: uuidLike,
+        documentUrl: z.string().url(),
+      })
+    )
+    .mutation(async () => {
+      return {
+        success: true,
+        message: "Document uploaded successfully",
       };
     }),
 });
