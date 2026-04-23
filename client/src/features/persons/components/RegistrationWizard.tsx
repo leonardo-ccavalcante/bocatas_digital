@@ -54,6 +54,7 @@ import {
   GENERO_LABELS,
   IDIOMA_LABELS,
   TIPO_DOCUMENTO_LABELS,
+  PAIS_DOCUMENTO_LABELS,
   SITUACION_LEGAL_LABELS,
   TIPO_VIVIENDA_LABELS,
   NIVEL_ESTUDIOS_LABELS,
@@ -248,12 +249,14 @@ export function RegistrationWizard() {
     if (data.numero_documento) setValue("numero_documento", data.numero_documento);
     if (data.tipo_documento) {
       const tipoMap: Record<string, PersonCreate["tipo_documento"]> = {
-        DNI: "DNI", NIE: "NIE", Pasaporte: "Pasaporte", Sin_Documentacion: "Sin_Documentacion",
-        dni: "DNI", nie: "NIE", pasaporte: "Pasaporte", otro: "Sin_Documentacion",
+        DNI: "DNI", NIE: "NIE", Pasaporte: "Pasaporte", Documento_Extranjero: "Documento_Extranjero", Sin_Documentacion: "Sin_Documentacion",
+        dni: "DNI", nie: "NIE", pasaporte: "Pasaporte", documento_extranjero: "Documento_Extranjero", otro: "Sin_Documentacion",
       };
       const normalized = tipoMap[data.tipo_documento];
       if (normalized) setValue("tipo_documento", normalized);
     }
+    // Populate pais_documento from OCR if available
+    if (data.pais_documento) setValue("pais_documento", data.pais_documento);
     setOcrUsed(true);
   }, [setValue]);
 
@@ -575,10 +578,20 @@ export function RegistrationWizard() {
                 onChange={(v) => setValue("tipo_documento", v as PersonCreate["tipo_documento"])}
                 options={TIPO_DOCUMENTO_LABELS}
               />
-              <div className="space-y-1">
-                <Label htmlFor="numero_documento">Número de documento</Label>
-                <Input id="numero_documento" {...register("numero_documento")} placeholder="12345678A" />
-              </div>
+              {watch("tipo_documento") === "Documento_Extranjero" && (
+                <SelectField
+                  label="País del documento"
+                  id="pais_documento"
+                  value={watch("pais_documento") ?? ""}
+                  onChange={(v) => setValue("pais_documento", v || null)}
+                  options={PAIS_DOCUMENTO_LABELS}
+                  placeholder="Seleccionar país..."
+                />
+              )}
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="numero_documento">Número de documento</Label>
+              <Input id="numero_documento" {...register("numero_documento")} placeholder="12345678A" />
             </div>
 
             <div className="grid grid-cols-2 gap-3">

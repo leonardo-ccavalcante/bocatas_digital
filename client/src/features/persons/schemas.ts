@@ -12,13 +12,16 @@ export const IdiomaSchema = z.enum([
 
 // DB enum values (exact match required for Supabase insert)
 export const TipoDocumentoSchema = z.enum([
-  "DNI", "NIE", "Pasaporte", "Sin_Documentacion"
+  "DNI", "NIE", "Pasaporte", "Documento_Extranjero", "Sin_Documentacion"
 ]);
 
 // OCR extraction uses lowercase (LLM output) — separate schema for OCR only
 export const OcrTipoDocumentoSchema = z.enum([
-  "dni", "nie", "pasaporte", "otro"
+  "dni", "nie", "pasaporte", "documento_extranjero", "otro"
 ]);
+
+// ISO 3166-1 alpha-2 country codes for document origin
+export const PaisDocumentoSchema = z.string().length(2).optional().nullable();
 
 // situacion_legal is text in DB (not an enum)
 export const SituacionLegalSchema = z.enum([
@@ -109,6 +112,7 @@ export const PersonCreateSchema = z.object({
   // Section 2 — Documento
   tipo_documento: TipoDocumentoSchema.optional().nullable(),
   numero_documento: z.string().max(30).optional().nullable(),
+  pais_documento: PaisDocumentoSchema, // Country of document origin (ISO 3166-1 alpha-2)
   situacion_legal: SituacionLegalSchema.optional().nullable(), // stored as text in DB
   fecha_llegada_espana: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
 
@@ -216,6 +220,7 @@ export const OCRResultSchema = z.object({
     tipo_documento: OcrTipoDocumentoSchema.optional(),
     numero_documento: z.string().max(30).optional(),
     pais_origen: z.string().optional(), // OCR may return full name — mapped to ISO-2 before insert
+    pais_documento: z.string().length(2).optional(), // ISO 3166-1 alpha-2 country code of document origin
   }),
 });
 
@@ -377,6 +382,7 @@ export const TIPO_DOCUMENTO_LABELS: Record<string, string> = {
   DNI: "DNI",
   NIE: "NIE",
   Pasaporte: "Pasaporte",
+  Documento_Extranjero: "Documento Extranjero",
   Sin_Documentacion: "Sin documentación",
 };
 
@@ -494,4 +500,50 @@ export const PAIS_LABELS: Record<string, string> = {
   IT: "Italia",
   DE: "Alemania",
   GB: "Reino Unido",
+};
+
+// ISO 3166-1 alpha-2 country codes for document origin
+export const PAIS_DOCUMENTO_LABELS: Record<string, string> = {
+  ES: "Espana",
+  FR: "Francia",
+  DE: "Alemania",
+  IT: "Italia",
+  PT: "Portugal",
+  RO: "Rumania",
+  BG: "Bulgaria",
+  PL: "Polonia",
+  UA: "Ucrania",
+  MA: "Marruecos",
+  SN: "Senegal",
+  ML: "Mali",
+  GH: "Ghana",
+  NG: "Nigeria",
+  CD: "Republica Democratica del Congo",
+  CI: "Costa de Marfil",
+  CM: "Camerun",
+  GB: "Reino Unido",
+  NL: "Paises Bajos",
+  BE: "Belgica",
+  CH: "Suiza",
+  AT: "Austria",
+  CZ: "Republica Checa",
+  HU: "Hungria",
+  GR: "Grecia",
+  TR: "Turquia",
+  SY: "Siria",
+  AF: "Afganistan",
+  PK: "Pakistan",
+  IN: "India",
+  BD: "Bangladesh",
+  VN: "Vietnam",
+  CN: "China",
+  MX: "Mexico",
+  CO: "Colombia",
+  PE: "Peru",
+  BO: "Bolivia",
+  EC: "Ecuador",
+  AR: "Argentina",
+  CL: "Chile",
+  PY: "Paraguay",
+  UY: "Uruguay",
 };

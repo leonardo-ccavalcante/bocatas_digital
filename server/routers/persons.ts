@@ -17,7 +17,7 @@ import { storagePut } from "../storage";
 // ─── Input schemas (mirrors PersonCreateSchema from client) ───────────────────
 // We re-define here to keep server code independent of client Vite aliases.
 
-const TipoDocumentoEnum = z.enum(["DNI", "NIE", "Pasaporte", "Sin_Documentacion"]);
+const TipoDocumentoEnum = z.enum(["DNI", "NIE", "Pasaporte", "Documento_Extranjero", "Sin_Documentacion"]);
 const GeneroEnum = z.enum(["masculino", "femenino", "no_binario", "prefiere_no_decir"]);
 const IdiomaEnum = z.enum(["es", "ar", "fr", "bm", "en", "ro", "zh", "wo", "other"]);
 const SituacionLegalEnum = z.enum(["regular", "irregular", "solicitante_asilo", "en_tramite", "sin_papeles"]);
@@ -42,6 +42,7 @@ const PersonCreateInput = z.object({
   idiomas: z.array(IdiomaEnum).optional().nullable(),
   tipo_documento: TipoDocumentoEnum.optional().nullable(),
   numero_documento: z.string().max(30).optional().nullable(),
+  pais_documento: z.string().length(2).optional().nullable(), // Country of document origin (ISO 3166-1 alpha-2)
   situacion_legal: SituacionLegalEnum.optional().nullable(),
   fecha_llegada_espana: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   telefono: z.string().max(30).optional().nullable(),
@@ -96,6 +97,7 @@ export const personsRouter = router({
         barrio_zona: str(personData.barrio_zona),
         tipo_documento: personData.tipo_documento ?? null,
         numero_documento: str(personData.numero_documento),
+        pais_documento: str(personData.pais_documento),
         situacion_legal: personData.situacion_legal ?? null,
         fecha_llegada_espana: str(personData.fecha_llegada_espana),
         tipo_vivienda: personData.tipo_vivienda ?? null,

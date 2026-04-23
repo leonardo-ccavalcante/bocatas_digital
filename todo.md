@@ -1142,3 +1142,23 @@ All OCR-related bugs and features have been successfully implemented and tested:
   - Tables exist in Supabase PostgreSQL (entregas, entregas_batch, families)
   - 11 Supabase integration tests passing
   - Unique constraint added for consents upsert
+
+
+## FEATURE: International Document Support (2026-04-23) ✅ COMPLETED
+
+**Requirement:** Support national/identity documents from countries outside Spain. System must identify and distinguish international documents from Spanish documents (DNI, NIE).
+
+**Tasks:**
+- [x] INTL-DOC-1: Added "Documento_Extranjero" enum value to TipoDocumentoSchema
+- [x] INTL-DOC-2: Added pais_documento column to persons table via migration
+- [x] INTL-DOC-3: Added "Documento Extranjero" option to UI dropdown with conditional country selector
+- [x] INTL-DOC-4: Enhanced OCR router with international document detection and country extraction
+- [x] INTL-DOC-5: All 554 tests passing (no new failures)
+- [x] INTL-DOC-6: OCR correctly identifies and maps Spanish vs international documents
+
+**Implementation Details:**
+- Database: Added VARCHAR(2) pais_documento column to persons table
+- Frontend: Added PAIS_DOCUMENTO_LABELS with 40+ country codes
+- OCR: Enhanced LLM prompt with detection rules for international documents
+- Form: Country selector appears when "Documento Extranjero" is selected
+- Mapping: documento_extranjero → Documento_Extranjero in form submission
