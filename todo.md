@@ -1108,16 +1108,16 @@ All OCR-related bugs and features have been successfully implemented and tested:
 ## CRITICAL BUGS: Person Registration (2026-04-23)
 
 **Bug #1: Duplicate Person Creation**
-- [ ] BUG-REG-1: Clicking "Registrar persona" multiple times creates duplicate records
-- [ ] BUG-REG-2: No idempotency check on create mutation
-- [ ] BUG-REG-3: No loading state to prevent double-submission
-- [ ] BUG-REG-4: Evidence: "JASON ALEXANDER CORTES RODRIGUEZ" appears 3 times in list
+- [x] BUG-REG-1: Clicking "Registrar persona" multiple times creates duplicate records (FIXED)
+- [x] BUG-REG-2: No idempotency check on create mutation (FIXED)
+- [x] BUG-REG-3: No loading state to prevent double-submission (FIXED)
+- [x] BUG-REG-4: Evidence: "JASON ALEXANDER CORTES RODRIGUEZ" appears 3 times in list (FIXED)
 
-**Bug #2: Photo Upload Blocked & Stored as Text**
-- [ ] BUG-PHOTO-1: Consents section UI overlays/blocks photo upload interface
-- [ ] BUG-PHOTO-2: Photo stored as text in database instead of image file
-- [ ] BUG-PHOTO-3: Users cannot access camera/upload buttons due to UI blocking
-- [ ] BUG-PHOTO-4: Need to store actual image file in S3, not text in database
+**Bug #2: Photo Upload Blocked & Stored as Text** ✅ FIXED
+- [x] BUG-PHOTO-1: Consents section UI overlays/blocks photo upload interface (FIXED)
+- [x] BUG-PHOTO-2: Photo stored as text in database instead of image file (FIXED)
+- [x] BUG-PHOTO-3: Users cannot access camera/upload buttons due to UI blocking (FIXED)
+- [x] BUG-PHOTO-4: Need to store actual image file in S3, not text in database (FIXED)
 
 
 ## BUG FIXES: Person Registration (2026-04-23)
