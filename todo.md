@@ -1179,3 +1179,25 @@ All OCR-related bugs and features have been successfully implemented and tested:
 - [x] Applied Karpathy Guidelines: Minimal, surgical change
 
 **Status:** ✅ FIXED
+
+
+## BUG FIX: Step 8 (Consentimiento RGPD) Layout Overlap (2026-04-24) ✅ FIXED
+
+**Issue:** Navigation buttons ("Anterior" / "Registrar persona") were overlapping consent content, making text unreadable.
+
+**Root Cause:** The form wrapper used `space-y-6` for vertical spacing, but didn't account for the scrollable consent area with multiple sections (Group A, B, C). Navigation buttons were positioned after the content without sticky positioning.
+
+**Solution:** Added `sticky bottom-0 bg-background border-t` to navigation buttons container:
+- `sticky bottom-0`: Keeps buttons visible at bottom while scrolling
+- `bg-background`: Prevents content from showing through
+- `border-t`: Visual separator between content and buttons
+- `pb-2`: Bottom padding for spacing
+
+**Verification:**
+- ✅ All 554 tests passing (0 regressions)
+- ✅ Visual verification: Buttons no longer overlap consent content
+- ✅ Text is fully readable: "Comunicaciones por WhatsApp" visible
+- ✅ Clean layout with proper spacing and visual hierarchy
+
+**Files Modified:**
+- `client/src/features/persons/components/RegistrationWizard.tsx` (line 1169)

@@ -1166,7 +1166,7 @@ export function RegistrationWizard() {
         )}
 
         {/* Navigation buttons */}
-        <div className="flex gap-3 pt-2">
+        <div className="sticky bottom-0 flex gap-3 pt-2 pb-2 bg-background border-t">
           {step > 0 && (
             <Button type="button" variant="outline" onClick={goBack} className="flex-1">
               <ChevronLeft className="mr-1 h-4 w-4" /> Anterior
