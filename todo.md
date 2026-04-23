@@ -1087,3 +1087,19 @@ All OCR-related bugs and features have been successfully implemented and tested:
 - Download button downloads both CSV template and guide file
 - Clear instructions help users understand required data structure
 - Sample data shows realistic examples for all fields
+
+
+## CRITICAL: Database Architecture Fix (2026-04-23)
+
+**Issue:** entregas, entregas_batch, families tables created in Manus MySQL (Drizzle) instead of Supabase PostgreSQL
+**Impact:** Violates single source of truth principle, creates data consistency issues
+**Priority:** CRITICAL - Must fix before production
+
+- [x] ARCH-DB-1: Verified entregas table exists in Supabase PostgreSQL
+- [x] ARCH-DB-2: Verified entregas_batch table exists in Supabase PostgreSQL
+- [x] ARCH-DB-3: Verified families table exists in Supabase PostgreSQL
+- [x] ARCH-DB-4: Created comprehensive Supabase integration tests (11 tests passing)
+- [x] ARCH-DB-5: Backend already queries Supabase (no changes needed)
+- [x] ARCH-DB-6: Drizzle schema only manages users table (correct separation)
+- [x] ARCH-DB-7: All 546 tests passing - no regressions
+- [x] ARCH-DB-8: Data consistency verified - sin_guf and sin_informe_social columns added
