@@ -1162,3 +1162,20 @@ All OCR-related bugs and features have been successfully implemented and tested:
 - OCR: Enhanced LLM prompt with detection rules for international documents
 - Form: Country selector appears when "Documento Extranjero" is selected
 - Mapping: documento_extranjero → Documento_Extranjero in form submission
+
+
+## BUG FIX: Step 7 Layout Overlap (2026-04-24)
+
+**Issue:** Navigation buttons overlapped consent checkboxes on Step 7 (Consentimiento RGPD)
+
+**Root Cause:** Step 7 content container lacked bottom padding, causing fixed navigation buttons to overlap scrollable consent area
+
+**Solution:** Added `pb-16` (padding-bottom: 4rem) to Step 7 content container
+
+**Changes:**
+- [x] Modified: RegistrationWizard.tsx line 845 - Added pb-16 class
+- [x] Verified: All 554 tests passing (0 regressions)
+- [x] Verified: No TypeScript compilation errors
+- [x] Applied Karpathy Guidelines: Minimal, surgical change
+
+**Status:** ✅ FIXED

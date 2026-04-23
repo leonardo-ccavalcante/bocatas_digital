@@ -842,7 +842,7 @@ export function RegistrationWizard() {
 
         {/* ── Step 7: Consentimiento RGPD ── */}
         {step === 7 && (
-          <div className="space-y-4">
+          <div className="space-y-4 pb-16">
             <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
               <p className="text-sm font-medium text-blue-800">🔒 Protección de datos (RGPD Art. 7)</p>
               <p className="text-xs text-blue-700 mt-1">
