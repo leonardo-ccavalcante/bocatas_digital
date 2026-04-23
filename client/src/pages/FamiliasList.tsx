@@ -6,10 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, Plus, Search, ChevronRight, Download, Upload } from "lucide-react";
+import { Users, Plus, Search, ChevronRight, Download, Upload, FileText } from "lucide-react";
 import { useFamiliasList } from "@/features/families/hooks/useFamilias";
 import { ExportFamiliesModal } from "@/components/ExportFamiliesModal";
 import { ImportFamiliesModal } from "@/components/ImportFamiliesModal";
+import { DeliveryDocumentUpload } from "@/components/DeliveryDocumentUpload";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export default function FamiliasList() {
   const [search, setSearch] = useState("");
@@ -18,6 +20,7 @@ export default function FamiliasList() {
   const [sinInforme, setSinInforme] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [deliveryUploadOpen, setDeliveryUploadOpen] = useState(false);
 
   const { data: families, isLoading } = useFamiliasList({
     search: search || undefined,
@@ -40,6 +43,9 @@ export default function FamiliasList() {
             </div>
           </div>
           <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setDeliveryUploadOpen(true)}>
+              <FileText className="mr-2 h-4 w-4" /> Subir Entregas
+            </Button>
             <Button variant="outline" onClick={() => setExportOpen(true)}>
               <Download className="mr-2 h-4 w-4" /> Exportar CSV
             </Button>
@@ -57,6 +63,23 @@ export default function FamiliasList() {
         {/* CSV Modals */}
         <ExportFamiliesModal open={exportOpen} onOpenChange={setExportOpen} />
         <ImportFamiliesModal open={importOpen} onOpenChange={setImportOpen} />
+
+        {/* Delivery Upload Modal */}
+        <Dialog open={deliveryUploadOpen} onOpenChange={setDeliveryUploadOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Subir Documento de Entregas</DialogTitle>
+            </DialogHeader>
+            <DeliveryDocumentUpload
+              onSuccess={() => {
+                setDeliveryUploadOpen(false);
+              }}
+              onError={(message) => {
+                console.error("Error uploading delivery document:", message);
+              }}
+            />
+          </DialogContent>
+        </Dialog>
 
         {/* Filters */}
         <div className="flex flex-wrap gap-3">

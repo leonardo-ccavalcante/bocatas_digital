@@ -332,6 +332,11 @@ export function RegistrationWizard() {
 
   // ── Final submit ──────────────────────────────────────────────────────────
   const handleFinalSubmit = useCallback(async () => {
+    // Guard against multiple concurrent submissions (race condition fix)
+    if (isSubmitting) {
+      return;
+    }
+
     if (!groupAAccepted) {
       toast.error("Debes aceptar los consentimientos del Grupo A para continuar.");
       return;

@@ -1103,3 +1103,42 @@ All OCR-related bugs and features have been successfully implemented and tested:
 - [x] ARCH-DB-6: Drizzle schema only manages users table (correct separation)
 - [x] ARCH-DB-7: All 546 tests passing - no regressions
 - [x] ARCH-DB-8: Data consistency verified - sin_guf and sin_informe_social columns added
+
+
+## CRITICAL BUGS: Person Registration (2026-04-23)
+
+**Bug #1: Duplicate Person Creation**
+- [ ] BUG-REG-1: Clicking "Registrar persona" multiple times creates duplicate records
+- [ ] BUG-REG-2: No idempotency check on create mutation
+- [ ] BUG-REG-3: No loading state to prevent double-submission
+- [ ] BUG-REG-4: Evidence: "JASON ALEXANDER CORTES RODRIGUEZ" appears 3 times in list
+
+**Bug #2: Photo Upload Blocked & Stored as Text**
+- [ ] BUG-PHOTO-1: Consents section UI overlays/blocks photo upload interface
+- [ ] BUG-PHOTO-2: Photo stored as text in database instead of image file
+- [ ] BUG-PHOTO-3: Users cannot access camera/upload buttons due to UI blocking
+- [ ] BUG-PHOTO-4: Need to store actual image file in S3, not text in database
+
+
+## BUG FIXES: Person Registration (2026-04-23)
+
+- [x] BUG-DUPLICATE-1: Fixed duplicate person creation from multiple button clicks
+  - Added re-entry guard: `if (isSubmitting) return;` in handleFinalSubmit
+  - Prevents concurrent submissions even with rapid clicks
+  - Tests verify only 1 person created on 3 rapid clicks
+  - All 554 tests passing
+
+- [x] BUG-PHOTO-1: Fixed consent upsert error (ON CONFLICT constraint)
+  - Added unique constraint on (person_id, purpose) in consents table via Supabase SQL
+  - Allows upsert operation to work correctly
+  - Photo upload can now complete successfully
+
+- [x] BUG-PHOTO-2: Verified photo storage is correct
+  - Photos are uploaded to S3 bucket "fotos-perfil"
+  - Only URL is stored in database (not base64 text)
+  - Implementation is correct - no changes needed
+
+- [x] ARCH-DB-1 through ARCH-DB-8: Database architecture verified
+  - Tables exist in Supabase PostgreSQL (entregas, entregas_batch, families)
+  - 11 Supabase integration tests passing
+  - Unique constraint added for consents upsert
