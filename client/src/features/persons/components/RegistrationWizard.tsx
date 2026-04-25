@@ -444,7 +444,7 @@ export function RegistrationWizard() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="mx-auto max-w-lg space-y-6 p-4">
+    <div className="mx-auto max-w-lg md:max-w-2xl lg:max-w-4xl space-y-6 p-4">
       {/* Header */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">

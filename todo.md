@@ -1201,3 +1201,20 @@ All OCR-related bugs and features have been successfully implemented and tested:
 
 **Files Modified:**
 - `client/src/features/persons/components/RegistrationWizard.tsx` (line 1169)
+
+
+## BUG FIX: Responsiveness and Layout Issues (2026-04-25) ✅ FIXED
+
+**Issues Fixed:**
+- [x] RESP-1: Registration form too narrow on desktop (max-w-lg constraint)
+- [x] RESP-2: Poor space utilization with sidebar visible
+- [x] RESP-3: Text overlapping due to narrow content area
+- [x] RESP-4: Form not responsive to screen size changes
+
+**Implementation:**
+- Changed `max-w-lg` to `max-w-lg md:max-w-2xl lg:max-w-4xl`
+- Mobile: 512px max-width (unchanged)
+- Tablet (768px+): 672px max-width
+- Desktop (1024px+): 896px max-width
+- All tests passing (554 tests, 0 regressions)
+- Verified visually on dev server
