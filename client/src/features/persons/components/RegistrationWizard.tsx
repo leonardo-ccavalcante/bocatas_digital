@@ -935,7 +935,7 @@ export function RegistrationWizard() {
                           }
                           className="mt-0.5"
                         />
-                        <div className="flex-1 space-y-1">
+                        <div className="flex-1 min-w-0 space-y-1">
                           <Label htmlFor={`cb-${purpose}`} className="cursor-pointer font-medium text-sm">
                             {CONSENT_PURPOSE_LABELS[purpose]}
                           </Label>
@@ -968,7 +968,7 @@ export function RegistrationWizard() {
                           }
                           className="mt-0.5"
                         />
-                        <div className="flex-1 space-y-1">
+                        <div className="flex-1 min-w-0 space-y-1">
                           <Label htmlFor={`cc-${purpose}`} className="cursor-pointer font-medium text-sm">
                             {CONSENT_PURPOSE_LABELS[purpose]}
                           </Label>
@@ -1044,7 +1044,7 @@ export function RegistrationWizard() {
 
             {/* Decline warning */}
             {!groupAAccepted && Object.keys(consentChoices).length > 0 && (
-              <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+              <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 mt-4">
                 <AlertCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
                 <p className="text-sm text-destructive">
                   Sin aceptar el Grupo A no es posible completar el registro.
