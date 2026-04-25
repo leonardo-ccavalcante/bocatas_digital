@@ -899,13 +899,13 @@ export function RegistrationWizard() {
                               {templateEs && (
                                 <div className="rounded bg-muted p-2">
                                   <p className="text-xs font-medium mb-1">🇪🇸 Español</p>
-                                  <p className="text-xs text-muted-foreground line-clamp-3">{templateEs.text_content}</p>
+                                  <p className="text-xs text-muted-foreground">{templateEs.text_content}</p>
                                 </div>
                               )}
                               {templateLang && templateLang.idioma !== "es" && (
                                 <div className="rounded bg-muted p-2">
                                   <p className="text-xs font-medium mb-1">🌐 {templateLang.idioma.toUpperCase()}</p>
-                                  <p className="text-xs text-muted-foreground line-clamp-3">{templateLang.text_content}</p>
+                                  <p className="text-xs text-muted-foreground">{templateLang.text_content}</p>
                                 </div>
                               )}
                             </div>
@@ -941,7 +941,7 @@ export function RegistrationWizard() {
                           </Label>
                           <Badge variant="secondary" className="text-xs">Requerido para Comedor Social</Badge>
                           {templateEs && (
-                            <p className="text-xs text-muted-foreground line-clamp-2">{templateEs.text_content}</p>
+                            <p className="text-xs text-muted-foreground">{templateEs.text_content}</p>
                           )}
                         </div>
                       </div>
@@ -974,7 +974,7 @@ export function RegistrationWizard() {
                           </Label>
                           <Badge variant="secondary" className="text-xs">Opcional</Badge>
                           {templateEs && (
-                            <p className="text-xs text-muted-foreground line-clamp-2">{templateEs.text_content}</p>
+                            <p className="text-xs text-muted-foreground">{templateEs.text_content}</p>
                           )}
                         </div>
                       </div>

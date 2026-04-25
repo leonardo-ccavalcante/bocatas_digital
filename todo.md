@@ -1299,3 +1299,27 @@ The 92px of overflow was extending DOWN and COVERING Group B checkboxes below.
 
 **Key Learning:**
 When fixes don't work, stop and investigate the ROOT CAUSE systematically. The real problem (height constraint) was completely different from what symptoms suggested (text wrapping, spacing, z-index). Systematic debugging revealed the truth.
+
+
+---
+
+## BUG FIX: Step 7 Consent Text Truncation - Legal Compliance Issue (2026-04-25) ✅ FIXED
+
+**Critical Issue:** Consent text was truncated with "..." violating RGPD legal compliance
+- Users could not see complete legal text before consenting
+- Violated informed consent requirements
+
+**Root Cause:** `line-clamp-3` and `line-clamp-2` CSS classes limited text to 3-2 lines with ellipsis
+
+**The Fix (Surgical Implementation):**
+- Line 902: Removed `line-clamp-3` from Group A Spanish text
+- Line 908: Removed `line-clamp-3` from Group A language text
+- Line 944: Removed `line-clamp-2` from Group B Spanish text
+- Line 977: Removed `line-clamp-2` from Group C Spanish text
+
+**Verification:**
+- ✅ 554 tests passing (7 skipped)
+- ✅ 0 failures, 0 regressions
+- ✅ All consent text now fully visible
+- ✅ RGPD legal compliance requirement satisfied
+- ✅ Users can read complete legal text before consenting
