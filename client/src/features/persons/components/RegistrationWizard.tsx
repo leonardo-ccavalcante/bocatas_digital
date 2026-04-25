@@ -85,7 +85,7 @@ const CONSENT_PURPOSE_LABELS: Record<string, string> = {
 };
 
 // Slugs that trigger extra consent groups
-const SLUG_BANCO_ALIMENTOS = "comedor"; // Comedor Social uses Banco de Alimentos data
+const SLUG_BANCO_ALIMENTOS = "familia"; // Familia program uses Banco de Alimentos data
 const SLUG_FAMILIA = "familia";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -1033,7 +1033,7 @@ export function RegistrationWizard() {
                     </Button>
                   </div>
                 )}
-                <input ref={consentDocInputRef} type="file" accept="image/*" className="hidden"
+                <input ref={consentDocInputRef} type="file" accept="image/*" capture="environment" className="hidden"
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (file) void handleConsentDocFile(file);

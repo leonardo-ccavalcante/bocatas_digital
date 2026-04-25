@@ -1323,3 +1323,42 @@ When fixes don't work, stop and investigate the ROOT CAUSE systematically. The r
 - ✅ All consent text now fully visible
 - ✅ RGPD legal compliance requirement satisfied
 - ✅ Users can read complete legal text before consenting
+
+
+---
+
+## IMPROVEMENT A: Conditional Grupo B Display (2026-04-25) ✅ FIXED
+
+**Issue:** Grupo B (Banco de Alimentos) was appearing for all programs, but should only appear if user selects "Programa de Familia"
+
+**Root Cause:** Line 88 had wrong constant: `SLUG_BANCO_ALIMENTOS = "comedor"` (Comedor Social)
+
+**The Fix (Surgical - 1 line):**
+- Line 88: Changed `const SLUG_BANCO_ALIMENTOS = "comedor";` to `const SLUG_BANCO_ALIMENTOS = "familia";`
+- Result: Grupo B now only appears when "Programa de Familia" is selected
+
+**Verification:**
+- ✅ 554 tests passing (7 skipped)
+- ✅ 0 failures, 0 regressions
+
+---
+
+## IMPROVEMENT B: Camera Button Opens Device Camera (2026-04-25) ✅ FIXED
+
+**Issue:** "Cámara" button opened file upload dialog instead of device camera
+
+**Root Cause:** Line 1036 file input was missing `capture="environment"` attribute (needed to trigger camera on mobile)
+
+**Pattern Found:** DocumentPhotoCapture component had working implementation with `capture="environment"` as default attribute
+
+**The Fix (Surgical - 1 line):**
+- Line 1036: Added `capture="environment"` to file input element
+- Before: `<input ref={consentDocInputRef} type="file" accept="image/*" className="hidden"`
+- After: `<input ref={consentDocInputRef} type="file" accept="image/*" capture="environment" className="hidden"`
+- Result: Camera button now opens device camera (with "Subir imagen" as fallback for file upload)
+
+**Verification:**
+- ✅ 554 tests passing (7 skipped)
+- ✅ 0 failures, 0 regressions
+- ✅ Camera button now opens native device camera on mobile
+- ✅ File upload button still available as fallback
