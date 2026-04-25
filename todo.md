@@ -1218,3 +1218,44 @@ All OCR-related bugs and features have been successfully implemented and tested:
 - Desktop (1024px+): 896px max-width
 - All tests passing (554 tests, 0 regressions)
 - Verified visually on dev server
+
+
+---
+
+## BUG FIX: Step 7 Text Overlap Issue (2026-04-25) ✅ FIXED
+
+**Issue:** Text "Comunicaciones por WhatsApp" was overlapping/cut off in Step 7 (Consentimiento RGPD) despite previous responsive fixes
+
+**Root Cause Analysis (Systematic Debugging Phase 1):**
+- Missing `min-w-0` constraint on flex-1 containers in the checkbox layout
+- Flex containers without min-w-0 don't shrink below content width
+- Text couldn't wrap properly, causing overflow and overlap
+- Previous responsive max-width fix (max-w-lg → md:max-w-2xl lg:max-w-4xl) improved overall layout but didn't address internal flex issue
+
+**Fix Applied (Phase 4 - Implementation):**
+- Added `min-w-0` class to flex-1 container at line 893 of RegistrationWizard.tsx
+- Before: `<div className="flex-1 space-y-1">`
+- After: `<div className="flex-1 min-w-0 space-y-1">`
+- This forces the flex container to respect width constraints and allow text wrapping
+
+**Approach Used:**
+1. ✅ Phase 1: Systematic debugging - identified root cause (missing min-w-0)
+2. ✅ Phase 2: Code review request - verified diagnosis before implementing
+3. ✅ Phase 3: Received feedback - confirmed fix approach
+4. ✅ Phase 4: Implemented surgical fix - added min-w-0 class (1 line change)
+
+**Verification:**
+- ✅ 554 tests passing (7 skipped due to DB setup)
+- ✅ 0 failures
+- ✅ 0 regressions
+- ✅ TypeScript: 0 errors (except expected Documento_Extranjero enum warning)
+- ✅ Surgical fix following Karpathy guidelines (minimal change, single responsibility)
+
+**Files Modified:**
+- `client/src/features/persons/components/RegistrationWizard.tsx` (line 893)
+
+**Impact:**
+- Text now wraps properly in all consent checkbox items (Group A, B, C)
+- Resolves "Comunicaciones por WhatsApp" overlap issue
+- Improves overall form layout and readability
+- No breaking changes or side effects

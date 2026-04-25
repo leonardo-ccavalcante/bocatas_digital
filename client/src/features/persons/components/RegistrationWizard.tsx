@@ -890,7 +890,7 @@ export function RegistrationWizard() {
                             }
                             className="mt-0.5"
                           />
-                          <div className="flex-1 space-y-1">
+                          <div className="flex-1 min-w-0 space-y-1">
                             <Label htmlFor={`ca-${purpose}`} className="cursor-pointer font-medium text-sm">
                               {CONSENT_PURPOSE_LABELS[purpose]}
                             </Label>
