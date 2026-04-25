@@ -874,7 +874,7 @@ export function RegistrationWizard() {
                 </div>
               </div>
 
-              <ScrollArea className="max-h-52 rounded-md border">
+              <ScrollArea className="rounded-md border">
                 <div className="p-3 space-y-3">
                   {groupAPurposes.map((purpose) => {
                     const templateEs = consentTemplatesEs.find((t) => t.purpose === purpose);
