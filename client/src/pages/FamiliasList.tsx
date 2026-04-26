@@ -30,31 +30,31 @@ export default function FamiliasList() {
   });
 
   return (
-    <div className="container py-6 space-y-6">
+    <div className="container px-4 sm:px-6 md:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
           <div className="flex items-center gap-3">
             <Users className="h-6 w-6 text-primary" />
             <div>
-              <h1 className="text-2xl font-bold">Programa de Familias</h1>
-              <p className="text-sm text-muted-foreground">
+              <h1 className="text-xl sm:text-2xl font-bold">Programa de Familias</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground">
                 {families?.length ?? 0} familias registradas
               </p>
             </div>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setDeliveryUploadOpen(true)}>
-              <FileText className="mr-2 h-4 w-4" /> Subir Entregas
+          <div className="flex flex-wrap gap-1 sm:gap-2 md:gap-3">
+            <Button variant="outline" size="sm" className="text-xs sm:text-sm" onClick={() => setDeliveryUploadOpen(true)}>
+              <FileText className="mr-1 sm:mr-2 h-3 sm:h-4 w-3 sm:w-4" /> <span className="hidden sm:inline">Subir Entregas</span><span className="sm:hidden">Entregas</span>
             </Button>
-            <Button variant="outline" onClick={() => setExportOpen(true)}>
-              <Download className="mr-2 h-4 w-4" /> Exportar CSV
+            <Button variant="outline" size="sm" className="text-xs sm:text-sm" onClick={() => setExportOpen(true)}>
+              <Download className="mr-1 sm:mr-2 h-3 sm:h-4 w-3 sm:w-4" /> <span className="hidden sm:inline">Exportar CSV</span><span className="sm:hidden">Exportar</span>
             </Button>
-            <Button variant="outline" onClick={() => setImportOpen(true)}>
-              <Upload className="mr-2 h-4 w-4" /> Importar CSV
+            <Button variant="outline" size="sm" className="text-xs sm:text-sm" onClick={() => setImportOpen(true)}>
+              <Upload className="mr-1 sm:mr-2 h-3 sm:h-4 w-3 sm:w-4" /> <span className="hidden sm:inline">Importar CSV</span><span className="sm:hidden">Importar</span>
             </Button>
             <Link href="/familias/nueva">
-              <Button>
-                <Plus className="mr-2 h-4 w-4" /> Nueva familia
+              <Button size="sm" className="text-xs sm:text-sm">
+                <Plus className="mr-1 sm:mr-2 h-3 sm:h-4 w-3 sm:w-4" /> <span className="hidden sm:inline">Nueva familia</span><span className="sm:hidden">Nueva</span>
               </Button>
             </Link>
           </div>
@@ -82,18 +82,18 @@ export default function FamiliasList() {
         </Dialog>
 
         {/* Filters */}
-        <div className="flex flex-wrap gap-3">
-          <div className="relative flex-1 min-w-48">
+        <div className="flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3">
+          <div className="relative flex-1 min-w-0 sm:min-w-48">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input
-              className="pl-9"
+              className="pl-9 text-sm"
               placeholder="Buscar por nombre o número..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
           <Select value={estado} onValueChange={(v) => setEstado(v as typeof estado)}>
-            <SelectTrigger className="w-36">
+            <SelectTrigger className="w-full sm:w-36">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -105,6 +105,7 @@ export default function FamiliasList() {
           <Button
             variant={sinGuf ? "default" : "outline"}
             size="sm"
+            className="text-xs sm:text-sm w-full sm:w-auto"
             onClick={() => setSinGuf(!sinGuf)}
           >
             Sin GUF
@@ -112,6 +113,7 @@ export default function FamiliasList() {
           <Button
             variant={sinInforme ? "default" : "outline"}
             size="sm"
+            className="text-xs sm:text-sm w-full sm:w-auto"
             onClick={() => setSinInforme(!sinInforme)}
           >
             Sin informe social
