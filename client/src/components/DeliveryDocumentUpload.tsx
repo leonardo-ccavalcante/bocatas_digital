@@ -123,6 +123,22 @@ export const DeliveryDocumentUpload: React.FC<DeliveryDocumentUploadProps> = ({
       {step === 'upload' && (
         <Card className="p-6">
           <h2 className="text-2xl font-bold mb-4">Cargar Documento de Entrega</h2>
+          
+          {/* Template Download Section */}
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <h3 className="font-semibold text-blue-900 mb-2">¿Necesitas ayuda con el formato?</h3>
+            <p className="text-sm text-blue-800 mb-3">
+              Descarga la plantilla CSV con ejemplos y una guía completa para entender qué información necesitas incluir.
+            </p>
+            <button
+              onClick={handleDownloadTemplate}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+            >
+              <Download className="w-4 h-4" />
+              Descargar Plantilla CSV + Guía
+            </button>
+          </div>
+          
           <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
             <Upload className="w-12 h-12 mx-auto mb-4 text-gray-400" />
             <p className="text-gray-600 mb-4">Arrastra tu documento aquí o haz clic para seleccionar</p>

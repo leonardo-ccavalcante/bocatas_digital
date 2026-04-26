@@ -133,7 +133,7 @@ export default function FamiliasList() {
               return (
               <Link key={f.id} href={`/familias/${f.id}`}>
                 <Card className="hover:bg-accent/50 transition-colors cursor-pointer">
-                  <CardContent className="flex items-center justify-between py-3 px-4">
+                  <CardContent className="flex items-center justify-between flex-wrap gap-2 py-3 px-4">
                     <div className="flex items-center gap-4">
                       <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
                         <span className="text-sm font-bold text-primary">
