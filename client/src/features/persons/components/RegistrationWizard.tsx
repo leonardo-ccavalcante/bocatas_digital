@@ -85,7 +85,7 @@ const CONSENT_PURPOSE_LABELS: Record<string, string> = {
 };
 
 // Slugs that trigger extra consent groups
-const SLUG_BANCO_ALIMENTOS = "comedor"; // Comedor Social uses Banco de Alimentos data
+const SLUG_BANCO_ALIMENTOS = "familia"; // Familia program uses Banco de Alimentos data
 const SLUG_FAMILIA = "familia";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -444,7 +444,7 @@ export function RegistrationWizard() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="mx-auto max-w-lg space-y-6 p-4">
+    <div className="mx-auto max-w-lg md:max-w-2xl lg:max-w-4xl space-y-6 p-4">
       {/* Header */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
@@ -842,7 +842,7 @@ export function RegistrationWizard() {
 
         {/* ── Step 7: Consentimiento RGPD ── */}
         {step === 7 && (
-          <div className="space-y-4">
+          <div className="space-y-4 pb-16">
             <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
               <p className="text-sm font-medium text-blue-800">🔒 Protección de datos (RGPD Art. 7)</p>
               <p className="text-xs text-blue-700 mt-1">
@@ -874,7 +874,7 @@ export function RegistrationWizard() {
                 </div>
               </div>
 
-              <ScrollArea className="max-h-52 rounded-md border">
+              <ScrollArea className="rounded-md border">
                 <div className="p-3 space-y-3">
                   {groupAPurposes.map((purpose) => {
                     const templateEs = consentTemplatesEs.find((t) => t.purpose === purpose);
@@ -890,7 +890,7 @@ export function RegistrationWizard() {
                             }
                             className="mt-0.5"
                           />
-                          <div className="flex-1 space-y-1">
+                          <div className="flex-1 min-w-0 space-y-1">
                             <Label htmlFor={`ca-${purpose}`} className="cursor-pointer font-medium text-sm">
                               {CONSENT_PURPOSE_LABELS[purpose]}
                             </Label>
@@ -899,13 +899,13 @@ export function RegistrationWizard() {
                               {templateEs && (
                                 <div className="rounded bg-muted p-2">
                                   <p className="text-xs font-medium mb-1">🇪🇸 Español</p>
-                                  <p className="text-xs text-muted-foreground line-clamp-3">{templateEs.text_content}</p>
+                                  <p className="text-xs text-muted-foreground">{templateEs.text_content}</p>
                                 </div>
                               )}
                               {templateLang && templateLang.idioma !== "es" && (
                                 <div className="rounded bg-muted p-2">
                                   <p className="text-xs font-medium mb-1">🌐 {templateLang.idioma.toUpperCase()}</p>
-                                  <p className="text-xs text-muted-foreground line-clamp-3">{templateLang.text_content}</p>
+                                  <p className="text-xs text-muted-foreground">{templateLang.text_content}</p>
                                 </div>
                               )}
                             </div>
@@ -935,13 +935,13 @@ export function RegistrationWizard() {
                           }
                           className="mt-0.5"
                         />
-                        <div className="flex-1 space-y-1">
+                        <div className="flex-1 min-w-0 space-y-1">
                           <Label htmlFor={`cb-${purpose}`} className="cursor-pointer font-medium text-sm">
                             {CONSENT_PURPOSE_LABELS[purpose]}
                           </Label>
                           <Badge variant="secondary" className="text-xs">Requerido para Comedor Social</Badge>
                           {templateEs && (
-                            <p className="text-xs text-muted-foreground line-clamp-2">{templateEs.text_content}</p>
+                            <p className="text-xs text-muted-foreground">{templateEs.text_content}</p>
                           )}
                         </div>
                       </div>
@@ -968,13 +968,13 @@ export function RegistrationWizard() {
                           }
                           className="mt-0.5"
                         />
-                        <div className="flex-1 space-y-1">
+                        <div className="flex-1 min-w-0 space-y-1">
                           <Label htmlFor={`cc-${purpose}`} className="cursor-pointer font-medium text-sm">
                             {CONSENT_PURPOSE_LABELS[purpose]}
                           </Label>
                           <Badge variant="secondary" className="text-xs">Opcional</Badge>
                           {templateEs && (
-                            <p className="text-xs text-muted-foreground line-clamp-2">{templateEs.text_content}</p>
+                            <p className="text-xs text-muted-foreground">{templateEs.text_content}</p>
                           )}
                         </div>
                       </div>
@@ -1033,7 +1033,7 @@ export function RegistrationWizard() {
                     </Button>
                   </div>
                 )}
-                <input ref={consentDocInputRef} type="file" accept="image/*" className="hidden"
+                <input ref={consentDocInputRef} type="file" accept="image/*" capture="environment" className="hidden"
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (file) void handleConsentDocFile(file);
@@ -1044,7 +1044,7 @@ export function RegistrationWizard() {
 
             {/* Decline warning */}
             {!groupAAccepted && Object.keys(consentChoices).length > 0 && (
-              <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+              <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 mt-4">
                 <AlertCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
                 <p className="text-sm text-destructive">
                   Sin aceptar el Grupo A no es posible completar el registro.
@@ -1166,7 +1166,7 @@ export function RegistrationWizard() {
         )}
 
         {/* Navigation buttons */}
-        <div className="flex gap-3 pt-2">
+        <div className="sticky bottom-0 flex gap-3 pt-2 pb-2 bg-background border-t">
           {step > 0 && (
             <Button type="button" variant="outline" onClick={goBack} className="flex-1">
               <ChevronLeft className="mr-1 h-4 w-4" /> Anterior
