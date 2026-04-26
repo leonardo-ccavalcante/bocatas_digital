@@ -412,3 +412,73 @@ describe("persons router — updateFaseItinerario procedure", () => {
     }
   });
 });
+
+describe("persons router — document country validation", () => {
+  it("should warn when Documento_Extranjero lacks pais_documento", async () => {
+    const caller = appRouter.createCaller(createAuthContext());
+
+    const result = await caller.persons.create({
+      nombre: "Juan",
+      apellidos: "García",
+      fecha_nacimiento: "1990-01-01",
+      idioma_principal: "es",
+      canal_llegada: "boca_a_boca",
+      tipo_documento: "Documento_Extranjero",
+      numero_documento: "A12345678",
+      pais_documento: null,
+      fase_itinerario: "acogida",
+      program_ids: [],
+    });
+
+    // Should succeed but include warning
+    expect(result).toHaveProperty("id");
+    expect(result).toHaveProperty("validation_warnings");
+    expect(result.validation_warnings).toContain(
+      "pais_documento required for Documento_Extranjero"
+    );
+  });
+
+  it("should not warn when Documento_Extranjero has pais_documento", async () => {
+    const caller = appRouter.createCaller(createAuthContext());
+
+    const result = await caller.persons.create({
+      nombre: "Juan",
+      apellidos: "García",
+      fecha_nacimiento: "1990-01-01",
+      idioma_principal: "es",
+      canal_llegada: "boca_a_boca",
+      tipo_documento: "Documento_Extranjero",
+      numero_documento: "A12345678",
+      pais_documento: "FR",
+      fase_itinerario: "acogida",
+      program_ids: [],
+    });
+
+    expect(result).toHaveProperty("id");
+    expect(result.validation_warnings || []).not.toContain(
+      "pais_documento required for Documento_Extranjero"
+    );
+  });
+
+  it("should not warn for DNI without pais_documento", async () => {
+    const caller = appRouter.createCaller(createAuthContext());
+
+    const result = await caller.persons.create({
+      nombre: "Juan",
+      apellidos: "García",
+      fecha_nacimiento: "1990-01-01",
+      idioma_principal: "es",
+      canal_llegada: "boca_a_boca",
+      tipo_documento: "DNI",
+      numero_documento: "12345678A",
+      pais_documento: null,
+      fase_itinerario: "acogida",
+      program_ids: [],
+    });
+
+    expect(result).toHaveProperty("id");
+    expect(result.validation_warnings || []).not.toContain(
+      "pais_documento required"
+    );
+  });
+});

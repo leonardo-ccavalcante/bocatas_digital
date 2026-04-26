@@ -29,6 +29,14 @@ const NivelIngresosEnum = z.enum(["sin_ingresos", "menos_500", "entre_500_1000",
 const CanalLlegadaEnum = z.enum(["boca_a_boca", "cruz_roja", "servicios_sociales", "otra_ong", "internet", "presencial_directo", "whatsapp", "telefono", "email", "instagram", "retorno_bocatas", "otros"]);
 const FaseItinerarioEnum = z.enum(["acogida", "estabilizacion", "formacion", "insercion_laboral", "autonomia"]);
 
+// Extended return type to include validation warnings
+interface PersonCreateResult {
+  id: string;
+  nombre: string;
+  apellidos: string;
+  validation_warnings?: string[];
+}
+
 const PersonCreateInput = z.object({
   canal_llegada: CanalLlegadaEnum,
   entidad_derivadora: z.string().max(200).optional().nullable(),
@@ -77,6 +85,19 @@ export const personsRouter = router({
     .mutation(async ({ input }) => {
       const supabase = createAdminClient();
       const { program_ids: _, ...personData } = input;
+
+      // Validation warnings
+      const validationWarnings: string[] = [];
+
+      // Validate pais_documento requirement for Documento_Extranjero
+      if (
+        personData.tipo_documento === "Documento_Extranjero" &&
+        !personData.pais_documento
+      ) {
+        validationWarnings.push(
+          "pais_documento required for Documento_Extranjero"
+        );
+      }
 
       // Helper: convert empty strings to null to satisfy DB CHECK constraints
       const str = (v: string | null | undefined): string | null =>
@@ -133,7 +154,10 @@ export const personsRouter = router({
         });
       }
 
-      return person;
+      return {
+        ...person,
+        validation_warnings: validationWarnings,
+      };
     }),
 
   /**
