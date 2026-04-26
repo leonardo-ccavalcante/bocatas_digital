@@ -713,6 +713,7 @@ export type Database = {
           notas_privadas: string | null
           numero_documento: string | null
           observaciones: string | null
+          pais_documento: string | null
           pais_origen: string | null
           persona_referencia: string | null
           recorrido_migratorio: string | null
@@ -763,6 +764,7 @@ export type Database = {
           notas_privadas?: string | null
           numero_documento?: string | null
           observaciones?: string | null
+          pais_documento?: string | null
           pais_origen?: string | null
           persona_referencia?: string | null
           recorrido_migratorio?: string | null
@@ -813,6 +815,7 @@ export type Database = {
           notas_privadas?: string | null
           numero_documento?: string | null
           observaciones?: string | null
+          pais_documento?: string | null
           pais_origen?: string | null
           persona_referencia?: string | null
           recorrido_migratorio?: string | null
@@ -1246,6 +1249,7 @@ export type Database = {
           nombre: string | null
           numero_documento: string | null
           observaciones: string | null
+          pais_documento: string | null
           pais_origen: string | null
           persona_referencia: string | null
           restricciones_alimentarias: string | null
@@ -1444,7 +1448,7 @@ export type Database = {
         | "jubilado"
         | "incapacidad_permanente"
         | "sin_permiso_trabajo"
-      tipo_documento: "DNI" | "NIE" | "Pasaporte" | "Sin_Documentacion"
+      tipo_documento: "DNI" | "NIE" | "Pasaporte" | "Sin_Documentacion" | "Documento_Extranjero"
       tipo_vivienda:
         | "calle"
         | "albergue"
@@ -1664,7 +1668,7 @@ export const Constants = {
         "incapacidad_permanente",
         "sin_permiso_trabajo",
       ],
-      tipo_documento: ["DNI", "NIE", "Pasaporte", "Sin_Documentacion"],
+      tipo_documento: ["DNI", "NIE", "Pasaporte", "Sin_Documentacion", "Documento_Extranjero"],
       tipo_vivienda: [
         "calle",
         "albergue",
