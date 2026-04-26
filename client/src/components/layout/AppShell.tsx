@@ -3,6 +3,7 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useAppStore } from "@/store/useAppStore";
 import type { BocatasRole } from "./ProtectedRoute";
+import MobileFooterNav from "./MobileFooterNav";
 import {
   Home,
   Users,
@@ -95,10 +96,17 @@ interface AppShellProps {
 }
 
 export default function AppShell({ children }: AppShellProps) {
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
   const { user, logout } = useAuth();
   const { sidebarCollapsed, setSidebarCollapsed } = useAppStore();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Handle logo click - navigate to home if not already there
+  const handleLogoClick = () => {
+    if (location !== "/") {
+      navigate("/");
+    }
+  };
 
   // Normalize role: Manus OAuth default is "user" which is not a Bocatas role.
   // Map "user" (and any unknown role) → "beneficiario" as the safe fallback.
@@ -137,27 +145,33 @@ export default function AppShell({ children }: AppShellProps) {
             sidebarCollapsed ? "justify-center px-2" : "justify-between px-4"
           )}
         >
-          {!sidebarCollapsed && (
-            <div className="flex items-center gap-2.5">
-              {/* Bocatas logo circle */}
+          <button
+            onClick={handleLogoClick}
+            className="flex items-center gap-2.5 cursor-pointer hover:opacity-80 transition-opacity"
+            aria-label="Ir a inicio"
+          >
+            {!sidebarCollapsed && (
+              <div className="flex items-center gap-2.5">
+                {/* Bocatas logo circle */}
+                <img
+                  src="/bocatas-logo.png"
+                  alt="Bocatas"
+                  className="w-9 h-9 rounded-full object-cover shrink-0"
+                />
+                <div className="leading-tight">
+                  <p className="font-bold text-sm text-white">Bocatas</p>
+                  <p className="text-[10px] text-white/60 font-medium">Digital</p>
+                </div>
+              </div>
+            )}
+            {sidebarCollapsed && (
               <img
                 src="/bocatas-logo.png"
                 alt="Bocatas"
-                className="w-9 h-9 rounded-full object-cover shrink-0"
+                className="w-9 h-9 rounded-full object-cover"
               />
-              <div className="leading-tight">
-                <p className="font-bold text-sm text-white">Bocatas</p>
-                <p className="text-[10px] text-white/60 font-medium">Digital</p>
-              </div>
-            </div>
-          )}
-          {sidebarCollapsed && (
-            <img
-              src="/bocatas-logo.png"
-              alt="Bocatas"
-              className="w-9 h-9 rounded-full object-cover"
-            />
-          )}
+            )}
+          </button>
           <button
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
             className={cn(
@@ -241,14 +255,18 @@ export default function AppShell({ children }: AppShellProps) {
       {/* ── Mobile Header ────────────────────────────────────────────── */}
       <div className="flex flex-col flex-1 overflow-hidden">
         <header className="md:hidden sticky top-0 z-50 flex items-center justify-between px-4 py-3 bg-white border-b border-black/5 shadow-sm">
-          <div className="flex items-center gap-2.5">
+          <button
+            onClick={handleLogoClick}
+            className="flex items-center gap-2.5 cursor-pointer hover:opacity-80 transition-opacity"
+            aria-label="Ir a inicio"
+          >
             <img
               src="/bocatas-logo.png"
               alt="Bocatas"
               className="w-9 h-9 rounded-full object-cover shrink-0"
             />
             <span className="font-bold text-base text-[#C41230]">Bocatas Digital</span>
-          </div>
+          </button>
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="p-2 -mr-1 text-[#5E5E5E] rounded-xl hover:bg-black/5 transition-colors"
@@ -343,9 +361,10 @@ export default function AppShell({ children }: AppShellProps) {
         </div>
 
         {/* ── Main content ──────────────────────────────────────────── */}
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto pb-16 md:pb-0">
           {children}
         </main>
+        <MobileFooterNav />
       </div>
     </div>
   );

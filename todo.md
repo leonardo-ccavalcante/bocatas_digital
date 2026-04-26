@@ -1362,3 +1362,64 @@ When fixes don't work, stop and investigate the ROOT CAUSE systematically. The r
 - ✅ 0 failures, 0 regressions
 - ✅ Camera button now opens native device camera on mobile
 - ✅ File upload button still available as fallback
+
+
+---
+
+## FEATURE: Logo Click Navigation to Home (2026-04-26) ✅ IMPLEMENTED
+
+**Feature:** Make Bocatas Digital logo clickable to navigate to home page
+
+**Implementation:**
+- Added `handleLogoClick()` function in AppShell.tsx
+- Wrapped desktop sidebar logo with button element
+- Wrapped mobile header logo with button element
+- Navigation only happens if not already on home (prevents unnecessary refresh)
+- Added hover effect: `cursor-pointer hover:opacity-80 transition-opacity`
+
+**Files Modified:**
+- `client/src/components/layout/AppShell.tsx` (lines 98, 104-108, 147-172, 257-268)
+
+**Verification:**
+- ✅ 554 tests passing (7 skipped)
+- ✅ 0 failures, 0 regressions
+- ✅ Logo clickable on desktop and mobile
+- ✅ Navigation works correctly
+
+---
+
+## FEATURE: Mobile Footer Navigation (2026-04-26) ✅ IMPLEMENTED
+
+**Feature:** Add fixed footer navigation on mobile with Home, Check-in, Personas links
+
+**Implementation:**
+- Created new component: `MobileFooterNav.tsx`
+- Fixed position at bottom: `fixed bottom-0 left-0 right-0`
+- Icons only (compact design): Home, Check-in, Personas
+- Active state shows current page: `text-[#C41230] bg-[#C41230]/5`
+- Mobile only: `md:hidden` (hidden on desktop)
+- Added content padding: `pb-16 md:pb-0` to main content
+
+**Files Created:**
+- `client/src/components/layout/MobileFooterNav.tsx` (new component)
+
+**Files Modified:**
+- `client/src/components/layout/AppShell.tsx` (import + integration)
+
+**Design Details:**
+- Height: 64px (h-16)
+- Background: white with top border
+- Icons: 20x20px (h-5 w-5)
+- Active color: #C41230 (Bocatas red)
+- Inactive color: #5E5E5E (gray)
+- Hover state: `hover:bg-black/5`
+
+**Verification:**
+- ✅ 554 tests passing (7 skipped)
+- ✅ 0 failures, 0 regressions
+- ✅ Footer appears only on mobile
+- ✅ Footer is fixed at bottom
+- ✅ Content not hidden behind footer
+- ✅ Navigation works correctly
+- ✅ Active state shows current page
+- ✅ Desktop layout unchanged
