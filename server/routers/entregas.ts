@@ -7,12 +7,53 @@ import {
   ExtractedDeliveryRow,
 } from '../ocrDeliveryExtraction';
 import { generateEntregasCSVTemplate } from '../csvTemplateGenerator';
+import { extractDeliveryDataFromImage } from '../_core/delivery-ocr';
 
 /**
  * Entregas (delivery) router
  * Handles OCR document upload, extraction, validation, and saving
  */
 export const entregasRouter = router({
+  /**
+   * Extract delivery data from a photo of physical delivery document
+   * Uses LLM-based table extraction to identify beneficiaries, dates, and quantities
+   * Input: photo URL (S3), programa ID
+   * Output: Extracted beneficiaries with deliveries and confidence scores
+   */
+  extractFromPhoto: protectedProcedure
+    .input(
+      z.object({
+        photoUrl: z.string().url('URL de foto inválida').min(1),
+        programaId: z.string().min(1, 'ID de programa requerido'),
+      })
+    )
+    .mutation(async ({ input }) => {
+      try {
+        const result = await extractDeliveryDataFromImage(input.photoUrl, input.programaId);
+
+        return {
+          success: result.success,
+          extractionConfidence: result.extractionConfidence,
+          documentDate: result.documentDate,
+          beneficiaries: result.beneficiaries,
+          warnings: result.warnings,
+          errors: result.errors,
+          message: result.success
+            ? `Extracción completada: ${result.beneficiaries.length} beneficiarios detectados`
+            : `Error en extracción: ${result.errors?.join(', ') || 'desconocido'}`,
+        };
+      } catch (error) {
+        return {
+          success: false,
+          extractionConfidence: 0,
+          beneficiaries: [],
+          warnings: [],
+          errors: [error instanceof Error ? error.message : 'Error desconocido'],
+          message: `Error al procesar foto: ${error instanceof Error ? error.message : 'desconocido'}`,
+        };
+      }
+    }),
+
   /**
    * Extract deliveries from OCR text
    * Input: image URL and OCR text
