@@ -28,7 +28,7 @@ const uuidLike = z
  *   - If `member.person_id` is set, return it (caller is responsible for ensuring it exists).
  *   - Otherwise, try a duplicate match on (nombre + apellidos + fecha_nacimiento) — exact match only.
  *     Fuzzy/trigram dedup is Gate 2.
- *   - If no match, INSERT a new persons row with canal_llegada = 'otros' (familia intake).
+ *   - If no match, INSERT a new persons row with canal_llegada = 'programa_familias' (familia intake).
  * Returns the resolved `person_id`.
  */
 async function resolveMemberPersonId(
@@ -64,7 +64,7 @@ async function resolveMemberPersonId(
       apellidos: member.apellidos,
       fecha_nacimiento: member.fecha_nacimiento ?? null,
       numero_documento: member.documento ?? null,
-      canal_llegada: "otros",
+      canal_llegada: "programa_familias",
       idioma_principal: "es",
     })
     .select("id")

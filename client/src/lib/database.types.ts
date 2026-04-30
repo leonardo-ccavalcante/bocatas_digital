@@ -1391,6 +1391,7 @@ export type Database = {
         | "email"
         | "instagram"
         | "retorno_bocatas"
+        | "programa_familias"
         | "otros"
       consent_language: "es" | "ar" | "fr" | "bm"
       consent_purpose:
@@ -1602,6 +1603,7 @@ export const Constants = {
         "email",
         "instagram",
         "retorno_bocatas",
+        "programa_familias",
         "otros",
       ],
       consent_language: ["es", "ar", "fr", "bm"],
