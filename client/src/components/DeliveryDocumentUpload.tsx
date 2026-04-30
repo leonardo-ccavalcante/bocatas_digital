@@ -42,6 +42,7 @@ export const DeliveryDocumentUpload: React.FC<DeliveryDocumentUploadProps> = ({
   const saveMutation = trpc.entregas.saveBatch.useMutation();
   const { data: templateData } = trpc.entregas.downloadTemplate.useQuery();
   const ocrExtractMutation = trpc.entregas.extractFromPhoto.useMutation();
+  const uploadPhotoMutation = trpc.entregas.uploadPhotoToStorage.useMutation();
 
   // Handle Tab Switch - Clear State
   const handleTabChange = (tab: 'csv' | 'ocr') => {
@@ -152,9 +153,28 @@ export const DeliveryDocumentUpload: React.FC<DeliveryDocumentUploadProps> = ({
     setOcrError(null);
 
     try {
-      // TODO: Upload photo to storage and get URL
-      const photoUrl = 'https://placeholder.com/photo.jpg';
+      // Step 1: Convert File to base64
+      const reader = new FileReader();
+      const photoData = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => {
+          const result = reader.result as string;
+          const base64 = result.split(',')[1]; // Remove data:image/jpeg;base64, prefix
+          resolve(base64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(photoFile);
+      });
 
+      // Step 2: Upload photo to S3 storage via tRPC
+      const uploadResult = await uploadPhotoMutation.mutateAsync({
+        photoData,
+        rotation: rotationDegrees,
+        fileName: photoFile.name,
+      });
+
+      const { photoUrl, photoKey, rotation } = uploadResult;
+
+      // Step 3: Extract delivery data from photo
       const result = await ocrExtractMutation.mutateAsync({
         photoUrl: photoUrl,
         programaId: 'default-programa',
@@ -174,6 +194,10 @@ export const DeliveryDocumentUpload: React.FC<DeliveryDocumentUploadProps> = ({
           confidence: d.confidence || d.nameConfidence || 0,
           warnings: d.warnings || [],
           flagged: false,
+          // Store S3 metadata
+          photoUrl,
+          photoKey,
+          rotationDegrees: rotation,
         }));
         batch.addRecords(mappedRecords);
 
@@ -181,7 +205,7 @@ export const DeliveryDocumentUpload: React.FC<DeliveryDocumentUploadProps> = ({
         if (result.errors && result.errors.length > 0) {
           result.errors.forEach((error: string) => {
             batch.addError({
-              photoId: photoUrl,
+              photoId: photoKey,
               message: error,
               severity: 'warning',
             });
@@ -194,17 +218,18 @@ export const DeliveryDocumentUpload: React.FC<DeliveryDocumentUploadProps> = ({
         const errorMsg = result.message || 'Error en extracción OCR';
         setOcrError(errorMsg);
         batch.addError({
-          photoId: photoUrl,
+          photoId: photoKey,
           message: errorMsg,
           severity: 'error',
         });
       }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Error desconocido';
+      console.error('Error in handlePhotoUpload:', err);
       setOcrError(errorMsg);
       batch.addError({
         photoId: 'unknown',
-        message: errorMsg,
+        message: `Error al procesar foto: ${errorMsg}`,
         severity: 'error',
       });
     } finally {
@@ -472,7 +497,7 @@ export const DeliveryDocumentUpload: React.FC<DeliveryDocumentUploadProps> = ({
                 <Button variant="outline" onClick={() => setOcrStep('upload')}>
                   Agregar Más Documentos
                 </Button>
-                <Button onClick={handleOcrSave} disabled={ocrLoading || batch.records.length === 0}>
+                <Button onClick={handleOcrSave} disabled={ocrLoading || batch.records.length === 0 || batch.records.some(r => !r.familia_id || !r.persona_recibio)} title={batch.records.some(r => !r.familia_id || !r.persona_recibio) ? 'Completa los campos requeridos en todos los registros' : ''}>
                   {ocrLoading ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
