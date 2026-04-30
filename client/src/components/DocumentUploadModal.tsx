@@ -155,50 +155,39 @@ export function DocumentUploadModal({
       const ext = isImage ? "jpg" : extFromFile(file);
       const storagePath = `${familyId}/${memberIndex}/${documentoTipo}/${Date.now()}.${ext}`;
 
-      const supabase = createClient();
-      const { error: uploadError } = await supabase.storage
-        .from(STORAGE_BUCKET)
-        .upload(storagePath, blob, { contentType, upsert: false });
-
-      if (uploadError) {
-        toast.error(uploadError.message || "Error al subir el archivo");
-        setIsUploading(false);
-        if (fileInputRef.current) fileInputRef.current.value = "";
-        return;
-      }
-
       // TODO (Phase 3): switch to createSignedUrl once the bucket goes private.
+      const supabase = createClient();
       const { data: urlData } = supabase.storage
         .from(STORAGE_BUCKET)
         .getPublicUrl(storagePath);
 
       const publicUrl = urlData.publicUrl;
 
-      uploadMutation.mutate(
-        {
-          family_id: familyId,
-          member_index: memberIndex,
-          documento_tipo: documentoTipo,
-          documento_url: publicUrl,
-        },
-        {
-          onSuccess: () => {
-            toast.success("Documento subido");
-            onOpenChange(false);
-          },
-          onError: (err: unknown) => {
-            const msg = err instanceof Error ? err.message : "Error al registrar el documento";
-            toast.error(msg);
-          },
-          onSettled: () => {
-            setIsUploading(false);
-            if (fileInputRef.current) fileInputRef.current.value = "";
-          },
-        }
-      );
+      // 1. DB row first — if this fails nothing hits Storage, no orphan PII.
+      const insertedDoc = await uploadMutation.mutateAsync({
+        family_id: familyId,
+        member_index: memberIndex,
+        documento_tipo: documentoTipo,
+        documento_url: publicUrl,
+      });
+
+      // 2. Storage upload — if this fails, soft-delete the DB row to roll back.
+      const { error: storageError } = await supabase.storage
+        .from(STORAGE_BUCKET)
+        .upload(storagePath, blob, { contentType, upsert: false });
+
+      if (storageError) {
+        deleteMutation.mutate({ id: insertedDoc.id });
+        toast.error(storageError.message || "Error al subir el archivo");
+        return;
+      }
+
+      toast.success("Documento subido");
+      onOpenChange(false);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Error inesperado";
       toast.error(msg);
+    } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
