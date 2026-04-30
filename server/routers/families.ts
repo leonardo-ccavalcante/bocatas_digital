@@ -1091,7 +1091,7 @@ export const familiesRouter = router({
       const { data: inserted, error: rpcErr } = await db.rpc("upload_family_document", {
         p_family_id: input.family_id,
         p_member_index: input.member_index,
-        p_member_person_id: input.member_person_id ?? null,
+        p_member_person_id: input.member_person_id ?? "",
         p_documento_tipo: input.documento_tipo,
         p_documento_url: input.documento_url,
         p_verified_by: String(ctx.user.id),
