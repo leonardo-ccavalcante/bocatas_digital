@@ -71,6 +71,78 @@ export type Database = {
           },
         ]
       }
+      announcements: {
+        Row: {
+          activo: boolean
+          autor_id: string | null
+          autor_nombre: string | null
+          contenido: string
+          created_at: string
+          fecha_fin: string | null
+          fecha_inicio: string
+          fijado: boolean
+          id: string
+          imagen_url: string | null
+          roles_visibles: string[]
+          tipo: string
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          activo?: boolean
+          autor_id?: string | null
+          autor_nombre?: string | null
+          contenido: string
+          created_at?: string
+          fecha_fin?: string | null
+          fecha_inicio?: string
+          fijado?: boolean
+          id?: string
+          imagen_url?: string | null
+          roles_visibles?: string[]
+          tipo?: string
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          activo?: boolean
+          autor_id?: string | null
+          autor_nombre?: string | null
+          contenido?: string
+          created_at?: string
+          fecha_fin?: string | null
+          fecha_inicio?: string
+          fijado?: boolean
+          id?: string
+          imagen_url?: string | null
+          roles_visibles?: string[]
+          tipo?: string
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      app_settings: {
+        Row: {
+          description: string | null
+          key: string
+          updated_at: string | null
+          value: string
+        }
+        Insert: {
+          description?: string | null
+          key: string
+          updated_at?: string | null
+          value: string
+        }
+        Update: {
+          description?: string | null
+          key?: string
+          updated_at?: string | null
+          value?: string
+        }
+        Relationships: []
+      }
       attendances: {
         Row: {
           checked_in_at: string
@@ -84,7 +156,7 @@ export type Database = {
           metodo: Database["public"]["Enums"]["metodo_checkin"]
           notas: string | null
           person_id: string | null
-          programa: Database["public"]["Enums"]["programa"] | null
+          programa: string | null
           registrado_por: string | null
           updated_at: string
         }
@@ -100,7 +172,7 @@ export type Database = {
           metodo: Database["public"]["Enums"]["metodo_checkin"]
           notas?: string | null
           person_id?: string | null
-          programa?: Database["public"]["Enums"]["programa"] | null
+          programa?: string | null
           registrado_por?: string | null
           updated_at?: string
         }
@@ -116,7 +188,7 @@ export type Database = {
           metodo?: Database["public"]["Enums"]["metodo_checkin"]
           notas?: string | null
           person_id?: string | null
-          programa?: Database["public"]["Enums"]["programa"] | null
+          programa?: string | null
           registrado_por?: string | null
           updated_at?: string
         }
@@ -141,6 +213,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "persons_safe"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_attendances_programa"
+            columns: ["programa"]
+            isOneToOne: false
+            referencedRelation: "programs"
+            referencedColumns: ["slug"]
           },
         ]
       }
@@ -398,13 +477,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "deliveries_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "program_sessions"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "deliveries_family_id_fkey"
             columns: ["family_id"]
             isOneToOne: false
@@ -418,12 +490,182 @@ export type Database = {
             referencedRelation: "grants"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "deliveries_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "program_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      entregas: {
+        Row: {
+          carne_cantidad: number | null
+          carne_unidad: string | null
+          createdAt: string
+          entregas_batch_id: string
+          familia_id: string
+          fecha: string
+          frutas_hortalizas_cantidad: number | null
+          frutas_hortalizas_unidad: string | null
+          id: string
+          notas: string | null
+          ocr_row_confidence: number | null
+          persona_recibio: string | null
+          updatedAt: string
+        }
+        Insert: {
+          carne_cantidad?: number | null
+          carne_unidad?: string | null
+          createdAt?: string
+          entregas_batch_id: string
+          familia_id: string
+          fecha: string
+          frutas_hortalizas_cantidad?: number | null
+          frutas_hortalizas_unidad?: string | null
+          id?: string
+          notas?: string | null
+          ocr_row_confidence?: number | null
+          persona_recibio?: string | null
+          updatedAt?: string
+        }
+        Update: {
+          carne_cantidad?: number | null
+          carne_unidad?: string | null
+          createdAt?: string
+          entregas_batch_id?: string
+          familia_id?: string
+          fecha?: string
+          frutas_hortalizas_cantidad?: number | null
+          frutas_hortalizas_unidad?: string | null
+          id?: string
+          notas?: string | null
+          ocr_row_confidence?: number | null
+          persona_recibio?: string | null
+          updatedAt?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entregas_entregas_batch_id_fkey"
+            columns: ["entregas_batch_id"]
+            isOneToOne: false
+            referencedRelation: "entregas_batch"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entregas_familia_id_fkey"
+            columns: ["familia_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      entregas_batch: {
+        Row: {
+          createdAt: string
+          documento_imagen_url: string | null
+          estado: string | null
+          estado_batch: string
+          fecha_reparto: string
+          id: string
+          numero_albaran: string
+          numero_factura_carne: string | null
+          numero_reparto: string
+          ocr_confidence: number | null
+          total_personas_asistidas: number
+          updatedAt: string
+        }
+        Insert: {
+          createdAt?: string
+          documento_imagen_url?: string | null
+          estado?: string | null
+          estado_batch?: string
+          fecha_reparto: string
+          id?: string
+          numero_albaran: string
+          numero_factura_carne?: string | null
+          numero_reparto: string
+          ocr_confidence?: number | null
+          total_personas_asistidas: number
+          updatedAt?: string
+        }
+        Update: {
+          createdAt?: string
+          documento_imagen_url?: string | null
+          estado?: string | null
+          estado_batch?: string
+          fecha_reparto?: string
+          id?: string
+          numero_albaran?: string
+          numero_factura_carne?: string | null
+          numero_reparto?: string
+          ocr_confidence?: number | null
+          total_personas_asistidas?: number
+          updatedAt?: string
+        }
+        Relationships: []
+      }
+      familia_miembros: {
+        Row: {
+          created_at: string | null
+          documentacion_id: string | null
+          estado: string | null
+          familia_id: string
+          fecha_nacimiento: string | null
+          id: string
+          nombre: string
+          relacion: string | null
+          rol: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          documentacion_id?: string | null
+          estado?: string | null
+          familia_id: string
+          fecha_nacimiento?: string | null
+          id?: string
+          nombre: string
+          relacion?: string | null
+          rol: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          documentacion_id?: string | null
+          estado?: string | null
+          familia_id?: string
+          fecha_nacimiento?: string | null
+          id?: string
+          nombre?: string
+          relacion?: string | null
+          rol?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "familia_miembros_documentacion_id_fkey"
+            columns: ["documentacion_id"]
+            isOneToOne: false
+            referencedRelation: "family_member_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "familia_miembros_familia_id_fkey"
+            columns: ["familia_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
         ]
       }
       families: {
         Row: {
           alta_en_guf: boolean | null
           autorizado: boolean | null
+          autorizado_documento_url: string | null
           consent_banco_alimentos: boolean | null
           consent_bocatas: boolean | null
           created_at: string
@@ -435,6 +677,8 @@ export type Database = {
           fecha_alta_guf: string | null
           fecha_baja: string | null
           fecha_baja_guf: string | null
+          guf_cutoff_day: number | null
+          guf_verified_at: string | null
           id: string
           informe_social: boolean | null
           informe_social_fecha: string | null
@@ -447,15 +691,15 @@ export type Database = {
           num_miembros: number | null
           padron_recibido: boolean | null
           persona_recoge: string | null
-          autorizado_documento_url: string | null
-          guf_cutoff_day: number | null
-          guf_verified_at: string | null
+          sin_guf: boolean | null
+          sin_informe_social: boolean | null
           titular_id: string | null
           updated_at: string
         }
         Insert: {
           alta_en_guf?: boolean | null
           autorizado?: boolean | null
+          autorizado_documento_url?: string | null
           consent_banco_alimentos?: boolean | null
           consent_bocatas?: boolean | null
           created_at?: string
@@ -467,6 +711,8 @@ export type Database = {
           fecha_alta_guf?: string | null
           fecha_baja?: string | null
           fecha_baja_guf?: string | null
+          guf_cutoff_day?: number | null
+          guf_verified_at?: string | null
           id?: string
           informe_social?: boolean | null
           informe_social_fecha?: string | null
@@ -481,15 +727,15 @@ export type Database = {
           num_miembros?: number | null
           padron_recibido?: boolean | null
           persona_recoge?: string | null
-          autorizado_documento_url?: string | null
-          guf_cutoff_day?: number | null
-          guf_verified_at?: string | null
+          sin_guf?: boolean | null
+          sin_informe_social?: boolean | null
           titular_id?: string | null
           updated_at?: string
         }
         Update: {
           alta_en_guf?: boolean | null
           autorizado?: boolean | null
+          autorizado_documento_url?: string | null
           consent_banco_alimentos?: boolean | null
           consent_bocatas?: boolean | null
           created_at?: string
@@ -501,6 +747,8 @@ export type Database = {
           fecha_alta_guf?: string | null
           fecha_baja?: string | null
           fecha_baja_guf?: string | null
+          guf_cutoff_day?: number | null
+          guf_verified_at?: string | null
           id?: string
           informe_social?: boolean | null
           informe_social_fecha?: string | null
@@ -515,9 +763,8 @@ export type Database = {
           num_miembros?: number | null
           padron_recibido?: boolean | null
           persona_recoge?: string | null
-          autorizado_documento_url?: string | null
-          guf_cutoff_day?: number | null
-          guf_verified_at?: string | null
+          sin_guf?: boolean | null
+          sin_informe_social?: boolean | null
           titular_id?: string | null
           updated_at?: string
         }
@@ -538,56 +785,96 @@ export type Database = {
           },
         ]
       }
-      familia_miembros: {
+      families_pre_backfill_20260430: {
         Row: {
-          id: string
-          familia_id: string
-          nombre: string
-          rol: string
-          relacion: string | null
-          estado: string
-          fecha_nacimiento: string | null
-          documentacion_id: string | null
-          created_at: string
-          updated_at: string
+          consent_banco_alimentos: boolean | null
+          consent_bocatas: boolean | null
+          docs_identidad: boolean | null
+          id: string | null
+          informe_social: boolean | null
+          justificante_recibido: boolean | null
+          padron_recibido: boolean | null
         }
         Insert: {
-          id?: string
-          familia_id: string
-          nombre: string
-          rol: string
-          relacion?: string | null
-          estado?: string
-          fecha_nacimiento?: string | null
-          documentacion_id?: string | null
-          created_at?: string
-          updated_at?: string
+          consent_banco_alimentos?: boolean | null
+          consent_bocatas?: boolean | null
+          docs_identidad?: boolean | null
+          id?: string | null
+          informe_social?: boolean | null
+          justificante_recibido?: boolean | null
+          padron_recibido?: boolean | null
         }
         Update: {
-          id?: string
-          familia_id?: string
-          nombre?: string
-          rol?: string
-          relacion?: string | null
-          estado?: string
-          fecha_nacimiento?: string | null
-          documentacion_id?: string | null
+          consent_banco_alimentos?: boolean | null
+          consent_bocatas?: boolean | null
+          docs_identidad?: boolean | null
+          id?: string | null
+          informe_social?: boolean | null
+          justificante_recibido?: boolean | null
+          padron_recibido?: boolean | null
+        }
+        Relationships: []
+      }
+      family_member_documents: {
+        Row: {
+          created_at: string
+          deleted_at: string | null
+          documento_tipo: string
+          documento_url: string | null
+          family_id: string
+          fecha_upload: string | null
+          id: string
+          is_current: boolean
+          member_index: number
+          member_person_id: string | null
+          verified_by: string | null
+        }
+        Insert: {
           created_at?: string
-          updated_at?: string
+          deleted_at?: string | null
+          documento_tipo: string
+          documento_url?: string | null
+          family_id: string
+          fecha_upload?: string | null
+          id?: string
+          is_current?: boolean
+          member_index: number
+          member_person_id?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string | null
+          documento_tipo?: string
+          documento_url?: string | null
+          family_id?: string
+          fecha_upload?: string | null
+          id?: string
+          is_current?: boolean
+          member_index?: number
+          member_person_id?: string | null
+          verified_by?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "familia_miembros_familia_id_fkey"
-            columns: ["familia_id"]
+            foreignKeyName: "family_member_documents_family_id_fkey"
+            columns: ["family_id"]
             isOneToOne: false
             referencedRelation: "families"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "familia_miembros_documentacion_id_fkey"
-            columns: ["documentacion_id"]
+            foreignKeyName: "family_member_documents_member_person_id_fkey"
+            columns: ["member_person_id"]
             isOneToOne: false
-            referencedRelation: "family_member_documents"
+            referencedRelation: "persons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "family_member_documents_member_person_id_fkey"
+            columns: ["member_person_id"]
+            isOneToOne: false
+            referencedRelation: "persons_safe"
             referencedColumns: ["id"]
           },
         ]
@@ -913,6 +1200,57 @@ export type Database = {
           },
         ]
       }
+      program_sessions: {
+        Row: {
+          closed_at: string | null
+          closed_by: string | null
+          created_at: string
+          fecha: string
+          id: string
+          location_id: string | null
+          opened_by: string | null
+          program_id: string
+          session_data: Json | null
+        }
+        Insert: {
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          fecha?: string
+          id?: string
+          location_id?: string | null
+          opened_by?: string | null
+          program_id: string
+          session_data?: Json | null
+        }
+        Update: {
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          fecha?: string
+          id?: string
+          location_id?: string | null
+          opened_by?: string | null
+          program_id?: string
+          session_data?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "program_sessions_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "program_sessions_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       programs: {
         Row: {
           config: Json
@@ -930,9 +1268,12 @@ export type Database = {
           requires_consents: string[]
           requires_fields: Json | null
           responsable_id: string | null
+          session_close_config: Json | null
           slug: string
           updated_at: string | null
           volunteer_can_access: boolean
+          volunteer_can_write: boolean
+          volunteer_visible_fields: string[]
         }
         Insert: {
           config?: Json
@@ -950,9 +1291,12 @@ export type Database = {
           requires_consents?: string[]
           requires_fields?: Json | null
           responsable_id?: string | null
+          session_close_config?: Json | null
           slug: string
           updated_at?: string | null
           volunteer_can_access?: boolean
+          volunteer_can_write?: boolean
+          volunteer_visible_fields?: string[]
         }
         Update: {
           config?: Json
@@ -970,9 +1314,12 @@ export type Database = {
           requires_consents?: string[]
           requires_fields?: Json | null
           responsable_id?: string | null
+          session_close_config?: Json | null
           slug?: string
           updated_at?: string | null
           volunteer_can_access?: boolean
+          volunteer_can_write?: boolean
+          volunteer_visible_fields?: string[]
         }
         Relationships: []
       }
@@ -1042,179 +1389,6 @@ export type Database = {
           },
         ]
       }
-      announcements: {
-        Row: {
-          id: string
-          titulo: string
-          contenido: string
-          tipo: string
-          roles_visibles: string[]
-          activo: boolean
-          fijado: boolean
-          imagen_url: string | null
-          autor_id: string | null
-          autor_nombre: string | null
-          fecha_inicio: string
-          fecha_fin: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          titulo: string
-          contenido: string
-          tipo?: string
-          roles_visibles?: string[]
-          activo?: boolean
-          fijado?: boolean
-          imagen_url?: string | null
-          autor_id?: string | null
-          autor_nombre?: string | null
-          fecha_inicio?: string
-          fecha_fin?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          titulo?: string
-          contenido?: string
-          tipo?: string
-          roles_visibles?: string[]
-          activo?: boolean
-          fijado?: boolean
-          imagen_url?: string | null
-          autor_id?: string | null
-          autor_nombre?: string | null
-          fecha_inicio?: string
-          fecha_fin?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      app_settings: {
-        Row: {
-          description: string | null
-          key: string
-          updated_at: string | null
-          value: string
-        }
-        Insert: {
-          description?: string | null
-          key: string
-          updated_at?: string | null
-          value: string
-        }
-        Update: {
-          description?: string | null
-          key?: string
-          updated_at?: string | null
-          value?: string
-        }
-        Relationships: []
-      }
-      family_member_documents: {
-        Row: {
-          created_at: string
-          deleted_at: string | null
-          documento_tipo: string
-          documento_url: string | null
-          family_id: string
-          fecha_upload: string | null
-          id: string
-          is_current: boolean
-          member_index: number
-          member_person_id: string | null
-          verified_by: string | null
-        }
-        Insert: {
-          created_at?: string
-          deleted_at?: string | null
-          documento_tipo: string
-          documento_url?: string | null
-          family_id: string
-          fecha_upload?: string | null
-          id?: string
-          is_current?: boolean
-          member_index: number
-          member_person_id?: string | null
-          verified_by?: string | null
-        }
-        Update: {
-          created_at?: string
-          deleted_at?: string | null
-          documento_tipo?: string
-          documento_url?: string | null
-          family_id?: string
-          fecha_upload?: string | null
-          id?: string
-          is_current?: boolean
-          member_index?: number
-          member_person_id?: string | null
-          verified_by?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "family_member_documents_family_id_fkey"
-            columns: ["family_id"]
-            isOneToOne: false
-            referencedRelation: "families"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "family_member_documents_member_person_id_fkey"
-            columns: ["member_person_id"]
-            isOneToOne: false
-            referencedRelation: "persons"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      program_sessions: {
-        Row: {
-          closed_at: string | null
-          closed_by: string | null
-          created_at: string
-          fecha: string
-          id: string
-          location_id: string | null
-          opened_by: string | null
-          program_id: string
-          session_data: Json | null
-        }
-        Insert: {
-          closed_at?: string | null
-          closed_by?: string | null
-          created_at?: string
-          fecha?: string
-          id?: string
-          location_id?: string | null
-          opened_by?: string | null
-          program_id: string
-          session_data?: Json | null
-        }
-        Update: {
-          closed_at?: string | null
-          closed_by?: string | null
-          created_at?: string
-          fecha?: string
-          id?: string
-          location_id?: string | null
-          opened_by?: string | null
-          program_id?: string
-          session_data?: Json | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "program_sessions_program_id_fkey"
-            columns: ["program_id"]
-            isOneToOne: false
-            referencedRelation: "programs"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
     }
     Views: {
       persons_safe: {
@@ -1252,7 +1426,6 @@ export type Database = {
           nombre: string | null
           numero_documento: string | null
           observaciones: string | null
-          pais_documento: string | null
           pais_origen: string | null
           persona_referencia: string | null
           restricciones_alimentarias: string | null
@@ -1362,17 +1535,6 @@ export type Database = {
       }
     }
     Functions: {
-      upload_family_document: {
-        Args: {
-          p_family_id: string
-          p_member_index: number
-          p_member_person_id: string | null
-          p_documento_tipo: string
-          p_documento_url: string
-          p_verified_by: string
-        }
-        Returns: Database["public"]["Tables"]["family_member_documents"]["Row"]
-      }
       find_duplicate_persons: {
         Args: { p_apellidos: string; p_nombre: string; p_threshold?: number }
         Returns: {
@@ -1385,9 +1547,61 @@ export type Database = {
         }[]
       }
       get_person_id: { Args: never; Returns: string }
+      get_programs_with_counts: {
+        Args: never
+        Returns: {
+          active_enrollments: number
+          config: Json
+          description: string
+          display_order: number
+          fecha_fin: string
+          fecha_inicio: string
+          icon: string
+          id: string
+          is_active: boolean
+          is_default: boolean
+          name: string
+          new_this_month: number
+          requires_consents: string[]
+          requires_fields: Json
+          responsable_id: string
+          slug: string
+          total_enrollments: number
+          volunteer_can_access: boolean
+        }[]
+      }
       get_user_role: { Args: never; Returns: string }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      upload_family_document: {
+        Args: {
+          p_documento_tipo: string
+          p_documento_url: string
+          p_family_id: string
+          p_member_index: number
+          p_member_person_id: string
+          p_verified_by: string
+        }
+        Returns: {
+          created_at: string
+          deleted_at: string | null
+          documento_tipo: string
+          documento_url: string | null
+          family_id: string
+          fecha_upload: string | null
+          id: string
+          is_current: boolean
+          member_index: number
+          member_person_id: string | null
+          verified_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "family_member_documents"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
     }
     Enums: {
       canal_llegada:
@@ -1402,8 +1616,8 @@ export type Database = {
         | "email"
         | "instagram"
         | "retorno_bocatas"
-        | "programa_familias"
         | "otros"
+        | "programa_familias"
       consent_language: "es" | "ar" | "fr" | "bm"
       consent_purpose:
         | "tratamiento_datos_bocatas"
@@ -1463,7 +1677,12 @@ export type Database = {
         | "jubilado"
         | "incapacidad_permanente"
         | "sin_permiso_trabajo"
-      tipo_documento: "DNI" | "NIE" | "Pasaporte" | "Documento_Extranjero" | "Sin_Documentacion"
+      tipo_documento:
+        | "DNI"
+        | "NIE"
+        | "Pasaporte"
+        | "Sin_Documentacion"
+        | "Documento_Extranjero"
       tipo_vivienda:
         | "calle"
         | "albergue"
@@ -1614,8 +1833,8 @@ export const Constants = {
         "email",
         "instagram",
         "retorno_bocatas",
-        "programa_familias",
         "otros",
+        "programa_familias",
       ],
       consent_language: ["es", "ar", "fr", "bm"],
       consent_purpose: [
@@ -1684,7 +1903,13 @@ export const Constants = {
         "incapacidad_permanente",
         "sin_permiso_trabajo",
       ],
-      tipo_documento: ["DNI", "NIE", "Pasaporte", "Documento_Extranjero", "Sin_Documentacion"],
+      tipo_documento: [
+        "DNI",
+        "NIE",
+        "Pasaporte",
+        "Sin_Documentacion",
+        "Documento_Extranjero",
+      ],
       tipo_vivienda: [
         "calle",
         "albergue",
