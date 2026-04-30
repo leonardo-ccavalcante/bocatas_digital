@@ -31,6 +31,8 @@ const FormSchema = z.object({
   es_urgente: z.boolean().default(false),
   fijado: z.boolean().default(false),
   fecha_fin: z.string().optional(),
+  published_at: z.string().optional(),
+  expires_at: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof FormSchema>;
@@ -284,6 +286,19 @@ export default function AdminNovedades() {
               <div>
                 <label className="text-sm font-medium text-gray-700 mb-1 block">Fecha de fin (opcional)</label>
                 <Input type="date" {...form.register("fecha_fin")} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">Publicar desde (opcional)</label>
+                <Input type="date" {...form.register("published_at")} />
+                <p className="text-xs text-gray-500 mt-1">La novedad será visible a partir de esta fecha</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">Expira el (opcional)</label>
+                <Input type="date" {...form.register("expires_at")} />
+                <p className="text-xs text-gray-500 mt-1">La novedad dejará de verse después de esta fecha</p>
               </div>
             </div>
 
