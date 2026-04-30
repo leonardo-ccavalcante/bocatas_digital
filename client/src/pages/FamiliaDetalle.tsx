@@ -13,6 +13,7 @@ import { useFamiliaById, useDeliveries, useReactivateFamilia, useFamilyLevelDocu
 import { FAMILIA_DOCS_CONFIG } from "@/features/families/constants";
 import { DocumentChecklist } from "@/features/programs/components/DocumentChecklist";
 import type { FamilyDocType } from "@shared/familyDocuments";
+import { isAdultOrUnknown } from "@/features/families/utils/age";
 import { GufPanel } from "@/features/families/components/GufPanel";
 import { SocialReportPanel } from "@/features/families/components/SocialReportPanel";
 import { DeactivationForm } from "@/features/families/components/DeactivationForm";
@@ -92,13 +93,7 @@ function FamilyDocsCard({
 
 // ─── Age helper ───────────────────────────────────────────────────────────────
 
-function ageInYears(fecha_nacimiento?: string | null): number | null {
-  if (!fecha_nacimiento) return null;
-  const dob = new Date(fecha_nacimiento);
-  if (isNaN(dob.getTime())) return null;
-  const ageMs = Date.now() - dob.getTime();
-  return Math.floor(ageMs / (365.25 * 24 * 3600 * 1000));
-}
+// isAdultOrUnknown imported from @/features/families/utils/age (calendar-aware).
 
 // ─── MemberDocSubcard ─────────────────────────────────────────────────────────
 
@@ -210,10 +205,7 @@ function MembersDocsCard({
     });
   });
 
-  const adultsOnly = allMembers.filter((m) => {
-    const age = ageInYears(m.fecha_nacimiento);
-    return age === null || age >= 14;
-  });
+  const adultsOnly = allMembers.filter((m) => isAdultOrUnknown(m.fecha_nacimiento));
 
   if (adultsOnly.length === 0) {
     return (
