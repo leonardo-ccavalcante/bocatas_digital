@@ -1,4 +1,10 @@
 import { z } from 'zod';
+
+// Permissive UUID validator — matches the pattern used across all other routers.
+// Accepts test/demo IDs like d0000000-0000-0000-0000-000000000001 that fail strict UUID v1-v8.
+const uuidLike = z
+  .string()
+  .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, 'Invalid UUID format');
 import { publicProcedure, protectedProcedure, router } from '../_core/trpc';
 import {
   extractDeliveriesFromOCR,
@@ -184,7 +190,7 @@ export const entregasRouter = router({
       z.object({
         limit: z.number().int().positive().default(50),
         offset: z.number().int().nonnegative().default(0),
-        familiaId: z.string().uuid().optional(),
+        familiaId: uuidLike.optional(),
         fechaFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
         fechaTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
       })
@@ -244,7 +250,7 @@ export const entregasRouter = router({
   getDeliveryById: protectedProcedure
     .input(
       z.object({
-        id: z.string().uuid(),
+        id: uuidLike,
       })
     )
     .query(async ({ input }) => {
@@ -284,8 +290,8 @@ export const entregasRouter = router({
   createDelivery: protectedProcedure
     .input(
       z.object({
-        entregas_batch_id: z.string().uuid(),
-        familia_id: z.string().uuid(),
+        entregas_batch_id: uuidLike,
+        familia_id: uuidLike,
         fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
         persona_recibio: z.string().min(1),
         frutas_hortalizas_cantidad: z.number().nonnegative().optional(),
@@ -466,7 +472,7 @@ export const entregasRouter = router({
   getBatchesByFamilia: protectedProcedure
     .input(
       z.object({
-        familiaId: z.string().uuid(),
+        familia_id: uuidLike,
         limit: z.number().int().positive().default(10),
         offset: z.number().int().nonnegative().default(0),
       })
@@ -478,7 +484,7 @@ export const entregasRouter = router({
         const { data, error } = await (db as any)
           .from('entregas')
           .select('entregas_batch_id')
-          .eq('familia_id', input.familiaId)
+          .eq('familia_id', input.familia_id)
           .range(input.offset, input.offset + input.limit - 1)
           .order('createdAt', { ascending: false });
 
