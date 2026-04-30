@@ -10,11 +10,17 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
   useAnnouncements,
+  useAnnouncementAudiences,
   useCreateAnnouncement,
   useUpdateAnnouncement,
   useDeleteAnnouncement,
   useTogglePinAnnouncement,
 } from "@/features/announcements/hooks/useAnnouncements";
+import {
+  AudienceRulesEditor,
+  toMutableRules,
+  type MutableAudienceRule,
+} from "@/features/announcements/components/AudienceRulesEditor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,6 +29,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { useEffect } from "react";
+import type { AudienceRule } from "@shared/announcementTypes";
 
 const FormSchema = z.object({
   titulo: z.string().min(1, "Título requerido").max(200),
@@ -50,18 +58,28 @@ const TIPO_COLORS: Record<string, string> = {
 };
 
 // Default audience: visible to everyone (no role/program filter).
-const DEFAULT_AUDIENCE = [{ roles: [], programs: [] }] as const;
+const DEFAULT_AUDIENCE: MutableAudienceRule[] = [{ roles: [], programs: [] }];
 
 export default function AdminNovedades() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showInactive, setShowInactive] = useState(false);
+  const [audiences, setAudiences] = useState<MutableAudienceRule[]>(DEFAULT_AUDIENCE);
+  const [audienceError, setAudienceError] = useState<string | null>(null);
 
   const { data, isLoading } = useAnnouncements({ limit: 100, includeInactive: showInactive });
   const createMutation = useCreateAnnouncement();
   const updateMutation = useUpdateAnnouncement();
   const deleteMutation = useDeleteAnnouncement();
   const togglePinMutation = useTogglePinAnnouncement();
+
+  // When editing, hydrate the audience editor from the server.
+  const { data: serverAudiences } = useAnnouncementAudiences(editingId ?? "");
+  useEffect(() => {
+    if (editingId && serverAudiences) {
+      setAudiences(toMutableRules(serverAudiences as AudienceRule[]));
+    }
+  }, [editingId, serverAudiences]);
 
   const announcements = data?.announcements ?? [];
 
@@ -73,6 +91,8 @@ export default function AdminNovedades() {
 
   function openCreate() {
     form.reset({ tipo: "info", es_urgente: false, fijado: false });
+    setAudiences(DEFAULT_AUDIENCE);
+    setAudienceError(null);
     setEditingId(null);
     setDialogOpen(true);
   }
@@ -86,22 +106,30 @@ export default function AdminNovedades() {
       fijado: a.fijado as boolean,
       fecha_fin: (a.fecha_fin as string | null) ?? undefined,
     });
+    setAudienceError(null);
     setEditingId(a.id as string);
     setDialogOpen(true);
+    // Audiences will be hydrated by the useEffect once the query resolves.
   }
 
   async function onSubmit(values: FormValues) {
+    if (audiences.length === 0) {
+      setAudienceError("Añade al menos una regla de audiencia.");
+      return;
+    }
+    setAudienceError(null);
     try {
       if (editingId) {
-        await updateMutation.mutateAsync({ id: editingId, ...values });
+        await updateMutation.mutateAsync({
+          id: editingId,
+          ...values,
+          audiences,
+        });
         toast.success("Novedad actualizada");
       } else {
         await createMutation.mutateAsync({
           ...values,
-          audiences: DEFAULT_AUDIENCE.map((rule) => ({
-            roles: [...rule.roles],
-            programs: [...rule.programs],
-          })),
+          audiences,
         });
         toast.success("Novedad creada");
       }
@@ -231,7 +259,7 @@ export default function AdminNovedades() {
 
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingId ? "Editar novedad" : "Nueva novedad"}</DialogTitle>
           </DialogHeader>
@@ -308,6 +336,14 @@ export default function AdminNovedades() {
                 />
                 <label htmlFor="fijado" className="text-sm text-gray-700">Fijar en la parte superior</label>
               </div>
+            </div>
+
+            <div className="border-t border-gray-100 pt-4">
+              <AudienceRulesEditor
+                value={audiences}
+                onChange={setAudiences}
+                error={audienceError ?? undefined}
+              />
             </div>
 
             <DialogFooter>
