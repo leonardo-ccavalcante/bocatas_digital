@@ -160,7 +160,6 @@ export const programsRouter = router({
         throw new TRPCError({ code: "FORBIDDEN" });
       }
       const supabase = createAdminClient();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await supabase
         .from("programs")
         .update({ ...(input.data as any), updated_at: new Date().toISOString() })

@@ -245,7 +245,7 @@ describe('Person Registration - Duplicate Creation Prevention (FIXED)', () => {
       expect(isSubmitting).toBe(false);
 
       // Second attempt succeeds
-      submitMock.mockResolvedValueOnce({ id: '1' });
+      submitMock.mockResolvedValueOnce({ id: '1' } as never);
       const result = await handleFinalSubmit();
 
       expect(result).toEqual({ id: '1' });

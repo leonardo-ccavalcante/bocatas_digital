@@ -1164,6 +1164,7 @@ All OCR-related bugs and features have been successfully implemented and tested:
 - Mapping: documento_extranjero → Documento_Extranjero in form submission
 
 
+
 ## BUG FIX: Step 7 Layout Overlap (2026-04-24)
 
 **Issue:** Navigation buttons overlapped consent checkboxes on Step 7 (Consentimiento RGPD)
