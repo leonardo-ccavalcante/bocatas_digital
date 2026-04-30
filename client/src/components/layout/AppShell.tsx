@@ -313,7 +313,7 @@ export default function AppShell({ children }: AppShellProps) {
 
           {/* Mobile sede selector moved to check-in page */}
 
-          <nav className="flex-1 overflow-y-auto py-3 px-3 flex flex-col gap-1">
+          <nav className="flex-1 py-3 px-2 space-y-0.5 overflow-y-auto" aria-label="Navegación móvil">
             {visibleNav.map((item) => {
               const active = location === item.href || (item.href !== "/" && location.startsWith(item.href));
               return (

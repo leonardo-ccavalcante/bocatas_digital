@@ -1423,3 +1423,51 @@ When fixes don't work, stop and investigate the ROOT CAUSE systematically. The r
 - ✅ Navigation works correctly
 - ✅ Active state shows current page
 - ✅ Desktop layout unchanged
+
+
+---
+
+## SPRINT FINAL — 5 FEATURES CRÍTICAS (2026-04-30)
+
+### Feature 1: RLS Policies para Voluntarios en Entregas
+- [x] F1-A: Migración SQL — ALTER TABLE deliveries ENABLE ROW LEVEL SECURITY
+- [x] F1-B: RLS Policy — voluntario can SELECT deliveries where programa matches enrolled programs
+- [x] F1-C: RLS Policy — voluntario can INSERT deliveries only for their enrolled programs
+- [x] F1-D: Test — verify voluntario cannot see entregas from other sedes
+- [x] F1-E: Verify — 603+ tests passing
+
+### Feature 2: Entregas (Deliveries) UI
+- [x] F2-A: DeliveryList.tsx — tabla de entregas con filtros (programa, fecha, sede)
+- [x] F2-B: DeliveryForm.tsx — crear/editar entrega (familia, fecha, cantidad, notas)
+- [x] F2-C: Rutas — /entregas, /entregas/nueva, /entregas/:id
+- [x] F2-D: tRPC procedures — getDeliveries, getDeliveryById, createDelivery, updateDelivery
+- [x] F2-E: Tests — DeliveryList, DeliveryForm, tRPC procedures
+- [x] F2-F: Verify — 603+ tests passing
+
+### Feature 3: S3 Storage Real
+- [ ] F3-A: handlePhotoUpload() — implementar storagePut() para Supabase Storage
+- [ ] F3-B: Persistir rotación de imagen en metadata (rotation_degrees)
+- [ ] F3-C: Retornar { url, key, rotationDegrees } en lugar de placeholder
+- [ ] F3-D: Tests — handlePhotoUpload with mock storagePut
+- [ ] F3-E: Verify — 603+ tests passing
+
+### Feature 4: Documentación Tab en Families UI
+- [ ] F4-A: FamilyDocumentsTab.tsx — mostrar documentos con badges (pending/verified/rejected)
+- [ ] F4-B: Integrar en FamilyDetail.tsx como tab adicional
+- [ ] F4-C: Badges auto-derivados de Supabase Storage status
+- [ ] F4-D: Tests — FamilyDocumentsTab rendering
+- [ ] F4-E: Verify — 603+ tests passing
+
+### Feature 5: Validación de Campos Requeridos en Batch
+- [ ] F5-A: DeliveryValidationTable — agregar validación inline para familia_id y persona_recibio
+- [ ] F5-B: Deshabilitar botón "Guardar" si campos requeridos vacíos
+- [ ] F5-C: Mostrar error visual en filas con campos faltantes
+- [ ] F5-D: Tests — validación de campos requeridos
+- [ ] F5-E: Verify — 603+ tests passing
+
+### Final Verification
+- [ ] V1: pnpm test --run → 603+ tests passing
+- [ ] V2: npx tsc --noEmit → 0 errors
+- [ ] V3: pnpm build → success
+- [ ] V4: pnpm lint → 0 errors
+- [ ] V5: Checkpoint final + push GitHub

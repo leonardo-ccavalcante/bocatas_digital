@@ -35,6 +35,8 @@ import MiQR from "./pages/MiQR";
 import Novedades from "./pages/Novedades";
 import NovedadDetalle from "./pages/NovedadDetalle";
 import AdminNovedades from "./pages/AdminNovedades";
+import DeliveryList from "./pages/DeliveryList";
+import DeliveryForm from "./pages/DeliveryForm";
 
 // Layout
 import ProtectedRoute from "./components/layout/ProtectedRoute";
@@ -146,6 +148,23 @@ function Router() {
       <Route path="/familias/informes-sociales">
         <ProtectedRoute requiredRoles={["admin", "superadmin"]}>
           <FamiliasInformesSociales />
+        </ProtectedRoute>
+      </Route>
+
+      {/* Entregas module */}
+      <Route path="/entregas/nueva">
+        <ProtectedRoute requiredRoles={["admin", "superadmin", "voluntario"]}>
+          <DeliveryForm />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/entregas/:id">
+        <ProtectedRoute requiredRoles={["admin", "superadmin", "voluntario"]}>
+          <DeliveryForm />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/entregas">
+        <ProtectedRoute requiredRoles={["admin", "superadmin", "voluntario"]}>
+          <DeliveryList />
         </ProtectedRoute>
       </Route>
       <Route path="/familias/:id">
