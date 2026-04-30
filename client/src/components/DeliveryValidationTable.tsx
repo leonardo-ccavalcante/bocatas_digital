@@ -48,27 +48,17 @@ export const DeliveryValidationTable: React.FC<DeliveryValidationTableProps> = (
   };
 
   const flaggedCount = records.filter((r) => r.flagged).length;
-  const missingRequiredCount = records.filter((r) => !r.familia_id || !r.persona_recibio).length;
-  const canSave = missingRequiredCount === 0 && records.length > 0;
 
   return (
     <div className="w-full">
-      <div className="mb-4 space-y-2">
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-gray-600">
-            {records.length} beneficiarios pendientes de guardar
-          </p>
-          {flaggedCount > 0 && (
-            <div className="flex items-center gap-2 px-3 py-1 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-700">
-              <AlertCircle className="w-4 h-4" />
-              {flaggedCount} registros requieren revisión
-            </div>
-          )}
-        </div>
-        {missingRequiredCount > 0 && (
-          <div className="flex items-center gap-2 px-3 py-1 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+      <div className="mb-4 flex items-center justify-between">
+        <p className="text-sm text-gray-600">
+          {records.length} beneficiarios pendientes de guardar
+        </p>
+        {flaggedCount > 0 && (
+          <div className="flex items-center gap-2 px-3 py-1 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-700">
             <AlertCircle className="w-4 h-4" />
-            {missingRequiredCount} registros con campos requeridos vacíos (Familia ID, Persona que recibió)
+            {flaggedCount} registros requieren revisión
           </div>
         )}
       </div>
@@ -95,31 +85,20 @@ export const DeliveryValidationTable: React.FC<DeliveryValidationTableProps> = (
               >
                 <td className="px-4 py-3">
                   {editingId === record.id ? (
-                    <div>
-                      <input
-                        type="text"
-                        value={
-                          editValues[record.id]?.persona_recibio ??
-                          record.persona_recibio
-                        }
-                        onChange={(e) =>
-                          handleFieldChange(record.id, 'persona_recibio', e.target.value)
-                        }
-                        className={`w-full px-2 py-1 border rounded ${
-                          !editValues[record.id]?.persona_recibio && !record.persona_recibio
-                            ? 'border-red-300 bg-red-50'
-                            : 'border-gray-300'
-                        }`}
-                        autoFocus
-                      />
-                      {!editValues[record.id]?.persona_recibio && !record.persona_recibio && (
-                        <p className="text-xs text-red-600 mt-1">Campo requerido</p>
-                      )}
-                    </div>
+                    <input
+                      type="text"
+                      value={
+                        editValues[record.id]?.nombre_beneficiario ??
+                        record.nombre_beneficiario
+                      }
+                      onChange={(e) =>
+                        handleFieldChange(record.id, 'nombre_beneficiario', e.target.value)
+                      }
+                      className="w-full px-2 py-1 border border-gray-300 rounded"
+                      autoFocus
+                    />
                   ) : (
-                    <span className={!record.persona_recibio ? 'text-red-600 font-semibold' : ''}>
-                      {record.persona_recibio || '⚠️ Falta'}
-                    </span>
+                    <span>{record.nombre_beneficiario}</span>
                   )}
                 </td>
                 <td className="px-4 py-3">
@@ -127,20 +106,20 @@ export const DeliveryValidationTable: React.FC<DeliveryValidationTableProps> = (
                     <input
                       type="number"
                       value={
-                        editValues[record.id]?.frutas_hortalizas_cantidad ??
-                        record.frutas_hortalizas_cantidad
+                        editValues[record.id]?.cantidad_entregada ??
+                        record.cantidad_entregada
                       }
                       onChange={(e) =>
                         handleFieldChange(
                           record.id,
-                          'frutas_hortalizas_cantidad',
+                          'cantidad_entregada',
                           parseInt(e.target.value)
                         )
                       }
                       className="w-full px-2 py-1 border border-gray-300 rounded"
                     />
                   ) : (
-                    <span>{record.frutas_hortalizas_cantidad}</span>
+                    <span>{record.cantidad_entregada}</span>
                   )}
                 </td>
                 <td className="px-4 py-3">
@@ -148,15 +127,15 @@ export const DeliveryValidationTable: React.FC<DeliveryValidationTableProps> = (
                     <input
                       type="date"
                       value={
-                        editValues[record.id]?.fecha ?? record.fecha
+                        editValues[record.id]?.fecha_entrega ?? record.fecha_entrega
                       }
                       onChange={(e) =>
-                        handleFieldChange(record.id, 'fecha', e.target.value)
+                        handleFieldChange(record.id, 'fecha_entrega', e.target.value)
                       }
                       className="w-full px-2 py-1 border border-gray-300 rounded"
                     />
                   ) : (
-                    <span>{record.fecha}</span>
+                    <span>{record.fecha_entrega}</span>
                   )}
                 </td>
                 <td className="px-4 py-3 text-center">
@@ -169,13 +148,9 @@ export const DeliveryValidationTable: React.FC<DeliveryValidationTableProps> = (
                   </span>
                 </td>
                 <td className="px-4 py-3 text-center">
-                  {!record.familia_id || !record.persona_recibio ? (
+                  {record.flagged ? (
                     <div className="flex items-center justify-center gap-1">
-                      <span className="text-red-600 font-semibold">❌ Incompleto</span>
-                    </div>
-                  ) : record.flagged ? (
-                    <div className="flex items-center justify-center gap-1">
-                      <span className="text-yellow-600">⚠️ Revisar</span>
+                      <span className="text-red-600">⚠️ Revisar</span>
                     </div>
                   ) : (
                     <span className="text-green-600">✓</span>

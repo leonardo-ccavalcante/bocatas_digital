@@ -1,0 +1,3 @@
+titulo,contenido,tipo,es_urgente,fecha_inicio,fecha_fin,fijado,audiencias
+Comedor cerrado mañana,Por obras imprevistas el comedor no abrirá mañana 1 de mayo.,cierre_servicio,true,2026-04-30T18:00,2026-05-02T00:00,false,voluntario:comedor;admin:*
+Reunión equipo viernes,Reunión mensual del equipo a las 18:00 en sede central.,evento,false,2026-05-15T08:00,2026-05-16T20:00,true,admin:*

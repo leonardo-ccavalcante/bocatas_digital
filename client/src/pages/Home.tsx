@@ -1,5 +1,6 @@
 import { Link } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
+import UrgentAnnouncementBanner from "@/components/UrgentAnnouncementBanner";
 import { useAppStore } from "@/store/useAppStore";
 import type { BocatasRole } from "@/components/layout/ProtectedRoute";
 import {
@@ -126,6 +127,8 @@ export default function Home() {
   return (
     <div className="p-5 md:p-8 max-w-3xl mx-auto">
 
+      <UrgentAnnouncementBanner />
+
       {/* ── Greeting ─────────────────────────────────────────────────── */}
       <header className="mb-8">
         <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground leading-tight">
@@ -138,10 +141,15 @@ export default function Home() {
 
         {/* Location badge */}
         <div className="mt-4">
-          {selectedLocation && (
+          {selectedLocation ? (
             <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#C41230] bg-[#C41230]/8 border border-[#C41230]/20 rounded-full px-3 py-1.5">
               <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
               {selectedLocation.nombre}
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground bg-muted border border-border rounded-full px-3 py-1.5">
+              <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
+              Selecciona una sede en Check-in
             </span>
           )}
         </div>

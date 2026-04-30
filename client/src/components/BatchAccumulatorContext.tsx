@@ -2,16 +2,10 @@ import React, { createContext, useContext, useState, useCallback } from 'react';
 
 export interface ExtractedBeneficiary {
   id: string;
-  familia_id: string;
-  fecha: string;
-  persona_recibio: string;
-  frutas_hortalizas_cantidad: number;
-  frutas_hortalizas_unidad: string;
-  carne_cantidad: number;
-  carne_unidad: string;
-  notas: string;
+  nombre_beneficiario: string;
+  cantidad_entregada: number;
+  fecha_entrega: string;
   confidence: number;
-  warnings: string[];
   flagged: boolean;
   flagReason?: string;
 }

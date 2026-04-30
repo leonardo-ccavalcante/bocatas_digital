@@ -23,13 +23,6 @@ export function useCreateFamilia() {
   });
 }
 
-export function useUpdateFamiliaDocField() {
-  const utils = trpc.useUtils();
-  return trpc.families.updateDocField.useMutation({
-    onSuccess: (_, vars) => { utils.families.getById.invalidate({ id: vars.id }); },
-  });
-}
-
 export function useDeactivateFamilia() {
   const utils = trpc.useUtils();
   return trpc.families.deactivate.useMutation({
@@ -50,21 +43,65 @@ export function useReactivateFamilia() {
   });
 }
 
+// ─── Family-program documents (family-level + per-member) ─────────────────────
+export function useFamilyLevelDocuments(family_id: string) {
+  return trpc.families.getFamilyDocuments.useQuery(
+    { family_id, member_index: -1 },
+    { enabled: !!family_id, staleTime: 30_000 }
+  );
+}
+
+export function useMemberLevelDocuments(family_id: string, member_index: number) {
+  return trpc.families.getFamilyDocuments.useQuery(
+    { family_id, member_index },
+    { enabled: !!family_id && member_index >= 0, staleTime: 30_000 }
+  );
+}
+
+export function useAllFamilyDocuments(family_id: string) {
+  return trpc.families.getFamilyDocuments.useQuery(
+    { family_id },
+    { enabled: !!family_id, staleTime: 30_000 }
+  );
+}
+
+export function useUploadFamilyDocument() {
+  const utils = trpc.useUtils();
+  return trpc.families.uploadFamilyDocument.useMutation({
+    onSuccess: (_, vars) => {
+      utils.families.getFamilyDocuments.invalidate({ family_id: vars.family_id });
+      utils.families.getById.invalidate({ id: vars.family_id });
+      utils.families.getPendingItems.invalidate();
+      utils.families.getComplianceStats.invalidate();
+    },
+  });
+}
+
+export function useDeleteFamilyDocument(family_id: string) {
+  const utils = trpc.useUtils();
+  return trpc.families.deleteFamilyDocument.useMutation({
+    onSuccess: () => {
+      utils.families.getFamilyDocuments.invalidate({ family_id });
+      utils.families.getById.invalidate({ id: family_id });
+      utils.families.getPendingItems.invalidate();
+      utils.families.getComplianceStats.invalidate();
+    },
+  });
+}
+
 // ─── Deliveries ───────────────────────────────────────────────────────────────
 export function useDeliveries(family_id: string) {
-  // Use entregas router for delivery queries
-  return trpc.entregas.getDeliveries.useQuery(
-    { familiaId: family_id },
+  return trpc.families.getDeliveries.useQuery(
+    { family_id },
     { enabled: !!family_id, staleTime: 30_000 }
   );
 }
 
 export function useCreateDelivery() {
   const utils = trpc.useUtils();
-  // Use entregas router for delivery mutations
-  return trpc.entregas.createDelivery.useMutation({
-    onSuccess: (data: any) => {
-      utils.entregas.getDeliveries.invalidate({ familiaId: data.data?.familia_id });
+  return trpc.families.createDelivery.useMutation({
+    onSuccess: (_, vars) => {
+      utils.families.getDeliveries.invalidate({ family_id: vars.family_id });
     },
   });
 }

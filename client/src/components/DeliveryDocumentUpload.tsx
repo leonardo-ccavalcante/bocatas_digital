@@ -42,7 +42,6 @@ export const DeliveryDocumentUpload: React.FC<DeliveryDocumentUploadProps> = ({
   const saveMutation = trpc.entregas.saveBatch.useMutation();
   const { data: templateData } = trpc.entregas.downloadTemplate.useQuery();
   const ocrExtractMutation = trpc.entregas.extractFromPhoto.useMutation();
-  const uploadPhotoMutation = trpc.entregas.uploadPhotoToStorage.useMutation();
 
   // Handle Tab Switch - Clear State
   const handleTabChange = (tab: 'csv' | 'ocr') => {
@@ -153,59 +152,23 @@ export const DeliveryDocumentUpload: React.FC<DeliveryDocumentUploadProps> = ({
     setOcrError(null);
 
     try {
-      // Step 1: Convert File to base64
-      const reader = new FileReader();
-      const photoData = await new Promise<string>((resolve, reject) => {
-        reader.onload = () => {
-          const result = reader.result as string;
-          const base64 = result.split(',')[1]; // Remove data:image/jpeg;base64, prefix
-          resolve(base64);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(photoFile);
-      });
+      // TODO: Upload photo to storage and get URL
+      const photoUrl = 'https://placeholder.com/photo.jpg';
 
-      // Step 2: Upload photo to S3 storage via tRPC
-      const uploadResult = await uploadPhotoMutation.mutateAsync({
-        photoData,
-        rotation: rotationDegrees,
-        fileName: photoFile.name,
-      });
-
-      const { photoUrl, photoKey, rotation } = uploadResult;
-
-      // Step 3: Extract delivery data from photo
       const result = await ocrExtractMutation.mutateAsync({
         photoUrl: photoUrl,
-        programaId: 'default-programa',
+        programaId: 'general',
       });
 
       if (result.success && result.beneficiaries) {
-        const mappedRecords = result.beneficiaries.map((d: any) => ({
-          id: d.id || `${Date.now()}-${Math.random()}`,
-          familia_id: d.familia_id || '',
-          fecha: d.fecha || new Date().toISOString().split('T')[0],
-          persona_recibio: d.persona_recibio || d.beneficiaryName || '',
-          frutas_hortalizas_cantidad: d.frutas_hortalizas_cantidad || 0,
-          frutas_hortalizas_unidad: d.frutas_hortalizas_unidad || 'kg',
-          carne_cantidad: d.carne_cantidad || 0,
-          carne_unidad: d.carne_unidad || 'kg',
-          notas: d.notas || '',
-          confidence: d.confidence || d.nameConfidence || 0,
-          warnings: d.warnings || [],
-          flagged: false,
-          // Store S3 metadata
-          photoUrl,
-          photoKey,
-          rotationDegrees: rotation,
-        }));
-        batch.addRecords(mappedRecords);
+        // Add records to batch accumulator
+        batch.addRecords(result.beneficiaries as any);
 
         // Log any errors
         if (result.errors && result.errors.length > 0) {
           result.errors.forEach((error: string) => {
             batch.addError({
-              photoId: photoKey,
+              photoId: photoUrl,
               message: error,
               severity: 'warning',
             });
@@ -213,23 +176,22 @@ export const DeliveryDocumentUpload: React.FC<DeliveryDocumentUploadProps> = ({
         }
 
         setOcrStep('validation');
-        toast.success(`${mappedRecords.length} beneficiarios extraídos`);
+        toast.success(`${result.beneficiaries.length} beneficiarios extraídos`);
       } else {
         const errorMsg = result.message || 'Error en extracción OCR';
         setOcrError(errorMsg);
         batch.addError({
-          photoId: photoKey,
+          photoId: photoUrl,
           message: errorMsg,
           severity: 'error',
         });
       }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Error desconocido';
-      console.error('Error in handlePhotoUpload:', err);
       setOcrError(errorMsg);
       batch.addError({
         photoId: 'unknown',
-        message: `Error al procesar foto: ${errorMsg}`,
+        message: errorMsg,
         severity: 'error',
       });
     } finally {
@@ -254,10 +216,10 @@ export const DeliveryDocumentUpload: React.FC<DeliveryDocumentUploadProps> = ({
           numero_factura_carne: null,
           fecha_reparto: new Date().toISOString().split('T')[0],
           total_personas_asistidas: batch.records.length,
-          confidence: 0.85,
+          confidence: 0,
           warnings: [],
         },
-        rows: batch.records,
+        rows: batch.records as any,
         documentImageUrl: 'https://placeholder.com/photo.jpg',
       });
 
@@ -452,7 +414,9 @@ export const DeliveryDocumentUpload: React.FC<DeliveryDocumentUploadProps> = ({
               </p>
 
               <PhotoUploadInput
-                onPhotoSelected={(photoData) => handlePhotoUpload(photoData.file, photoData.rotation)}
+                onPhotoSelected={async (photoData) => {
+                  await handlePhotoUpload(photoData.file, photoData.rotation);
+                }}
               />
 
               {ocrError && (
@@ -497,7 +461,7 @@ export const DeliveryDocumentUpload: React.FC<DeliveryDocumentUploadProps> = ({
                 <Button variant="outline" onClick={() => setOcrStep('upload')}>
                   Agregar Más Documentos
                 </Button>
-                <Button onClick={handleOcrSave} disabled={ocrLoading || batch.records.length === 0 || batch.records.some(r => !r.familia_id || !r.persona_recibio)} title={batch.records.some(r => !r.familia_id || !r.persona_recibio) ? 'Completa los campos requeridos en todos los registros' : ''}>
+                <Button onClick={handleOcrSave} disabled={ocrLoading || batch.records.length === 0}>
                   {ocrLoading ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />

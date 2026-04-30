@@ -1,12 +1,16 @@
 /**
  * useAnnouncements.ts — React Query hooks for Announcements (Novedades)
- * Task 7 — Phase F
+ * Wave 3: expanded with audience, audit, dismissal, banner, and bulk-import hooks.
  */
 import { trpc } from "@/lib/trpc";
+import type { TipoAnnouncement } from "@shared/announcementTypes";
 
-/** List active announcements for the current user's role */
+// ─── Read hooks (any authenticated user) ──────────────────────────────────────
+
+/** List announcements visible to the current user. */
 export function useAnnouncements(options?: {
-  tipo?: "info" | "urgente" | "evento" | "cierre";
+  tipo?: TipoAnnouncement;
+  soloUrgentes?: boolean;
   limit?: number;
   offset?: number;
   includeInactive?: boolean;
@@ -14,6 +18,7 @@ export function useAnnouncements(options?: {
   return trpc.announcements.getAll.useQuery(
     {
       tipo: options?.tipo,
+      soloUrgentes: options?.soloUrgentes ?? false,
       limit: options?.limit ?? 20,
       offset: options?.offset ?? 0,
       includeInactive: options?.includeInactive ?? false,
@@ -22,7 +27,7 @@ export function useAnnouncements(options?: {
   );
 }
 
-/** Get a single announcement by ID */
+/** Get a single announcement by ID. */
 export function useAnnouncement(id: string) {
   return trpc.announcements.getById.useQuery(
     { id },
@@ -30,34 +35,123 @@ export function useAnnouncement(id: string) {
   );
 }
 
-/** Create a new announcement (admin+) */
+/**
+ * Get the most-recent active urgent announcement for the /inicio banner.
+ * Returns null when there is nothing to show.
+ */
+export function useUrgentBannerAnnouncement() {
+  return trpc.announcements.getUrgentBannerAnnouncement.useQuery(undefined, {
+    staleTime: 60_000,
+    refetchOnWindowFocus: true,
+  });
+}
+
+// ─── Read hooks (admin/superadmin only) ───────────────────────────────────────
+
+/** Audience rules for an announcement — used in the admin edit form. */
+export function useAnnouncementAudiences(announcement_id: string) {
+  return trpc.announcements.getAudiencesByAnnouncementId.useQuery(
+    { announcement_id },
+    { enabled: !!announcement_id }
+  );
+}
+
+/** Per-field audit log for an announcement. */
+export function useAnnouncementAuditLog(
+  announcement_id: string,
+  limit = 50
+) {
+  return trpc.announcements.getAuditLog.useQuery(
+    { announcement_id, limit },
+    { enabled: !!announcement_id }
+  );
+}
+
+/** Dismissal stats — who has/hasn't seen an urgent announcement. */
+export function useDismissalStats(announcement_id: string) {
+  return trpc.announcements.getDismissalStats.useQuery(
+    { announcement_id },
+    { enabled: !!announcement_id }
+  );
+}
+
+// ─── Write hooks (admin/superadmin) ──────────────────────────────────────────
+
+/** Create a new announcement with audience rules. */
 export function useCreateAnnouncement() {
   const utils = trpc.useUtils();
   return trpc.announcements.create.useMutation({
-    onSuccess: () => utils.announcements.getAll.invalidate(),
+    onSuccess: () => {
+      void utils.announcements.getAll.invalidate();
+      void utils.announcements.getUrgentBannerAnnouncement.invalidate();
+    },
   });
 }
 
-/** Update an announcement (admin+) */
+/** Update an announcement (diff + audit log + optional audience replace). */
 export function useUpdateAnnouncement() {
   const utils = trpc.useUtils();
   return trpc.announcements.update.useMutation({
-    onSuccess: () => utils.announcements.getAll.invalidate(),
+    onSuccess: (_data, variables) => {
+      void utils.announcements.getAll.invalidate();
+      void utils.announcements.getById.invalidate({ id: variables.id });
+      void utils.announcements.getAudiencesByAnnouncementId.invalidate({
+        announcement_id: variables.id,
+      });
+      void utils.announcements.getAuditLog.invalidate({
+        announcement_id: variables.id,
+      });
+      void utils.announcements.getUrgentBannerAnnouncement.invalidate();
+    },
   });
 }
 
-/** Soft-delete an announcement (admin+) */
+/** Soft-delete an announcement (sets activo=false). */
 export function useDeleteAnnouncement() {
   const utils = trpc.useUtils();
   return trpc.announcements.delete.useMutation({
-    onSuccess: () => utils.announcements.getAll.invalidate(),
+    onSuccess: () => {
+      void utils.announcements.getAll.invalidate();
+      void utils.announcements.getUrgentBannerAnnouncement.invalidate();
+    },
   });
 }
 
-/** Toggle pinned status (admin+) */
+/** Flip the pinned status of an announcement. */
 export function useTogglePinAnnouncement() {
   const utils = trpc.useUtils();
   return trpc.announcements.togglePin.useMutation({
-    onSuccess: () => utils.announcements.getAll.invalidate(),
+    onSuccess: (_data, variables) => {
+      void utils.announcements.getAll.invalidate();
+      void utils.announcements.getById.invalidate({ id: variables.id });
+    },
+  });
+}
+
+/** Parse a CSV blob and store a preview token (30-min TTL). */
+export function usePreviewBulkImport() {
+  return trpc.announcements.previewBulkImport.useMutation();
+}
+
+/** Confirm a bulk import by preview token — inserts all valid rows. */
+export function useConfirmBulkImport() {
+  const utils = trpc.useUtils();
+  return trpc.announcements.confirmBulkImport.useMutation({
+    onSuccess: () => {
+      void utils.announcements.getAll.invalidate();
+      void utils.announcements.getUrgentBannerAnnouncement.invalidate();
+    },
+  });
+}
+
+// ─── Write hooks (any authenticated user) ────────────────────────────────────
+
+/** Dismiss an urgent announcement for the current user (/inicio banner). */
+export function useDismissUrgentAnnouncement() {
+  const utils = trpc.useUtils();
+  return trpc.announcements.dismissUrgent.useMutation({
+    onSuccess: () => {
+      void utils.announcements.getUrgentBannerAnnouncement.invalidate();
+    },
   });
 }

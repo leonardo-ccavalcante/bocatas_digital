@@ -38,20 +38,19 @@ export default function FamiliasEntregas() {
   );
 
   // Get today's deliveries to mark which families already received
-  const { data: todayDeliveries } = trpc.entregas.getDeliveries.useQuery(
-    { fechaFrom: today, fechaTo: today },
-    { staleTime: 30_000 }
-  );
+  const { data: todayDeliveries } = trpc.families.getDeliveries
+    ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (trpc.families as any).getDeliveries?.useQuery?.({ fecha: today }) ?? { data: [] }
+    : { data: [] };
 
-  const createDelivery = trpc.entregas.createDelivery.useMutation({
+  const createDelivery = trpc.families.createDelivery.useMutation({
     onSuccess: () => toast.success("Entrega registrada"),
-    onError: (err: any) => toast.error(err.message),
+    onError: (err) => toast.error(err.message),
   });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const deliveredFamilyIds = new Set<string>(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ((todayDeliveries?.data as any[]) ?? []).map((d: any) => d.familia_id)
+    ((todayDeliveries as any[]) ?? []).map((d: any) => d.family_id)
   );
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -72,12 +71,12 @@ export default function FamiliasEntregas() {
 
   const handleQuickDelivery = async (familyId: string) => {
     await createDelivery.mutateAsync({
-      entregas_batch_id: "",
-      familia_id: familyId,
-      fecha: today,
-      persona_recibio: "Voluntario",
-      frutas_hortalizas_cantidad: 0,
-      carne_cantidad: 0,
+      family_id: familyId,
+      fecha_entrega: today,
+      kg_frutas_hortalizas: 0,
+      kg_carne: 0,
+      recogido_por: "Voluntario",
+      es_autorizado: false,
     });
   };
 
