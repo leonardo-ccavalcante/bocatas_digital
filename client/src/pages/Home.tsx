@@ -1,5 +1,6 @@
 import { Link } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
+import UrgentAnnouncementBanner from "@/components/UrgentAnnouncementBanner";
 import { useAppStore } from "@/store/useAppStore";
 import type { BocatasRole } from "@/components/layout/ProtectedRoute";
 import {
@@ -125,6 +126,8 @@ export default function Home() {
 
   return (
     <div className="p-5 md:p-8 max-w-3xl mx-auto">
+
+      <UrgentAnnouncementBanner />
 
       {/* ── Greeting ─────────────────────────────────────────────────── */}
       <header className="mb-8">

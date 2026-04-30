@@ -1,24 +1,44 @@
 /**
  * Novedades.tsx — Announcement feed page
  * Visible to all authenticated users (role-filtered on server)
- * Task 7 — Phase F
+ * Task 7 — Phase F / Wave 4C
  */
 import { useState } from "react";
 import { Link } from "wouter";
-import { Bell, Pin, Calendar, ChevronRight, AlertTriangle, Info, PartyPopper, DoorClosed } from "lucide-react";
+import {
+  Bell,
+  Pin,
+  Calendar,
+  ChevronRight,
+  AlertTriangle,
+  Info,
+  PartyPopper,
+  DoorClosed,
+  Megaphone,
+} from "lucide-react";
 import { useAnnouncements } from "@/features/announcements/hooks/useAnnouncements";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import type { TipoAnnouncement } from "@shared/announcementTypes";
 import { Skeleton } from "@/components/ui/skeleton";
+import { CrearNovedadButton } from "@/components/CrearNovedadButton";
 
-const TIPO_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
+// ─── Tipo config (current values only — legacy urgente/cierre removed) ──────────
+
+const TIPO_CONFIG: Record<TipoAnnouncement, { label: string; color: string; icon: React.ReactNode }> = {
   info: { label: "Info", color: "bg-blue-50 text-blue-700 border-blue-200", icon: <Info className="w-3.5 h-3.5" /> },
-  urgente: { label: "Urgente", color: "bg-red-50 text-red-700 border-red-200", icon: <AlertTriangle className="w-3.5 h-3.5" /> },
   evento: { label: "Evento", color: "bg-green-50 text-green-700 border-green-200", icon: <PartyPopper className="w-3.5 h-3.5" /> },
-  cierre: { label: "Cierre", color: "bg-orange-50 text-orange-700 border-orange-200", icon: <DoorClosed className="w-3.5 h-3.5" /> },
+  cierre_servicio: { label: "Cierre", color: "bg-orange-50 text-orange-700 border-orange-200", icon: <DoorClosed className="w-3.5 h-3.5" /> },
+  convocatoria: { label: "Convocatoria", color: "bg-purple-50 text-purple-700 border-purple-200", icon: <Megaphone className="w-3.5 h-3.5" /> },
 };
 
-type TipoFilter = "all" | "info" | "urgente" | "evento" | "cierre";
+type TipoFilter = "all" | TipoAnnouncement;
+
+const FILTER_OPTIONS: { value: TipoFilter; label: string }[] = [
+  { value: "all", label: "Todos" },
+  { value: "info", label: "Info" },
+  { value: "evento", label: "Evento" },
+  { value: "cierre_servicio", label: "Cierre" },
+  { value: "convocatoria", label: "Convocatoria" },
+];
 
 export default function Novedades() {
   const [tipoFilter, setTipoFilter] = useState<TipoFilter>("all");
@@ -42,21 +62,24 @@ export default function Novedades() {
           <h1 className="text-xl font-bold text-gray-900">Novedades</h1>
           <p className="text-sm text-gray-500">Información y comunicados del equipo</p>
         </div>
+        <div className="ml-auto">
+          <CrearNovedadButton />
+        </div>
       </div>
 
       {/* Type filters */}
       <div className="flex gap-2 flex-wrap">
-        {(["all", "info", "urgente", "evento", "cierre"] as TipoFilter[]).map((tipo) => (
+        {FILTER_OPTIONS.map(({ value, label }) => (
           <button
-            key={tipo}
-            onClick={() => setTipoFilter(tipo)}
+            key={value}
+            onClick={() => setTipoFilter(value)}
             className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-              tipoFilter === tipo
+              tipoFilter === value
                 ? "bg-[#C41230] text-white border-[#C41230]"
                 : "bg-white text-gray-600 border-gray-200 hover:border-[#C41230]/50"
             }`}
           >
-            {tipo === "all" ? "Todos" : TIPO_CONFIG[tipo]?.label ?? tipo}
+            {label}
           </button>
         ))}
       </div>
@@ -114,7 +137,8 @@ export default function Novedades() {
 
 function AnnouncementCard({ announcement: a }: { announcement: Record<string, unknown> }) {
   const tipo = (a.tipo as string) ?? "info";
-  const config = TIPO_CONFIG[tipo] ?? TIPO_CONFIG.info;
+  const config = TIPO_CONFIG[tipo as TipoAnnouncement] ?? TIPO_CONFIG.info;
+  const esUrgente = a.es_urgente === true;
 
   return (
     <Link href={`/novedades/${a.id as string}`}>
@@ -125,6 +149,11 @@ function AnnouncementCard({ announcement: a }: { announcement: Record<string, un
               {config.icon}
               {config.label}
             </span>
+            {esUrgente && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200">
+                <AlertTriangle className="w-3 h-3" aria-hidden="true" /> Urgente
+              </span>
+            )}
             {(a.fijado as boolean) && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-50 text-yellow-700 border border-yellow-200">
                 <Pin className="w-3 h-3" /> Fijado

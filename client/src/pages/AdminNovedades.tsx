@@ -27,7 +27,8 @@ import { toast } from "sonner";
 const FormSchema = z.object({
   titulo: z.string().min(1, "Título requerido").max(200),
   contenido: z.string().min(1, "Contenido requerido").max(5000),
-  tipo: z.enum(["info", "urgente", "evento", "cierre"]),
+  tipo: z.enum(["info", "evento", "cierre_servicio", "convocatoria"]),
+  es_urgente: z.boolean().default(false),
   fijado: z.boolean().default(false),
   fecha_fin: z.string().optional(),
 });
@@ -36,17 +37,20 @@ type FormValues = z.infer<typeof FormSchema>;
 
 const TIPO_LABELS: Record<string, string> = {
   info: "Información",
-  urgente: "Urgente",
   evento: "Evento",
-  cierre: "Cierre",
+  cierre_servicio: "Cierre de servicio",
+  convocatoria: "Convocatoria",
 };
 
 const TIPO_COLORS: Record<string, string> = {
   info: "bg-blue-50 text-blue-700",
-  urgente: "bg-red-50 text-red-700",
   evento: "bg-green-50 text-green-700",
-  cierre: "bg-orange-50 text-orange-700",
+  cierre_servicio: "bg-orange-50 text-orange-700",
+  convocatoria: "bg-purple-50 text-purple-700",
 };
+
+// Default audience: visible to everyone (no role/program filter).
+const DEFAULT_AUDIENCE = [{ roles: [], programs: [] }] as const;
 
 export default function AdminNovedades() {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -68,7 +72,7 @@ export default function AdminNovedades() {
   });
 
   function openCreate() {
-    form.reset({ tipo: "info", fijado: false });
+    form.reset({ tipo: "info", es_urgente: false, fijado: false });
     setEditingId(null);
     setDialogOpen(true);
   }
@@ -77,7 +81,8 @@ export default function AdminNovedades() {
     form.reset({
       titulo: a.titulo as string,
       contenido: a.contenido as string,
-      tipo: a.tipo as "info" | "urgente" | "evento" | "cierre",
+      tipo: a.tipo as "info" | "evento" | "cierre_servicio" | "convocatoria",
+      es_urgente: (a.es_urgente as boolean | undefined) ?? false,
       fijado: a.fijado as boolean,
       fecha_fin: (a.fecha_fin as string | null) ?? undefined,
     });
@@ -93,7 +98,10 @@ export default function AdminNovedades() {
       } else {
         await createMutation.mutateAsync({
           ...values,
-          roles_visibles: ["beneficiario", "voluntario", "admin", "superadmin"],
+          audiences: DEFAULT_AUDIENCE.map((rule) => ({
+            roles: [...rule.roles],
+            programs: [...rule.programs],
+          })),
         });
         toast.success("Novedad creada");
       }
@@ -113,9 +121,9 @@ export default function AdminNovedades() {
     }
   }
 
-  async function handleTogglePin(id: string, fijado: boolean) {
+  async function handleTogglePin(id: string) {
     try {
-      await togglePinMutation.mutateAsync({ id, fijado: !fijado });
+      await togglePinMutation.mutateAsync({ id });
     } catch {
       toast.error("Error al fijar");
     }
@@ -193,7 +201,7 @@ export default function AdminNovedades() {
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8"
-                    onClick={() => handleTogglePin(ann.id as string, ann.fijado as boolean)}
+                    onClick={() => handleTogglePin(ann.id as string)}
                     title={ann.fijado ? "Desfijar" : "Fijar"}
                   >
                     {(ann.fijado as boolean) ? <PinOff className="w-4 h-4" /> : <Pin className="w-4 h-4" />}
@@ -254,16 +262,21 @@ export default function AdminNovedades() {
                 <label className="text-sm font-medium text-gray-700 mb-1 block">Tipo</label>
                 <Select
                   value={form.watch("tipo")}
-                  onValueChange={(v) => form.setValue("tipo", v as "info" | "urgente" | "evento" | "cierre")}
+                  onValueChange={(v) =>
+                    form.setValue(
+                      "tipo",
+                      v as "info" | "evento" | "cierre_servicio" | "convocatoria"
+                    )
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="info">Información</SelectItem>
-                    <SelectItem value="urgente">Urgente</SelectItem>
                     <SelectItem value="evento">Evento</SelectItem>
-                    <SelectItem value="cierre">Cierre</SelectItem>
+                    <SelectItem value="cierre_servicio">Cierre de servicio</SelectItem>
+                    <SelectItem value="convocatoria">Convocatoria</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -274,14 +287,27 @@ export default function AdminNovedades() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="fijado"
-                {...form.register("fijado")}
-                className="rounded border-gray-300"
-              />
-              <label htmlFor="fijado" className="text-sm text-gray-700">Fijar en la parte superior</label>
+            <div className="flex items-center gap-4 flex-wrap">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="es_urgente"
+                  {...form.register("es_urgente")}
+                  className="rounded border-gray-300"
+                />
+                <label htmlFor="es_urgente" className="text-sm text-gray-700">
+                  Es urgente (banner en /inicio + webhook)
+                </label>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="fijado"
+                  {...form.register("fijado")}
+                  className="rounded border-gray-300"
+                />
+                <label htmlFor="fijado" className="text-sm text-gray-700">Fijar en la parte superior</label>
+              </div>
             </div>
 
             <DialogFooter>

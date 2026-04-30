@@ -19,6 +19,7 @@ import {
   ChevronRight,
   Bell,
   User,
+  Megaphone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -70,6 +71,12 @@ const NAV_ITEMS: NavItem[] = [
     label: "Dashboard",
     href: "/dashboard",
     icon: <BarChart3 className="h-5 w-5" />,
+    roles: ["admin", "superadmin"],
+  },
+  {
+    label: "Administrar novedades",
+    href: "/admin/novedades",
+    icon: <Megaphone className="h-5 w-5" />,
     roles: ["admin", "superadmin"],
   },
   {
