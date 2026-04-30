@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
+import { getSignedDocUrl } from "@/features/families/utils/signedUrl";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -98,16 +99,19 @@ export function SocialReportPanel({ familyId, informeSocial, informeSocialFecha 
           )}
 
           {informeRow?.documento_url && (
-            <a
-              href={informeRow.documento_url}
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              type="button"
               className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
               aria-label="Ver informe social en PDF"
+              onClick={async () => {
+                const url = await getSignedDocUrl(informeRow.documento_url);
+                if (url) window.open(url, "_blank", "noopener,noreferrer");
+                else toast.error("No se pudo generar el enlace");
+              }}
             >
               <FileText className="h-3 w-3" aria-hidden="true" />
               Ver informe
-            </a>
+            </button>
           )}
 
           {editing && (

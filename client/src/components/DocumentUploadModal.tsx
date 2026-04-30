@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Upload, Download, Calendar, User } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { getSignedDocUrl } from "@/features/families/utils/signedUrl";
 import {
   useUploadFamilyDocument,
   useFamilyLevelDocuments,
@@ -155,29 +156,32 @@ export function DocumentUploadModal({
       const ext = isImage ? "jpg" : extFromFile(file);
       const storagePath = `${familyId}/${memberIndex}/${documentoTipo}/${Date.now()}.${ext}`;
 
-      // TODO (Phase 3): switch to createSignedUrl once the bucket goes private.
+      // The family-documents bucket is private. We store the storage PATH (not a URL)
+      // so we can re-sign on demand at view time via getSignedDocUrl.
       const supabase = createClient();
-      const { data: urlData } = supabase.storage
-        .from(STORAGE_BUCKET)
-        .getPublicUrl(storagePath);
-
-      const publicUrl = urlData.publicUrl;
 
       // 1. DB row first — if this fails nothing hits Storage, no orphan PII.
       const insertedDoc = await uploadMutation.mutateAsync({
         family_id: familyId,
         member_index: memberIndex,
         documento_tipo: documentoTipo,
-        documento_url: publicUrl,
+        documento_url: storagePath,
       });
 
-      // 2. Storage upload — if this fails, soft-delete the DB row to roll back.
+      // 2. Storage upload — if this fails, await the soft-delete to roll back.
       const { error: storageError } = await supabase.storage
         .from(STORAGE_BUCKET)
         .upload(storagePath, blob, { contentType, upsert: false });
 
       if (storageError) {
-        deleteMutation.mutate({ id: insertedDoc.id });
+        try {
+          await deleteMutation.mutateAsync({ id: insertedDoc.id });
+        } catch {
+          toast.error(
+            `Error al subir archivo y al limpiar el registro. Contacta al admin con ID: ${insertedDoc.id}`
+          );
+          return;
+        }
         toast.error(storageError.message || "Error al subir el archivo");
         return;
       }
@@ -247,15 +251,18 @@ export function DocumentUploadModal({
                   </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <a
-                    href={currentDoc.documento_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    type="button"
                     className="text-green-600 hover:text-green-700 dark:text-green-400"
                     aria-label="Ver documento actual"
+                    onClick={async () => {
+                      const url = await getSignedDocUrl(currentDoc.documento_url);
+                      if (url) window.open(url, "_blank", "noopener,noreferrer");
+                      else toast.error("No se pudo generar el enlace");
+                    }}
                   >
                     <Download className="w-4 h-4" />
-                  </a>
+                  </button>
                   <Button
                     type="button"
                     variant="outline"
@@ -306,14 +313,17 @@ export function DocumentUploadModal({
                           )}
                         </div>
                         {record.documento_url && (
-                          <a
-                            href={record.documento_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          <button
+                            type="button"
                             className="text-xs text-primary hover:underline mt-2 inline-block"
+                            onClick={async () => {
+                              const url = await getSignedDocUrl(record.documento_url);
+                              if (url) window.open(url, "_blank", "noopener,noreferrer");
+                              else toast.error("No se pudo generar el enlace");
+                            }}
                           >
                             Ver →
-                          </a>
+                          </button>
                         )}
                       </div>
                       <Badge variant="outline" className="ml-2 shrink-0">

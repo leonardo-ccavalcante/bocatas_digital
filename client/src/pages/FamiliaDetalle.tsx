@@ -14,6 +14,8 @@ import { FAMILIA_DOCS_CONFIG } from "@/features/families/constants";
 import { DocumentChecklist } from "@/features/programs/components/DocumentChecklist";
 import type { FamilyDocType } from "@shared/familyDocuments";
 import { isAdultOrUnknown } from "@/features/families/utils/age";
+import { getSignedDocUrl } from "@/features/families/utils/signedUrl";
+import type { DocumentItem } from "@/features/programs/components/DocumentChecklist";
 import { GufPanel } from "@/features/families/components/GufPanel";
 import { SocialReportPanel } from "@/features/families/components/SocialReportPanel";
 import { DeactivationForm } from "@/features/families/components/DeactivationForm";
@@ -72,6 +74,11 @@ function FamilyDocsCard({
           title=""
           items={items}
           readOnly
+          onViewDocument={async (item: DocumentItem) => {
+            const url = await getSignedDocUrl(item.documentUrl);
+            if (url) window.open(url, "_blank", "noopener,noreferrer");
+            else toast.error("No se pudo generar el enlace");
+          }}
         />
         <div className="grid grid-cols-2 md:grid-cols-3 gap-2 pt-2">
           {familyDocs.map((d) => (
@@ -141,6 +148,11 @@ function MemberDocSubcard({
         title=""
         items={items}
         readOnly
+        onViewDocument={async (item: DocumentItem) => {
+          const url = await getSignedDocUrl(item.documentUrl);
+          if (url) window.open(url, "_blank", "noopener,noreferrer");
+          else toast.error("No se pudo generar el enlace");
+        }}
       />
       <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
         {memberDocs.map((d) => (
