@@ -8,6 +8,20 @@ export interface ExtractedBeneficiary {
   confidence: number;
   flagged: boolean;
   flagReason?: string;
+  // Delivery record fields — populated during the validation step before saving
+  familia_id?: string;
+  persona_recibio?: string;
+  fecha?: string;
+  frutas_hortalizas_cantidad?: number;
+  frutas_hortalizas_unidad?: string;
+  carne_cantidad?: number;
+  carne_unidad?: string;
+  notas?: string;
+  warnings?: string[];
+  // S3 metadata — set when the record was extracted from a photo
+  photoUrl?: string;
+  photoKey?: string;
+  rotationDegrees?: number;
 }
 
 export interface ErrorLogEntry {

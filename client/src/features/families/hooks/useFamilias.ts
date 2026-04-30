@@ -23,6 +23,13 @@ export function useCreateFamilia() {
   });
 }
 
+export function useUpdateFamiliaDocField() {
+  const utils = trpc.useUtils();
+  return trpc.families.updateDocField.useMutation({
+    onSuccess: (_, vars) => { utils.families.getById.invalidate({ id: vars.id }); },
+  });
+}
+
 export function useDeactivateFamilia() {
   const utils = trpc.useUtils();
   return trpc.families.deactivate.useMutation({
@@ -89,19 +96,21 @@ export function useDeleteFamilyDocument(family_id: string) {
   });
 }
 
-// ─── Deliveries ───────────────────────────────────────────────────────────────
+// ─── Deliveries (redirected to entregas router) ───────────────────────────────
 export function useDeliveries(family_id: string) {
-  return trpc.families.getDeliveries.useQuery(
-    { family_id },
+  // Use entregas router for delivery queries
+  return trpc.entregas.getDeliveries.useQuery(
+    { familiaId: family_id },
     { enabled: !!family_id, staleTime: 30_000 }
   );
 }
 
 export function useCreateDelivery() {
   const utils = trpc.useUtils();
-  return trpc.families.createDelivery.useMutation({
-    onSuccess: (_, vars) => {
-      utils.families.getDeliveries.invalidate({ family_id: vars.family_id });
+  // Use entregas router for delivery mutations
+  return trpc.entregas.createDelivery.useMutation({
+    onSuccess: (data: any) => {
+      utils.entregas.getDeliveries.invalidate({ familiaId: data.data?.familia_id });
     },
   });
 }
