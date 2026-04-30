@@ -48,7 +48,6 @@ export default function FamiliasEntregas() {
     onError: (err) => toast.error(err.message),
   });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const deliveredFamilyIds = new Set<string>(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ((todayDeliveries as any[]) ?? []).map((d: any) => d.family_id)

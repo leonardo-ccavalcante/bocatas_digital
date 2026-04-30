@@ -388,7 +388,6 @@ export function IntakeWizard({ titularId }: IntakeWizardProps) {
   );
   const [members, setMembers] = useState<FamilyMember[]>([]);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const form = useForm<FamilyIntake>({
     resolver: zodResolver(FamilyIntakeSchema) as any,
     defaultValues: {
