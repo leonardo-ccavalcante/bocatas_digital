@@ -156,26 +156,40 @@ export const DeliveryDocumentUpload: React.FC<DeliveryDocumentUploadProps> = ({
       const photoUrl = 'https://placeholder.com/photo.jpg';
 
       const result = await ocrExtractMutation.mutateAsync({
-        imageUrl: photoUrl,
+        photoUrl: photoUrl,
+        programaId: 'default-programa',
       });
 
-      if (result.success && result.data.records) {
-        // Add records to batch accumulator
-        batch.addRecords(result.data.records);
+      if (result.success && result.beneficiaries) {
+        const mappedRecords = result.beneficiaries.map((d: any) => ({
+          id: d.id || `${Date.now()}-${Math.random()}`,
+          familia_id: d.familia_id || '',
+          fecha: d.fecha || new Date().toISOString().split('T')[0],
+          persona_recibio: d.persona_recibio || d.beneficiaryName || '',
+          frutas_hortalizas_cantidad: d.frutas_hortalizas_cantidad || 0,
+          frutas_hortalizas_unidad: d.frutas_hortalizas_unidad || 'kg',
+          carne_cantidad: d.carne_cantidad || 0,
+          carne_unidad: d.carne_unidad || 'kg',
+          notas: d.notas || '',
+          confidence: d.confidence || d.nameConfidence || 0,
+          warnings: d.warnings || [],
+          flagged: false,
+        }));
+        batch.addRecords(mappedRecords);
 
         // Log any errors
-        if (result.data.errors && result.data.errors.length > 0) {
-          result.data.errors.forEach((error: any) => {
+        if (result.errors && result.errors.length > 0) {
+          result.errors.forEach((error: string) => {
             batch.addError({
               photoId: photoUrl,
-              message: error.message,
+              message: error,
               severity: 'warning',
             });
           });
         }
 
         setOcrStep('validation');
-        toast.success(`${result.data.records.length} beneficiarios extraídos`);
+        toast.success(`${mappedRecords.length} beneficiarios extraídos`);
       } else {
         const errorMsg = result.message || 'Error en extracción OCR';
         setOcrError(errorMsg);
@@ -212,8 +226,10 @@ export const DeliveryDocumentUpload: React.FC<DeliveryDocumentUploadProps> = ({
         header: {
           numero_albaran: 'OCR-' + Date.now(),
           numero_reparto: '1',
+          numero_factura_carne: null,
           fecha_reparto: new Date().toISOString().split('T')[0],
           total_personas_asistidas: batch.records.length,
+          confidence: 0.85,
           warnings: [],
         },
         rows: batch.records,
@@ -411,8 +427,7 @@ export const DeliveryDocumentUpload: React.FC<DeliveryDocumentUploadProps> = ({
               </p>
 
               <PhotoUploadInput
-                onPhotoCapture={handlePhotoUpload}
-                loading={ocrLoading}
+                onPhotoSelected={(photoData) => handlePhotoUpload(photoData.file, photoData.rotation)}
               />
 
               {ocrError && (

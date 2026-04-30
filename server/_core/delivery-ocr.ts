@@ -1,8 +1,19 @@
 import { invokeLLM } from './llm';
 
 export interface ExtractedDelivery {
+  id: string;
+  familia_id: string;
   beneficiaryName: string;
+  persona_recibio: string;
   nameConfidence: number;
+  fecha: string;
+  frutas_hortalizas_cantidad: number;
+  frutas_hortalizas_unidad: string;
+  carne_cantidad: number;
+  carne_unidad: string;
+  notas: string;
+  confidence: number;
+  warnings: string[];
   deliveries: {
     date: string;
     quantity: number;

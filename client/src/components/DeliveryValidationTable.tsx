@@ -88,17 +88,17 @@ export const DeliveryValidationTable: React.FC<DeliveryValidationTableProps> = (
                     <input
                       type="text"
                       value={
-                        editValues[record.id]?.nombre_beneficiario ??
-                        record.nombre_beneficiario
+                        editValues[record.id]?.persona_recibio ??
+                        record.persona_recibio
                       }
                       onChange={(e) =>
-                        handleFieldChange(record.id, 'nombre_beneficiario', e.target.value)
+                        handleFieldChange(record.id, 'persona_recibio', e.target.value)
                       }
                       className="w-full px-2 py-1 border border-gray-300 rounded"
                       autoFocus
                     />
                   ) : (
-                    <span>{record.nombre_beneficiario}</span>
+                    <span>{record.persona_recibio}</span>
                   )}
                 </td>
                 <td className="px-4 py-3">
@@ -106,20 +106,20 @@ export const DeliveryValidationTable: React.FC<DeliveryValidationTableProps> = (
                     <input
                       type="number"
                       value={
-                        editValues[record.id]?.cantidad_entregada ??
-                        record.cantidad_entregada
+                        editValues[record.id]?.frutas_hortalizas_cantidad ??
+                        record.frutas_hortalizas_cantidad
                       }
                       onChange={(e) =>
                         handleFieldChange(
                           record.id,
-                          'cantidad_entregada',
+                          'frutas_hortalizas_cantidad',
                           parseInt(e.target.value)
                         )
                       }
                       className="w-full px-2 py-1 border border-gray-300 rounded"
                     />
                   ) : (
-                    <span>{record.cantidad_entregada}</span>
+                    <span>{record.frutas_hortalizas_cantidad}</span>
                   )}
                 </td>
                 <td className="px-4 py-3">
@@ -127,15 +127,15 @@ export const DeliveryValidationTable: React.FC<DeliveryValidationTableProps> = (
                     <input
                       type="date"
                       value={
-                        editValues[record.id]?.fecha_entrega ?? record.fecha_entrega
+                        editValues[record.id]?.fecha ?? record.fecha
                       }
                       onChange={(e) =>
-                        handleFieldChange(record.id, 'fecha_entrega', e.target.value)
+                        handleFieldChange(record.id, 'fecha', e.target.value)
                       }
                       className="w-full px-2 py-1 border border-gray-300 rounded"
                     />
                   ) : (
-                    <span>{record.fecha_entrega}</span>
+                    <span>{record.fecha}</span>
                   )}
                 </td>
                 <td className="px-4 py-3 text-center">
