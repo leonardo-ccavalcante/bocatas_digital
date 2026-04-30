@@ -90,6 +90,22 @@ interface WebhookPayload {
   app_url: string;
 }
 
+// ─── App URL helper — fail fast if APP_URL is not configured ─────────────────
+// Avoids leaking the internal Manus deployment URL into webhook payloads when
+// APP_URL is missing in any environment. Webhook consumers receive the URL
+// verbatim, so a hardcoded fallback would commit deployment internals to
+// every external system that subscribes.
+
+function buildAppUrl(announcementId: string): string {
+  const appUrl = process.env.APP_URL;
+  if (!appUrl) {
+    throw new Error(
+      "APP_URL environment variable is required to build webhook payloads"
+    );
+  }
+  return `${appUrl.replace(/\/$/, "")}/novedades/${announcementId}`;
+}
+
 // ─── Fire-and-forget webhook ──────────────────────────────────────────────────
 
 async function fireUrgentWebhook(payload: WebhookPayload): Promise<void> {
@@ -309,11 +325,17 @@ export const announcementsRouter = router({
 
       const now = new Date().toISOString();
 
-      // Build query — visibility filter via RPC or manual EXISTS.
-      // Since Supabase JS SDK does not support subquery EXISTS directly,
-      // we pull all announcements that are active/visible and filter in JS
-      // using isVisibleToUser from the helpers. This is fine for the expected
-      // record count (hundreds, not millions). For scale, move to a PG view.
+      // Visibility filter happens in JS because Supabase JS SDK does not
+      // support a subquery EXISTS over announcement_audiences. We fetch a
+      // hard-capped window WITHOUT db-level pagination, filter client-side,
+      // then paginate the visible result.
+      //
+      // SCALE LIMIT: This caps at MAX_FETCH rows. Past that, results may be
+      // truncated for any single user. Acceptable while the announcement
+      // table is in the hundreds; move to a Postgres view + RPC when it
+      // crosses ~1000 rows. Tracked as a follow-up.
+      const MAX_FETCH = 500;
+
       let query = db
         .from("announcements")
         .select(
@@ -325,7 +347,7 @@ export const announcementsRouter = router({
         .order("es_urgente", { ascending: false })
         .order("fijado", { ascending: false })
         .order("fecha_inicio", { ascending: false, nullsFirst: false })
-        .range(offset, offset + limit - 1);
+        .limit(MAX_FETCH);
 
       if (!includeInactive) {
         query = query
@@ -366,7 +388,13 @@ export const announcementsRouter = router({
         });
       });
 
-      return { announcements: visible, total: visible.length };
+      // Paginate AFTER filtering so offset/limit walk the visible set, not
+      // the unfiltered fetch (otherwise pages contain fewer/zero rows even
+      // when more are available).
+      const total = visible.length;
+      const paged = visible.slice(offset, offset + limit);
+
+      return { announcements: paged, total };
     }),
 
   /**
@@ -688,15 +716,24 @@ export const announcementsRouter = router({
       const pendingIds = audiencePersonIds.filter(
         (id) => !dismissedPersonIds.has(id)
       );
+      // Cap the pending list to avoid sending hundreds of names to the
+      // admin client. Total audience + dismissed counts are still accurate.
+      const PENDING_NAMES_CAP = 50;
       const pendingPersons = (persons ?? [])
         .filter((p: { id: string }) => pendingIds.includes(p.id))
+        .slice(0, PENDING_NAMES_CAP)
         .map((p: { id: string; nombre: string; apellidos: string | null }) => ({
           person_id: p.id,
           nombre: p.nombre,
           apellidos: p.apellidos,
         }));
 
-      return { total_audience, dismissed, pending_names: pendingPersons };
+      return {
+        total_audience,
+        dismissed,
+        pending_names: pendingPersons,
+        pending_names_truncated: pendingIds.length > PENDING_NAMES_CAP,
+      };
     }),
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -776,7 +813,7 @@ export const announcementsRouter = router({
           fecha_fin: data.fecha_fin ?? null,
           audiences: input.audiences as AudienceRule[],
           autor_nombre,
-          app_url: `${process.env.APP_URL ?? "https://bocatasdg-mvcpdsc2.manus.space"}/novedades/${data.id}`,
+          app_url: buildAppUrl(data.id),
         };
         void fireUrgentWebhook(payload).catch(() => undefined);
       }
@@ -881,7 +918,7 @@ export const announcementsRouter = router({
             fecha_fin: freshRow.fecha_fin ?? null,
             audiences: (audRows ?? []) as AudienceRule[],
             autor_nombre: freshRow.autor_nombre ?? null,
-            app_url: `${process.env.APP_URL ?? "https://bocatasdg-mvcpdsc2.manus.space"}/novedades/${freshRow.id}`,
+            app_url: buildAppUrl(freshRow.id),
           };
           void fireUrgentWebhook(payload).catch(() => undefined);
         }
@@ -1143,7 +1180,6 @@ export const announcementsRouter = router({
           .limit(parsedRows.length * 2);
 
         const webhookFires = (newRows ?? [])
-          .filter((row: { id: string }) => !dismissedLookup(row.id))
           .slice(0, parsedRows.length)
           .map((row: {
             id: string;
@@ -1164,7 +1200,7 @@ export const announcementsRouter = router({
               fecha_fin: row.fecha_fin ?? null,
               audiences: (row.announcement_audiences as AudienceRule[]) ?? [],
               autor_nombre: autorNombre,
-              app_url: `${process.env.APP_URL ?? "https://bocatasdg-mvcpdsc2.manus.space"}/novedades/${row.id}`,
+              app_url: buildAppUrl(row.id),
             };
             return fireUrgentWebhook(payload).catch(() => undefined);
           });
@@ -1209,8 +1245,3 @@ export const announcementsRouter = router({
       return { success: true };
     }),
 });
-
-// ─── Internal no-op used to avoid a TS warning about unused variable ─────────
-function dismissedLookup(_id: string): boolean {
-  return false;
-}

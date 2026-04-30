@@ -6,6 +6,7 @@
  * roles (or roles is empty) AND any of their program enrollments is in the
  * rule's programs (or programs is empty).
  */
+import { useMemo, useRef } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -54,6 +55,18 @@ export function AudienceRulesEditor({
   onChange,
   error,
 }: AudienceRulesEditorProps) {
+  // Stable React keys per rule, indexed positionally. Removing a rule must
+  // also remove its key so the remaining rules retain their identity.
+  const keyCounter = useRef(0);
+  const keysRef = useRef<string[]>([]);
+  const keys = useMemo(() => {
+    while (keysRef.current.length < value.length) {
+      keyCounter.current += 1;
+      keysRef.current.push(`rule-${keyCounter.current}`);
+    }
+    return keysRef.current.slice(0, value.length);
+  }, [value.length]);
+
   function updateRule(index: number, next: MutableAudienceRule) {
     const copy = [...value];
     copy[index] = next;
@@ -65,6 +78,7 @@ export function AudienceRulesEditor({
   }
 
   function removeRule(index: number) {
+    keysRef.current.splice(index, 1);
     onChange(value.filter((_, i) => i !== index));
   }
 
@@ -101,7 +115,7 @@ export function AudienceRulesEditor({
 
       {value.map((rule, idx) => (
         <div
-          key={idx}
+          key={keys[idx]}
           className="rounded-lg border border-gray-200 p-3 space-y-3 bg-gray-50/50"
         >
           <div className="flex items-start justify-between gap-2">

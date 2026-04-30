@@ -33,14 +33,17 @@ DECLARE
   v_created_count integer := 0;
   v_error_count   integer := 0;
 BEGIN
-  -- Fetch preview (ownership enforced by RLS on bulk_import_previews).
+  -- Fetch preview. SECURITY DEFINER bypasses RLS, so we MUST re-check
+  -- ownership inside the function body — otherwise any admin who obtains
+  -- another admin's preview token (logs, race) could confirm it.
   SELECT * INTO v_preview_row
   FROM bulk_import_previews
   WHERE token = p_token
+    AND created_by = p_autor_id
     AND created_at > now() - interval '30 minutes';
 
   IF NOT FOUND THEN
-    RAISE EXCEPTION 'preview expired or not found';
+    RAISE EXCEPTION 'preview expired, not found, or not owned by caller';
   END IF;
 
   v_rows := v_preview_row.parsed_rows;

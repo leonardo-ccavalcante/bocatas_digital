@@ -67,10 +67,14 @@ CREATE POLICY announcement_audit_log_admin_select ON announcement_audit_log
   USING (public.get_user_role() IN ('superadmin', 'admin'));
 
 -- INSERT: authenticated users (server controls writes; tighter would block legitimate audits)
+-- INSERT: only admin/superadmin may write audit rows. The tRPC router uses
+-- the service-role admin client which bypasses RLS, so this policy applies
+-- only to direct PostgREST writes from authenticated users — and we never
+-- want a beneficiario to fabricate audit history.
 DROP POLICY IF EXISTS announcement_audit_log_authenticated_insert ON announcement_audit_log;
-CREATE POLICY announcement_audit_log_authenticated_insert ON announcement_audit_log
+CREATE POLICY announcement_audit_log_admin_insert ON announcement_audit_log
   FOR INSERT TO authenticated
-  WITH CHECK (true);
+  WITH CHECK (public.get_user_role() IN ('superadmin', 'admin'));
 
 -- No UPDATE/DELETE policies - audit log is append-only
 

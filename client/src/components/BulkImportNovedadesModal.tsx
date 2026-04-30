@@ -335,7 +335,10 @@ export function BulkImportNovedadesModal({
               </Button>
               <Button
                 onClick={handleConfirm}
-                disabled={errorCount > 0}
+                disabled={
+                  errorCount > 0 ||
+                  tableRows.filter((r) => r.valid).length === 0
+                }
               >
                 Confirmar importación
               </Button>
