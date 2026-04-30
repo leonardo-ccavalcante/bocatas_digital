@@ -38,20 +38,8 @@ function derivePerMemberItems(memberIndex: number, uploaded: DocRow[]) {
   });
 }
 
-function ageInYears(
-  fecha_nacimiento?: string | null,
-  today: Date = new Date()
-): number | null {
-  if (!fecha_nacimiento) return null;
-  const dob = new Date(fecha_nacimiento);
-  if (isNaN(dob.getTime())) return null;
-  let age = today.getFullYear() - dob.getFullYear();
-  const monthDiff = today.getMonth() - dob.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
-    age--;
-  }
-  return age;
-}
+// ageInYears + isAdultOrUnknown moved to @/features/families/utils/age and tested
+// directly in client/src/features/families/utils/__tests__/age.test.ts
 
 describe("Documentacion tab — family-level checklist", () => {
   it("renders 4 family-level docs from FAMILIA_DOCS_CONFIG (Padron, Justificante, Informe social, Autorizacion)", () => {
@@ -134,20 +122,4 @@ describe("Documentacion tab — per-member checklist", () => {
   });
 });
 
-describe("Documentacion tab — ageInYears + >=14 inclusivity", () => {
-  const today = new Date("2026-04-30");
-
-  it("returns null for missing/invalid DOB", () => {
-    expect(ageInYears(null, today)).toBe(null);
-    expect(ageInYears(undefined, today)).toBe(null);
-    expect(ageInYears("not-a-date", today)).toBe(null);
-  });
-
-  it("computes age correctly", () => {
-    expect(ageInYears("1985-03-15", today)).toBe(41);
-  });
-
-  it("a member exactly 14 today qualifies", () => {
-    expect(ageInYears("2012-04-30", today)).toBe(14);
-  });
-});
+// ageInYears coverage lives in client/src/features/families/utils/__tests__/age.test.ts
