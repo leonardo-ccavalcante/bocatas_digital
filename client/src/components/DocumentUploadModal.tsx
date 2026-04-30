@@ -1,156 +1,318 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-import { Upload, Download, Trash2, Calendar, User } from "lucide-react";
+import { Upload, Download, Calendar, User } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import {
+  useUploadFamilyDocument,
+  useFamilyLevelDocuments,
+  useMemberLevelDocuments,
+  useAllFamilyDocuments,
+  useDeleteFamilyDocument,
+} from "@/features/families/hooks/useFamilias";
+import { FAMILIA_DOCS_CONFIG } from "@/features/families/constants";
+import type { FamilyDocType } from "@shared/familyDocuments";
+
+// ─── Props ────────────────────────────────────────────────────────────────────
 
 interface DocumentUploadModalProps {
   familyId: string;
-  documentType: string;
+  documentoTipo: FamilyDocType;
+  memberIndex: number; // -1 for family-level; 0+ for per-member
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-interface DocumentRecord {
-  id: string;
-  documento_tipo: string;
-  documento_url: string | null;
-  fecha_upload: string | null;
-  verified_by: string | null;
-  created_at: string;
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function labelFor(tipo: FamilyDocType): string {
+  return FAMILIA_DOCS_CONFIG.find((d) => d.key === tipo)?.label ?? tipo;
 }
+
+function extFromFile(file: File): string {
+  const fromName = file.name.split(".").pop();
+  if (fromName) return fromName.toLowerCase();
+  if (file.type === "application/pdf") return "pdf";
+  if (file.type.startsWith("image/")) return file.type.split("/")[1] ?? "jpg";
+  return "bin";
+}
+
+/**
+ * Compress an image file to reduce upload size.
+ * Returns a Blob with JPEG compression at 0.8 quality.
+ * Inlined from DocumentPhotoCapture.tsx (not exported from that module).
+ */
+async function compressImage(file: File, maxDimension = 1920): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const canvas = document.createElement("canvas");
+      let { width, height } = img;
+      if (width > maxDimension || height > maxDimension) {
+        if (width > height) {
+          height = Math.round((height * maxDimension) / width);
+          width = maxDimension;
+        } else {
+          width = Math.round((width * maxDimension) / height);
+          height = maxDimension;
+        }
+      }
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return reject(new Error("Canvas context unavailable"));
+      ctx.drawImage(img, 0, 0, width, height);
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) return reject(new Error("Compression failed"));
+          resolve(blob);
+        },
+        "image/jpeg",
+        0.8
+      );
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Image load failed"));
+    };
+    img.src = url;
+  });
+}
+
+const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
+const STORAGE_BUCKET = "family-documents";
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export function DocumentUploadModal({
   familyId,
-  documentType,
+  documentoTipo,
+  memberIndex,
   open,
   onOpenChange,
 }: DocumentUploadModalProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
 
-  // Queries
-  const { data: history = [], isLoading, refetch } = (trpc.families as any).getDocumentHistory.useQuery(
-    { familyId },
-    { enabled: open }
+  // ── Queries ──────────────────────────────────────────────────────────────
+  const familyLevelQuery = useFamilyLevelDocuments(familyId);
+  const memberLevelQuery = useMemberLevelDocuments(familyId, memberIndex);
+  const allDocsQuery = useAllFamilyDocuments(familyId);
+
+  // ── Mutations ─────────────────────────────────────────────────────────────
+  const uploadMutation = useUploadFamilyDocument();
+  const deleteMutation = useDeleteFamilyDocument(familyId);
+
+  // ── Derived state ─────────────────────────────────────────────────────────
+  const docRows = memberIndex === -1
+    ? (familyLevelQuery.data ?? [])
+    : (memberLevelQuery.data ?? []);
+
+  const currentDoc = docRows.find(
+    (d) => d.documento_tipo === documentoTipo && d.is_current
   );
 
-  // Mutations
-  const updateDocumentMutation = (trpc.families as any).updateMemberDocument.useMutation({
-    onSuccess: () => {
-      toast.success("Documento actualizado exitosamente");
-      refetch();
-      setIsUploading(false);
-    },
-    onError: (error: any) => {
-      toast.error(error.message || "No se pudo actualizar el documento");
-      setIsUploading(false);
-    },
-  });
+  const allRows = allDocsQuery.data ?? [];
+  const historyRows = allRows.filter(
+    (d) =>
+      d.documento_tipo === documentoTipo &&
+      d.member_index === memberIndex &&
+      !d.is_current
+  );
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // ── Upload handler ────────────────────────────────────────────────────────
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (file.size > MAX_FILE_BYTES) {
+      toast.error("Archivo supera el límite de 10 MB");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
     setIsUploading(true);
 
-    // In a real implementation, upload to S3 here
-    // For now, create a mock URL
-    const mockUrl = `https://storage.example.com/${familyId}/${file.name}`;
-
     try {
-      await updateDocumentMutation.mutateAsync({
-        familyId,
-        memberIndex: 0, // Default to first member
-        documentoTipo: documentType,
-        documentoUrl: mockUrl,
-      });
-    } catch (error) {
-      console.error("Error uploading document:", error);
+      const isImage = file.type.startsWith("image/");
+      let blob: Blob;
+      let contentType: string;
+
+      if (isImage) {
+        blob = await compressImage(file, 1920);
+        contentType = "image/jpeg";
+      } else {
+        blob = file;
+        contentType = file.type || "application/pdf";
+      }
+
+      const ext = isImage ? "jpg" : extFromFile(file);
+      const storagePath = `${familyId}/${memberIndex}/${documentoTipo}/${Date.now()}.${ext}`;
+
+      const supabase = createClient();
+      const { error: uploadError } = await supabase.storage
+        .from(STORAGE_BUCKET)
+        .upload(storagePath, blob, { contentType, upsert: false });
+
+      if (uploadError) {
+        toast.error(uploadError.message || "Error al subir el archivo");
+        setIsUploading(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        return;
+      }
+
+      // TODO (Phase 3): switch to createSignedUrl once the bucket goes private.
+      const { data: urlData } = supabase.storage
+        .from(STORAGE_BUCKET)
+        .getPublicUrl(storagePath);
+
+      const publicUrl = urlData.publicUrl;
+
+      uploadMutation.mutate(
+        {
+          family_id: familyId,
+          member_index: memberIndex,
+          documento_tipo: documentoTipo,
+          documento_url: publicUrl,
+        },
+        {
+          onSuccess: () => {
+            toast.success("Documento subido");
+            onOpenChange(false);
+          },
+          onError: (err: unknown) => {
+            const msg = err instanceof Error ? err.message : "Error al registrar el documento";
+            toast.error(msg);
+          },
+          onSettled: () => {
+            setIsUploading(false);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+          },
+        }
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Error inesperado";
+      toast.error(msg);
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
-  const currentDocument = history.find((h: DocumentRecord) => h.documento_tipo === documentType);
-  const isLoading_ = isLoading || updateDocumentMutation.isPending || isUploading;
+  const handleReplace = () => {
+    fileInputRef.current?.click();
+  };
 
+  const handleDelete = (id: string) => {
+    deleteMutation.mutate({ id });
+  };
+
+  const isBusy = isUploading || uploadMutation.isPending || deleteMutation.isPending;
+  const title = `Gestionar documento: ${labelFor(documentoTipo)}`;
+
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Gestionar Documento: {documentType}</DialogTitle>
+          <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6">
           {/* Upload Area */}
           <div className="border-2 border-dashed rounded-lg p-6 text-center hover:bg-muted/50 transition">
-            <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+            <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" aria-hidden="true" />
             <Label className="cursor-pointer">
-              <span className="text-sm font-medium">Haz clic para cargar o arrastra un archivo</span>
+              <span className="text-sm font-medium">Haz clic para cargar un archivo</span>
               <Input
+                ref={fileInputRef}
                 type="file"
+                accept="application/pdf, image/*"
                 className="hidden"
-                onChange={handleFileUpload}
-                disabled={isLoading_}
+                onChange={handleFileChange}
+                disabled={isBusy}
+                aria-label={`Cargar archivo para ${labelFor(documentoTipo)}`}
               />
             </Label>
-            <p className="text-xs text-muted-foreground mt-2">PDF, JPG, PNG (máx 10MB)</p>
+            <p className="text-xs text-muted-foreground mt-2">PDF, JPG, PNG (máx 10 MB)</p>
+            {isBusy && (
+              <p className="text-xs text-muted-foreground mt-1 animate-pulse">Subiendo...</p>
+            )}
           </div>
 
           {/* Current Document */}
-          {currentDocument?.documento_url && (
+          {currentDoc?.documento_url && (
             <div className="p-4 border rounded-lg bg-green-50 dark:bg-green-950">
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
                   <p className="font-medium text-sm text-green-900 dark:text-green-100">
-                    Documento Actual
+                    Documento actual
                   </p>
-                  <p className="text-xs text-green-700 dark:text-green-300 mt-1">
-                    {currentDocument.documento_url.split("/").pop()}
+                  <p className="text-xs text-green-700 dark:text-green-300 mt-1 truncate">
+                    {currentDoc.documento_url.split("/").pop()}
                   </p>
                 </div>
-                <a
-                  href={currentDocument.documento_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-green-600 hover:text-green-700 dark:text-green-400"
-                >
-                  <Download className="w-4 h-4" />
-                </a>
+                <div className="flex items-center gap-2 shrink-0">
+                  <a
+                    href={currentDoc.documento_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-green-600 hover:text-green-700 dark:text-green-400"
+                    aria-label="Ver documento actual"
+                  >
+                    <Download className="w-4 h-4" />
+                  </a>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleReplace}
+                    disabled={isBusy}
+                  >
+                    Reemplazar
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => handleDelete(currentDoc.id)}
+                    disabled={isBusy}
+                  >
+                    Eliminar
+                  </Button>
+                </div>
               </div>
             </div>
           )}
 
-          {/* Upload History (Audit Trail) */}
-          <div>
-            <h3 className="font-semibold text-sm mb-3">Historial de Cargas</h3>
-            {history.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">
-                No hay documentos cargados aún
-              </p>
-            ) : (
+          {/* Audit History — previous versions */}
+          {historyRows.length > 0 && (
+            <div>
+              <h3 className="font-semibold text-sm mb-3">Versiones anteriores</h3>
               <div className="space-y-2 max-h-64 overflow-y-auto">
-                {history.map((record: DocumentRecord) => (
+                {historyRows.map((record) => (
                   <div
                     key={record.id}
                     className="p-3 border rounded-lg hover:bg-muted/50 transition"
                   >
-                    <div className="flex items-start justify-between">
+                    <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm">{record.documento_tipo}</p>
-                        <div className="flex flex-wrap gap-2 mt-2 text-xs text-muted-foreground">
+                        <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
                           {record.fecha_upload && (
                             <div className="flex items-center gap-1">
-                              <Calendar className="w-3 h-3" />
+                              <Calendar className="w-3 h-3" aria-hidden="true" />
                               {new Date(record.fecha_upload).toLocaleString("es-ES")}
                             </div>
                           )}
                           {record.verified_by && (
                             <div className="flex items-center gap-1">
-                              <User className="w-3 h-3" />
-                              Usuario: {record.verified_by}
+                              <User className="w-3 h-3" aria-hidden="true" />
+                              {record.verified_by}
                             </div>
                           )}
                         </div>
@@ -161,19 +323,19 @@ export function DocumentUploadModal({
                             rel="noopener noreferrer"
                             className="text-xs text-primary hover:underline mt-2 inline-block"
                           >
-                            Ver documento →
+                            Ver →
                           </a>
                         )}
                       </div>
-                      <Badge variant="outline" className="ml-2">
-                        {record.documento_url ? "Subido" : "Pendiente"}
+                      <Badge variant="outline" className="ml-2 shrink-0">
+                        Versión anterior
                       </Badge>
                     </div>
                   </div>
                 ))}
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

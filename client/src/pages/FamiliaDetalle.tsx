@@ -318,7 +318,8 @@ export default function FamiliaDetalle() {
       {docModalOpen && (
         <DocumentUploadModal
           familyId={id!}
-          documentType={docModalOpen}
+          documentoTipo={docModalOpen as import("@shared/familyDocuments").FamilyDocType}
+          memberIndex={-1}
           open={!!docModalOpen}
           onOpenChange={(open) => !open && setDocModalOpen(null)}
         />
