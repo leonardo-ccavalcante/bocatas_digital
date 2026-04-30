@@ -264,9 +264,9 @@ export default function FamiliaDetalle() {
             Subir Documento de Entregas
           </Button>
 
-          {deliveries && deliveries.length > 0 ? (
+          {deliveries && deliveries.data && deliveries.data.length > 0 ? (
             <div className="space-y-2">
-              {deliveries.map((d) => (
+              {deliveries.data.map((d: any) => (
                 <Card key={d.id}>
                   <CardContent className="space-y-3 py-3 px-4">
                     <div className="flex items-center justify-between">
@@ -329,7 +329,7 @@ export default function FamiliaDetalle() {
         <DeliveryDocumentModal
           familyId={id!}
           deliveryId={deliveryDocModalOpen}
-          deliveryDate={deliveries?.find((d) => d.id === deliveryDocModalOpen)?.fecha_entrega || new Date().toISOString()}
+            deliveryDate={deliveries?.data?.find((d: any) => d.id === deliveryDocModalOpen)?.fecha || new Date().toISOString()}
           open={!!deliveryDocModalOpen}
           onOpenChange={(open) => !open && setDeliveryDocModalOpen(null)}
         />

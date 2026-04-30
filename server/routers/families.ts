@@ -313,63 +313,6 @@ export const familiesRouter = router({
       return { success: true };
     }),
 
-  // ─── Job 3: Delivery Recording ───────────────────────────────────────────
-  /** GET deliveries for a family */
-  getDeliveries: adminProcedure
-    .input(z.object({ family_id: uuidLike }))
-    .query(async ({ input }) => {
-      const db = createAdminClient();
-      const { data, error } = await db
-        .from("deliveries")
-        .select("*")
-        .eq("family_id", input.family_id)
-        .is("deleted_at", null)
-        .order("fecha_entrega", { ascending: false });
-      if (error) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
-      return data ?? [];
-    }),
-
-  /** POST delivery (firma_url already uploaded by client) */
-  createDelivery: adminProcedure
-    .input(
-      z.object({
-        family_id: uuidLike,
-        fecha_entrega: z.string(),
-        kg_frutas_hortalizas: z.number().min(0),
-        kg_carne: z.number().min(0),
-        kg_infantil: z.number().min(0).default(0),
-        kg_otros: z.number().min(0).default(0),
-        recogido_por: z.string().min(1),
-        es_autorizado: z.boolean().default(false),
-        firma_url: z.string().optional(),
-        recogido_por_documento_url: z.string().optional(),
-        session_id: uuidLike.optional(),
-        notas: z.string().optional(),
-      })
-    )
-    .mutation(async ({ input, ctx }) => {
-      const db = createAdminClient();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const deliveryInsert: any = {
-        family_id: input.family_id,
-        fecha_entrega: input.fecha_entrega,
-        kg_frutas_hortalizas: input.kg_frutas_hortalizas,
-        kg_carne: input.kg_carne,
-        kg_infantil: input.kg_infantil,
-        kg_otros: input.kg_otros,
-        recogido_por: input.recogido_por,
-        es_autorizado: input.es_autorizado,
-        firma_url: input.firma_url ?? null,
-        recogido_por_documento_url: input.recogido_por_documento_url ?? null,
-        session_id: input.session_id ?? null,
-        notas: input.notas ?? null,
-        registrado_por: ctx.user.id,
-      };
-      const { data, error } = await db.from("deliveries").insert(deliveryInsert).select().single();
-      if (error) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
-      return data;
-    }),
-
   // ─── Job 7: Volunteer Identity Verifier ─────────────────────────────────
   /** Search families for volunteer identity verification (field-level redaction) */
   verifyIdentity: protectedProcedure
@@ -562,13 +505,14 @@ export const familiesRouter = router({
       .eq("estado", "activa")
       .is("deleted_at", null);
 
-    const { data: recentDeliveries } = await db
-      .from("deliveries")
-      .select("family_id")
-      .gte("fecha_entrega", cutoff60.toISOString().split("T")[0]);
+    // Query entregas table (deliveries table was dropped)
+    const { data: recentDeliveries } = await (db as any)
+      .from("entregas")
+      .select("familia_id")
+      .gte("fecha", cutoff60.toISOString().split("T")[0]);
 
     const recentFamilyIds = new Set(
-      (recentDeliveries ?? []).map((d: { family_id: string }) => d.family_id)
+      (recentDeliveries ?? []).map((d: { familia_id: string }) => d.familia_id)
     );
     const cm5List = (allActiveFamilies ?? []).filter(
       (f: { id: string }) => !recentFamilyIds.has(f.id)
