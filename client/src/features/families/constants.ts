@@ -5,6 +5,10 @@
  */
 
 // ─── Document checklist config ────────────────────────────────────────────────
+// Single source of truth for the Bocatas families program document set.
+// 4 family-level docs (perMember omitted / false) + 3 per-member docs (perMember=true, minAge=14).
+// Titular is member #0 — no separate dni_titular entry needed.
+// Consumed by: Documentación tab checklist, upload buttons, tRPC router enum, DB unique key.
 export interface DocConfig {
   key: string;
   label: string;
@@ -14,14 +18,15 @@ export interface DocConfig {
 }
 
 export const FAMILIA_DOCS_CONFIG: DocConfig[] = [
-  { key: "dni_titular", label: "DNI / NIE titular", required: true },
-  { key: "empadronamiento", label: "Certificado de empadronamiento", required: true },
-  { key: "libro_familia", label: "Libro de familia / partidas de nacimiento", required: false },
+  // Family-level documents
+  { key: "padron_municipal", label: "Padrón municipal", required: true },
+  { key: "justificante_situacion", label: "Justificante de situación", required: false },
   { key: "informe_social", label: "Informe social vigente", required: true },
-  { key: "consentimiento_banco_alimentos", label: "Consentimiento Banco de Alimentos", required: true },
-  { key: "consentimiento_bocatas", label: "Consentimiento Bocatas (RGPD)", required: true },
-  { key: "autorizacion_recogida", label: "Autorización persona recoge (si aplica)", required: false },
-  { key: "dni_miembro", label: "DNI / NIE miembro ≥14", required: true, perMember: true, minAge: 14 },
+  { key: "autorizacion_recogida", label: "Autorización persona recoge", required: false },
+  // Per-member documents (applies to members aged ≥14, including titular as member #0)
+  { key: "documento_identidad", label: "DNI / NIE / Pasaporte", required: true, perMember: true, minAge: 14 },
+  { key: "consent_bocatas", label: "Consentimiento Bocatas (RGPD)", required: true, perMember: true, minAge: 14 },
+  { key: "consent_banco_alimentos", label: "Consentimiento Banco de Alimentos / GUF", required: true, perMember: true, minAge: 14 },
 ];
 
 // ─── Delivery fields ──────────────────────────────────────────────────────────
