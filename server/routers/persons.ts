@@ -17,7 +17,7 @@ import { storagePut } from "../storage";
 // ─── Input schemas (mirrors PersonCreateSchema from client) ───────────────────
 // We re-define here to keep server code independent of client Vite aliases.
 
-const TipoDocumentoEnum = z.enum(["DNI", "NIE", "Pasaporte", "Sin_Documentacion"]);
+const TipoDocumentoEnum = z.enum(["DNI", "NIE", "Pasaporte", "Documento_Extranjero", "Sin_Documentacion"]);
 const GeneroEnum = z.enum(["masculino", "femenino", "no_binario", "prefiere_no_decir"]);
 const IdiomaEnum = z.enum(["es", "ar", "fr", "bm", "en", "ro", "zh", "wo", "other"]);
 const SituacionLegalEnum = z.enum(["regular", "irregular", "solicitante_asilo", "en_tramite", "sin_papeles"]);
