@@ -82,15 +82,29 @@ async function startServer() {
   }
 
   const preferredPort = parseInt(process.env.PORT || "3000");
-  const port = await findAvailablePort(preferredPort);
 
-  if (port !== preferredPort) {
-    console.log(`Port ${preferredPort} is busy, using port ${port} instead`);
+  // In production the PORT env var is authoritative (set by the platform).
+  // Silently drifting to a different port would make the container unreachable.
+  // Fail fast so the orchestrator can restart with a clean port assignment.
+  if (process.env.NODE_ENV === "production") {
+    const available = await isPortAvailable(preferredPort);
+    if (!available) {
+      console.error(`[FATAL] Port ${preferredPort} is already in use. Exiting.`);
+      process.exit(1);
+    }
+    server.listen(preferredPort, () => {
+      console.log(`Server running on http://localhost:${preferredPort}/`);
+    });
+  } else {
+    // Development: auto-find next available port for convenience
+    const port = await findAvailablePort(preferredPort);
+    if (port !== preferredPort) {
+      console.log(`Port ${preferredPort} is busy, using port ${port} instead`);
+    }
+    server.listen(port, () => {
+      console.log(`Server running on http://localhost:${port}/`);
+    });
   }
-
-  server.listen(port, () => {
-    console.log(`Server running on http://localhost:${port}/`);
-  });
 }
 
 startServer().catch(console.error);
