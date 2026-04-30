@@ -1390,7 +1390,7 @@ export type Database = {
         | "jubilado"
         | "incapacidad_permanente"
         | "sin_permiso_trabajo"
-      tipo_documento: "DNI" | "NIE" | "Pasaporte" | "Sin_Documentacion"
+      tipo_documento: "DNI" | "NIE" | "Pasaporte" | "Documento_Extranjero" | "Sin_Documentacion"
       tipo_vivienda:
         | "calle"
         | "albergue"
@@ -1610,7 +1610,7 @@ export const Constants = {
         "incapacidad_permanente",
         "sin_permiso_trabajo",
       ],
-      tipo_documento: ["DNI", "NIE", "Pasaporte", "Sin_Documentacion"],
+      tipo_documento: ["DNI", "NIE", "Pasaporte", "Documento_Extranjero", "Sin_Documentacion"],
       tipo_vivienda: [
         "calle",
         "albergue",
