@@ -17,6 +17,7 @@ import {
   usePreviewBulkImport,
   useConfirmBulkImport,
 } from "@/features/announcements/hooks/useAnnouncements";
+import { BulkImportHelp } from "@/features/announcements/components/BulkImportHelp";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -272,6 +273,8 @@ export function BulkImportNovedadesModal({
                 Descargar plantilla CSV
               </a>
             </div>
+
+            <BulkImportHelp />
 
             <label className="flex flex-col items-center justify-center gap-3 border-2 border-dashed rounded-lg p-8 cursor-pointer hover:bg-gray-50 transition-colors">
               {previewMutation.isPending ? (
