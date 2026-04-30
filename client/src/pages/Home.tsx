@@ -138,15 +138,10 @@ export default function Home() {
 
         {/* Location badge */}
         <div className="mt-4">
-          {selectedLocation ? (
+          {selectedLocation && (
             <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#C41230] bg-[#C41230]/8 border border-[#C41230]/20 rounded-full px-3 py-1.5">
               <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
               {selectedLocation.nombre}
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground bg-muted border border-border rounded-full px-3 py-1.5">
-              <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
-              Selecciona una sede en Check-in
             </span>
           )}
         </div>
