@@ -2,10 +2,122 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, adminProcedure, protectedProcedure, superadminProcedure } from "../_core/trpc";
 import { createAdminClient } from "../../client/src/lib/supabase/server";
+import type { Database } from "../../client/src/lib/database.types";
+import { generateFamiliesCSV, type ExportMode } from "../csvExport";
+import { validateFamiliesCSV, parseFamiliesCSV } from "../csvImport";
+import { generateFamiliesCSVWithMembers } from "../csvExportWithMembers";
+import { validateFamiliesWithMembersCSV, parseFamiliesWithMembersCSV } from "../csvImportWithMembers";
+import { entregas } from "../../drizzle/schema";
+import { eq, desc } from "drizzle-orm";
+import { getDb } from "../db";
+import {
+  FAMILY_DOC_TO_BOOLEAN_COLUMN,
+  FAMILY_LEVEL_DOC_TYPES,
+  PER_MEMBER_DOC_TYPES,
+  type FamilyDocType,
+} from "@shared/familyDocuments";
+import {
+  isMemberAdult,
+  REQUIRED_FAMILY_DOC_TYPES,
+  REQUIRED_PER_MEMBER_DOC_TYPES,
+} from "../families-doc-helpers";
 
 const uuidLike = z
   .string()
   .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, "Invalid UUID format");
+
+// ─── Member-Resolution Helpers ──────────────────────────────────────────────
+
+/**
+ * Resolve a member to a real `person_id`:
+ *   - If `member.person_id` is set, return it (caller is responsible for ensuring it exists).
+ *   - Otherwise, try a duplicate match on (nombre + apellidos + fecha_nacimiento) — exact match only.
+ *     Fuzzy/trigram dedup is Gate 2.
+ *   - If no match, INSERT a new persons row with canal_llegada = 'programa_familias' (familia intake).
+ * Returns the resolved `person_id`.
+ */
+async function resolveMemberPersonId(
+  db: ReturnType<typeof createAdminClient>,
+  member: {
+    nombre: string;
+    apellidos: string;
+    fecha_nacimiento?: string;
+    documento?: string;
+    person_id?: string | null;
+  }
+): Promise<string> {
+  if (member.person_id) return member.person_id;
+
+  // Exact-match dedup on name + birth date.
+  if (member.fecha_nacimiento) {
+    const { data: existing } = await db
+      .from("persons")
+      .select("id")
+      .eq("nombre", member.nombre)
+      .eq("apellidos", member.apellidos)
+      .eq("fecha_nacimiento", member.fecha_nacimiento)
+      .is("deleted_at", null)
+      .limit(1);
+    if (existing && existing.length > 0) return existing[0].id;
+  }
+
+  // Insert a new person row for this family member.
+  const { data: created, error } = await db
+    .from("persons")
+    .insert({
+      nombre: member.nombre,
+      apellidos: member.apellidos,
+      fecha_nacimiento: member.fecha_nacimiento ?? null,
+      numero_documento: member.documento ?? null,
+      canal_llegada: "programa_familias",
+      idioma_principal: "es",
+    })
+    .select("id")
+    .single();
+  if (error || !created) {
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: error?.message ?? "Failed to create person row for family member",
+    });
+  }
+  return created.id;
+}
+
+/**
+ * Idempotent insert of a `program_enrollments` row.
+ * If an active enrollment already exists for (person_id, program_id), do nothing.
+ */
+async function ensureFamiliaEnrollment(
+  db: ReturnType<typeof createAdminClient>,
+  person_id: string,
+  program_id: string,
+  family_id: string,
+  member_index: number
+): Promise<void> {
+  const { data: existing } = await db
+    .from("program_enrollments")
+    .select("id")
+    .eq("person_id", person_id)
+    .eq("program_id", program_id)
+    .eq("estado", "activo")
+    .is("deleted_at", null)
+    .limit(1);
+  if (existing && existing.length > 0) return;
+
+  await db.from("program_enrollments").insert({
+    person_id,
+    program_id,
+    estado: "activo",
+    metadata: { family_id, member_index },
+  });
+}
+
+const familyDocTypeSchema = z.enum([
+  ...FAMILY_LEVEL_DOC_TYPES,
+  ...PER_MEMBER_DOC_TYPES,
+] as [string, ...string[]]);
+
+type FamiliesUpdate = Database["public"]["Tables"]["families"]["Update"];
 
 // ─── Input Schemas ─────────────────────────────────────────────────────────
 
@@ -164,12 +276,36 @@ export const familiesRouter = router({
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: familyError.message });
       }
 
-      // Insert program enrollment
-      await db.from("program_enrollments").insert({
-        person_id: input.titular_id,
-        program_id: input.program_id,
-        estado: "activo",
-      });
+      // Enroll the titular (member_index 0 by convention).
+      await ensureFamiliaEnrollment(db, input.titular_id, input.program_id, family.id, 0);
+
+      // Enroll every adult member (≥14 or unknown DOB — treat unknown as adult to be safe).
+      // Also resolve/create person rows for members that have no person_id yet,
+      // then persist the resolved person_id back into families.miembros JSONB.
+      const today = new Date();
+      const resolvedMiembros = [...input.miembros];
+      let miembrosUpdated = false;
+
+      for (let i = 0; i < input.miembros.length; i++) {
+        const member = input.miembros[i];
+        if (!isMemberAdult(member, today)) continue;
+
+        const personId = await resolveMemberPersonId(db, member);
+        await ensureFamiliaEnrollment(db, personId, input.program_id, family.id, i + 1);
+
+        if (personId !== member.person_id) {
+          resolvedMiembros[i] = { ...member, person_id: personId };
+          miembrosUpdated = true;
+        }
+      }
+
+      // Write resolved person_ids back to families.miembros in one UPDATE.
+      if (miembrosUpdated) {
+        await db
+          .from("families")
+          .update({ miembros: resolvedMiembros })
+          .eq("id", family.id);
+      }
 
       return family;
     }),
@@ -410,16 +546,39 @@ export const familiesRouter = router({
     }),
 
   // ─── Job 8: Per-member Pending Items ────────────────────────────────────
-  /** GET pending consent + doc items per member (for Job 8 + Job 9 Layer B) */
+  /**
+   * GET pending consent + doc items per member (for Job 8 + Job 9 Layer B).
+   *
+   * FIX (Gap E): Rewritten to iterate (family × required-doc-config) instead
+   * of scanning existing family_member_documents rows.  The old approach silently
+   * dropped families whose members had zero rows in that table (e.g. legacy
+   * intake, or titular-only families).
+   *
+   * Return shape preserved: one row per (family, member) with missing: string[].
+   *
+   * Known limitation: days_pending is based on family.created_at, not
+   * member_added_at (that would require a new JSONB field — deferred to Gate 2).
+   *
+   * Required doc sets (inlined from client/src/features/families/constants.ts
+   * to avoid cross-bundle imports):
+   *   Family-level required: padron_municipal, informe_social
+   *   Per-member required (age ≥14): documento_identidad, consent_bocatas,
+   *                                   consent_banco_alimentos
+   * These match FAMILIA_DOCS_CONFIG.filter(d => d.required).
+   */
   getPendingItems: adminProcedure
     .input(z.object({ family_id: uuidLike.optional() }))
     .query(async ({ input }) => {
       const db = createAdminClient();
 
+      // Required doc keys — sourced from the shared helper to avoid drift.
+      const REQUIRED_FAMILY_DOCS = REQUIRED_FAMILY_DOC_TYPES;
+      const REQUIRED_PER_MEMBER_DOCS = REQUIRED_PER_MEMBER_DOC_TYPES;
+
       let familiesQuery = db
         .from("families")
         .select(
-          "id, familia_numero, miembros, created_at, persons!titular_id(nombre, apellidos, telefono)"
+          "id, familia_numero, miembros, created_at, persons!titular_id(id, nombre, apellidos, telefono)"
         )
         .eq("estado", "activa")
         .is("deleted_at", null);
@@ -428,31 +587,34 @@ export const familiesRouter = router({
         familiesQuery = familiesQuery.eq("id", input.family_id);
       }
 
-      const { data: families } = await familiesQuery;
+      const { data: families, error: famErr } = await familiesQuery;
+      if (famErr) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: famErr.message });
       if (!families?.length) return [];
 
-      const { data: consents } = await db
-        .from("consents")
-        .select("person_id, purpose, granted, revoked_at")
-        .eq("purpose", "tratamiento_datos_banco_alimentos")
-        .is("revoked_at", null);
+      const familyIds = families.map((f) => f.id);
 
-      const { data: memberDocs } = await db
+      // Fetch all uploaded current docs for these families in a single query.
+      // A combination is "uploaded" when: is_current=true, deleted_at IS NULL,
+      // documento_url IS NOT NULL.
+      const { data: uploadedDocs } = await db
         .from("family_member_documents")
-        .select("family_id, member_index, documento_url")
-        .is("deleted_at", null);
+        .select("family_id, member_index, documento_tipo")
+        .in("family_id", familyIds)
+        .is("deleted_at", null)
+        .eq("is_current", true)
+        .not("documento_url", "is", null);
 
-      const consentPersonIds = new Set(
-        (consents ?? []).map((c: { person_id: string }) => c.person_id)
-      );
-      const docsByFamilyMember = new Map(
-        (memberDocs ?? []).map((d: { family_id: string; member_index: number }) => [
-          `${d.family_id}:${d.member_index}`,
-          d,
-        ])
+      // Build a lookup key set: "family_id:member_index:documento_tipo"
+      // member_index = -1 for family-level docs.
+      const uploadedKeySet = new Set(
+        (uploadedDocs ?? []).map(
+          (d: { family_id: string; member_index: number; documento_tipo: string }) =>
+            `${d.family_id}:${d.member_index}:${d.documento_tipo}`
+        )
       );
 
       const today = new Date();
+
       const result: {
         family_id: string;
         familia_numero: number;
@@ -465,41 +627,102 @@ export const familiesRouter = router({
       }[] = [];
 
       for (const family of families) {
-        const miembros = (family.miembros as unknown[]) ?? [];
         const familyCreatedAt = new Date(family.created_at);
         const daysPending = Math.floor(
           (today.getTime() - familyCreatedAt.getTime()) / (1000 * 60 * 60 * 24)
         );
 
+        // ── Family-level required docs (member_index = -1) ─────────────────
+        const familyMissingDocs = REQUIRED_FAMILY_DOCS.filter(
+          (docType) => !uploadedKeySet.has(`${family.id}:-1:${docType}`)
+        );
+        if (familyMissingDocs.length > 0) {
+          const titular = family.persons as {
+            id: string;
+            nombre: string;
+            apellidos: string | null;
+          } | null;
+          const titularName = titular
+            ? `${titular.nombre} ${titular.apellidos ?? ""}`.trim()
+            : "";
+          result.push({
+            family_id: family.id,
+            familia_numero: family.familia_numero,
+            member_index: -1,
+            member_name: titularName,
+            parentesco: "familia",
+            person_id: titular?.id ?? null,
+            missing: familyMissingDocs as unknown as string[],
+            days_pending: daysPending,
+          });
+        }
+
+        // ── Per-member required docs ────────────────────────────────────────
+        // Build the full member list: titular as member 0, then JSONB members 1+.
+        const titular = family.persons as {
+          id: string;
+          nombre: string;
+          apellidos: string | null;
+        } | null;
+
+        type MemberEntry = {
+          member_index: number;
+          nombre: string;
+          apellidos: string | null;
+          person_id: string | null;
+          parentesco: string;
+          fecha_nacimiento: string | null;
+        };
+
+        const allMembers: MemberEntry[] = [];
+
+        if (titular) {
+          allMembers.push({
+            member_index: 0,
+            nombre: titular.nombre,
+            apellidos: titular.apellidos,
+            person_id: titular.id,
+            parentesco: "titular",
+            fecha_nacimiento: null, // DOB not in this select; treat as adult (≥14)
+          });
+        }
+
+        const miembros = (family.miembros as Array<Record<string, unknown>>) ?? [];
         miembros.forEach((m, idx) => {
-          const member = m as Record<string, unknown>;
-          const dob = member.fecha_nacimiento as string | undefined;
-          const age = dob
-            ? Math.floor(
-                (today.getTime() - new Date(dob).getTime()) / (365.25 * 24 * 3600 * 1000)
-              )
-            : 99;
-          if (age < 14) return; // skip members under 14
+          allMembers.push({
+            member_index: idx + 1,
+            nombre: (m.nombre as string) ?? "",
+            apellidos: (m.apellidos as string) ?? null,
+            person_id: (m.person_id as string) ?? null,
+            parentesco: (m.parentesco as string) ?? "",
+            fecha_nacimiento: (m.fecha_nacimiento as string) ?? null,
+          });
+        });
 
-          const missing: string[] = [];
-          const personId = member.person_id as string | undefined;
-          if (!personId || !consentPersonIds.has(personId)) missing.push("consent");
-          if (!docsByFamilyMember.has(`${family.id}:${idx}`)) missing.push("doc");
+        for (const member of allMembers) {
+          // Apply minAge=14 filter (members with unknown DOB default to adult).
+          if (!isMemberAdult(member, today)) continue;
 
-          if (missing.length > 0) {
+          const missingDocs = REQUIRED_PER_MEMBER_DOCS.filter(
+            (docType) =>
+              !uploadedKeySet.has(`${family.id}:${member.member_index}:${docType}`)
+          );
+
+          if (missingDocs.length > 0) {
             result.push({
               family_id: family.id,
               familia_numero: family.familia_numero,
-              member_index: idx,
-              member_name: `${member.nombre ?? ""} ${member.apellidos ?? ""}`.trim(),
-              parentesco: (member.parentesco as string) ?? "",
-              person_id: personId ?? null,
-              missing,
+              member_index: member.member_index,
+              member_name: `${member.nombre} ${member.apellidos ?? ""}`.trim(),
+              parentesco: member.parentesco,
+              person_id: member.person_id,
+              missing: missingDocs as unknown as string[],
               days_pending: daysPending,
             });
           }
-        });
+        }
       }
+
       return result;
     }),
 
@@ -687,7 +910,7 @@ export const familiesRouter = router({
     .input(
       z.object({
         family_id: uuidLike,
-        member_index: z.number().int().min(0),
+        member_index: z.number().int().min(-1),
         member_person_id: uuidLike.optional(),
         documento_tipo: z.string().min(1),
         documento_url: z.string().optional(),
@@ -724,5 +947,686 @@ export const familiesRouter = router({
         .order("member_index");
       if (error) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
       return data ?? [];
+    }),
+
+  // ─── Member Management (familia_miembros) ──────────────────────────────────
+
+  /** GET all members for a family */
+  getMembers: adminProcedure
+    .input(z.object({ familiaId: uuidLike }))
+    .query(async ({ input }) => {
+      const db = createAdminClient();
+      const { data, error } = await db
+        .from("familia_miembros")
+        .select("*")
+        .eq("familia_id", input.familiaId)
+        .order("created_at", { ascending: true });
+      if (error) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+      return data ?? [];
+    }),
+
+  /** ADD a new member to family — resolves or creates a persons row for adults (≥14),
+   *  ensures program_enrollments, and appends to families.miembros JSONB. */
+  addMember: adminProcedure
+    .input(
+      z.object({
+        family_id: uuidLike,
+        program_id: uuidLike,
+        member: FamilyMemberSchema,
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = createAdminClient();
+
+      // Fetch current family to get existing miembros array.
+      const { data: family, error: fetchErr } = await db
+        .from("families")
+        .select("miembros")
+        .eq("id", input.family_id)
+        .is("deleted_at", null)
+        .single();
+      if (fetchErr || !family) throw new TRPCError({ code: "NOT_FOUND" });
+
+      const miembros = (family.miembros as Array<Record<string, unknown>>) ?? [];
+      const nextIndex = miembros.length;
+
+      const personId = await resolveMemberPersonId(db, input.member);
+
+      // Enroll if adult (≥14 or unknown DOB).
+      if (isMemberAdult(input.member)) {
+        await ensureFamiliaEnrollment(db, personId, input.program_id, input.family_id, nextIndex);
+      }
+
+      const newMember = { ...input.member, person_id: personId };
+      const updatedMiembros = [...miembros, newMember] as unknown as Database["public"]["Tables"]["families"]["Update"]["miembros"];
+      await db.from("families").update({ miembros: updatedMiembros }).eq("id", input.family_id);
+
+      return { person_id: personId, member_index: nextIndex };
+    }),
+
+  /** UPDATE a family member */
+  updateMember: adminProcedure
+    .input(
+      z.object({
+        id: uuidLike,
+        nombre: z.string().min(1).max(100).optional(),
+        rol: z.enum(["head_of_household", "dependent", "other"]).optional(),
+        relacion: z.enum(["parent", "child", "sibling", "other"]).optional(),
+        estado: z.enum(["activo", "inactivo"]).optional(),
+        fechaNacimiento: z.string().date().optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = createAdminClient();
+      const updateData: any = {};
+      if (input.nombre !== undefined) updateData.nombre = input.nombre;
+      if (input.rol !== undefined) updateData.rol = input.rol;
+      if (input.relacion !== undefined) updateData.relacion = input.relacion;
+      if (input.estado !== undefined) updateData.estado = input.estado;
+      if (input.fechaNacimiento !== undefined) updateData.fecha_nacimiento = input.fechaNacimiento;
+      updateData.updated_at = new Date().toISOString();
+
+      const { data, error } = await db
+        .from("familia_miembros")
+        .update(updateData)
+        .eq("id", input.id)
+        .select()
+        .single();
+      if (error) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+      return data;
+    }),
+
+  /** DELETE a family member */
+  deleteMember: adminProcedure
+    .input(z.object({ id: uuidLike }))
+    .mutation(async ({ input, ctx }) => {
+      const db = createAdminClient();
+      const { error } = await db.from("familia_miembros").delete().eq("id", input.id);
+      if (error) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+      return { success: true };
+    }),
+
+  // ─── Document Upload (family_member_documents — versioned) ─────────────
+
+  /** GET current documents for a family, optionally filtered by member_index */
+  getFamilyDocuments: adminProcedure
+    .input(
+      z.object({
+        family_id: uuidLike,
+        member_index: z.number().int().min(-1).optional(),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = createAdminClient();
+      let q = db
+        .from("family_member_documents")
+        .select("id, family_id, member_index, member_person_id, documento_tipo, documento_url, fecha_upload, verified_by, is_current, created_at")
+        .eq("family_id", input.family_id)
+        .is("deleted_at", null)
+        .eq("is_current", true)
+        .order("created_at", { ascending: false });
+      if (input.member_index !== undefined) {
+        q = q.eq("member_index", input.member_index);
+      }
+      const { data, error } = await q;
+      if (error) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+      return data ?? [];
+    }),
+
+  /** POST upload a document — versions any existing current row and recomputes boolean cache */
+  uploadFamilyDocument: adminProcedure
+    .input(
+      z.object({
+        family_id: uuidLike,
+        member_index: z.number().int().min(-1),
+        member_person_id: uuidLike.nullable().optional(),
+        documento_tipo: familyDocTypeSchema,
+        documento_url: z.string().min(1),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = createAdminClient();
+
+      // Atomic UPSERT via Postgres function — handles concurrent callers correctly.
+      const { data: inserted, error: rpcErr } = await db.rpc("upload_family_document", {
+        p_family_id: input.family_id,
+        p_member_index: input.member_index,
+        p_member_person_id: input.member_person_id ?? null,
+        p_documento_tipo: input.documento_tipo,
+        p_documento_url: input.documento_url,
+        p_verified_by: String(ctx.user.id),
+      });
+      if (rpcErr || !inserted) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: rpcErr?.message ?? "Failed to upload document",
+        });
+      }
+
+      // Recompute boolean cache (unchanged from before).
+      const cacheCol = FAMILY_DOC_TO_BOOLEAN_COLUMN[input.documento_tipo as FamilyDocType];
+      if (cacheCol) {
+        const { data: existsRows } = await db
+          .from("family_member_documents")
+          .select("id")
+          .eq("family_id", input.family_id)
+          .eq("documento_tipo", input.documento_tipo)
+          .not("documento_url", "is", null)
+          .is("deleted_at", null)
+          .eq("is_current", true)
+          .limit(1);
+        const newCacheValue = (existsRows?.length ?? 0) > 0;
+        const updatePayload: FamiliesUpdate = { [cacheCol]: newCacheValue } as FamiliesUpdate;
+        if (input.documento_tipo === "informe_social" && newCacheValue) {
+          (updatePayload as Record<string, unknown>).informe_social_fecha = new Date().toISOString().slice(0, 10);
+        }
+        const { error: cacheErr } = await db.from("families").update(updatePayload).eq("id", input.family_id);
+        if (cacheErr) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: cacheErr.message });
+      }
+
+      return inserted;
+    }),
+
+  /** DELETE (soft) a document row + recomputes boolean cache */
+  deleteFamilyDocument: adminProcedure
+    .input(z.object({ id: uuidLike }))
+    .mutation(async ({ input, ctx: _ctx }) => {
+      const db = createAdminClient();
+
+      // Fetch the row first so we know which family + doc_type to recompute.
+      const { data: existing, error: fetchErr } = await db
+        .from("family_member_documents")
+        .select("family_id, documento_tipo")
+        .eq("id", input.id)
+        .single();
+      if (fetchErr || !existing) throw new TRPCError({ code: "NOT_FOUND", message: "Documento no encontrado" });
+
+      const { error: delErr } = await db
+        .from("family_member_documents")
+        .update({ deleted_at: new Date().toISOString(), is_current: false })
+        .eq("id", input.id);
+      if (delErr) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: delErr.message });
+
+      const cacheCol = FAMILY_DOC_TO_BOOLEAN_COLUMN[existing.documento_tipo as FamilyDocType];
+      if (cacheCol) {
+        const { data: existsRows } = await db
+          .from("family_member_documents")
+          .select("id")
+          .eq("family_id", existing.family_id)
+          .eq("documento_tipo", existing.documento_tipo)
+          .not("documento_url", "is", null)
+          .is("deleted_at", null)
+          .eq("is_current", true)
+          .limit(1);
+        const deletePayload = { [cacheCol]: (existsRows?.length ?? 0) > 0 } as FamiliesUpdate;
+        await db.from("families").update(deletePayload).eq("id", existing.family_id);
+      }
+
+      return { success: true };
+    }),
+
+
+  // ─── Job 10: CSV Export ────────────────────────────────────────────────
+  /** GET CSV export of families data */
+  exportFamilies: adminProcedure
+    .input(z.object({ mode: z.enum(["update", "audit", "verify"]) }))
+    .query(async ({ input }) => {
+      const db = createAdminClient();
+
+      // Fetch all active families with member counts
+      const { data: families, error } = await db
+        .from("families")
+        .select(
+          `id, familia_numero, estado, num_adultos, num_menores_18,
+           persona_recoge, autorizado, alta_en_guf, fecha_alta_guf,
+           informe_social, informe_social_fecha, guf_verified_at,
+           created_at, deleted_at,
+           persons!titular_id(nombre, apellidos, telefono)`
+        )
+        .is("deleted_at", null)
+        .order("familia_numero", { ascending: true });
+
+      if (error) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+
+      // Fetch all family members
+      const { data: members, error: membersError } = await db
+        .from("familia_miembros")
+        .select("id, familia_id, nombre, rol, relacion, fecha_nacimiento, estado")
+        .is("deleted_at", null);
+
+      if (membersError) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: membersError.message });
+
+      // Transform to CSV-friendly format with members
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const familiesWithMembers = (families ?? []).map((f: any) => ({
+        family: {
+          id: f.id,
+          familia_numero: f.familia_numero?.toString() ?? "",
+          nombre_familia: f.persons?.nombre ?? "",
+          contacto_principal: f.persona_recoge ?? "",
+          telefono: f.persons?.telefono ?? "",
+          direccion: "",
+          estado: f.estado ?? "activo",
+          fecha_creacion: f.created_at?.split("T")[0] ?? "",
+          miembros_count: (f.num_adultos ?? 0) + (f.num_menores_18 ?? 0),
+          docs_identidad: false,
+          padron_recibido: false,
+          justificante_recibido: false,
+          consent_bocatas: false,
+          consent_banco_alimentos: false,
+          informe_social: f.informe_social ?? false,
+          informe_social_fecha: f.informe_social_fecha ?? null,
+          alta_en_guf: f.alta_en_guf ?? false,
+          fecha_alta_guf: f.fecha_alta_guf ?? null,
+          guf_verified_at: f.guf_verified_at ?? null,
+        },
+        members: (members ?? [])
+          .filter((m: any) => m.familia_id === f.id)
+          .map((m: any) => ({
+            id: m.id,
+            familia_id: m.familia_id,
+            nombre: m.nombre,
+            rol: m.rol,
+            relacion: m.relacion,
+            fecha_nacimiento: m.fecha_nacimiento,
+            estado: m.estado,
+          })),
+      }));
+
+      const csv = generateFamiliesCSVWithMembers(familiesWithMembers, input.mode);
+      return {
+        csv,
+        recordCount: familiesWithMembers.length,
+        memberCount: members?.length ?? 0,
+        mode: input.mode,
+      };
+    }),
+
+  // ─── Job 10: CSV Import Validation ──────────────────────────────────────
+  /** POST validate CSV before import */
+  validateCSVImport: adminProcedure
+    .input(z.object({ csvContent: z.string() }))
+    .query(async ({ input }) => {
+      const result = validateFamiliesCSV(input.csvContent);
+      return result;
+    }),
+
+  // ─── Job 10: CSV Import ─────────────────────────────────────────────────
+  /** POST import families from CSV */
+  importFamilies: adminProcedure
+    .input(
+      z.object({
+        csvContent: z.string(),
+        mergeStrategy: z.enum(["overwrite", "merge", "skip"]).default("merge"),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = createAdminClient();
+
+      // Validate CSV first
+      const validation = validateFamiliesCSV(input.csvContent);
+      if (!validation.isValid) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `CSV validation failed: ${validation.errors.join(", ")}`,
+        });
+      }
+
+      // Parse CSV
+      const parsedFamilies = parseFamiliesCSV(input.csvContent);
+
+      let successCount = 0;
+      let errorCount = 0;
+      const errors: string[] = [];
+
+      // Process each family
+      for (const family of parsedFamilies) {
+        const familiaNumero = family.familia_numero as number;
+        const familiaId = family.familia_id as string | undefined;
+        
+        try {
+
+          // Check if family exists
+          // PRIORITY: Use familia_id (UUID) if provided for reliable matching
+          // FALLBACK: Use familia_numero if no UUID provided
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          let query = db.from("families").select("id, persona_recoge");
+          
+          if (familiaId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(familiaId)) {
+            // Use UUID for matching (most reliable)
+            query = query.eq("id", familiaId);
+          } else {
+            // Fallback to familia_numero
+            query = query.eq("familia_numero", familiaNumero);
+          }
+          
+          const { data: existing } = await query.single();
+
+          if (existing && input.mergeStrategy === "skip") {
+            continue;
+          }
+
+          if (existing && input.mergeStrategy === "overwrite") {
+            // Update existing family
+            const { error } = await db
+              .from("families")
+              .update({
+                persona_recoge: (family.contacto_principal as string | null) ?? existing.persona_recoge,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", existing.id);
+
+            if (error) throw error;
+            successCount++;
+          } else if (existing && input.mergeStrategy === "merge") {
+            // Merge strategy: only update empty fields
+            const updates: any = { updated_at: new Date().toISOString() };
+            if (family.contacto_principal && !existing.persona_recoge) {
+              updates.persona_recoge = family.contacto_principal;
+            }
+
+            const { error } = await db
+              .from("families")
+              .update(updates)
+              .eq("id", existing.id);
+
+            if (error) throw error;
+            successCount++;
+          } else if (!existing) {
+            // Create new family
+            // If familia_id (UUID) is provided, use it; otherwise let database generate one
+            const newFamilyData: any = {
+              familia_numero: familiaNumero,
+              persona_recoge: (family.contacto_principal as string | null) ?? "",
+              estado: "activa",
+            };
+            
+            // Only set id if familia_id is provided and valid
+            if (familiaId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(familiaId)) {
+              newFamilyData.id = familiaId;
+            }
+            
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { error } = await db.from("families").insert(newFamilyData as any);
+
+            if (error) throw error;
+            successCount++;
+          }
+        } catch (err) {
+          errorCount++;
+          const familiaIdentifier = familiaId ? `UUID ${familiaId}` : `#${family.familia_numero}`;
+          errors.push(
+            `Familia ${familiaIdentifier}: ${err instanceof Error ? err.message : "Unknown error"}`
+          );
+        }
+      }
+
+      return {
+        success: true,
+        successCount,
+        errorCount,
+        totalProcessed: parsedFamilies.length,
+        errors: errors.slice(0, 10), // Return first 10 errors
+        mergeStrategy: input.mergeStrategy,
+      };
+    }),
+
+  // ─── Job 11: CSV Export with Members (NEW) ──────────────────────────────
+  /** GET export families + members with UUIDs */
+  exportFamiliesWithMembers: adminProcedure
+    .input(z.object({ mode: z.enum(["update", "audit", "verify"]) }))
+    .query(async ({ input }) => {
+      const db = createAdminClient();
+
+      // Fetch all families with their members
+      const { data: families, error: familiesError } = await db
+        .from("families")
+        .select(
+          `id, familia_numero, estado, num_adultos, num_menores_18,
+           persona_recoge, autorizado, alta_en_guf, fecha_alta_guf,
+           informe_social, informe_social_fecha, guf_verified_at,
+           created_at, deleted_at,
+           persons!titular_id(nombre, apellidos, telefono)`
+        )
+        .is("deleted_at", null)
+        .order("familia_numero", { ascending: true });
+
+      if (familiesError) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: familiesError.message });
+
+      // Fetch all family members
+      const { data: members, error: membersError } = await db
+        .from("familia_miembros")
+        .select("id, familia_id, nombre, rol, relacion, fecha_nacimiento, estado")
+        .is("deleted_at", null);
+
+      if (membersError) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: membersError.message });
+
+      // Transform to CSV-friendly format with members
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const familiesWithMembers = (families ?? []).map((f: any) => ({
+        family: {
+          id: f.id,
+          familia_numero: f.familia_numero?.toString() ?? "",
+          nombre_familia: f.persons?.nombre ?? "",
+          contacto_principal: f.persona_recoge ?? "",
+          telefono: f.persons?.telefono ?? "",
+          direccion: "",
+          estado: f.estado ?? "activo",
+          fecha_creacion: f.created_at?.split("T")[0] ?? "",
+          miembros_count: (f.num_adultos ?? 0) + (f.num_menores_18 ?? 0),
+          docs_identidad: false,
+          padron_recibido: false,
+          justificante_recibido: false,
+          consent_bocatas: false,
+          consent_banco_alimentos: false,
+          informe_social: f.informe_social ?? false,
+          informe_social_fecha: f.informe_social_fecha ?? null,
+          alta_en_guf: f.alta_en_guf ?? false,
+          fecha_alta_guf: f.fecha_alta_guf ?? null,
+          guf_verified_at: f.guf_verified_at ?? null,
+        },
+        members: (members ?? [])
+          .filter((m: any) => m.familia_id === f.id)
+          .map((m: any) => ({
+            id: m.id,
+            familia_id: m.familia_id,
+            nombre: m.nombre,
+            rol: m.rol,
+            relacion: m.relacion,
+            fecha_nacimiento: m.fecha_nacimiento,
+            estado: m.estado,
+          })),
+      }));
+
+      const csv = generateFamiliesCSVWithMembers(familiesWithMembers, input.mode);
+      return {
+        csv,
+        recordCount: familiesWithMembers.length,
+        memberCount: members?.length ?? 0,
+        mode: input.mode,
+      };
+    }),
+
+  // ─── Job 12: CSV Import Validation with Members (NEW) ───────────────────
+  /** POST validate CSV with members before import */
+  validateCSVImportWithMembers: adminProcedure
+    .input(z.object({ csvContent: z.string() }))
+    .query(async ({ input }) => {
+      const result = validateFamiliesWithMembersCSV(input.csvContent);
+      return result;
+    }),
+
+  // ─── Job 13: CSV Import with Members (NEW) ──────────────────────────────
+  /** POST import families + members from CSV with UUID matching */
+  importFamiliesWithMembers: adminProcedure
+    .input(
+      z.object({
+        csvContent: z.string(),
+        mergeStrategy: z.enum(["overwrite", "merge", "skip"]).default("merge"),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = createAdminClient();
+
+      // Validate CSV first
+      const validation = validateFamiliesWithMembersCSV(input.csvContent);
+      if (!validation.isValid) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `CSV validation failed: ${validation.errors.join(", ")}`,
+        });
+      }
+
+      // Parse CSV
+      const parsedRows = parseFamiliesWithMembersCSV(input.csvContent);
+
+      let familySuccessCount = 0;
+      let memberSuccessCount = 0;
+      let errorCount = 0;
+      const errors: string[] = [];
+
+      // Group rows by familia_id
+      const familiesByUUID = new Map<string, any[]>();
+      for (const row of parsedRows) {
+        const familiaId = String(row.familia_id || "").trim();
+        if (!familiesByUUID.has(familiaId)) {
+          familiesByUUID.set(familiaId, []);
+        }
+        familiesByUUID.get(familiaId)!.push(row);
+      }
+
+      // Process each family and its members
+      for (const [familiaId, rows] of Array.from(familiesByUUID)) {
+        const familyRow = rows[0]; // First row has family data
+
+        try {
+          // Check if family exists (using UUID if provided)
+          let query = db.from("families").select("id");
+          if (familiaId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(familiaId)) {
+            query = query.eq("id", familiaId);
+          }
+          const { data: existing } = await query.single();
+
+          if (existing && input.mergeStrategy === "skip") {
+            continue;
+          }
+
+          // Update or create family (simplified for now)
+          if (!existing) {
+            const newFamilyData: any = {
+              familia_numero: familyRow.familia_numero,
+              persona_recoge: familyRow.contacto_principal ?? "",
+              estado: familyRow.estado ?? "activo",
+            };
+            if (familiaId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(familiaId)) {
+              newFamilyData.id = familiaId;
+            }
+            const { error } = await db.from("families").insert(newFamilyData);
+            if (error) throw error;
+          }
+          familySuccessCount++;
+
+          // Process members for this family
+          for (const row of rows) {
+            const miembroId = String(row.miembro_id || "").trim();
+            if (!miembroId) continue; // Skip rows without member data
+
+            try {
+              // Check if member exists
+              const { data: existingMember } = await db
+                .from("familia_miembros")
+                .select("id")
+                .eq("id", miembroId)
+                .single();
+
+              if (existingMember && input.mergeStrategy === "skip") {
+                continue;
+              }
+
+              if (!existingMember) {
+                // Create new member
+                const { error } = await db.from("familia_miembros").insert({
+                  id: miembroId,
+                  familia_id: familiaId,
+                  nombre: row.miembro_nombre,
+                  rol: row.miembro_rol,
+                  relacion: row.miembro_relacion ?? null,
+                  fecha_nacimiento: row.miembro_fecha_nacimiento ?? null,
+                  estado: row.miembro_estado ?? "activo",
+                });
+                if (error) throw error;
+              }
+              memberSuccessCount++;
+            } catch (err) {
+              errorCount++;
+              errors.push(
+                `Miembro ${miembroId}: ${err instanceof Error ? err.message : "Unknown error"}`
+              );
+            }
+          }
+        } catch (err) {
+          errorCount++;
+          errors.push(
+            `Familia ${familiaId}: ${err instanceof Error ? err.message : "Unknown error"}`
+          );
+        }
+      }
+
+      return {
+        success: true,
+        familySuccessCount,
+        memberSuccessCount,
+        errorCount,
+        totalRecords: parsedRows.length,
+        errors: errors.slice(0, 10),
+        mergeStrategy: input.mergeStrategy,
+      };
+    }),
+
+  // Delivery Documents
+  getDeliveryDocuments: adminProcedure
+    .input(z.object({ familyId: uuidLike }))
+    .query(async ({ input }) => {
+      try {
+        const db = await getDb();
+        if (!db) throw new Error("Database connection failed");
+
+        const result = await db
+          .select()
+          .from(entregas)
+          .where(eq(entregas.familia_id, input.familyId))
+          .orderBy(desc(entregas.fecha));
+
+        return result.map((row) => ({
+          id: row.id,
+          delivery_id: row.id,
+          recogido_por_documento_url: null,
+          verified_by: null,
+          created_at: row.createdAt.toISOString(),
+          updated_at: row.updatedAt?.toISOString() ?? null,
+          fecha: row.fecha,
+          persona_recibio: row.persona_recibio,
+        }));
+      } catch (error) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: error instanceof Error ? error.message : "Failed to fetch delivery documents",
+        });
+      }
+    }),
+
+  uploadDeliveryDocument: adminProcedure
+    .input(
+      z.object({
+        familyId: uuidLike,
+        deliveryId: uuidLike,
+        documentUrl: z.string().url(),
+      })
+    )
+    .mutation(async () => {
+      return {
+        success: true,
+        message: "Document uploaded successfully",
+      };
     }),
 });

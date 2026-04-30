@@ -26,6 +26,12 @@ export interface DocumentItem {
 interface DocumentChecklistProps {
   items: DocumentItem[];
   onChange?: (id: string, checked: boolean) => void;
+  /**
+   * If provided, render a button instead of a plain anchor for "Ver" links.
+   * The callback receives the item; the caller resolves the signed URL and opens it.
+   * When omitted, the component falls back to rendering `<a href={item.documentUrl}>`.
+   */
+  onViewDocument?: (item: DocumentItem) => void | Promise<void>;
   readOnly?: boolean;
   title?: string;
   className?: string;
@@ -34,6 +40,7 @@ interface DocumentChecklistProps {
 export function DocumentChecklist({
   items,
   onChange,
+  onViewDocument,
   readOnly = false,
   title = "Documentación requerida",
   className,
@@ -113,15 +120,28 @@ export function DocumentChecklist({
               )}
             </label>
             {item.documentUrl && (
-              <a
-                href={item.documentUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-primary hover:underline shrink-0"
-                onClick={(e) => e.stopPropagation()}
-              >
-                Ver
-              </a>
+              onViewDocument ? (
+                <button
+                  type="button"
+                  className="text-xs text-primary hover:underline shrink-0"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void onViewDocument(item);
+                  }}
+                >
+                  Ver
+                </button>
+              ) : (
+                <a
+                  href={item.documentUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-primary hover:underline shrink-0"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Ver
+                </a>
+              )
             )}
           </div>
         ))}
