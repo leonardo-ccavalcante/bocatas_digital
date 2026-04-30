@@ -1005,35 +1005,23 @@ export const familiesRouter = router({
     .mutation(async ({ input, ctx }) => {
       const db = createAdminClient();
 
-      // Mark any existing CURRENT row for this (family, member, doc_type) as not-current (versioning).
-      await db
-        .from("family_member_documents")
-        .update({ is_current: false })
-        .eq("family_id", input.family_id)
-        .eq("member_index", input.member_index)
-        .eq("documento_tipo", input.documento_tipo)
-        .is("deleted_at", null)
-        .eq("is_current", true);
+      // Atomic UPSERT via Postgres function — handles concurrent callers correctly.
+      const { data: inserted, error: rpcErr } = await db.rpc("upload_family_document", {
+        p_family_id: input.family_id,
+        p_member_index: input.member_index,
+        p_member_person_id: input.member_person_id ?? null,
+        p_documento_tipo: input.documento_tipo,
+        p_documento_url: input.documento_url,
+        p_verified_by: String(ctx.user.id),
+      });
+      if (rpcErr || !inserted) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: rpcErr?.message ?? "Failed to upload document",
+        });
+      }
 
-      // Insert new current row.
-      const insertPayload = {
-        family_id: input.family_id,
-        member_index: input.member_index,
-        member_person_id: input.member_person_id ?? null,
-        documento_tipo: input.documento_tipo,
-        documento_url: input.documento_url,
-        fecha_upload: new Date().toISOString(),
-        verified_by: String(ctx.user.id),
-        is_current: true,
-      };
-      const { data: inserted, error: insErr } = await db
-        .from("family_member_documents")
-        .insert(insertPayload)
-        .select()
-        .single();
-      if (insErr) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: insErr.message });
-
-      // Recompute boolean cache for this doc_type (if mapped).
+      // Recompute boolean cache (unchanged from before).
       const cacheCol = FAMILY_DOC_TO_BOOLEAN_COLUMN[input.documento_tipo as FamilyDocType];
       if (cacheCol) {
         const { data: existsRows } = await db
@@ -1046,11 +1034,11 @@ export const familiesRouter = router({
           .eq("is_current", true)
           .limit(1);
         const newCacheValue = (existsRows?.length ?? 0) > 0;
-        const cacheUpdate = { [cacheCol]: newCacheValue, ...(input.documento_tipo === "informe_social" && newCacheValue ? { informe_social_fecha: new Date().toISOString().slice(0, 10) } : {}) } as FamiliesUpdate;
-        const { error: cacheErr } = await db
-          .from("families")
-          .update(cacheUpdate)
-          .eq("id", input.family_id);
+        const updatePayload: FamiliesUpdate = { [cacheCol]: newCacheValue } as FamiliesUpdate;
+        if (input.documento_tipo === "informe_social" && newCacheValue) {
+          (updatePayload as Record<string, unknown>).informe_social_fecha = new Date().toISOString().slice(0, 10);
+        }
+        const { error: cacheErr } = await db.from("families").update(updatePayload).eq("id", input.family_id);
         if (cacheErr) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: cacheErr.message });
       }
 

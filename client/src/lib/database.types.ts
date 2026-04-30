@@ -1362,6 +1362,17 @@ export type Database = {
       }
     }
     Functions: {
+      upload_family_document: {
+        Args: {
+          p_family_id: string
+          p_member_index: number
+          p_member_person_id: string | null
+          p_documento_tipo: string
+          p_documento_url: string
+          p_verified_by: string
+        }
+        Returns: Database["public"]["Tables"]["family_member_documents"]["Row"]
+      }
       find_duplicate_persons: {
         Args: { p_apellidos: string; p_nombre: string; p_threshold?: number }
         Returns: {
