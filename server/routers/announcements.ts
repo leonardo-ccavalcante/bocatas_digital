@@ -27,6 +27,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, adminProcedure, protectedProcedure } from "../_core/trpc";
+import { ENV } from "../_core/env";
 import { createAdminClient } from "../../client/src/lib/supabase/server";
 import {
   ANNOUNCEMENT_TYPES,
@@ -776,7 +777,7 @@ export const announcementsRouter = router({
           fecha_fin: data.fecha_fin ?? null,
           audiences: input.audiences as AudienceRule[],
           autor_nombre,
-          app_url: `${process.env.APP_URL ?? "https://bocatasdg-mvcpdsc2.manus.space"}/novedades/${data.id}`,
+          app_url: `${ENV.appUrl}/novedades/${data.id}`,
         };
         void fireUrgentWebhook(payload).catch(() => undefined);
       }
@@ -881,7 +882,7 @@ export const announcementsRouter = router({
             fecha_fin: freshRow.fecha_fin ?? null,
             audiences: (audRows ?? []) as AudienceRule[],
             autor_nombre: freshRow.autor_nombre ?? null,
-            app_url: `${process.env.APP_URL ?? "https://bocatasdg-mvcpdsc2.manus.space"}/novedades/${freshRow.id}`,
+            app_url: `${ENV.appUrl}/novedades/${freshRow.id}`,
           };
           void fireUrgentWebhook(payload).catch(() => undefined);
         }
@@ -1164,7 +1165,7 @@ export const announcementsRouter = router({
               fecha_fin: row.fecha_fin ?? null,
               audiences: (row.announcement_audiences as AudienceRule[]) ?? [],
               autor_nombre: autorNombre,
-              app_url: `${process.env.APP_URL ?? "https://bocatasdg-mvcpdsc2.manus.space"}/novedades/${row.id}`,
+              app_url: `${ENV.appUrl}/novedades/${row.id}`,
             };
             return fireUrgentWebhook(payload).catch(() => undefined);
           });
