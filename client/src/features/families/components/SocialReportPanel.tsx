@@ -5,8 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { FileText, AlertCircle, CheckCircle, Clock } from "lucide-react";
+import { FileText, AlertCircle, CheckCircle, Clock, Upload } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import { DocumentUploadModal } from "@/components/DocumentUploadModal";
+import { useFamilyLevelDocuments } from "@/features/families/hooks/useFamilias";
 
 interface SocialReportPanelProps {
   familyId: string;
@@ -28,7 +30,14 @@ function getReportStatus(hasReport: boolean, fecha: string | null) {
 export function SocialReportPanel({ familyId, informeSocial, informeSocialFecha }: SocialReportPanelProps) {
   const [editing, setEditing] = useState(false);
   const [localFecha, setLocalFecha] = useState(informeSocialFecha ?? "");
+  const [uploadOpen, setUploadOpen] = useState(false);
   const utils = trpc.useUtils();
+
+  const { data: familyDocs = [] } = useFamilyLevelDocuments(familyId);
+
+  const informeRow = familyDocs.find(
+    (d) => d.documento_tipo === "informe_social" && d.documento_url
+  );
 
   const updateDoc = trpc.families.updateDocField.useMutation({
     onSuccess: () => {
@@ -52,51 +61,85 @@ export function SocialReportPanel({ familyId, informeSocial, informeSocialFecha 
   };
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between pb-3">
-        <CardTitle className="text-base flex items-center gap-2">
-          <FileText className="h-4 w-4" />
-          Informe Social
-        </CardTitle>
-        {!editing && (
-          <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
-            Actualizar
-          </Button>
-        )}
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="flex items-center gap-2">
-          <StatusIcon className={`h-4 w-4 ${status.variant === "default" ? "text-green-600" : status.variant === "destructive" ? "text-red-500" : "text-yellow-500"}`} />
-          <Badge variant={status.variant}>{status.label}</Badge>
-        </div>
-
-        {informeSocialFecha && (
-          <p className="text-sm text-muted-foreground">
-            Último informe: {new Date(informeSocialFecha).toLocaleDateString("es-ES")}
-          </p>
-        )}
-
-        {editing && (
-          <div className="space-y-3 pt-2">
-            <div>
-              <Label className="text-xs">Fecha del informe social</Label>
-              <Input
-                type="date"
-                value={localFecha}
-                onChange={(e) => setLocalFecha(e.target.value)}
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button size="sm" onClick={handleSave} disabled={updateDoc.isPending}>
-                {updateDoc.isPending ? "Guardando..." : "Guardar"}
+    <>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            Informe Social
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setUploadOpen(true)}
+              aria-label="Subir informe social en PDF"
+            >
+              <Upload className="h-3 w-3 mr-1" aria-hidden="true" />
+              Subir informe (PDF)
+            </Button>
+            {!editing && (
+              <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+                Actualizar
               </Button>
-              <Button size="sm" variant="outline" onClick={() => setEditing(false)}>
-                Cancelar
-              </Button>
-            </div>
+            )}
           </div>
-        )}
-      </CardContent>
-    </Card>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center gap-2">
+            <StatusIcon className={`h-4 w-4 ${status.variant === "default" ? "text-green-600" : status.variant === "destructive" ? "text-red-500" : "text-yellow-500"}`} />
+            <Badge variant={status.variant}>{status.label}</Badge>
+          </div>
+
+          {informeSocialFecha && (
+            <p className="text-sm text-muted-foreground">
+              Último informe: {new Date(informeSocialFecha).toLocaleDateString("es-ES")}
+            </p>
+          )}
+
+          {informeRow?.documento_url && (
+            <a
+              href={informeRow.documento_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+              aria-label="Ver informe social en PDF"
+            >
+              <FileText className="h-3 w-3" aria-hidden="true" />
+              Ver informe
+            </a>
+          )}
+
+          {editing && (
+            <div className="space-y-3 pt-2">
+              <div>
+                <Label className="text-xs">Fecha del informe social</Label>
+                <Input
+                  type="date"
+                  value={localFecha}
+                  onChange={(e) => setLocalFecha(e.target.value)}
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" onClick={handleSave} disabled={updateDoc.isPending}>
+                  {updateDoc.isPending ? "Guardando..." : "Guardar"}
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setEditing(false)}>
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <DocumentUploadModal
+        familyId={familyId}
+        documentoTipo="informe_social"
+        memberIndex={-1}
+        open={uploadOpen}
+        onOpenChange={setUploadOpen}
+      />
+    </>
   );
 }
