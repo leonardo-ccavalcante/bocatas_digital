@@ -286,7 +286,8 @@ describe("checkinMachine — config", () => {
 import { initTRPC } from "@trpc/server";
 import { checkinRouter } from "../server/routers/checkin";
 
-const t = initTRPC.context<any>().create();
+import type { TrpcContext } from "./_core/context";
+const t = initTRPC.context<TrpcContext>().create({ transformer: { serialize: (v: unknown) => v, deserialize: (v: unknown) => v } });
 const createCaller = t.createCallerFactory(checkinRouter);
 
 describe("checkinRouter — input validation", () => {
