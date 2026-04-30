@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -100,6 +101,7 @@ export function DocumentUploadModal({
 }: DocumentUploadModalProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const { user } = useAuth();
 
   // ── Queries ──────────────────────────────────────────────────────────────
   const familyLevelQuery = useFamilyLevelDocuments(familyId);
@@ -166,6 +168,7 @@ export function DocumentUploadModal({
         member_index: memberIndex,
         documento_tipo: documentoTipo,
         documento_url: storagePath,
+        verified_by: user?.name ?? "admin",
       });
 
       // 2. Storage upload — if this fails, await the soft-delete to roll back.

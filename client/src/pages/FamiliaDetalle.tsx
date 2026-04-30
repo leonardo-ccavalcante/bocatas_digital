@@ -6,16 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { ArrowLeft, Users, FileText, Shield, Package, RotateCcw, Info } from "lucide-react";
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import { useFamiliaById, useDeliveries, useReactivateFamilia, useFamilyLevelDocuments, useMemberLevelDocuments } from "@/features/families/hooks/useFamilias";
-import { FAMILIA_DOCS_CONFIG } from "@/features/families/constants";
-import { DocumentChecklist } from "@/features/programs/components/DocumentChecklist";
-import type { FamilyDocType } from "@shared/familyDocuments";
-import { isAdultOrUnknown } from "@/features/families/utils/age";
-import { getSignedDocUrl } from "@/features/families/utils/signedUrl";
-import type { DocumentItem } from "@/features/programs/components/DocumentChecklist";
+import { ArrowLeft, Users, FileText, Shield, Package, RotateCcw } from "lucide-react";
+import { useFamiliaById, useDeliveries, useReactivateFamilia, useUpdateFamiliaDocField } from "@/features/families/hooks/useFamilias";
 import { GufPanel } from "@/features/families/components/GufPanel";
 import { SocialReportPanel } from "@/features/families/components/SocialReportPanel";
 import { DeactivationForm } from "@/features/families/components/DeactivationForm";
@@ -23,263 +18,35 @@ import { MemberManagementModal } from "@/components/MemberManagementModal";
 import { DocumentUploadModal } from "@/components/DocumentUploadModal";
 import { DeliveryDocumentModal } from "@/components/DeliveryDocumentModal";
 
-// ─── FamilyDocsCard ───────────────────────────────────────────────────────────
-
-function FamilyDocsCard({
-  familyId,
-  onUpload,
-}: {
+function DocChecklistItem({ label, checked, familyId, field }: {
+  label: string;
+  checked: boolean;
   familyId: string;
-  onUpload: (tipo: FamilyDocType) => void;
+  field: "docs_identidad" | "padron_recibido" | "justificante_recibido" | "consent_bocatas" | "consent_banco_alimentos";
 }) {
-  const { data: uploaded = [], isLoading } = useFamilyLevelDocuments(familyId);
-  const familyDocs = FAMILIA_DOCS_CONFIG.filter((d) => !d.perMember);
-  const items = familyDocs.map((d) => {
-    const row = uploaded.find((u) => u.documento_tipo === d.key);
-    return {
-      id: d.key,
-      label: d.label,
-      required: d.required,
-      checked: !!row?.documento_url,
-      documentUrl: row?.documento_url ?? null,
-    };
-  });
-
-  if (isLoading) {
-    return (
-      <Card>
-        <CardHeader><CardTitle className="text-sm">Documentación de la familia</CardTitle></CardHeader>
-        <CardContent><Skeleton className="h-32" /></CardContent>
-      </Card>
-    );
-  }
-
+  const updateDoc = useUpdateFamiliaDocField();
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-sm flex items-center gap-1.5">
-          Documentación de la familia
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" aria-label="Información sobre el estado de documentos" />
-            </TooltipTrigger>
-            <TooltipContent side="right" className="max-w-xs">
-              El estado se actualiza automáticamente al cargar el documento. Para cambiarlo, carga o elimina el archivo.
-            </TooltipContent>
-          </Tooltip>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3 pt-0">
-        <DocumentChecklist
-          title=""
-          items={items}
-          readOnly
-          onViewDocument={async (item: DocumentItem) => {
-            const url = await getSignedDocUrl(item.documentUrl);
-            if (url) window.open(url, "_blank", "noopener,noreferrer");
-            else toast.error("No se pudo generar el enlace");
-          }}
-        />
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 pt-2">
-          {familyDocs.map((d) => (
-            <Button
-              key={d.key}
-              variant="outline"
-              size="sm"
-              onClick={() => onUpload(d.key as FamilyDocType)}
-              className="justify-start"
-            >
-              {items.find((i) => i.id === d.key)?.checked ? "Actualizar" : "Cargar"}: {d.label}
-            </Button>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-// ─── Age helper ───────────────────────────────────────────────────────────────
-
-// isAdultOrUnknown imported from @/features/families/utils/age (calendar-aware).
-
-// ─── MemberDocSubcard ─────────────────────────────────────────────────────────
-
-function MemberDocSubcard({
-  familyId,
-  member,
-  memberDocs,
-  onUpload,
-}: {
-  familyId: string;
-  member: { member_index: number; nombre: string; apellidos: string | null; person_id: string | null; canal_llegada: string | null };
-  memberDocs: Array<{ key: string; label: string; required: boolean }>;
-  onUpload: (tipo: FamilyDocType, memberIndex: number) => void;
-}) {
-  const { data: uploaded = [] } = useMemberLevelDocuments(familyId, member.member_index);
-  const items = memberDocs.map((d) => {
-    const row = uploaded.find((u) => u.documento_tipo === d.key);
-    return {
-      id: d.key,
-      label: d.label,
-      required: d.required,
-      checked: !!row?.documento_url,
-      documentUrl: row?.documento_url ?? null,
-    };
-  });
-
-  return (
-    <div className="border rounded-lg p-3 space-y-3">
-      <div className="flex items-center gap-2 flex-wrap">
-        {member.person_id ? (
-          <Link href={`/personas/${member.person_id}`} className="font-medium text-sm hover:underline text-primary">
-            {member.nombre} {member.apellidos ?? ""}
-          </Link>
-        ) : (
-          <span className="font-medium text-sm">
-            {member.nombre} {member.apellidos ?? ""}{" "}
-            <span className="text-xs text-muted-foreground italic">(sin enlace a persona)</span>
-          </span>
-        )}
-        {member.canal_llegada === "programa_familias" && (
-          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">alta vía familia</Badge>
-        )}
-      </div>
-      <DocumentChecklist
-        title=""
-        items={items}
-        readOnly
-        onViewDocument={async (item: DocumentItem) => {
-          const url = await getSignedDocUrl(item.documentUrl);
-          if (url) window.open(url, "_blank", "noopener,noreferrer");
-          else toast.error("No se pudo generar el enlace");
+    <div className="flex items-center justify-between py-2">
+      <Label className="text-sm">{label}</Label>
+      <Switch
+        checked={checked}
+        onCheckedChange={(v) => {
+          updateDoc.mutate({ id: familyId, field, value: v }, {
+            onSuccess: () => toast.success("Actualizado"),
+            onError: () => toast.error("Error al actualizar"),
+          });
         }}
       />
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-        {memberDocs.map((d) => (
-          <Button
-            key={d.key}
-            variant="outline"
-            size="sm"
-            onClick={() => onUpload(d.key as FamilyDocType, member.member_index)}
-            className="justify-start text-xs"
-          >
-            {items.find((i) => i.id === d.key)?.checked ? "Actualizar" : "Cargar"}: {d.label}
-          </Button>
-        ))}
-      </div>
     </div>
   );
 }
-
-// ─── MembersDocsCard ──────────────────────────────────────────────────────────
-
-function MembersDocsCard({
-  familyId,
-  titular,
-  miembros,
-  onUpload,
-}: {
-  familyId: string;
-  titular: { id: string; nombre: string; apellidos: string | null; canal_llegada?: string | null; fecha_nacimiento?: string | null } | null;
-  miembros: Array<Record<string, unknown>>;
-  onUpload: (tipo: FamilyDocType, memberIndex: number) => void;
-}) {
-  const memberDocs = FAMILIA_DOCS_CONFIG.filter((d) => d.perMember);
-
-  const allMembers: Array<{
-    member_index: number;
-    nombre: string;
-    apellidos: string | null;
-    person_id: string | null;
-    canal_llegada: string | null;
-    fecha_nacimiento: string | null;
-  }> = [];
-
-  if (titular) {
-    allMembers.push({
-      member_index: 0,
-      nombre: titular.nombre,
-      apellidos: titular.apellidos,
-      person_id: titular.id,
-      canal_llegada: titular.canal_llegada ?? null,
-      fecha_nacimiento: titular.fecha_nacimiento ?? null,
-    });
-  }
-  miembros.forEach((m, i) => {
-    const member = m as Record<string, unknown>;
-    allMembers.push({
-      member_index: i + 1,
-      nombre: (member.nombre as string) ?? "",
-      apellidos: (member.apellidos as string) ?? null,
-      person_id: (member.person_id as string) ?? null,
-      canal_llegada: (member.canal_llegada as string) ?? null,
-      fecha_nacimiento: (member.fecha_nacimiento as string) ?? null,
-    });
-  });
-
-  const adultsOnly = allMembers.filter((m) => isAdultOrUnknown(m.fecha_nacimiento));
-
-  if (adultsOnly.length === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm flex items-center gap-1.5">
-            Documentos por miembro (≥14 años)
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" aria-label="Información sobre el estado de documentos" />
-              </TooltipTrigger>
-              <TooltipContent side="right" className="max-w-xs">
-                El estado se actualiza automáticamente al cargar el documento. Para cambiarlo, carga o elimina el archivo.
-              </TooltipContent>
-            </Tooltip>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">
-          Esta familia no tiene miembros mayores de 14 años — sólo se requieren los documentos de la familia.
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-sm flex items-center gap-1.5">
-          Documentos por miembro (≥14 años)
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" aria-label="Información sobre el estado de documentos" />
-            </TooltipTrigger>
-            <TooltipContent side="right" className="max-w-xs">
-              El estado se actualiza automáticamente al cargar el documento. Para cambiarlo, carga o elimina el archivo.
-            </TooltipContent>
-          </Tooltip>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {adultsOnly.map((member) => (
-          <MemberDocSubcard
-            key={member.member_index}
-            familyId={familyId}
-            member={member}
-            memberDocs={memberDocs}
-            onUpload={onUpload}
-          />
-        ))}
-      </CardContent>
-    </Card>
-  );
-}
-
-// ─── FamiliaDetalle ───────────────────────────────────────────────────────────
 
 export default function FamiliaDetalle() {
   const { id } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
   const [tab, setTab] = useState("info");
   const [memberModalOpen, setMemberModalOpen] = useState(false);
-  const [docModalOpen, setDocModalOpen] = useState<{ tipo: FamilyDocType; memberIndex: number } | null>(null);
+  const [docModalOpen, setDocModalOpen] = useState<string | null>(null);
   const [deliveryDocModalOpen, setDeliveryDocModalOpen] = useState<string | null>(null);
 
   const { data: family, isLoading } = useFamiliaById(id ?? "");
@@ -438,21 +205,44 @@ export default function FamiliaDetalle() {
 
         {/* Tab: Documentación */}
         <TabsContent value="docs" className="space-y-4 mt-4">
-          {/* Family-level checklist (auto-derived from real uploads) */}
-          <FamilyDocsCard familyId={id!} onUpload={(tipo) => setDocModalOpen({ tipo, memberIndex: -1 })} />
-
-          {/* Per-member section — auto-derived from real uploads */}
-          <MembersDocsCard
-            familyId={id!}
-            titular={titular ? {
-              ...titular,
-              canal_llegada: (titular as { canal_llegada?: string | null }).canal_llegada ?? null,
-            } : null}
-            miembros={miembros as Array<Record<string, unknown>>}
-            onUpload={(tipo, memberIndex) => setDocModalOpen({ tipo, memberIndex })}
-          />
-
-          {/* Informe social — date-tracking workflow (legacy path, kept) */}
+          <Card>
+            <CardHeader><CardTitle className="text-sm">Checklist de documentación</CardTitle></CardHeader>
+            <CardContent className="space-y-3">
+              <DocChecklistItem label="Documentos de identidad" checked={!!family.docs_identidad} familyId={id!} field="docs_identidad" />
+              <DocChecklistItem label="Padrón municipal" checked={!!family.padron_recibido} familyId={id!} field="padron_recibido" />
+              <DocChecklistItem label="Justificante de ingresos" checked={!!family.justificante_recibido} familyId={id!} field="justificante_recibido" />
+              <DocChecklistItem label="Consentimiento Bocatas" checked={!!family.consent_bocatas} familyId={id!} field="consent_bocatas" />
+              <DocChecklistItem label="Consentimiento Banco de Alimentos" checked={!!family.consent_banco_alimentos} familyId={id!} field="consent_banco_alimentos" />
+            </CardContent>
+          </Card>
+          
+          {/* Document Upload Section */}
+          <Card>
+            <CardHeader><CardTitle className="text-sm">Carga de Documentos</CardTitle></CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {([
+                  { key: "documento_identidad", label: "Documento de identidad" },
+                  { key: "padron_municipal", label: "Padrón municipal" },
+                  { key: "justificante_situacion", label: "Justificante de situación" },
+                  { key: "informe_social", label: "Informe social" },
+                  { key: "autorizacion_recogida", label: "Autorización de recogida" },
+                  { key: "consent_bocatas", label: "Consentimiento Bocatas" },
+                  { key: "consent_banco_alimentos", label: "Consentimiento Banco Alimentos" },
+                ] as { key: import("@shared/familyDocuments").FamilyDocType; label: string }[]).map(({ key, label }) => (
+                  <Button
+                    key={key}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setDocModalOpen(key)}
+                    className="justify-start"
+                  >
+                    {label}
+                  </Button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
           <SocialReportPanel
             familyId={id!}
             informeSocial={!!family.informe_social}
@@ -482,26 +272,25 @@ export default function FamiliaDetalle() {
             Subir Documento de Entregas
           </Button>
 
-          {deliveries && deliveries.length > 0 ? (
+          {deliveries && deliveries.data && deliveries.data.length > 0 ? (
             <div className="space-y-2">
-              {deliveries.map((d) => (
+              {deliveries.data.map((d: any) => (
                 <Card key={d.id}>
                   <CardContent className="space-y-3 py-3 px-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="font-medium text-sm">{new Date(d.fecha_entrega).toLocaleDateString("es-ES")}</p>
+                        <p className="font-medium text-sm">{new Date(d.fecha).toLocaleDateString("es-ES")}</p>
                         <p className="text-xs text-muted-foreground">
-                          Recogido por: {d.recogido_por}
-                          {d.es_autorizado ? " (autorizado)" : ""}
+                          Recogido por: {d.persona_recibio ?? "—"}
                         </p>
                       </div>
                       <div className="text-right">
                         <p className="text-xs text-muted-foreground">
-                          F+H: {d.kg_frutas_hortalizas}kg · Carne: {d.kg_carne}kg
+                          F+H: {d.frutas_hortalizas_cantidad ?? 0}{d.frutas_hortalizas_unidad ? ` ${d.frutas_hortalizas_unidad}` : "kg"} · Carne: {d.carne_cantidad ?? 0}{d.carne_unidad ? ` ${d.carne_unidad}` : "kg"}
                         </p>
                       </div>
                     </div>
-
+                    
                     {/* Delivery Document Button */}
                     <div className="flex justify-end pt-2 border-t">
                       <Button
@@ -536,8 +325,8 @@ export default function FamiliaDetalle() {
       {docModalOpen && (
         <DocumentUploadModal
           familyId={id!}
-          documentoTipo={docModalOpen.tipo}
-          memberIndex={docModalOpen.memberIndex}
+          documentoTipo={docModalOpen as import("@shared/familyDocuments").FamilyDocType}
+          memberIndex={-1}
           open={!!docModalOpen}
           onOpenChange={(open) => !open && setDocModalOpen(null)}
         />
@@ -548,7 +337,7 @@ export default function FamiliaDetalle() {
         <DeliveryDocumentModal
           familyId={id!}
           deliveryId={deliveryDocModalOpen}
-          deliveryDate={deliveries?.find((d) => d.id === deliveryDocModalOpen)?.fecha_entrega || new Date().toISOString()}
+            deliveryDate={deliveries?.data?.find((d: any) => d.id === deliveryDocModalOpen)?.fecha || new Date().toISOString()}
           open={!!deliveryDocModalOpen}
           onOpenChange={(open) => !open && setDeliveryDocModalOpen(null)}
         />
