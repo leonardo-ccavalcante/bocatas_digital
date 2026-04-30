@@ -7,7 +7,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { ArrowLeft, Users, FileText, Shield, Package, RotateCcw } from "lucide-react";
+import { ArrowLeft, Users, FileText, Shield, Package, RotateCcw, Info } from "lucide-react";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { useFamiliaById, useDeliveries, useReactivateFamilia, useFamilyLevelDocuments, useMemberLevelDocuments } from "@/features/families/hooks/useFamilias";
 import { FAMILIA_DOCS_CONFIG } from "@/features/families/constants";
 import { DocumentChecklist } from "@/features/programs/components/DocumentChecklist";
@@ -52,9 +53,22 @@ function FamilyDocsCard({
 
   return (
     <Card>
-      <CardContent className="space-y-3 pt-6">
+      <CardHeader>
+        <CardTitle className="text-sm flex items-center gap-1.5">
+          Documentación de la familia
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" aria-label="Información sobre el estado de documentos" />
+            </TooltipTrigger>
+            <TooltipContent side="right" className="max-w-xs">
+              El estado se actualiza automáticamente al cargar el documento. Para cambiarlo, carga o elimina el archivo.
+            </TooltipContent>
+          </Tooltip>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3 pt-0">
         <DocumentChecklist
-          title="Documentación de la familia"
+          title=""
           items={items}
           readOnly
         />
@@ -204,7 +218,19 @@ function MembersDocsCard({
   if (adultsOnly.length === 0) {
     return (
       <Card>
-        <CardHeader><CardTitle className="text-sm">Documentos por miembro (≥14 años)</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle className="text-sm flex items-center gap-1.5">
+            Documentos por miembro (≥14 años)
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" aria-label="Información sobre el estado de documentos" />
+              </TooltipTrigger>
+              <TooltipContent side="right" className="max-w-xs">
+                El estado se actualiza automáticamente al cargar el documento. Para cambiarlo, carga o elimina el archivo.
+              </TooltipContent>
+            </Tooltip>
+          </CardTitle>
+        </CardHeader>
         <CardContent className="text-sm text-muted-foreground">
           Esta familia no tiene miembros mayores de 14 años — sólo se requieren los documentos de la familia.
         </CardContent>
@@ -215,7 +241,17 @@ function MembersDocsCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm">Documentos por miembro (≥14 años)</CardTitle>
+        <CardTitle className="text-sm flex items-center gap-1.5">
+          Documentos por miembro (≥14 años)
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" aria-label="Información sobre el estado de documentos" />
+            </TooltipTrigger>
+            <TooltipContent side="right" className="max-w-xs">
+              El estado se actualiza automáticamente al cargar el documento. Para cambiarlo, carga o elimina el archivo.
+            </TooltipContent>
+          </Tooltip>
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {adultsOnly.map((member) => (
