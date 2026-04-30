@@ -21,6 +21,92 @@ const uuidLike = z
   .string()
   .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, "Invalid UUID format");
 
+// ─── Member-Resolution Helpers ──────────────────────────────────────────────
+
+/**
+ * Resolve a member to a real `person_id`:
+ *   - If `member.person_id` is set, return it (caller is responsible for ensuring it exists).
+ *   - Otherwise, try a duplicate match on (nombre + apellidos + fecha_nacimiento) — exact match only.
+ *     Fuzzy/trigram dedup is Gate 2.
+ *   - If no match, INSERT a new persons row with canal_llegada = 'otros' (familia intake).
+ * Returns the resolved `person_id`.
+ */
+async function resolveMemberPersonId(
+  db: ReturnType<typeof createAdminClient>,
+  member: {
+    nombre: string;
+    apellidos: string;
+    fecha_nacimiento?: string;
+    documento?: string;
+    person_id?: string | null;
+  }
+): Promise<string> {
+  if (member.person_id) return member.person_id;
+
+  // Exact-match dedup on name + birth date.
+  if (member.fecha_nacimiento) {
+    const { data: existing } = await db
+      .from("persons")
+      .select("id")
+      .eq("nombre", member.nombre)
+      .eq("apellidos", member.apellidos)
+      .eq("fecha_nacimiento", member.fecha_nacimiento)
+      .is("deleted_at", null)
+      .limit(1);
+    if (existing && existing.length > 0) return existing[0].id;
+  }
+
+  // Insert a new person row for this family member.
+  const { data: created, error } = await db
+    .from("persons")
+    .insert({
+      nombre: member.nombre,
+      apellidos: member.apellidos,
+      fecha_nacimiento: member.fecha_nacimiento ?? null,
+      numero_documento: member.documento ?? null,
+      canal_llegada: "otros",
+      idioma_principal: "es",
+    })
+    .select("id")
+    .single();
+  if (error || !created) {
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: error?.message ?? "Failed to create person row for family member",
+    });
+  }
+  return created.id;
+}
+
+/**
+ * Idempotent insert of a `program_enrollments` row.
+ * If an active enrollment already exists for (person_id, program_id), do nothing.
+ */
+async function ensureFamiliaEnrollment(
+  db: ReturnType<typeof createAdminClient>,
+  person_id: string,
+  program_id: string,
+  family_id: string,
+  member_index: number
+): Promise<void> {
+  const { data: existing } = await db
+    .from("program_enrollments")
+    .select("id")
+    .eq("person_id", person_id)
+    .eq("program_id", program_id)
+    .eq("estado", "activo")
+    .is("deleted_at", null)
+    .limit(1);
+  if (existing && existing.length > 0) return;
+
+  await db.from("program_enrollments").insert({
+    person_id,
+    program_id,
+    estado: "activo",
+    metadata: { family_id, member_index },
+  });
+}
+
 const familyDocTypeSchema = z.enum([
   ...FAMILY_LEVEL_DOC_TYPES,
   ...PER_MEMBER_DOC_TYPES,
@@ -185,12 +271,41 @@ export const familiesRouter = router({
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: familyError.message });
       }
 
-      // Insert program enrollment
-      await db.from("program_enrollments").insert({
-        person_id: input.titular_id,
-        program_id: input.program_id,
-        estado: "activo",
-      });
+      // Enroll the titular (member_index 0 by convention).
+      await ensureFamiliaEnrollment(db, input.titular_id, input.program_id, family.id, 0);
+
+      // Enroll every adult member (≥14 or unknown DOB — treat unknown as adult to be safe).
+      // Also resolve/create person rows for members that have no person_id yet,
+      // then persist the resolved person_id back into families.miembros JSONB.
+      const today = new Date();
+      const resolvedMiembros = [...input.miembros];
+      let miembrosUpdated = false;
+
+      for (let i = 0; i < input.miembros.length; i++) {
+        const member = input.miembros[i];
+        const dob = member.fecha_nacimiento;
+        const ageYears = dob
+          ? (today.getTime() - new Date(dob).getTime()) / (365.25 * 24 * 3600 * 1000)
+          : null;
+        const isAdult = ageYears === null || ageYears >= 14;
+        if (!isAdult) continue;
+
+        const personId = await resolveMemberPersonId(db, member);
+        await ensureFamiliaEnrollment(db, personId, input.program_id, family.id, i + 1);
+
+        if (personId !== member.person_id) {
+          resolvedMiembros[i] = { ...member, person_id: personId };
+          miembrosUpdated = true;
+        }
+      }
+
+      // Write resolved person_ids back to families.miembros in one UPDATE.
+      if (miembrosUpdated) {
+        await db
+          .from("families")
+          .update({ miembros: resolvedMiembros })
+          .eq("id", family.id);
+      }
 
       return family;
     }),
@@ -763,34 +878,48 @@ export const familiesRouter = router({
       return data ?? [];
     }),
 
-  /** ADD a new member to family */
+  /** ADD a new member to family — resolves or creates a persons row for adults (≥14),
+   *  ensures program_enrollments, and appends to families.miembros JSONB. */
   addMember: adminProcedure
     .input(
       z.object({
-        familiaId: uuidLike,
-        nombre: z.string().min(1).max(100),
-        rol: z.enum(["head_of_household", "dependent", "other"]),
-        relacion: z.enum(["parent", "child", "sibling", "other"]).optional(),
-        estado: z.enum(["activo", "inactivo"]).default("activo"),
-        fechaNacimiento: z.string().date().optional(),
+        family_id: uuidLike,
+        program_id: uuidLike,
+        member: FamilyMemberSchema,
       })
     )
-    .mutation(async ({ input, ctx }) => {
+    .mutation(async ({ input }) => {
       const db = createAdminClient();
-      const { data, error } = await db
-        .from("familia_miembros")
-        .insert({
-          familia_id: input.familiaId,
-          nombre: input.nombre,
-          rol: input.rol,
-          relacion: input.relacion ?? null,
-          estado: input.estado,
-          fecha_nacimiento: input.fechaNacimiento ?? null,
-        })
-        .select()
+
+      // Fetch current family to get existing miembros array.
+      const { data: family, error: fetchErr } = await db
+        .from("families")
+        .select("miembros")
+        .eq("id", input.family_id)
+        .is("deleted_at", null)
         .single();
-      if (error) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
-      return data;
+      if (fetchErr || !family) throw new TRPCError({ code: "NOT_FOUND" });
+
+      const miembros = (family.miembros as Array<Record<string, unknown>>) ?? [];
+      const nextIndex = miembros.length;
+
+      const personId = await resolveMemberPersonId(db, input.member);
+
+      // Enroll if adult (≥14 or unknown DOB).
+      const dob = input.member.fecha_nacimiento;
+      const ageYears = dob
+        ? (new Date().getTime() - new Date(dob).getTime()) / (365.25 * 24 * 3600 * 1000)
+        : null;
+      const isAdult = ageYears === null || ageYears >= 14;
+      if (isAdult) {
+        await ensureFamiliaEnrollment(db, personId, input.program_id, input.family_id, nextIndex);
+      }
+
+      const newMember = { ...input.member, person_id: personId };
+      const updatedMiembros = [...miembros, newMember] as unknown as Database["public"]["Tables"]["families"]["Update"]["miembros"];
+      await db.from("families").update({ miembros: updatedMiembros }).eq("id", input.family_id);
+
+      return { person_id: personId, member_index: nextIndex };
     }),
 
   /** UPDATE a family member */
