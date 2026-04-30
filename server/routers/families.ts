@@ -546,16 +546,44 @@ export const familiesRouter = router({
     }),
 
   // ─── Job 8: Per-member Pending Items ────────────────────────────────────
-  /** GET pending consent + doc items per member (for Job 8 + Job 9 Layer B) */
+  /**
+   * GET pending consent + doc items per member (for Job 8 + Job 9 Layer B).
+   *
+   * FIX (Gap E): Rewritten to iterate (family × required-doc-config) instead
+   * of scanning existing family_member_documents rows.  The old approach silently
+   * dropped families whose members had zero rows in that table (e.g. legacy
+   * intake, or titular-only families).
+   *
+   * Return shape preserved: one row per (family, member) with missing: string[].
+   *
+   * Known limitation: days_pending is based on family.created_at, not
+   * member_added_at (that would require a new JSONB field — deferred to Gate 2).
+   *
+   * Required doc sets (inlined from client/src/features/families/constants.ts
+   * to avoid cross-bundle imports):
+   *   Family-level required: padron_municipal, informe_social
+   *   Per-member required (age ≥14): documento_identidad, consent_bocatas,
+   *                                   consent_banco_alimentos
+   * These match FAMILIA_DOCS_CONFIG.filter(d => d.required).
+   */
   getPendingItems: adminProcedure
     .input(z.object({ family_id: uuidLike.optional() }))
     .query(async ({ input }) => {
       const db = createAdminClient();
 
+      // Required doc keys — inlined to avoid importing client bundle constants.
+      // Must stay in sync with FAMILIA_DOCS_CONFIG in constants.ts.
+      const REQUIRED_FAMILY_DOCS = ["padron_municipal", "informe_social"] as const;
+      const REQUIRED_PER_MEMBER_DOCS = [
+        "documento_identidad",
+        "consent_bocatas",
+        "consent_banco_alimentos",
+      ] as const;
+
       let familiesQuery = db
         .from("families")
         .select(
-          "id, familia_numero, miembros, created_at, persons!titular_id(nombre, apellidos, telefono)"
+          "id, familia_numero, miembros, created_at, persons!titular_id(id, nombre, apellidos, telefono)"
         )
         .eq("estado", "activa")
         .is("deleted_at", null);
@@ -564,31 +592,34 @@ export const familiesRouter = router({
         familiesQuery = familiesQuery.eq("id", input.family_id);
       }
 
-      const { data: families } = await familiesQuery;
+      const { data: families, error: famErr } = await familiesQuery;
+      if (famErr) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: famErr.message });
       if (!families?.length) return [];
 
-      const { data: consents } = await db
-        .from("consents")
-        .select("person_id, purpose, granted, revoked_at")
-        .eq("purpose", "tratamiento_datos_banco_alimentos")
-        .is("revoked_at", null);
+      const familyIds = families.map((f) => f.id);
 
-      const { data: memberDocs } = await db
+      // Fetch all uploaded current docs for these families in a single query.
+      // A combination is "uploaded" when: is_current=true, deleted_at IS NULL,
+      // documento_url IS NOT NULL.
+      const { data: uploadedDocs } = await db
         .from("family_member_documents")
-        .select("family_id, member_index, documento_url")
-        .is("deleted_at", null);
+        .select("family_id, member_index, documento_tipo")
+        .in("family_id", familyIds)
+        .is("deleted_at", null)
+        .eq("is_current", true)
+        .not("documento_url", "is", null);
 
-      const consentPersonIds = new Set(
-        (consents ?? []).map((c: { person_id: string }) => c.person_id)
-      );
-      const docsByFamilyMember = new Map(
-        (memberDocs ?? []).map((d: { family_id: string; member_index: number }) => [
-          `${d.family_id}:${d.member_index}`,
-          d,
-        ])
+      // Build a lookup key set: "family_id:member_index:documento_tipo"
+      // member_index = -1 for family-level docs.
+      const uploadedKeySet = new Set(
+        (uploadedDocs ?? []).map(
+          (d: { family_id: string; member_index: number; documento_tipo: string }) =>
+            `${d.family_id}:${d.member_index}:${d.documento_tipo}`
+        )
       );
 
       const today = new Date();
+
       const result: {
         family_id: string;
         familia_numero: number;
@@ -601,41 +632,110 @@ export const familiesRouter = router({
       }[] = [];
 
       for (const family of families) {
-        const miembros = (family.miembros as unknown[]) ?? [];
         const familyCreatedAt = new Date(family.created_at);
         const daysPending = Math.floor(
           (today.getTime() - familyCreatedAt.getTime()) / (1000 * 60 * 60 * 24)
         );
 
+        // ── Family-level required docs (member_index = -1) ─────────────────
+        const familyMissingDocs = REQUIRED_FAMILY_DOCS.filter(
+          (docType) => !uploadedKeySet.has(`${family.id}:-1:${docType}`)
+        );
+        if (familyMissingDocs.length > 0) {
+          const titular = family.persons as {
+            id: string;
+            nombre: string;
+            apellidos: string | null;
+          } | null;
+          const titularName = titular
+            ? `${titular.nombre} ${titular.apellidos ?? ""}`.trim()
+            : "";
+          result.push({
+            family_id: family.id,
+            familia_numero: family.familia_numero,
+            member_index: -1,
+            member_name: titularName,
+            parentesco: "familia",
+            person_id: titular?.id ?? null,
+            missing: familyMissingDocs as unknown as string[],
+            days_pending: daysPending,
+          });
+        }
+
+        // ── Per-member required docs ────────────────────────────────────────
+        // Build the full member list: titular as member 0, then JSONB members 1+.
+        const titular = family.persons as {
+          id: string;
+          nombre: string;
+          apellidos: string | null;
+        } | null;
+
+        type MemberEntry = {
+          member_index: number;
+          nombre: string;
+          apellidos: string | null;
+          person_id: string | null;
+          parentesco: string;
+          fecha_nacimiento: string | null;
+        };
+
+        const allMembers: MemberEntry[] = [];
+
+        if (titular) {
+          allMembers.push({
+            member_index: 0,
+            nombre: titular.nombre,
+            apellidos: titular.apellidos,
+            person_id: titular.id,
+            parentesco: "titular",
+            fecha_nacimiento: null, // DOB not in this select; treat as adult (≥14)
+          });
+        }
+
+        const miembros = (family.miembros as Array<Record<string, unknown>>) ?? [];
         miembros.forEach((m, idx) => {
-          const member = m as Record<string, unknown>;
-          const dob = member.fecha_nacimiento as string | undefined;
-          const age = dob
-            ? Math.floor(
-                (today.getTime() - new Date(dob).getTime()) / (365.25 * 24 * 3600 * 1000)
-              )
-            : 99;
-          if (age < 14) return; // skip members under 14
+          allMembers.push({
+            member_index: idx + 1,
+            nombre: (m.nombre as string) ?? "",
+            apellidos: (m.apellidos as string) ?? null,
+            person_id: (m.person_id as string) ?? null,
+            parentesco: (m.parentesco as string) ?? "",
+            fecha_nacimiento: (m.fecha_nacimiento as string) ?? null,
+          });
+        });
 
-          const missing: string[] = [];
-          const personId = member.person_id as string | undefined;
-          if (!personId || !consentPersonIds.has(personId)) missing.push("consent");
-          if (!docsByFamilyMember.has(`${family.id}:${idx}`)) missing.push("doc");
+        for (const member of allMembers) {
+          // Apply minAge=14 filter (members with unknown DOB default to adult).
+          if (member.fecha_nacimiento) {
+            const dob = new Date(member.fecha_nacimiento);
+            if (!isNaN(dob.getTime())) {
+              const age = Math.floor(
+                (today.getTime() - dob.getTime()) / (365.25 * 24 * 3600 * 1000)
+              );
+              if (age < 14) continue;
+            }
+          }
 
-          if (missing.length > 0) {
+          const missingDocs = REQUIRED_PER_MEMBER_DOCS.filter(
+            (docType) =>
+              !uploadedKeySet.has(`${family.id}:${member.member_index}:${docType}`)
+          );
+
+          if (missingDocs.length > 0) {
             result.push({
               family_id: family.id,
               familia_numero: family.familia_numero,
-              member_index: idx,
-              member_name: `${member.nombre ?? ""} ${member.apellidos ?? ""}`.trim(),
-              parentesco: (member.parentesco as string) ?? "",
-              person_id: personId ?? null,
-              missing,
+              member_index: member.member_index,
+              member_name: `${member.nombre} ${member.apellidos ?? ""}`.trim(),
+              parentesco: member.parentesco,
+              person_id: member.person_id,
+              missing: missingDocs as unknown as string[],
               days_pending: daysPending,
             });
           }
-        });
+        }
       }
+
       return result;
     }),
 
