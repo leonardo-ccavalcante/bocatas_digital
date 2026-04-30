@@ -179,8 +179,7 @@ export default defineConfig({
           "vendor-form": ["react-hook-form", "@hookform/resolvers", "zod"],
           "vendor-store": ["zustand"],
           "vendor-charts": ["recharts"],
-          "vendor-motion": ["framer-motion"],
-          "vendor-date": ["date-fns", "react-day-picker"],
+          "vendor-date": ["react-day-picker"],
           "vendor-radix-extra": [
             "@radix-ui/react-accordion",
             "@radix-ui/react-alert-dialog",
