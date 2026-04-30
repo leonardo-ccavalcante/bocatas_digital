@@ -21,6 +21,7 @@ import {
   toMutableRules,
   type MutableAudienceRule,
 } from "@/features/announcements/components/AudienceRulesEditor";
+import { AnnouncementImageUploader } from "@/features/announcements/components/AnnouncementImageUploader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -39,6 +40,7 @@ const FormSchema = z.object({
   es_urgente: z.boolean().default(false),
   fijado: z.boolean().default(false),
   fecha_fin: z.string().optional(),
+  imagen_url: z.string().url().optional().nullable(),
 });
 
 type FormValues = z.infer<typeof FormSchema>;
@@ -90,7 +92,7 @@ export default function AdminNovedades() {
   });
 
   function openCreate() {
-    form.reset({ tipo: "info", es_urgente: false, fijado: false });
+    form.reset({ tipo: "info", es_urgente: false, fijado: false, imagen_url: null });
     setAudiences(DEFAULT_AUDIENCE);
     setAudienceError(null);
     setEditingId(null);
@@ -105,6 +107,7 @@ export default function AdminNovedades() {
       es_urgente: (a.es_urgente as boolean | undefined) ?? false,
       fijado: a.fijado as boolean,
       fecha_fin: (a.fecha_fin as string | null) ?? undefined,
+      imagen_url: (a.imagen_url as string | null) ?? null,
     });
     setAudienceError(null);
     setEditingId(a.id as string);
@@ -336,6 +339,13 @@ export default function AdminNovedades() {
                 />
                 <label htmlFor="fijado" className="text-sm text-gray-700">Fijar en la parte superior</label>
               </div>
+            </div>
+
+            <div className="border-t border-gray-100 pt-4">
+              <AnnouncementImageUploader
+                value={form.watch("imagen_url") ?? null}
+                onChange={(url) => form.setValue("imagen_url", url)}
+              />
             </div>
 
             <div className="border-t border-gray-100 pt-4">
