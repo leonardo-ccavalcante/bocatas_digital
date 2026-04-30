@@ -22,6 +22,7 @@ import {
   type MutableAudienceRule,
 } from "@/features/announcements/components/AudienceRulesEditor";
 import { AnnouncementImageUploader } from "@/features/announcements/components/AnnouncementImageUploader";
+import { AnnouncementMetaPanels } from "@/features/announcements/components/AnnouncementMetaPanels";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -355,6 +356,15 @@ export default function AdminNovedades() {
                 error={audienceError ?? undefined}
               />
             </div>
+
+            {editingId && (
+              <div className="border-t border-gray-100 pt-4">
+                <AnnouncementMetaPanels
+                  announcementId={editingId}
+                  isUrgent={form.watch("es_urgente") === true}
+                />
+              </div>
+            )}
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
