@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { ArrowLeft, Users, FileText, Shield, Package, RotateCcw } from "lucide-react";
-import { useFamiliaById, useDeliveries, useReactivateFamilia, useFamilyLevelDocuments } from "@/features/families/hooks/useFamilias";
+import { useFamiliaById, useDeliveries, useReactivateFamilia, useFamilyLevelDocuments, useMemberLevelDocuments } from "@/features/families/hooks/useFamilias";
 import { FAMILIA_DOCS_CONFIG } from "@/features/families/constants";
 import { DocumentChecklist } from "@/features/programs/components/DocumentChecklist";
 import type { FamilyDocType } from "@shared/familyDocuments";
@@ -71,6 +71,162 @@ function FamilyDocsCard({
             </Button>
           ))}
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Age helper ───────────────────────────────────────────────────────────────
+
+function ageInYears(fecha_nacimiento?: string | null): number | null {
+  if (!fecha_nacimiento) return null;
+  const dob = new Date(fecha_nacimiento);
+  if (isNaN(dob.getTime())) return null;
+  const ageMs = Date.now() - dob.getTime();
+  return Math.floor(ageMs / (365.25 * 24 * 3600 * 1000));
+}
+
+// ─── MemberDocSubcard ─────────────────────────────────────────────────────────
+
+function MemberDocSubcard({
+  familyId,
+  member,
+  memberDocs,
+  onUpload,
+}: {
+  familyId: string;
+  member: { member_index: number; nombre: string; apellidos: string | null; person_id: string | null; canal_llegada: string | null };
+  memberDocs: Array<{ key: string; label: string; required: boolean }>;
+  onUpload: (tipo: FamilyDocType, memberIndex: number) => void;
+}) {
+  const { data: uploaded = [] } = useMemberLevelDocuments(familyId, member.member_index);
+  const items = memberDocs.map((d) => {
+    const row = uploaded.find((u) => u.documento_tipo === d.key);
+    return {
+      id: d.key,
+      label: d.label,
+      required: d.required,
+      checked: !!row?.documento_url,
+      documentUrl: row?.documento_url ?? null,
+    };
+  });
+
+  return (
+    <div className="border rounded-lg p-3 space-y-3">
+      <div className="flex items-center gap-2 flex-wrap">
+        {member.person_id ? (
+          <Link href={`/personas/${member.person_id}`} className="font-medium text-sm hover:underline text-primary">
+            {member.nombre} {member.apellidos ?? ""}
+          </Link>
+        ) : (
+          <span className="font-medium text-sm">
+            {member.nombre} {member.apellidos ?? ""}{" "}
+            <span className="text-xs text-muted-foreground italic">(sin enlace a persona)</span>
+          </span>
+        )}
+        {member.canal_llegada === "programa_familias" && (
+          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">alta vía familia</Badge>
+        )}
+      </div>
+      <DocumentChecklist
+        title=""
+        items={items}
+        readOnly
+      />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+        {memberDocs.map((d) => (
+          <Button
+            key={d.key}
+            variant="outline"
+            size="sm"
+            onClick={() => onUpload(d.key as FamilyDocType, member.member_index)}
+            className="justify-start text-xs"
+          >
+            {items.find((i) => i.id === d.key)?.checked ? "Actualizar" : "Cargar"}: {d.label}
+          </Button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── MembersDocsCard ──────────────────────────────────────────────────────────
+
+function MembersDocsCard({
+  familyId,
+  titular,
+  miembros,
+  onUpload,
+}: {
+  familyId: string;
+  titular: { id: string; nombre: string; apellidos: string | null; canal_llegada?: string | null; fecha_nacimiento?: string | null } | null;
+  miembros: Array<Record<string, unknown>>;
+  onUpload: (tipo: FamilyDocType, memberIndex: number) => void;
+}) {
+  const memberDocs = FAMILIA_DOCS_CONFIG.filter((d) => d.perMember);
+
+  const allMembers: Array<{
+    member_index: number;
+    nombre: string;
+    apellidos: string | null;
+    person_id: string | null;
+    canal_llegada: string | null;
+    fecha_nacimiento: string | null;
+  }> = [];
+
+  if (titular) {
+    allMembers.push({
+      member_index: 0,
+      nombre: titular.nombre,
+      apellidos: titular.apellidos,
+      person_id: titular.id,
+      canal_llegada: titular.canal_llegada ?? null,
+      fecha_nacimiento: titular.fecha_nacimiento ?? null,
+    });
+  }
+  miembros.forEach((m, i) => {
+    const member = m as Record<string, unknown>;
+    allMembers.push({
+      member_index: i + 1,
+      nombre: (member.nombre as string) ?? "",
+      apellidos: (member.apellidos as string) ?? null,
+      person_id: (member.person_id as string) ?? null,
+      canal_llegada: (member.canal_llegada as string) ?? null,
+      fecha_nacimiento: (member.fecha_nacimiento as string) ?? null,
+    });
+  });
+
+  const adultsOnly = allMembers.filter((m) => {
+    const age = ageInYears(m.fecha_nacimiento);
+    return age === null || age >= 14;
+  });
+
+  if (adultsOnly.length === 0) {
+    return (
+      <Card>
+        <CardHeader><CardTitle className="text-sm">Documentos por miembro (≥14 años)</CardTitle></CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          Esta familia no tiene miembros mayores de 14 años — sólo se requieren los documentos de la familia.
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm">Documentos por miembro (≥14 años)</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {adultsOnly.map((member) => (
+          <MemberDocSubcard
+            key={member.member_index}
+            familyId={familyId}
+            member={member}
+            memberDocs={memberDocs}
+            onUpload={onUpload}
+          />
+        ))}
       </CardContent>
     </Card>
   );
@@ -245,15 +401,16 @@ export default function FamiliaDetalle() {
           {/* Family-level checklist (auto-derived from real uploads) */}
           <FamilyDocsCard familyId={id!} onUpload={(tipo) => setDocModalOpen({ tipo, memberIndex: -1 })} />
 
-          {/* Per-member section — full implementation in Phase 2 */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">Documentos por miembro (≥14 años)</CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm text-muted-foreground">
-              Disponible en próxima versión — los documentos de cada miembro adulto (identidad + consentimientos) se gestionarán aquí.
-            </CardContent>
-          </Card>
+          {/* Per-member section — auto-derived from real uploads */}
+          <MembersDocsCard
+            familyId={id!}
+            titular={titular ? {
+              ...titular,
+              canal_llegada: (titular as { canal_llegada?: string | null }).canal_llegada ?? null,
+            } : null}
+            miembros={miembros as Array<Record<string, unknown>>}
+            onUpload={(tipo, memberIndex) => setDocModalOpen({ tipo, memberIndex })}
+          />
 
           {/* Informe social — date-tracking workflow (legacy path, kept) */}
           <SocialReportPanel
