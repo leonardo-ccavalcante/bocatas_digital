@@ -29,7 +29,7 @@ describe("OCR Country Detection", () => {
       ],
     };
 
-    vi.spyOn(llmModule, "invokeLLM").mockResolvedValue(mockLLMResponse);
+    vi.spyOn(llmModule, "invokeLLM").mockResolvedValue(mockLLMResponse as unknown as import("../../_core/llm").InvokeResult);
 
     const mockImage = Buffer.from("fake-image-data");
     const mockText = "République Française\nDocument d'identité";
@@ -69,7 +69,7 @@ describe("OCR Country Detection", () => {
       ],
     };
 
-    vi.spyOn(llmModule, "invokeLLM").mockResolvedValue(mockLLMResponse);
+    vi.spyOn(llmModule, "invokeLLM").mockResolvedValue(mockLLMResponse as unknown as import("../../_core/llm").InvokeResult);
 
     const mockImage = Buffer.from("fake-image-data");
     const mockText = "Documento de identidad"; // Ambiguous text
@@ -123,7 +123,7 @@ describe("OCR Country Detection", () => {
       ],
     };
 
-    vi.spyOn(llmModule, "invokeLLM").mockResolvedValue(mockLLMResponse);
+    vi.spyOn(llmModule, "invokeLLM").mockResolvedValue(mockLLMResponse as unknown as import("../../_core/llm").InvokeResult);
 
     const result = await suggestCountryFromDocument(
       Buffer.from("data"),

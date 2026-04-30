@@ -457,15 +457,15 @@ describe('OCR Delivery Extraction', () => {
     it('should handle decimal quantities with many decimal places', async () => {
       const result = parseQuantityWithUnit('3.5678kg');
 
-      expect(result.amount).toBeCloseTo(3.5678, 4);
-      expect(result.unit).toBe('kg');
+      expect(result!.amount).toBeCloseTo(3.5678, 4);
+      expect(result!.unit).toBe('kg');
     });
 
     it('should handle very large quantities', async () => {
       const result = parseQuantityWithUnit('999999.99kg');
 
-      expect(result.amount).toBe(999999.99);
-      expect(result.unit).toBe('kg');
+      expect(result!.amount).toBe(999999.99);
+      expect(result!.unit).toBe('kg');
     });
 
     it('should handle empty OCR text', async () => {

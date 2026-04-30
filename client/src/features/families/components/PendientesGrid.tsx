@@ -42,7 +42,6 @@ export function PendientesGrid() {
   });
 
   // Build rows from compliance stats detail
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rawRows: PendienteRow[] = useMemo(() => {
     if (!stats) return [];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
