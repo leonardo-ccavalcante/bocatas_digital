@@ -1,0 +1,7 @@
+familia_numero,miembro_nombre,miembro_rol,miembro_relacion,miembro_fecha_nacimiento,familia_estado,docs_identidad,padron_recibido,justificante_recibido,consent_bocatas,consent_banco_alimentos,informe_social,informe_social_fecha,alta_en_guf,fecha_alta_guf
+1,Maria Garcia Lopez,head_of_household,titular,1980-05-15,activa,true,true,false,true,true,true,2026-04-01,true,2026-04-01
+1,Juan Garcia Lopez,dependent,hijo,2010-03-20,activa,true,true,false,true,true,true,2026-04-01,true,2026-04-01
+1,Sofia Garcia Lopez,dependent,hija,2012-07-10,activa,true,true,false,true,true,true,2026-04-01,true,2026-04-01
+2,Carlos Rodriguez Martinez,head_of_household,titular,1975-12-08,activa,true,false,true,true,false,false,,false,
+2,Ana Rodriguez Martinez,dependent,esposa,1978-09-14,activa,true,false,true,true,false,false,,false,
+3,Pedro Sanchez Flores,head_of_household,titular,1985-02-20,baja,true,true,true,false,true,true,2025-12-15,true,2025-12-15

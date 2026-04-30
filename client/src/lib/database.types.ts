@@ -538,6 +538,60 @@ export type Database = {
           },
         ]
       }
+      familia_miembros: {
+        Row: {
+          id: string
+          familia_id: string
+          nombre: string
+          rol: string
+          relacion: string | null
+          estado: string
+          fecha_nacimiento: string | null
+          documentacion_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          familia_id: string
+          nombre: string
+          rol: string
+          relacion?: string | null
+          estado?: string
+          fecha_nacimiento?: string | null
+          documentacion_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          familia_id?: string
+          nombre?: string
+          rol?: string
+          relacion?: string | null
+          estado?: string
+          fecha_nacimiento?: string | null
+          documentacion_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "familia_miembros_familia_id_fkey"
+            columns: ["familia_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "familia_miembros_documentacion_id_fkey"
+            columns: ["documentacion_id"]
+            isOneToOne: false
+            referencedRelation: "family_member_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       grants: {
         Row: {
           created_at: string
@@ -659,6 +713,7 @@ export type Database = {
           notas_privadas: string | null
           numero_documento: string | null
           observaciones: string | null
+          pais_documento: string | null
           pais_origen: string | null
           persona_referencia: string | null
           recorrido_migratorio: string | null
@@ -709,6 +764,7 @@ export type Database = {
           notas_privadas?: string | null
           numero_documento?: string | null
           observaciones?: string | null
+          pais_documento?: string | null
           pais_origen?: string | null
           persona_referencia?: string | null
           recorrido_migratorio?: string | null
@@ -759,6 +815,7 @@ export type Database = {
           notas_privadas?: string | null
           numero_documento?: string | null
           observaciones?: string | null
+          pais_documento?: string | null
           pais_origen?: string | null
           persona_referencia?: string | null
           recorrido_migratorio?: string | null
@@ -1066,6 +1123,7 @@ export type Database = {
           family_id: string
           fecha_upload: string | null
           id: string
+          is_current: boolean
           member_index: number
           member_person_id: string | null
           verified_by: string | null
@@ -1078,6 +1136,7 @@ export type Database = {
           family_id: string
           fecha_upload?: string | null
           id?: string
+          is_current?: boolean
           member_index: number
           member_person_id?: string | null
           verified_by?: string | null
@@ -1090,6 +1149,7 @@ export type Database = {
           family_id?: string
           fecha_upload?: string | null
           id?: string
+          is_current?: boolean
           member_index?: number
           member_person_id?: string | null
           verified_by?: string | null
@@ -1192,6 +1252,7 @@ export type Database = {
           nombre: string | null
           numero_documento: string | null
           observaciones: string | null
+          pais_documento: string | null
           pais_origen: string | null
           persona_referencia: string | null
           restricciones_alimentarias: string | null
@@ -1301,6 +1362,17 @@ export type Database = {
       }
     }
     Functions: {
+      upload_family_document: {
+        Args: {
+          p_family_id: string
+          p_member_index: number
+          p_member_person_id: string | null
+          p_documento_tipo: string
+          p_documento_url: string
+          p_verified_by: string
+        }
+        Returns: Database["public"]["Tables"]["family_member_documents"]["Row"]
+      }
       find_duplicate_persons: {
         Args: { p_apellidos: string; p_nombre: string; p_threshold?: number }
         Returns: {
@@ -1330,6 +1402,7 @@ export type Database = {
         | "email"
         | "instagram"
         | "retorno_bocatas"
+        | "programa_familias"
         | "otros"
       consent_language: "es" | "ar" | "fr" | "bm"
       consent_purpose:
@@ -1541,6 +1614,7 @@ export const Constants = {
         "email",
         "instagram",
         "retorno_bocatas",
+        "programa_familias",
         "otros",
       ],
       consent_language: ["es", "ar", "fr", "bm"],

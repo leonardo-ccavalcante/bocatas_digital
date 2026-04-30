@@ -29,6 +29,14 @@ const NivelIngresosEnum = z.enum(["sin_ingresos", "menos_500", "entre_500_1000",
 const CanalLlegadaEnum = z.enum(["boca_a_boca", "cruz_roja", "servicios_sociales", "otra_ong", "internet", "presencial_directo", "whatsapp", "telefono", "email", "instagram", "retorno_bocatas", "otros"]);
 const FaseItinerarioEnum = z.enum(["acogida", "estabilizacion", "formacion", "insercion_laboral", "autonomia"]);
 
+// Extended return type to include validation warnings
+interface PersonCreateResult {
+  id: string;
+  nombre: string;
+  apellidos: string;
+  validation_warnings?: string[];
+}
+
 const PersonCreateInput = z.object({
   canal_llegada: CanalLlegadaEnum,
   entidad_derivadora: z.string().max(200).optional().nullable(),
@@ -42,6 +50,7 @@ const PersonCreateInput = z.object({
   idiomas: z.array(IdiomaEnum).optional().nullable(),
   tipo_documento: TipoDocumentoEnum.optional().nullable(),
   numero_documento: z.string().max(30).optional().nullable(),
+  pais_documento: z.string().length(2).optional().nullable(), // Country of document origin (ISO 3166-1 alpha-2)
   situacion_legal: SituacionLegalEnum.optional().nullable(),
   fecha_llegada_espana: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   telefono: z.string().max(30).optional().nullable(),
@@ -77,6 +86,19 @@ export const personsRouter = router({
       const supabase = createAdminClient();
       const { program_ids: _, ...personData } = input;
 
+      // Validation warnings
+      const validationWarnings: string[] = [];
+
+      // Validate pais_documento requirement for Documento_Extranjero
+      if (
+        personData.tipo_documento === "Documento_Extranjero" &&
+        !personData.pais_documento
+      ) {
+        validationWarnings.push(
+          "pais_documento required for Documento_Extranjero"
+        );
+      }
+
       // Helper: convert empty strings to null to satisfy DB CHECK constraints
       const str = (v: string | null | undefined): string | null =>
         v === "" || v === undefined ? null : v;
@@ -96,6 +118,7 @@ export const personsRouter = router({
         barrio_zona: str(personData.barrio_zona),
         tipo_documento: personData.tipo_documento ?? null,
         numero_documento: str(personData.numero_documento),
+        pais_documento: str(personData.pais_documento),
         situacion_legal: personData.situacion_legal ?? null,
         fecha_llegada_espana: str(personData.fecha_llegada_espana),
         tipo_vivienda: personData.tipo_vivienda ?? null,
@@ -131,7 +154,10 @@ export const personsRouter = router({
         });
       }
 
-      return person;
+      return {
+        ...person,
+        validation_warnings: validationWarnings,
+      };
     }),
 
   /**

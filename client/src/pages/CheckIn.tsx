@@ -155,40 +155,40 @@ export default function CheckIn() {
 
       {/* ── Action buttons ──────────────────────────────────────────────────── */}
       {(currentState === "idle" || currentState === "scanning") && (
-        <div className="border-t bg-card px-4 py-4">
-          <div className="max-w-lg mx-auto flex gap-3 flex-wrap justify-center">
+        <div className="border-t bg-card px-4 py-3">
+          <div className="max-w-lg mx-auto flex gap-1 sm:gap-2 md:gap-3 flex-wrap justify-center">
             {currentState === "idle" && (
               <Button
-                size="lg"
-                className="gap-2 flex-1 min-w-36"
+                size="sm"
+                className="gap-1 sm:gap-2 flex-1 min-w-0 sm:min-w-32 md:min-w-36 text-xs sm:text-sm"
                 onClick={() => send({ type: "SCAN_START" })}
                 disabled={!ctx.locationId}
               >
-                <QrCode className="w-5 h-5" />
-                Escanear QR
+                <QrCode className="w-4 sm:w-5 h-4 sm:h-5" />
+                <span className="hidden sm:inline">Escanear QR</span><span className="sm:hidden">Escanear</span>
               </Button>
             )}
 
             <Button
-              size="lg"
+              size="sm"
               variant="outline"
-              className="gap-2 flex-1 min-w-36"
+              className="gap-1 sm:gap-2 flex-1 min-w-0 sm:min-w-32 md:min-w-36 text-xs sm:text-sm"
               onClick={() => setShowManualSearch(true)}
               disabled={!ctx.locationId}
             >
-              <Search className="w-5 h-5" />
-              Búsqueda manual
+              <Search className="w-4 sm:w-5 h-4 sm:h-5" />
+              <span className="hidden sm:inline">Búsqueda manual</span><span className="sm:hidden">Búsqueda</span>
             </Button>
 
             <Button
-              size="lg"
+              size="sm"
               variant="outline"
-              className="gap-2 flex-1 min-w-36"
+              className="gap-1 sm:gap-2 flex-1 min-w-0 sm:min-w-32 md:min-w-36 text-xs sm:text-sm"
               onClick={handleAnonymous}
               disabled={!ctx.locationId}
             >
-              <Hash className="w-5 h-5" />
-              Conteo anónimo
+              <Hash className="w-4 sm:w-5 h-4 sm:h-5" />
+              <span className="hidden sm:inline">Conteo anónimo</span><span className="sm:hidden">Conteo</span>
             </Button>
           </div>
         </div>
