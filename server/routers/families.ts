@@ -2,6 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, adminProcedure, protectedProcedure, superadminProcedure } from "../_core/trpc";
 import { createAdminClient } from "../../client/src/lib/supabase/server";
+import type { Database } from "../../client/src/lib/database.types";
 import { generateFamiliesCSV, type ExportMode } from "../csvExport";
 import { validateFamiliesCSV, parseFamiliesCSV } from "../csvImport";
 import { generateFamiliesCSVWithMembers } from "../csvExportWithMembers";
@@ -9,10 +10,23 @@ import { validateFamiliesWithMembersCSV, parseFamiliesWithMembersCSV } from "../
 import { entregas } from "../../drizzle/schema";
 import { eq, desc } from "drizzle-orm";
 import { getDb } from "../db";
+import {
+  FAMILY_DOC_TO_BOOLEAN_COLUMN,
+  FAMILY_LEVEL_DOC_TYPES,
+  PER_MEMBER_DOC_TYPES,
+  type FamilyDocType,
+} from "@shared/familyDocuments";
 
 const uuidLike = z
   .string()
   .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, "Invalid UUID format");
+
+const familyDocTypeSchema = z.enum([
+  ...FAMILY_LEVEL_DOC_TYPES,
+  ...PER_MEMBER_DOC_TYPES,
+] as [string, ...string[]]);
+
+type FamiliesUpdate = Database["public"]["Tables"]["families"]["Update"];
 
 // ─── Input Schemas ─────────────────────────────────────────────────────────
 
@@ -694,7 +708,7 @@ export const familiesRouter = router({
     .input(
       z.object({
         family_id: uuidLike,
-        member_index: z.number().int().min(0),
+        member_index: z.number().int().min(-1),
         member_person_id: uuidLike.optional(),
         documento_tipo: z.string().min(1),
         documento_url: z.string().optional(),
@@ -821,49 +835,135 @@ export const familiesRouter = router({
       return { success: true };
     }),
 
-  // Document Upload (using existing family_member_documents table)
+  // ─── Document Upload (family_member_documents — versioned) ─────────────
 
-  /** GET document upload history for a family */
-  getDocumentHistory: adminProcedure
-    .input(z.object({ familyId: uuidLike }))
+  /** GET current documents for a family, optionally filtered by member_index */
+  getFamilyDocuments: adminProcedure
+    .input(
+      z.object({
+        family_id: uuidLike,
+        member_index: z.number().int().min(-1).optional(),
+      })
+    )
     .query(async ({ input }) => {
       const db = createAdminClient();
-      const { data, error } = await db
+      let q = db
         .from("family_member_documents")
-        .select("id, documento_tipo, documento_url, fecha_upload, verified_by, created_at")
-        .eq("family_id", input.familyId)
+        .select("id, family_id, member_index, member_person_id, documento_tipo, documento_url, fecha_upload, verified_by, is_current, created_at")
+        .eq("family_id", input.family_id)
         .is("deleted_at", null)
-        .order("fecha_upload", { ascending: false });
+        .eq("is_current", true)
+        .order("created_at", { ascending: false });
+      if (input.member_index !== undefined) {
+        q = q.eq("member_index", input.member_index);
+      }
+      const { data, error } = await q;
       if (error) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
       return data ?? [];
     }),
 
-  /** UPDATE document URL for a family member */
-  updateMemberDocument: adminProcedure
+  /** POST upload a document — versions any existing current row and recomputes boolean cache */
+  uploadFamilyDocument: adminProcedure
     .input(
       z.object({
-        familyId: uuidLike,
-        memberIndex: z.number().int().min(0),
-        documentoTipo: z.string(),
-        documentoUrl: z.string().url(),
+        family_id: uuidLike,
+        member_index: z.number().int().min(-1),
+        member_person_id: uuidLike.nullable().optional(),
+        documento_tipo: familyDocTypeSchema,
+        documento_url: z.string().min(1),
       })
     )
     .mutation(async ({ input, ctx }) => {
       const db = createAdminClient();
-      const { data, error } = await db
+
+      // Mark any existing CURRENT row for this (family, member, doc_type) as not-current (versioning).
+      await db
         .from("family_member_documents")
-        .update({
-          documento_url: input.documentoUrl,
-          fecha_upload: new Date().toISOString(),
-          verified_by: ctx.user.id as any,
-        })
-        .eq("family_id", input.familyId)
-        .eq("member_index", input.memberIndex)
-        .eq("documento_tipo", input.documentoTipo)
+        .update({ is_current: false })
+        .eq("family_id", input.family_id)
+        .eq("member_index", input.member_index)
+        .eq("documento_tipo", input.documento_tipo)
+        .is("deleted_at", null)
+        .eq("is_current", true);
+
+      // Insert new current row.
+      const insertPayload = {
+        family_id: input.family_id,
+        member_index: input.member_index,
+        member_person_id: input.member_person_id ?? null,
+        documento_tipo: input.documento_tipo,
+        documento_url: input.documento_url,
+        fecha_upload: new Date().toISOString(),
+        verified_by: String(ctx.user.id),
+        is_current: true,
+      };
+      const { data: inserted, error: insErr } = await db
+        .from("family_member_documents")
+        .insert(insertPayload)
         .select()
         .single();
-      if (error) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
-      return data;
+      if (insErr) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: insErr.message });
+
+      // Recompute boolean cache for this doc_type (if mapped).
+      const cacheCol = FAMILY_DOC_TO_BOOLEAN_COLUMN[input.documento_tipo as FamilyDocType];
+      if (cacheCol) {
+        const { data: existsRows } = await db
+          .from("family_member_documents")
+          .select("id")
+          .eq("family_id", input.family_id)
+          .eq("documento_tipo", input.documento_tipo)
+          .not("documento_url", "is", null)
+          .is("deleted_at", null)
+          .eq("is_current", true)
+          .limit(1);
+        const newCacheValue = (existsRows?.length ?? 0) > 0;
+        const cacheUpdate = { [cacheCol]: newCacheValue, ...(input.documento_tipo === "informe_social" && newCacheValue ? { informe_social_fecha: new Date().toISOString().slice(0, 10) } : {}) } as FamiliesUpdate;
+        const { error: cacheErr } = await db
+          .from("families")
+          .update(cacheUpdate)
+          .eq("id", input.family_id);
+        if (cacheErr) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: cacheErr.message });
+      }
+
+      return inserted;
+    }),
+
+  /** DELETE (soft) a document row + recomputes boolean cache */
+  deleteFamilyDocument: adminProcedure
+    .input(z.object({ id: uuidLike }))
+    .mutation(async ({ input, ctx: _ctx }) => {
+      const db = createAdminClient();
+
+      // Fetch the row first so we know which family + doc_type to recompute.
+      const { data: existing, error: fetchErr } = await db
+        .from("family_member_documents")
+        .select("family_id, documento_tipo")
+        .eq("id", input.id)
+        .single();
+      if (fetchErr || !existing) throw new TRPCError({ code: "NOT_FOUND", message: "Documento no encontrado" });
+
+      const { error: delErr } = await db
+        .from("family_member_documents")
+        .update({ deleted_at: new Date().toISOString(), is_current: false })
+        .eq("id", input.id);
+      if (delErr) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: delErr.message });
+
+      const cacheCol = FAMILY_DOC_TO_BOOLEAN_COLUMN[existing.documento_tipo as FamilyDocType];
+      if (cacheCol) {
+        const { data: existsRows } = await db
+          .from("family_member_documents")
+          .select("id")
+          .eq("family_id", existing.family_id)
+          .eq("documento_tipo", existing.documento_tipo)
+          .not("documento_url", "is", null)
+          .is("deleted_at", null)
+          .eq("is_current", true)
+          .limit(1);
+        const deletePayload = { [cacheCol]: (existsRows?.length ?? 0) > 0 } as FamiliesUpdate;
+        await db.from("families").update(deletePayload).eq("id", existing.family_id);
+      }
+
+      return { success: true };
     }),
 
 

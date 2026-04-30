@@ -1123,6 +1123,7 @@ export type Database = {
           family_id: string
           fecha_upload: string | null
           id: string
+          is_current: boolean
           member_index: number
           member_person_id: string | null
           verified_by: string | null
@@ -1135,6 +1136,7 @@ export type Database = {
           family_id: string
           fecha_upload?: string | null
           id?: string
+          is_current?: boolean
           member_index: number
           member_person_id?: string | null
           verified_by?: string | null
@@ -1147,6 +1149,7 @@ export type Database = {
           family_id?: string
           fecha_upload?: string | null
           id?: string
+          is_current?: boolean
           member_index?: number
           member_person_id?: string | null
           verified_by?: string | null
