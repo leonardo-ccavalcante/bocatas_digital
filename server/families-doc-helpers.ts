@@ -33,7 +33,9 @@ export function recomputeBooleanCache(
   );
 }
 
-/** Is a member ≥14 (or has unknown DOB → treated as adult)? */
+/** Is a member ≥14 (or has unknown DOB → treated as adult)?
+ *  Uses calendar-aware arithmetic so that an exact 14th birthday today
+ *  returns true (the 365.25 divisor would land fractionally below 14.0). */
 export function isMemberAdult(
   member: { fecha_nacimiento?: string | null },
   today: Date = new Date()
@@ -41,8 +43,12 @@ export function isMemberAdult(
   if (!member.fecha_nacimiento) return true;
   const dob = new Date(member.fecha_nacimiento);
   if (isNaN(dob.getTime())) return true;
-  const ageMs = today.getTime() - dob.getTime();
-  return ageMs / (365.25 * 24 * 3600 * 1000) >= 14;
+  let age = today.getFullYear() - dob.getFullYear();
+  const monthDelta = today.getMonth() - dob.getMonth();
+  if (monthDelta < 0 || (monthDelta === 0 && today.getDate() < dob.getDate())) {
+    age--;
+  }
+  return age >= 14;
 }
 
 /** Build composite key for "is doc X uploaded for family Y member Z?" lookups. */

@@ -51,11 +51,9 @@ describe("isMemberAdult — ≥14 rule with unknown-as-adult inclusivity", () =>
     expect(isMemberAdult({}, today)).toBe(true);
   });
 
-  it("returns true for member who turned 14 yesterday (≥14 threshold)", () => {
-    // The algorithm divides elapsed ms by 365.25 * 24h — a birthday exactly today
-    // may land fractionally below 14.0 due to leap-year averaging.
-    // Use a DOB safely past the threshold (2012-04-29 → ≈14.0014 years by 2026-04-30).
-    expect(isMemberAdult({ fecha_nacimiento: "2012-04-29" }, today)).toBe(true);
+  it("returns true for member who turns 14 exactly today (≥14 threshold)", () => {
+    // Calendar-aware algorithm: exact 14th birthday today is age === 14, so returns true.
+    expect(isMemberAdult({ fecha_nacimiento: "2012-04-30" }, today)).toBe(true);
   });
 
   it("returns false for member under 14", () => {

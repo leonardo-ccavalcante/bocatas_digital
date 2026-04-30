@@ -16,6 +16,11 @@ import {
   PER_MEMBER_DOC_TYPES,
   type FamilyDocType,
 } from "@shared/familyDocuments";
+import {
+  isMemberAdult,
+  REQUIRED_FAMILY_DOC_TYPES,
+  REQUIRED_PER_MEMBER_DOC_TYPES,
+} from "../families-doc-helpers";
 
 const uuidLike = z
   .string()
@@ -283,12 +288,7 @@ export const familiesRouter = router({
 
       for (let i = 0; i < input.miembros.length; i++) {
         const member = input.miembros[i];
-        const dob = member.fecha_nacimiento;
-        const ageYears = dob
-          ? (today.getTime() - new Date(dob).getTime()) / (365.25 * 24 * 3600 * 1000)
-          : null;
-        const isAdult = ageYears === null || ageYears >= 14;
-        if (!isAdult) continue;
+        if (!isMemberAdult(member, today)) continue;
 
         const personId = await resolveMemberPersonId(db, member);
         await ensureFamiliaEnrollment(db, personId, input.program_id, family.id, i + 1);
@@ -571,14 +571,9 @@ export const familiesRouter = router({
     .query(async ({ input }) => {
       const db = createAdminClient();
 
-      // Required doc keys — inlined to avoid importing client bundle constants.
-      // Must stay in sync with FAMILIA_DOCS_CONFIG in constants.ts.
-      const REQUIRED_FAMILY_DOCS = ["padron_municipal", "informe_social"] as const;
-      const REQUIRED_PER_MEMBER_DOCS = [
-        "documento_identidad",
-        "consent_bocatas",
-        "consent_banco_alimentos",
-      ] as const;
+      // Required doc keys — sourced from the shared helper to avoid drift.
+      const REQUIRED_FAMILY_DOCS = REQUIRED_FAMILY_DOC_TYPES;
+      const REQUIRED_PER_MEMBER_DOCS = REQUIRED_PER_MEMBER_DOC_TYPES;
 
       let familiesQuery = db
         .from("families")
@@ -706,15 +701,7 @@ export const familiesRouter = router({
 
         for (const member of allMembers) {
           // Apply minAge=14 filter (members with unknown DOB default to adult).
-          if (member.fecha_nacimiento) {
-            const dob = new Date(member.fecha_nacimiento);
-            if (!isNaN(dob.getTime())) {
-              const age = Math.floor(
-                (today.getTime() - dob.getTime()) / (365.25 * 24 * 3600 * 1000)
-              );
-              if (age < 14) continue;
-            }
-          }
+          if (!isMemberAdult(member, today)) continue;
 
           const missingDocs = REQUIRED_PER_MEMBER_DOCS.filter(
             (docType) =>
@@ -1006,12 +993,7 @@ export const familiesRouter = router({
       const personId = await resolveMemberPersonId(db, input.member);
 
       // Enroll if adult (≥14 or unknown DOB).
-      const dob = input.member.fecha_nacimiento;
-      const ageYears = dob
-        ? (new Date().getTime() - new Date(dob).getTime()) / (365.25 * 24 * 3600 * 1000)
-        : null;
-      const isAdult = ageYears === null || ageYears >= 14;
-      if (isAdult) {
+      if (isMemberAdult(input.member)) {
         await ensureFamiliaEnrollment(db, personId, input.program_id, input.family_id, nextIndex);
       }
 
