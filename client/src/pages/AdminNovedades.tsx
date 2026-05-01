@@ -10,6 +10,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { AudiencesSelector } from "@/components/AudiencesSelector";
 import { AnnouncementImageUploader } from "@/components/AnnouncementImageUploader";
+import { BulkImportNovedadesModal } from "@/components/BulkImportNovedadesModal";
 import { useAudienceOptions } from "@/features/announcements/hooks/useAudienceOptions";
 import {
   useAnnouncements,
@@ -84,6 +85,7 @@ const DEFAULT_AUDIENCE: Array<{ programs: (typeof PROGRAMS)[number][]; roles: (t
 
 export default function AdminNovedades() {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showInactive, setShowInactive] = useState(false);
   const { programs, roles } = useAudienceOptions();
@@ -171,6 +173,14 @@ export default function AdminNovedades() {
           >
             {showInactive ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             {showInactive ? "Ocultar inactivas" : "Ver inactivas"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setBulkImportOpen(true)}
+            className="gap-2"
+          >
+            <Plus className="w-4 h-4" /> Importar CSV
           </Button>
           <Button onClick={openCreate} className="gap-2">
             <Plus className="w-4 h-4" /> Nueva novedad
@@ -386,6 +396,9 @@ export default function AdminNovedades() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Bulk Import Modal */}
+      <BulkImportNovedadesModal open={bulkImportOpen} onOpenChange={setBulkImportOpen} />
     </div>
   );
 }
