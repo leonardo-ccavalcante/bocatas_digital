@@ -144,8 +144,7 @@ export function QRScanner({ onDecoded, onCancel, isDemoMode = false }: QRScanner
     <div className="flex flex-col items-center gap-4 w-full">
       {/* ── Viewfinder ── */}
       <div
-        className="relative w-full rounded-xl overflow-hidden border-2 border-primary/30 bg-black"
-        style={{ minHeight: "60vh" }}
+        className="relative w-full rounded-xl overflow-hidden border-2 border-primary/30 bg-black max-h-[50vh] sm:max-h-[55vh] md:max-h-[65vh]"
       >
         {/* Demo mode overlay */}
         {isDemoMode ? (
