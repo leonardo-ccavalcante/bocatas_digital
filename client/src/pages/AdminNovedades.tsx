@@ -9,6 +9,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { AudiencesSelector } from "@/components/AudiencesSelector";
+import { AnnouncementImageUploader } from "@/components/AnnouncementImageUploader";
 import { useAudienceOptions } from "@/features/announcements/hooks/useAudienceOptions";
 import {
   useAnnouncements,
@@ -38,6 +39,7 @@ const FormSchema = z.object({
   fecha_fin: z.string().optional(),
   published_at: z.string().date().optional(),
   expires_at: z.string().date().optional(),
+  image_url: z.string().url().optional().nullable(),
   audiences: z.array(
     z.object({
       programs: z.array(z.enum(PROGRAMS)),
@@ -308,6 +310,17 @@ export default function AdminNovedades() {
                 <Input type="date" {...form.register("expires_at")} />
                 <p className="text-xs text-gray-500 mt-1">La novedad dejará de verse después de esta fecha</p>
               </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-2 block">Imagen (opcional)</label>
+              <AnnouncementImageUploader
+                value={form.watch("image_url")}
+                onChange={(url) => form.setValue("image_url", url)}
+              />
+              {form.formState.errors.image_url && (
+                <p className="text-xs text-red-500 mt-1">{form.formState.errors.image_url.message}</p>
+              )}
             </div>
 
             <div>
