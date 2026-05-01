@@ -140,6 +140,7 @@ export function BulkImportNovedadesModal({
   const [tableRows, setTableRows] = useState<TableRow[]>([]);
   const [errorCount, setErrorCount] = useState(0);
   const [previewToken, setPreviewToken] = useState<string>("");
+  const [dragActive, setDragActive] = useState(false);
 
   const previewMutation = usePreviewBulkImport();
   const confirmMutation = useConfirmBulkImport();
@@ -155,9 +156,11 @@ export function BulkImportNovedadesModal({
     }, 300);
   }
 
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  async function processFile(file: File) {
+    if (!file.name.endsWith('.csv')) {
+      toast.error('Por favor selecciona un archivo CSV');
+      return;
+    }
 
     let text: string;
     try {
@@ -223,9 +226,33 @@ export function BulkImportNovedadesModal({
         },
       }
     );
+  }
 
-    // Reset the input so the same file can be re-selected after going back
-    e.target.value = "";
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await processFile(file);
+  }
+
+  function handleDrag(e: React.DragEvent<HTMLLabelElement>) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  }
+
+  async function handleDrop(e: React.DragEvent<HTMLLabelElement>) {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+
+    const files = e.dataTransfer.files;
+    if (files && files[0]) {
+      await processFile(files[0]);
+    }
   }
 
   function handleConfirm() {
@@ -273,16 +300,28 @@ export function BulkImportNovedadesModal({
               </a>
             </div>
 
-            <label className="flex flex-col items-center justify-center gap-3 border-2 border-dashed rounded-lg p-8 cursor-pointer hover:bg-gray-50 transition-colors">
+            <label
+              className={`flex flex-col items-center justify-center gap-3 border-2 border-dashed rounded-lg p-8 cursor-pointer transition-colors ${
+                dragActive
+                  ? "border-blue-500 bg-blue-50"
+                  : "hover:bg-gray-50"
+              }`}
+              onDragEnter={handleDrag}
+              onDragLeave={handleDrag}
+              onDragOver={handleDrag}
+              onDrop={handleDrop}
+            >
               {previewMutation.isPending ? (
                 <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
               ) : (
                 <Upload className="w-8 h-8 text-gray-400" />
               )}
-              <span className="text-sm text-gray-600 font-medium">
+              <span className="text-sm text-gray-600 font-medium text-center">
                 {previewMutation.isPending
                   ? "Analizando CSV…"
-                  : "Haz clic para seleccionar un archivo CSV"}
+                  : dragActive
+                  ? "Suelta el archivo CSV aquí"
+                  : "Haz clic o arrastra un archivo CSV aquí"}
               </span>
               <input
                 type="file"

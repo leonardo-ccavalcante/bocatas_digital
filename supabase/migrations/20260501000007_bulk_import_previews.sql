@@ -4,7 +4,7 @@
 CREATE TABLE IF NOT EXISTS bulk_import_previews (
   token uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   parsed_rows jsonb NOT NULL,
-  created_by uuid NOT NULL,
+  created_by text NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
@@ -20,7 +20,7 @@ DROP POLICY IF EXISTS bulk_import_previews_own_select ON bulk_import_previews;
 CREATE POLICY bulk_import_previews_own_select ON bulk_import_previews
   FOR SELECT TO authenticated
   USING (
-    created_by = auth.uid()
+    created_by = auth.uid()::text
     AND public.get_user_role() IN ('superadmin', 'admin')
   );
 
@@ -29,7 +29,7 @@ DROP POLICY IF EXISTS bulk_import_previews_own_insert ON bulk_import_previews;
 CREATE POLICY bulk_import_previews_own_insert ON bulk_import_previews
   FOR INSERT TO authenticated
   WITH CHECK (
-    created_by = auth.uid()
+    created_by = auth.uid()::text
     AND public.get_user_role() IN ('superadmin', 'admin')
   );
 
@@ -38,6 +38,6 @@ DROP POLICY IF EXISTS bulk_import_previews_own_delete ON bulk_import_previews;
 CREATE POLICY bulk_import_previews_own_delete ON bulk_import_previews
   FOR DELETE TO authenticated
   USING (
-    created_by = auth.uid()
+    created_by = auth.uid()::text
     AND public.get_user_role() IN ('superadmin', 'admin')
   );

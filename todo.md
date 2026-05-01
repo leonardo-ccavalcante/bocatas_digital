@@ -1471,3 +1471,45 @@ When fixes don't work, stop and investigate the ROOT CAUSE systematically. The r
 - [x] V3: pnpm build → success
 - [x] V4: pnpm lint → 0 errors (new code clean, pre-existing issues outside scope)
 - [x] V5: Checkpoint final + push GitHub
+
+
+## CSV Bulk Import for Announcements (2026-05-01)
+
+### Phase 1: Validation Helper ✅
+- [x] Create server/db/csv-validation.ts with comprehensive validation
+- [x] Validate required fields (titulo, contenido)
+- [x] Validate date formats (YYYY-MM-DD)
+- [x] Validate enum types (tipo, es_urgente, fijado)
+- [x] Validate date ranges (fecha_fin > fecha_inicio)
+- [x] Write 9 passing TDD tests for validation
+
+### Phase 2: Drag-and-Drop Support ✅
+- [x] Enhance BulkImportNovedadesModal with drag-and-drop
+- [x] Add dragActive state for visual feedback
+- [x] Extract processFile() function for reuse
+- [x] Add handleDrag() for dragenter/dragover/dragleave
+- [x] Add handleDrop() for file drop handling
+- [x] Update UI text: "Suelta el archivo CSV aquí" on drag
+
+### Phase 3: Database Schema Fix ✅
+- [x] Fix created_by column type: uuid → text
+- [x] Update RLS policies with ::text casts
+- [x] Create migration: 20260501000007_bulk_import_previews.sql
+- [x] Create MIGRATION_GUIDE.md with step-by-step instructions
+
+### Phase 4: Backend Integration ✅
+- [x] Verify previewBulkImport uses validateBulkRow()
+- [x] Verify validation is integrated into import flow
+- [x] Confirm backend already has all validation logic
+
+### Phase 5: Testing & QA ✅
+- [x] All 9 CSV validation tests passing
+- [x] Build succeeds (pnpm build → exit 0)
+- [x] TypeScript compilation clean
+- [x] 773 tests passing overall
+
+### Next Steps (User Action Required)
+- [ ] Execute migration in Supabase dashboard (see MIGRATION_GUIDE.md)
+- [ ] Test CSV upload with drag-and-drop
+- [ ] Verify preview step shows valid/invalid rows
+- [ ] Confirm import creates announcements with audit trail
