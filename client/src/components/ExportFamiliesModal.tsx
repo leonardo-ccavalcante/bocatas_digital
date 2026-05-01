@@ -82,15 +82,17 @@ export function ExportFamiliesModal({ open, onOpenChange }: ExportFamiliesModalP
           <RadioGroup value={selectedMode} onValueChange={(value) => setSelectedMode(value as ExportMode)}>
             {(Object.entries(EXPORT_MODES) as Array<[ExportMode, typeof EXPORT_MODES[ExportMode]]>).map(
               ([mode, config]) => (
-                <div key={mode} className="flex items-center space-x-2">
-                  <RadioGroupItem value={mode} id={mode} />
+                <div key={mode} className="flex items-start space-x-3">
+                  <div className="pt-3">
+                    <RadioGroupItem value={mode} id={mode} />
+                  </div>
                   <Label htmlFor={mode} className="flex-1 cursor-pointer">
-                    <Card className={`cursor-pointer transition ${selectedMode === mode ? "ring-2 ring-primary" : ""}`}>
-                      <CardHeader className="pb-3">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <CardTitle className="text-base">{config.icon} {config.title}</CardTitle>
-                            <CardDescription className="text-xs mt-1">{config.description}</CardDescription>
+                    <Card className={`cursor-pointer transition hover:shadow-md ${selectedMode === mode ? "ring-2 ring-primary" : ""}`}>
+                      <CardHeader className="pb-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <CardTitle className="text-base break-words">{config.icon} {config.title}</CardTitle>
+                            <CardDescription className="text-sm mt-2 break-words">{config.description}</CardDescription>
                           </div>
                         </div>
                       </CardHeader>
