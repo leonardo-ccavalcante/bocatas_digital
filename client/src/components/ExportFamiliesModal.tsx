@@ -90,9 +90,9 @@ export function ExportFamiliesModal({ open, onOpenChange }: ExportFamiliesModalP
                     <Card className={`cursor-pointer transition hover:shadow-md ${selectedMode === mode ? "ring-2 ring-primary" : ""}`}>
                       <CardHeader className="pb-2">
                         <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <CardTitle className="text-base break-words">{config.icon} {config.title}</CardTitle>
-                            <CardDescription className="text-sm mt-2 break-words">{config.description}</CardDescription>
+                          <div className="flex-1">
+                            <CardTitle className="text-base">{config.icon} {config.title}</CardTitle>
+                            <CardDescription className="text-sm mt-2">{config.description}</CardDescription>
                           </div>
                         </div>
                       </CardHeader>
