@@ -86,7 +86,7 @@ export function ExportFamiliesModal({ open, onOpenChange }: ExportFamiliesModalP
                   <div className="pt-3">
                     <RadioGroupItem value={mode} id={mode} />
                   </div>
-                  <Label htmlFor={mode} className="flex-1 cursor-pointer">
+                  <div className="flex-1 cursor-pointer" onClick={() => setSelectedMode(mode)}>
                     <Card className={`cursor-pointer transition hover:shadow-md ${selectedMode === mode ? "ring-2 ring-primary" : ""}`}>
                       <CardHeader className="pb-2">
                         <div className="flex items-start justify-between gap-2">
@@ -97,7 +97,7 @@ export function ExportFamiliesModal({ open, onOpenChange }: ExportFamiliesModalP
                         </div>
                       </CardHeader>
                     </Card>
-                  </Label>
+                  </div>
                 </div>
               )
             )}
