@@ -8,6 +8,8 @@ import { Plus, Pencil, Trash2, Pin, PinOff, Eye, EyeOff } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { AudiencesSelector } from "@/components/AudiencesSelector";
+import { useAudienceOptions } from "@/features/announcements/hooks/useAudienceOptions";
 import {
   useAnnouncements,
   useCreateAnnouncement,
@@ -24,6 +26,9 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 
+const PROGRAMS = ["comedor", "familia", "formacion", "atencion_juridica", "voluntariado", "acompanamiento"] as const;
+const ROLES = ["superadmin", "admin", "voluntario", "beneficiario"] as const;
+
 const FormSchema = z.object({
   titulo: z.string().min(1, "Título requerido").max(200),
   contenido: z.string().min(1, "Contenido requerido").max(5000),
@@ -31,8 +36,14 @@ const FormSchema = z.object({
   es_urgente: z.boolean().default(false),
   fijado: z.boolean().default(false),
   fecha_fin: z.string().optional(),
-  published_at: z.string().optional(),
-  expires_at: z.string().optional(),
+  published_at: z.string().date().optional(),
+  expires_at: z.string().date().optional(),
+  audiences: z.array(
+    z.object({
+      programs: z.array(z.enum(PROGRAMS)),
+      roles: z.array(z.enum(ROLES)),
+    })
+  ).min(1, "Al menos una regla de audiencia es requerida"),
 });
 
 type FormValues = z.infer<typeof FormSchema>;
@@ -52,12 +63,15 @@ const TIPO_COLORS: Record<string, string> = {
 };
 
 // Default audience: visible to everyone (no role/program filter).
-const DEFAULT_AUDIENCE = [{ roles: [], programs: [] }] as const;
+const DEFAULT_AUDIENCE: Array<{ programs: (typeof PROGRAMS)[number][]; roles: (typeof ROLES)[number][] }> = [
+  { roles: [] as (typeof ROLES)[number][], programs: [] as (typeof PROGRAMS)[number][] },
+];
 
 export default function AdminNovedades() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showInactive, setShowInactive] = useState(false);
+  const { programs, roles } = useAudienceOptions();
 
   const { data, isLoading } = useAnnouncements({ limit: 100, includeInactive: showInactive });
   const createMutation = useCreateAnnouncement();
@@ -74,7 +88,7 @@ export default function AdminNovedades() {
   });
 
   function openCreate() {
-    form.reset({ tipo: "info", es_urgente: false, fijado: false });
+    form.reset({ tipo: "info", es_urgente: false, fijado: false, audiences: DEFAULT_AUDIENCE });
     setEditingId(null);
     setDialogOpen(true);
   }
@@ -98,13 +112,7 @@ export default function AdminNovedades() {
         await updateMutation.mutateAsync({ id: editingId, ...values });
         toast.success("Novedad actualizada");
       } else {
-        await createMutation.mutateAsync({
-          ...values,
-          audiences: DEFAULT_AUDIENCE.map((rule) => ({
-            roles: [...rule.roles],
-            programs: [...rule.programs],
-          })),
-        });
+        await createMutation.mutateAsync(values);
         toast.success("Novedad creada");
       }
       setDialogOpen(false);
@@ -300,6 +308,19 @@ export default function AdminNovedades() {
                 <Input type="date" {...form.register("expires_at")} />
                 <p className="text-xs text-gray-500 mt-1">La novedad dejará de verse después de esta fecha</p>
               </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-2 block">Dirigido a (Audiencias)</label>
+              <AudiencesSelector
+                programs={programs}
+                roles={roles}
+                value={form.watch("audiences") || DEFAULT_AUDIENCE}
+                onChange={(audiences) => form.setValue("audiences", audiences as any)}
+              />
+              {form.formState.errors.audiences && (
+                <p className="text-xs text-red-500 mt-1">{form.formState.errors.audiences.message}</p>
+              )}
             </div>
 
             <div className="flex items-center gap-4 flex-wrap">

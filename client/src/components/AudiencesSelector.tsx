@@ -16,8 +16,8 @@ export interface Program {
 interface AudiencesSelectorProps {
   programs: Program[];
   roles: string[];
-  value: AudienceRule[];
-  onChange: (value: AudienceRule[]) => void;
+  value: Array<{ programs: string[]; roles: string[] }>;
+  onChange: (value: Array<{ programs: string[]; roles: string[] }>) => void;
 }
 
 export function AudiencesSelector({
