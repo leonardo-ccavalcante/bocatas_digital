@@ -1047,6 +1047,7 @@ export const announcementsRouter = router({
       // the generated types model it as the wide `Json` union which does not
       // accept our typed array directly — cast through `unknown` is the
       // pragmatic fix while preserving runtime correctness.
+      // Store openId (OAuth identifier) for audit trail
       const { data: preview, error: previewErr } = await db
         .from("bulk_import_previews")
         .insert({
@@ -1078,6 +1079,7 @@ export const announcementsRouter = router({
     .input(z.object({ preview_token: uuidLike }))
     .mutation(async ({ input, ctx }) => {
       const db = createAdminClient();
+      // Use openId (OAuth identifier) for ownership check
       const createdBy = ctx.user.openId;
       const autorNombre = ctx.user.name ?? null;
 
