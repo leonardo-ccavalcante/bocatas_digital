@@ -1,22 +1,26 @@
 import { useState, useRef } from "react";
-import { Upload, X } from "lucide-react";
+import { Upload, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { trpc } from "@/lib/trpc";
 
 interface AnnouncementImageUploaderProps {
   value?: string | null;
   onChange: (url: string | null) => void;
   disabled?: boolean;
+  announcementId?: string;
 }
 
 export function AnnouncementImageUploader({
   value,
   onChange,
   disabled = false,
+  announcementId = "new",
 }: AnnouncementImageUploaderProps) {
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const uploadMutation = trpc.announcements.uploadImage.useMutation();
 
   const handleUpload = async (file: File) => {
     if (!file.type.startsWith("image/")) {
@@ -31,15 +35,14 @@ export function AnnouncementImageUploader({
 
     setUploading(true);
     try {
-      // In a real implementation, this would upload to S3 via the server
-      // For now, we'll use a data URL (not recommended for production)
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const dataUrl = e.target?.result as string;
-        onChange(dataUrl);
-        toast.success("Imagen cargada");
-      };
-      reader.readAsDataURL(file);
+      // Upload to S3 via tRPC mutation
+      const result = await uploadMutation.mutateAsync({
+        file,
+        announcementId,
+      });
+
+      onChange(result.url);
+      toast.success("Imagen cargada exitosamente");
     } catch (error) {
       toast.error("Error al cargar la imagen");
       console.error(error);
@@ -87,7 +90,7 @@ export function AnnouncementImageUploader({
           dragActive
             ? "border-blue-500 bg-blue-50"
             : "border-gray-300 bg-gray-50 hover:border-gray-400"
-        } ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+        } ${disabled || uploading ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
       >
         <input
           ref={inputRef}
@@ -129,20 +132,29 @@ export function AnnouncementImageUploader({
         ) : (
           <div
             className="text-center space-y-2"
-            onClick={() => !disabled && inputRef.current?.click()}
+            onClick={() => !disabled && !uploading && inputRef.current?.click()}
           >
-            <Upload className="w-8 h-8 text-gray-400 mx-auto" />
-            <div>
-              <p className="text-sm font-medium text-gray-700">
-                Arrastra una imagen aquí
-              </p>
-              <p className="text-xs text-gray-500">o haz clic para seleccionar</p>
-            </div>
-            <p className="text-xs text-gray-400">PNG, JPG, GIF (máx. 5MB)</p>
+            {uploading ? (
+              <>
+                <Loader2 className="w-8 h-8 text-blue-500 mx-auto animate-spin" />
+                <p className="text-sm font-medium text-gray-700">Subiendo imagen...</p>
+              </>
+            ) : (
+              <>
+                <Upload className="w-8 h-8 text-gray-400 mx-auto" />
+                <div>
+                  <p className="text-sm font-medium text-gray-700">
+                    Arrastra una imagen aquí
+                  </p>
+                  <p className="text-xs text-gray-500">o haz clic para seleccionar</p>
+                </div>
+                <p className="text-xs text-gray-400">PNG, JPG, GIF (máx. 5MB)</p>
+              </>
+            )}
           </div>
         )}
 
-        {uploading && (
+        {uploading && !value && (
           <div className="absolute inset-0 bg-white/50 rounded-lg flex items-center justify-center">
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500" />
           </div>
