@@ -2,7 +2,7 @@
  * BulkImportNovedadesModal.tsx — 3-step CSV bulk import for announcements.
  * Step 1: Upload CSV  →  Step 2: Preview (valid + error rows)  →  Step 3: Confirm
  */
-import { useState, useRef } from "react";
+import { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -140,8 +140,6 @@ export function BulkImportNovedadesModal({
   const [tableRows, setTableRows] = useState<TableRow[]>([]);
   const [errorCount, setErrorCount] = useState(0);
   const [previewToken, setPreviewToken] = useState<string>("");
-  const [dragActive, setDragActive] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const previewMutation = usePreviewBulkImport();
   const confirmMutation = useConfirmBulkImport();
@@ -157,33 +155,20 @@ export function BulkImportNovedadesModal({
     }, 300);
   }
 
-  const handleDrag = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true);
-    } else if (e.type === "dragleave") {
-      setDragActive(false);
-    }
-  };
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-
-    const files = e.dataTransfer.files;
-    if (files && files[0]) {
-      processFile(files[0]);
-    }
-  };
-
-  async function processFile(file: File) {
+    let text: string;
     try {
-      const text = await file.text();
+      text = await file.text();
+    } catch {
+      toast.error("No se pudo leer el archivo");
+      return;
+    }
 
-      previewMutation.mutate(
-        { csv: text },
+    previewMutation.mutate(
+      { csv: text },
       {
         onSuccess: (data) => {
           const validData = data as unknown as {
@@ -233,22 +218,14 @@ export function BulkImportNovedadesModal({
           setPreviewToken(validData.preview_token);
           setStep(2);
         },
-          onError: (err) => {
-            toast.error(err instanceof Error ? err.message : "Error al procesar el CSV");
-          },
-        }
-      );
-    } catch {
-      toast.error("No se pudo leer el archivo");
-    }
-  }
+        onError: (err) => {
+          toast.error(err instanceof Error ? err.message : "Error al procesar el CSV");
+        },
+      }
+    );
 
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.currentTarget.files?.[0];
-    if (!file) return;
-    await processFile(file);
     // Reset the input so the same file can be re-selected after going back
-    e.currentTarget.value = "";
+    e.target.value = "";
   }
 
   function handleConfirm() {
@@ -296,20 +273,7 @@ export function BulkImportNovedadesModal({
               </a>
             </div>
 
-            <div
-              onDragEnter={handleDrag}
-              onDragLeave={handleDrag}
-              onDragOver={handleDrag}
-              onDrop={handleDrop}
-              className={`flex flex-col items-center justify-center gap-3 border-2 border-dashed rounded-lg p-8 transition-colors ${
-                dragActive
-                  ? "border-blue-500 bg-blue-50"
-                  : "border-gray-300 bg-gray-50 hover:border-gray-400"
-              } ${
-                previewMutation.isPending ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
-              }`}
-              onClick={() => !previewMutation.isPending && fileInputRef.current?.click()}
-            >
+            <label className="flex flex-col items-center justify-center gap-3 border-2 border-dashed rounded-lg p-8 cursor-pointer hover:bg-gray-50 transition-colors">
               {previewMutation.isPending ? (
                 <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
               ) : (
@@ -318,17 +282,16 @@ export function BulkImportNovedadesModal({
               <span className="text-sm text-gray-600 font-medium">
                 {previewMutation.isPending
                   ? "Analizando CSV…"
-                  : "Arrastra un archivo CSV aquí o haz clic para seleccionar"}
+                  : "Haz clic para seleccionar un archivo CSV"}
               </span>
               <input
-                ref={fileInputRef}
                 type="file"
                 accept=".csv"
-                className="hidden"
+                className="sr-only"
                 disabled={previewMutation.isPending}
                 onChange={handleFileChange}
               />
-            </div>
+            </label>
           </div>
         )}
 
