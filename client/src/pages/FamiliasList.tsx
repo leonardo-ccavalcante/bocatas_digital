@@ -66,7 +66,7 @@ export default function FamiliasList() {
 
         {/* Delivery Upload Modal */}
         <Dialog open={deliveryUploadOpen} onOpenChange={setDeliveryUploadOpen}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Subir Documento de Entregas</DialogTitle>
             </DialogHeader>
