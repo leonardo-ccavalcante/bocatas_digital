@@ -45,6 +45,7 @@ import {
   type BulkRowError,
   type AuditChange,
 } from "../announcements-helpers";
+import { uploadImageProcedure } from "./announcements.uploadImage";
 
 // ─── Shared Zod primitives ─────────────────────────────────────────────────────
 
@@ -1212,10 +1213,10 @@ export const announcementsRouter = router({
           message: `Error al descartar novedad: ${error.message}`,
         });
       }
-      return { success: true };
+       return { success: true };
     }),
+  uploadImage: uploadImageProcedure,
 });
-
 // ─── Internal no-op used to avoid a TS warning about unused variable ─────────
 function dismissedLookup(_id: string): boolean {
   return false;
