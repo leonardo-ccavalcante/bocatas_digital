@@ -210,6 +210,8 @@ export type Database = {
           fijado: boolean
           id: string
           imagen_url: string | null
+          published_at: string | null
+          expires_at: string | null
           tipo: string
           titulo: string
           updated_at: string
@@ -226,6 +228,8 @@ export type Database = {
           fijado?: boolean
           id?: string
           imagen_url?: string | null
+          published_at?: string | null
+          expires_at?: string | null
           tipo?: string
           titulo: string
           updated_at?: string
@@ -242,6 +246,8 @@ export type Database = {
           fijado?: boolean
           id?: string
           imagen_url?: string | null
+          published_at?: string | null
+          expires_at?: string | null
           tipo?: string
           titulo?: string
           updated_at?: string
