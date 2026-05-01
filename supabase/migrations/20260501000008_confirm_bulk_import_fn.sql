@@ -100,7 +100,7 @@ BEGIN
         VALUES (
           v_announcement.id,
           COALESCE(v_audience_roles, '{}'),
-          COALESCE(v_audience_programs, '{}')
+          COALESCE(v_audience_programs, '{}')::programa[]
         );
       END LOOP;
 

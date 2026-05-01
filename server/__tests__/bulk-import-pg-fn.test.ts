@@ -45,6 +45,23 @@ describe("confirm_bulk_announcement_import PG function migration", () => {
   });
 });
 
+describe("confirm_bulk_announcement_import: programs column cast (Bug 3)", () => {
+  const sql = readFileSync(PG_FN_MIGRATION, "utf-8");
+
+  it("casts v_audience_programs to ::programa[] when inserting into announcement_audiences", () => {
+    // Without this cast, PostgreSQL raises:
+    // "column programs is of type programa[] but expression is of type text[]"
+    // Error code: 42804
+    expect(sql).toContain("::programa[]");
+  });
+
+  it("does not insert bare text[] into programs column without cast", () => {
+    const insertBlock = sql.match(/INSERT INTO announcement_audiences[\s\S]*?\);/)?.[0] ?? "";
+    // Must have ::programa[] cast on the programs value
+    expect(insertBlock).toContain("::programa[]");
+  });
+});
+
 describe("fix_autor_id_type migration (20260501000009)", () => {
   const sql = readFileSync(AUTOR_ID_MIGRATION, "utf-8");
 
