@@ -1515,3 +1515,4 @@ When fixes don't work, stop and investigate the ROOT CAUSE systematically. The r
 - [x] Confirm import creates announcements with audit trail — schema ready, RLS policies active
 - [x] Ejecutar migración 20260501000008 — confirm_bulk_announcement_import() creada en DB (SECURITY DEFINER, prosecdef=true, GRANT a authenticated)
 - [x] BUG FIXED: "0 novedades importadas" — root cause: PG function confirm_bulk_announcement_import missing ::tipo_announcement cast on INSERT. Fixed in migration 20260501000008 and deployed via Supabase MCP. TDD test added: server/__tests__/bulk-import-pg-fn.test.ts (3 tests passing).
+- [x] BUG FIXED: "0 novedades importadas" — causa raíz real: announcements.autor_id y announcement_audit_log.edited_by eran uuid pero Manus IDs son strings no-UUID. Migración 20260501000009 aplicada via Supabase MCP. 6 tests TDD pasando.
