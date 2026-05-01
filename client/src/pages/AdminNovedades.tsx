@@ -11,6 +11,7 @@ import { z } from "zod";
 import { AudiencesSelector } from "@/components/AudiencesSelector";
 import { AnnouncementImageUploader } from "@/components/AnnouncementImageUploader";
 import { BulkImportNovedadesModal } from "@/components/BulkImportNovedadesModal";
+import { SchedulingDashboard } from "@/features/announcements/components/SchedulingDashboard";
 import { useAudienceOptions } from "@/features/announcements/hooks/useAudienceOptions";
 import {
   useAnnouncements,
@@ -399,6 +400,23 @@ export default function AdminNovedades() {
 
       {/* Bulk Import Modal */}
       <BulkImportNovedadesModal open={bulkImportOpen} onOpenChange={setBulkImportOpen} />
+
+      {/* Scheduling Dashboard */}
+      {announcements && announcements.length > 0 && (
+        <div className="mt-8 pt-8 border-t">
+          <SchedulingDashboard
+            announcements={announcements.map((a) => ({
+              id: a.id,
+              titulo: a.titulo,
+              published_at: (a.published_at as string | null) ?? null,
+              expires_at: (a.expires_at as string | null) ?? null,
+            }))}
+            onReschedule={(id, date) => {
+              console.log(`Reschedule ${id} to ${date}`);
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }
