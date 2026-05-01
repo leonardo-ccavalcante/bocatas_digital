@@ -64,7 +64,7 @@ BEGIN
       ) VALUES (
         v_row ->> 'titulo',
         v_row ->> 'contenido',
-        v_row ->> 'tipo',
+        (v_row ->> 'tipo')::tipo_announcement,
         COALESCE((v_row ->> 'es_urgente')::boolean, false),
         CASE
           WHEN v_row ->> 'fecha_inicio' IS NOT NULL AND v_row ->> 'fecha_inicio' <> ''

@@ -1513,3 +1513,5 @@ When fixes don't work, stop and investigate the ROOT CAUSE systematically. The r
 - [x] Test CSV upload with drag-and-drop — verified insert with text created_by works
 - [x] Verify preview step shows valid/invalid rows — schema verified, table accessible
 - [x] Confirm import creates announcements with audit trail — schema ready, RLS policies active
+- [x] Ejecutar migración 20260501000008 — confirm_bulk_announcement_import() creada en DB (SECURITY DEFINER, prosecdef=true, GRANT a authenticated)
+- [x] BUG FIXED: "0 novedades importadas" — root cause: PG function confirm_bulk_announcement_import missing ::tipo_announcement cast on INSERT. Fixed in migration 20260501000008 and deployed via Supabase MCP. TDD test added: server/__tests__/bulk-import-pg-fn.test.ts (3 tests passing).
