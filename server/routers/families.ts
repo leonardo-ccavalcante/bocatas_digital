@@ -1375,7 +1375,7 @@ export const familiesRouter = router({
   /** GET export families + members with UUIDs */
   exportFamiliesWithMembers: adminProcedure
     .input(z.object({ mode: z.enum(["update", "audit", "verify"]) }))
-    .query(async ({ input }) => {
+    .mutation(async ({ input }) => {
       const db = createAdminClient();
 
       // Fetch all families with their members

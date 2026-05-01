@@ -37,18 +37,15 @@ export function ExportFamiliesModal({ open, onOpenChange }: ExportFamiliesModalP
   const [selectedMode, setSelectedMode] = useState<ExportMode>("update");
   const [isExporting, setIsExporting] = useState(false);
 
-  const exportMutation = (trpc.families as any).exportFamiliesWithMembers.useQuery(
-    { mode: selectedMode },
-    { enabled: false }
-  );
+  const exportMutation = (trpc.families as any).exportFamiliesWithMembers.useMutation();
 
   const handleExport = async () => {
     setIsExporting(true);
     try {
-      const result = await exportMutation.refetch();
-      if (result.data?.csv) {
+      const result = await exportMutation.mutateAsync({ mode: selectedMode });
+      if (result?.csv) {
         // Create blob and download
-        const blob = new Blob([result.data.csv], { type: "text/csv;charset=utf-8;" });
+        const blob = new Blob([result.csv], { type: "text/csv;charset=utf-8;" });
         const link = document.createElement("a");
         const url = URL.createObjectURL(blob);
         link.setAttribute("href", url);
@@ -58,7 +55,7 @@ export function ExportFamiliesModal({ open, onOpenChange }: ExportFamiliesModalP
         link.click();
         document.body.removeChild(link);
 
-        toast.success(`${result.data.recordCount} familias exportadas exitosamente`);
+        toast.success(`${result.recordCount} familias exportadas exitosamente`);
         onOpenChange(false);
       }
     } catch (error) {
