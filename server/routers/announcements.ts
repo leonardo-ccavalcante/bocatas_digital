@@ -324,6 +324,7 @@ export const announcementsRouter = router({
         .select(
           `id, titulo, contenido, tipo, es_urgente, activo,
            fecha_inicio, fecha_fin, fijado, imagen_url,
+           published_at, expires_at,
            autor_id, autor_nombre, created_at, updated_at,
            announcement_audiences(id, roles, programs)`
         )
