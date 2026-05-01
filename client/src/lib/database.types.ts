@@ -765,6 +765,7 @@ export type Database = {
       familia_miembros: {
         Row: {
           created_at: string | null
+          deleted_at: string | null
           documentacion_id: string | null
           estado: string | null
           familia_id: string
@@ -777,6 +778,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          deleted_at?: string | null
           documentacion_id?: string | null
           estado?: string | null
           familia_id: string
@@ -789,6 +791,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          deleted_at?: string | null
           documentacion_id?: string | null
           estado?: string | null
           familia_id?: string
