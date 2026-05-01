@@ -46,7 +46,20 @@ const FormSchema = z.object({
       roles: z.array(z.enum(ROLES)),
     })
   ).min(1, "Al menos una regla de audiencia es requerida"),
-});
+}).refine(
+  (data) => {
+    // If both dates are provided, expires_at must be after published_at
+    if (data.published_at && data.expires_at) {
+      return new Date(data.expires_at) > new Date(data.published_at);
+    }
+    // If only one or neither is provided, it's valid
+    return true;
+  },
+  {
+    message: "La fecha de expiración debe ser posterior a la fecha de publicación",
+    path: ["expires_at"],
+  }
+);
 
 type FormValues = z.infer<typeof FormSchema>;
 
