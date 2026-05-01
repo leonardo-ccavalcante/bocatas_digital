@@ -1051,7 +1051,7 @@ export const announcementsRouter = router({
         .from("bulk_import_previews")
         .insert({
           parsed_rows: valid as unknown as never,
-          created_by: String(ctx.user.id),
+          created_by: ctx.user.openId,
         })
         .select("token")
         .single();
@@ -1078,7 +1078,7 @@ export const announcementsRouter = router({
     .input(z.object({ preview_token: uuidLike }))
     .mutation(async ({ input, ctx }) => {
       const db = createAdminClient();
-      const createdBy = String(ctx.user.id);
+      const createdBy = ctx.user.openId;
       const autorNombre = ctx.user.name ?? null;
 
       // Fetch preview — respects 30-min TTL and ownership.
