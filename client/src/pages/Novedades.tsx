@@ -20,6 +20,7 @@ import { useAnnouncements } from "@/features/announcements/hooks/useAnnouncement
 import type { TipoAnnouncement } from "@shared/announcementTypes";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CrearNovedadButton } from "@/components/CrearNovedadButton";
+import { AnnouncementStatusBadge } from "@/features/announcements/components/AnnouncementStatusBadge";
 
 // ─── Tipo config (current values only — legacy urgente/cierre removed) ──────────
 
@@ -159,6 +160,10 @@ function AnnouncementCard({ announcement: a }: { announcement: Record<string, un
                 <Pin className="w-3 h-3" /> Fijado
               </span>
             )}
+            <AnnouncementStatusBadge
+              publishedAt={a.published_at as string | null}
+              expiresAt={a.expires_at as string | null}
+            />
           </div>
           <ChevronRight className="w-4 h-4 text-gray-300 shrink-0 mt-0.5" />
         </div>
