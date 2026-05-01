@@ -203,6 +203,7 @@ export type Database = {
           autor_nombre: string | null
           contenido: string
           created_at: string
+          deleted_at: string | null
           // Manual augmentation — roles_visibles dropped in migration 20260501000002
           es_urgente: boolean
           fecha_fin: string | null
@@ -222,6 +223,7 @@ export type Database = {
           autor_nombre?: string | null
           contenido: string
           created_at?: string
+          deleted_at?: string | null
           es_urgente?: boolean
           fecha_fin?: string | null
           fecha_inicio?: string
@@ -240,6 +242,7 @@ export type Database = {
           autor_nombre?: string | null
           contenido?: string
           created_at?: string
+          deleted_at?: string | null
           es_urgente?: boolean
           fecha_fin?: string | null
           fecha_inicio?: string
@@ -659,6 +662,7 @@ export type Database = {
           carne_cantidad: number | null
           carne_unidad: string | null
           createdAt: string
+          deleted_at: string | null
           entregas_batch_id: string
           familia_id: string
           fecha: string
@@ -674,6 +678,7 @@ export type Database = {
           carne_cantidad?: number | null
           carne_unidad?: string | null
           createdAt?: string
+          deleted_at?: string | null
           entregas_batch_id: string
           familia_id: string
           fecha: string
@@ -689,6 +694,7 @@ export type Database = {
           carne_cantidad?: number | null
           carne_unidad?: string | null
           createdAt?: string
+          deleted_at?: string | null
           entregas_batch_id?: string
           familia_id?: string
           fecha?: string
@@ -1414,6 +1420,7 @@ export type Database = {
           config: Json
           created_at: string | null
           created_by: string | null
+          deleted_at: string | null
           description: string | null
           display_order: number
           fecha_fin: string | null
@@ -1437,6 +1444,7 @@ export type Database = {
           config?: Json
           created_at?: string | null
           created_by?: string | null
+          deleted_at?: string | null
           description?: string | null
           display_order?: number
           fecha_fin?: string | null
@@ -1460,6 +1468,7 @@ export type Database = {
           config?: Json
           created_at?: string | null
           created_by?: string | null
+          deleted_at?: string | null
           description?: string | null
           display_order?: number
           fecha_fin?: string | null

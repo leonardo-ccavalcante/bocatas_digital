@@ -13,6 +13,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, superadminProcedure } from "../\_core/trpc";
 import { createAdminClient } from "../../client/src/lib/supabase/server";
+import { softDeleteRecoveryRouter } from "./admin/soft-delete-recovery";
 
 const uuidLike = z
   .string()
@@ -21,6 +22,7 @@ const uuidLike = z
 // Using exported superadminProcedure from server/_core/trpc
 
 export const adminRouter = router({
+  softDelete: softDeleteRecoveryRouter,
   /**
    * D-B11: List all staff users (role = admin | voluntario | superadmin).
    * Returns: id, email, nombre, role, created_at

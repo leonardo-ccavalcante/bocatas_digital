@@ -36,6 +36,7 @@ const AdminConsentimientos = lazy(() => import("./pages/AdminConsentimientos"));
 const AdminProgramas = lazy(() => import("./pages/AdminProgramas"));
 const AdminUsuarios = lazy(() => import("./pages/AdminUsuarios"));
 const AdminNovedades = lazy(() => import("./pages/AdminNovedades"));
+const AdminSoftDeleteRecovery = lazy(() => import("./pages/AdminSoftDeleteRecovery").then(m => ({ default: m.AdminSoftDeleteRecovery })));
 
 // Familias (heavy module)
 const FamiliasList = lazy(() => import("./pages/FamiliasList"));
@@ -139,6 +140,11 @@ function Router() {
         <Route path="/admin/usuarios">
           <ProtectedRoute requiredRoles={["superadmin"]}>
             <AdminUsuarios />
+          </ProtectedRoute>
+        </Route>
+        <Route path="/admin/soft-delete-recovery">
+          <ProtectedRoute requiredRoles={["admin", "superadmin"]}>
+            <AdminSoftDeleteRecovery />
           </ProtectedRoute>
         </Route>
 
