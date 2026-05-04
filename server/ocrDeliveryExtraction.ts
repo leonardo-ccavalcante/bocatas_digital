@@ -1,6 +1,3 @@
-import { getDb } from './db';
-import { families } from '../drizzle/schema';
-import { eq } from 'drizzle-orm';
 import { createAdminClient } from '../client/src/lib/supabase/server';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -317,23 +314,13 @@ export async function validateBatchHeaderWithDB(
     return baseValidation;
   }
 
-  // Check for duplicate albarán
+  // Check for duplicate albarán via deliveries metadata (JSONB filter)
   if (header.numero_albaran) {
-    const db = await getDb();
-    if (!db) {
-      return {
-        isValid: false,
-        errors: ['Base de datos no disponible'],
-        warnings: baseValidation.warnings,
-      };
-    }
-
-    // Check for duplicate albarán via deliveries metadata
     const adminDb = createAdminClient();
     const { data: existingBatch } = await (adminDb as any)
       .from('deliveries')
       .select('id')
-      .eq('metadata->>numero_albaran', header.numero_albaran)
+      .filter('metadata->>numero_albaran', 'eq', header.numero_albaran)
       .limit(1);
 
     if (existingBatch && existingBatch.length > 0) {
@@ -407,24 +394,17 @@ export async function validateDeliveryRowWithDB(
     return baseValidation;
   }
 
-  // Check if familia exists
+  // Check if familia exists via Supabase
   if (isValidUUID(row.familia_id)) {
-    const db = await getDb();
-    if (!db) {
-      return {
-        isValid: false,
-        errors: ['Base de datos no disponible'],
-        warnings: baseValidation.warnings,
-      };
-    }
-
-    const familia = await db
-      .select()
-      .from(families)
-      .where(eq(families.id, row.familia_id))
+    const adminDb = createAdminClient();
+    const { data: familia, error: familiaError } = await (adminDb as any)
+      .from('families')
+      .select('id')
+      .eq('id', row.familia_id)
+      .is('deleted_at', null)
       .limit(1);
 
-    if (familia.length === 0) {
+    if (familiaError || !familia || familia.length === 0) {
       return {
         isValid: false,
         errors: [`Familia no encontrada: ${row.familia_id}`],
@@ -465,15 +445,6 @@ export async function saveDeliveryBatch(
       batchId: '',
       savedCount: 0,
       errors: invalidRows.flatMap(v => v.errors),
-    };
-  }
-
-  const db = await getDb();
-  if (!db) {
-    return {
-      batchId: '',
-      savedCount: 0,
-      errors: ['Base de datos no disponible'],
     };
   }
 
