@@ -1,0 +1,409 @@
+Progress: resolved 1, reused 0, downloaded 0, added 0
+Packages: +49
++++++++++++++++++++++++++++++++++++++++++++++++++
+Progress: resolved 49, reused 43, downloaded 6, added 49, done
+server/db.ts:9 - getDb (used in module)
+server/storage.ts:95 - storageGet
+shared/types.ts:8 - users
+shared/types.ts:25 - User
+shared/types.ts:26 - InsertUser
+shared/types.ts:5 - HttpError
+shared/types.ts:16 - BadRequestError
+shared/types.ts:17 - UnauthorizedError
+shared/types.ts:18 - ForbiddenError
+shared/types.ts:19 - NotFoundError
+client/src/const.ts:1 - COOKIE_NAME
+client/src/const.ts:1 - ONE_YEAR_MS
+server/_core/dataApi.ts:16 - callDataApi
+server/_core/dataApi.ts:9 - DataApiCallOptions (used in module)
+server/_core/imageGeneration.ts:34 - generateImage
+server/_core/imageGeneration.ts:21 - GenerateImageOptions (used in module)
+server/_core/imageGeneration.ts:30 - GenerateImageResponse (used in module)
+server/_core/llm.ts:3 - Role (used in module)
+server/_core/llm.ts:5 - TextContent (used in module)
+server/_core/llm.ts:10 - ImageContent (used in module)
+server/_core/llm.ts:18 - FileContent (used in module)
+server/_core/llm.ts:26 - MessageContent (used in module)
+server/_core/llm.ts:28 - Message (used in module)
+server/_core/llm.ts:35 - Tool (used in module)
+server/_core/llm.ts:44 - ToolChoicePrimitive (used in module)
+server/_core/llm.ts:45 - ToolChoiceByName (used in module)
+server/_core/llm.ts:46 - ToolChoiceExplicit (used in module)
+server/_core/llm.ts:53 - ToolChoice (used in module)
+server/_core/llm.ts:58 - InvokeParams (used in module)
+server/_core/llm.ts:71 - ToolCall (used in module)
+server/_core/llm.ts:80 - InvokeResult (used in module)
+server/_core/llm.ts:100 - JsonSchema (used in module)
+server/_core/llm.ts:106 - OutputSchema (used in module)
+server/_core/llm.ts:108 - ResponseFormat (used in module)
+server/_core/map.ts:54 - makeRequest
+server/_core/map.ts:96 - TravelMode
+server/_core/map.ts:97 - MapType
+server/_core/map.ts:98 - SpeedUnit
+server/_core/map.ts:100 - LatLng (used in module)
+server/_core/map.ts:105 - DirectionsResult
+server/_core/map.ts:131 - DistanceMatrixResult
+server/_core/map.ts:144 - GeocodingResult
+server/_core/map.ts:166 - PlacesSearchResult
+server/_core/map.ts:182 - PlaceDetailsResult
+server/_core/map.ts:209 - ElevationResult
+server/_core/map.ts:218 - TimeZoneResult
+server/_core/map.ts:226 - RoadsResult
+server/_core/notification.ts:4 - NotificationPayload (used in module)
+server/_core/sdk.ts:21 - SessionPayload (used in module)
+server/_core/voiceTranscription.ts:73 - transcribeAudio
+server/_core/voiceTranscription.ts:30 - TranscribeOptions (used in module)
+server/_core/voiceTranscription.ts:37 - WhisperSegment (used in module)
+server/_core/voiceTranscription.ts:51 - WhisperResponse (used in module)
+server/_core/voiceTranscription.ts:59 - TranscriptionResponse (used in module)
+server/_core/voiceTranscription.ts:61 - TranscriptionError (used in module)
+client/src/contexts/ThemeContext.tsx:58 - useTheme
+client/src/hooks/useComposition.ts:4 - UseCompositionReturn (used in module)
+client/src/hooks/useComposition.ts:13 - UseCompositionOptions (used in module)
+client/src/lib/database.types.ts:1 - Json (used in module)
+client/src/lib/database.types.ts:1416 - Tables (used in module)
+client/src/lib/database.types.ts:1445 - TablesInsert
+client/src/lib/database.types.ts:1470 - TablesUpdate
+client/src/lib/database.types.ts:1495 - Enums (used in module)
+client/src/lib/database.types.ts:1512 - CompositeTypes (used in module)
+client/src/lib/database.types.ts:1529 - Constants
+client/src/lib/dateUtils.ts:43 - parseDateInput
+client/src/store/useAppStore.ts:4 - Location (used in module)
+client/src/store/useAppStore.ts:10 - PendingCheckin (used in module)
+server/_core/types/manusTypes.ts:5 - AuthorizeRequest
+server/_core/types/manusTypes.ts:13 - AuthorizeResponse
+server/_core/types/manusTypes.ts:35 - GetUserInfoRequest
+server/_core/types/manusTypes.ts:48 - CanAccessRequest
+server/_core/types/manusTypes.ts:53 - CanAccessResponse
+client/src/components/ui/accordion.tsx:64 - Accordion (used in module)
+client/src/components/ui/accordion.tsx:64 - AccordionItem (used in module)
+client/src/components/ui/accordion.tsx:64 - AccordionTrigger (used in module)
+client/src/components/ui/accordion.tsx:64 - AccordionContent (used in module)
+client/src/components/ui/alert-dialog.tsx:145 - AlertDialogPortal (used in module)
+client/src/components/ui/alert-dialog.tsx:146 - AlertDialogOverlay (used in module)
+client/src/components/ui/alert.tsx:66 - Alert (used in module)
+client/src/components/ui/alert.tsx:66 - AlertTitle (used in module)
+client/src/components/ui/alert.tsx:66 - AlertDescription (used in module)
+client/src/components/ui/aspect-ratio.tsx:9 - AspectRatio (used in module)
+client/src/components/ui/badge.tsx:46 - badgeVariants (used in module)
+client/src/components/ui/breadcrumb.tsx:102 - Breadcrumb (used in module)
+client/src/components/ui/breadcrumb.tsx:103 - BreadcrumbList (used in module)
+client/src/components/ui/breadcrumb.tsx:104 - BreadcrumbItem (used in module)
+client/src/components/ui/breadcrumb.tsx:105 - BreadcrumbLink (used in module)
+client/src/components/ui/breadcrumb.tsx:106 - BreadcrumbPage (used in module)
+client/src/components/ui/breadcrumb.tsx:107 - BreadcrumbSeparator (used in module)
+client/src/components/ui/breadcrumb.tsx:108 - BreadcrumbEllipsis (used in module)
+client/src/components/ui/button-group.tsx:79 - ButtonGroup (used in module)
+client/src/components/ui/button-group.tsx:80 - ButtonGroupSeparator (used in module)
+client/src/components/ui/button-group.tsx:81 - ButtonGroupText (used in module)
+client/src/components/ui/button-group.tsx:82 - buttonGroupVariants (used in module)
+client/src/components/ui/calendar.tsx:211 - Calendar (used in module)
+client/src/components/ui/calendar.tsx:211 - CalendarDayButton (used in module)
+client/src/components/ui/card.tsx:87 - CardFooter (used in module)
+client/src/components/ui/card.tsx:89 - CardAction (used in module)
+client/src/components/ui/carousel.tsx:233 - CarouselApi (used in module)
+client/src/components/ui/carousel.tsx:234 - Carousel (used in module)
+client/src/components/ui/carousel.tsx:235 - CarouselContent (used in module)
+client/src/components/ui/carousel.tsx:236 - CarouselItem (used in module)
+client/src/components/ui/carousel.tsx:237 - CarouselPrevious (used in module)
+client/src/components/ui/carousel.tsx:238 - CarouselNext (used in module)
+client/src/components/ui/chart.tsx:9 - ChartConfig (used in module)
+client/src/components/ui/chart.tsx:349 - ChartContainer (used in module)
+client/src/components/ui/chart.tsx:350 - ChartTooltip (used in module)
+client/src/components/ui/chart.tsx:351 - ChartTooltipContent (used in module)
+client/src/components/ui/chart.tsx:352 - ChartLegend (used in module)
+client/src/components/ui/chart.tsx:353 - ChartLegendContent (used in module)
+client/src/components/ui/chart.tsx:354 - ChartStyle (used in module)
+client/src/components/ui/collapsible.tsx:31 - Collapsible (used in module)
+client/src/components/ui/collapsible.tsx:31 - CollapsibleTrigger (used in module)
+client/src/components/ui/collapsible.tsx:31 - CollapsibleContent (used in module)
+client/src/components/ui/command.tsx:175 - Command (used in module)
+client/src/components/ui/command.tsx:176 - CommandDialog (used in module)
+client/src/components/ui/command.tsx:177 - CommandInput (used in module)
+client/src/components/ui/command.tsx:178 - CommandList (used in module)
+client/src/components/ui/command.tsx:179 - CommandEmpty (used in module)
+client/src/components/ui/command.tsx:180 - CommandGroup (used in module)
+client/src/components/ui/command.tsx:181 - CommandItem (used in module)
+client/src/components/ui/command.tsx:182 - CommandShortcut (used in module)
+client/src/components/ui/command.tsx:183 - CommandSeparator (used in module)
+client/src/components/ui/context-menu.tsx:235 - ContextMenu (used in module)
+client/src/components/ui/context-menu.tsx:236 - ContextMenuTrigger (used in module)
+client/src/components/ui/context-menu.tsx:237 - ContextMenuContent (used in module)
+client/src/components/ui/context-menu.tsx:238 - ContextMenuItem (used in module)
+client/src/components/ui/context-menu.tsx:239 - ContextMenuCheckboxItem (used in module)
+client/src/components/ui/context-menu.tsx:240 - ContextMenuRadioItem (used in module)
+client/src/components/ui/context-menu.tsx:241 - ContextMenuLabel (used in module)
+client/src/components/ui/context-menu.tsx:242 - ContextMenuSeparator (used in module)
+client/src/components/ui/context-menu.tsx:243 - ContextMenuShortcut (used in module)
+client/src/components/ui/context-menu.tsx:244 - ContextMenuGroup (used in module)
+client/src/components/ui/context-menu.tsx:245 - ContextMenuPortal (used in module)
+client/src/components/ui/context-menu.tsx:246 - ContextMenuSub (used in module)
+client/src/components/ui/context-menu.tsx:247 - ContextMenuSubContent (used in module)
+client/src/components/ui/context-menu.tsx:248 - ContextMenuSubTrigger (used in module)
+client/src/components/ui/context-menu.tsx:249 - ContextMenuRadioGroup (used in module)
+client/src/components/ui/dialog.tsx:199 - DialogClose (used in module)
+client/src/components/ui/dialog.tsx:204 - DialogOverlay (used in module)
+client/src/components/ui/dialog.tsx:205 - DialogPortal (used in module)
+client/src/components/ui/drawer.tsx:123 - Drawer (used in module)
+client/src/components/ui/drawer.tsx:124 - DrawerPortal (used in module)
+client/src/components/ui/drawer.tsx:125 - DrawerOverlay (used in module)
+client/src/components/ui/drawer.tsx:126 - DrawerTrigger (used in module)
+client/src/components/ui/drawer.tsx:127 - DrawerClose (used in module)
+client/src/components/ui/drawer.tsx:128 - DrawerContent (used in module)
+client/src/components/ui/drawer.tsx:129 - DrawerHeader (used in module)
+client/src/components/ui/drawer.tsx:130 - DrawerFooter (used in module)
+client/src/components/ui/drawer.tsx:131 - DrawerTitle (used in module)
+client/src/components/ui/drawer.tsx:132 - DrawerDescription (used in module)
+client/src/components/ui/dropdown-menu.tsx:240 - DropdownMenu (used in module)
+client/src/components/ui/dropdown-menu.tsx:241 - DropdownMenuPortal (used in module)
+client/src/components/ui/dropdown-menu.tsx:242 - DropdownMenuTrigger (used in module)
+client/src/components/ui/dropdown-menu.tsx:243 - DropdownMenuContent (used in module)
+client/src/components/ui/dropdown-menu.tsx:244 - DropdownMenuGroup (used in module)
+client/src/components/ui/dropdown-menu.tsx:245 - DropdownMenuLabel (used in module)
+client/src/components/ui/dropdown-menu.tsx:246 - DropdownMenuItem (used in module)
+client/src/components/ui/dropdown-menu.tsx:247 - DropdownMenuCheckboxItem (used in module)
+client/src/components/ui/dropdown-menu.tsx:248 - DropdownMenuRadioGroup (used in module)
+client/src/components/ui/dropdown-menu.tsx:249 - DropdownMenuRadioItem (used in module)
+client/src/components/ui/dropdown-menu.tsx:250 - DropdownMenuSeparator (used in module)
+client/src/components/ui/dropdown-menu.tsx:251 - DropdownMenuShortcut (used in module)
+client/src/components/ui/dropdown-menu.tsx:252 - DropdownMenuSub (used in module)
+client/src/components/ui/dropdown-menu.tsx:253 - DropdownMenuSubTrigger (used in module)
+client/src/components/ui/dropdown-menu.tsx:254 - DropdownMenuSubContent (used in module)
+client/src/components/ui/empty.tsx:98 - Empty (used in module)
+client/src/components/ui/empty.tsx:99 - EmptyHeader (used in module)
+client/src/components/ui/empty.tsx:100 - EmptyTitle (used in module)
+client/src/components/ui/empty.tsx:101 - EmptyDescription (used in module)
+client/src/components/ui/empty.tsx:102 - EmptyContent (used in module)
+client/src/components/ui/empty.tsx:103 - EmptyMedia (used in module)
+client/src/components/ui/field.tsx:232 - Field (used in module)
+client/src/components/ui/field.tsx:233 - FieldLabel (used in module)
+client/src/components/ui/field.tsx:234 - FieldDescription (used in module)
+client/src/components/ui/field.tsx:235 - FieldError (used in module)
+client/src/components/ui/field.tsx:236 - FieldGroup (used in module)
+client/src/components/ui/field.tsx:237 - FieldLegend (used in module)
+client/src/components/ui/field.tsx:238 - FieldSeparator (used in module)
+client/src/components/ui/field.tsx:239 - FieldSet (used in module)
+client/src/components/ui/field.tsx:240 - FieldContent (used in module)
+client/src/components/ui/field.tsx:241 - FieldTitle (used in module)
+client/src/components/ui/form.tsx:160 - useFormField (used in module)
+client/src/components/ui/hover-card.tsx:42 - HoverCard (used in module)
+client/src/components/ui/hover-card.tsx:42 - HoverCardTrigger (used in module)
+client/src/components/ui/hover-card.tsx:42 - HoverCardContent (used in module)
+client/src/components/ui/input-group.tsx:162 - InputGroup (used in module)
+client/src/components/ui/input-group.tsx:163 - InputGroupAddon (used in module)
+client/src/components/ui/input-group.tsx:164 - InputGroupButton (used in module)
+client/src/components/ui/input-group.tsx:165 - InputGroupText (used in module)
+client/src/components/ui/input-group.tsx:166 - InputGroupInput (used in module)
+client/src/components/ui/input-group.tsx:167 - InputGroupTextarea (used in module)
+client/src/components/ui/input-otp.tsx:75 - InputOTP (used in module)
+client/src/components/ui/input-otp.tsx:75 - InputOTPGroup (used in module)
+client/src/components/ui/input-otp.tsx:75 - InputOTPSlot (used in module)
+client/src/components/ui/input-otp.tsx:75 - InputOTPSeparator (used in module)
+client/src/components/ui/item.tsx:183 - Item (used in module)
+client/src/components/ui/item.tsx:184 - ItemMedia (used in module)
+client/src/components/ui/item.tsx:185 - ItemContent (used in module)
+client/src/components/ui/item.tsx:186 - ItemActions (used in module)
+client/src/components/ui/item.tsx:187 - ItemGroup (used in module)
+client/src/components/ui/item.tsx:188 - ItemSeparator (used in module)
+client/src/components/ui/item.tsx:189 - ItemTitle (used in module)
+client/src/components/ui/item.tsx:190 - ItemDescription (used in module)
+client/src/components/ui/item.tsx:191 - ItemHeader (used in module)
+client/src/components/ui/item.tsx:192 - ItemFooter (used in module)
+client/src/components/ui/kbd.tsx:28 - Kbd (used in module)
+client/src/components/ui/kbd.tsx:28 - KbdGroup (used in module)
+client/src/components/ui/menubar.tsx:258 - Menubar (used in module)
+client/src/components/ui/menubar.tsx:259 - MenubarPortal (used in module)
+client/src/components/ui/menubar.tsx:260 - MenubarMenu (used in module)
+client/src/components/ui/menubar.tsx:261 - MenubarTrigger (used in module)
+client/src/components/ui/menubar.tsx:262 - MenubarContent (used in module)
+client/src/components/ui/menubar.tsx:263 - MenubarGroup (used in module)
+client/src/components/ui/menubar.tsx:264 - MenubarSeparator (used in module)
+client/src/components/ui/menubar.tsx:265 - MenubarLabel (used in module)
+client/src/components/ui/menubar.tsx:266 - MenubarItem (used in module)
+client/src/components/ui/menubar.tsx:267 - MenubarShortcut (used in module)
+client/src/components/ui/menubar.tsx:268 - MenubarCheckboxItem (used in module)
+client/src/components/ui/menubar.tsx:269 - MenubarRadioGroup (used in module)
+client/src/components/ui/menubar.tsx:270 - MenubarRadioItem (used in module)
+client/src/components/ui/menubar.tsx:271 - MenubarSub (used in module)
+client/src/components/ui/menubar.tsx:272 - MenubarSubTrigger (used in module)
+client/src/components/ui/menubar.tsx:273 - MenubarSubContent (used in module)
+client/src/components/ui/navigation-menu.tsx:159 - NavigationMenu (used in module)
+client/src/components/ui/navigation-menu.tsx:160 - NavigationMenuList (used in module)
+client/src/components/ui/navigation-menu.tsx:161 - NavigationMenuItem (used in module)
+client/src/components/ui/navigation-menu.tsx:162 - NavigationMenuContent (used in module)
+client/src/components/ui/navigation-menu.tsx:163 - NavigationMenuTrigger (used in module)
+client/src/components/ui/navigation-menu.tsx:164 - NavigationMenuLink (used in module)
+client/src/components/ui/navigation-menu.tsx:165 - NavigationMenuIndicator (used in module)
+client/src/components/ui/navigation-menu.tsx:166 - NavigationMenuViewport (used in module)
+client/src/components/ui/navigation-menu.tsx:167 - navigationMenuTriggerStyle (used in module)
+client/src/components/ui/pagination.tsx:120 - Pagination (used in module)
+client/src/components/ui/pagination.tsx:121 - PaginationContent (used in module)
+client/src/components/ui/pagination.tsx:122 - PaginationLink (used in module)
+client/src/components/ui/pagination.tsx:123 - PaginationItem (used in module)
+client/src/components/ui/pagination.tsx:124 - PaginationPrevious (used in module)
+client/src/components/ui/pagination.tsx:125 - PaginationNext (used in module)
+client/src/components/ui/pagination.tsx:126 - PaginationEllipsis (used in module)
+client/src/components/ui/popover.tsx:46 - Popover (used in module)
+client/src/components/ui/popover.tsx:46 - PopoverTrigger (used in module)
+client/src/components/ui/popover.tsx:46 - PopoverContent (used in module)
+client/src/components/ui/popover.tsx:46 - PopoverAnchor (used in module)
+client/src/components/ui/radio-group.tsx:43 - RadioGroup (used in module)
+client/src/components/ui/radio-group.tsx:43 - RadioGroupItem (used in module)
+client/src/components/ui/resizable.tsx:54 - ResizablePanelGroup (used in module)
+client/src/components/ui/resizable.tsx:54 - ResizablePanel (used in module)
+client/src/components/ui/resizable.tsx:54 - ResizableHandle (used in module)
+client/src/components/ui/scroll-area.tsx:56 - ScrollBar (used in module)
+client/src/components/ui/select.tsx:177 - SelectGroup (used in module)
+client/src/components/ui/select.tsx:179 - SelectLabel (used in module)
+client/src/components/ui/select.tsx:180 - SelectScrollDownButton (used in module)
+client/src/components/ui/select.tsx:181 - SelectScrollUpButton (used in module)
+client/src/components/ui/select.tsx:182 - SelectSeparator (used in module)
+client/src/components/ui/sheet.tsx:132 - SheetTrigger (used in module)
+client/src/components/ui/sheet.tsx:133 - SheetClose (used in module)
+client/src/components/ui/sheet.tsx:136 - SheetFooter (used in module)
+client/src/components/ui/sidebar.tsx:709 - Sidebar (used in module)
+client/src/components/ui/sidebar.tsx:710 - SidebarContent (used in module)
+client/src/components/ui/sidebar.tsx:711 - SidebarFooter (used in module)
+client/src/components/ui/sidebar.tsx:712 - SidebarGroup (used in module)
+client/src/components/ui/sidebar.tsx:713 - SidebarGroupAction (used in module)
+client/src/components/ui/sidebar.tsx:714 - SidebarGroupContent (used in module)
+client/src/components/ui/sidebar.tsx:715 - SidebarGroupLabel (used in module)
+client/src/components/ui/sidebar.tsx:716 - SidebarHeader (used in module)
+client/src/components/ui/sidebar.tsx:717 - SidebarInput (used in module)
+client/src/components/ui/sidebar.tsx:718 - SidebarInset (used in module)
+client/src/components/ui/sidebar.tsx:719 - SidebarMenu (used in module)
+client/src/components/ui/sidebar.tsx:720 - SidebarMenuAction (used in module)
+client/src/components/ui/sidebar.tsx:721 - SidebarMenuBadge (used in module)
+client/src/components/ui/sidebar.tsx:722 - SidebarMenuButton (used in module)
+client/src/components/ui/sidebar.tsx:723 - SidebarMenuItem (used in module)
+client/src/components/ui/sidebar.tsx:724 - SidebarMenuSkeleton (used in module)
+client/src/components/ui/sidebar.tsx:725 - SidebarMenuSub (used in module)
+client/src/components/ui/sidebar.tsx:726 - SidebarMenuSubButton (used in module)
+client/src/components/ui/sidebar.tsx:727 - SidebarMenuSubItem (used in module)
+client/src/components/ui/sidebar.tsx:728 - SidebarProvider (used in module)
+client/src/components/ui/sidebar.tsx:729 - SidebarRail (used in module)
+client/src/components/ui/sidebar.tsx:730 - SidebarSeparator (used in module)
+client/src/components/ui/sidebar.tsx:731 - SidebarTrigger (used in module)
+client/src/components/ui/sidebar.tsx:732 - useSidebar (used in module)
+client/src/components/ui/slider.tsx:61 - Slider (used in module)
+client/src/components/ui/spinner.tsx:16 - Spinner (used in module)
+client/src/components/ui/table.tsx:109 - TableFooter (used in module)
+client/src/components/ui/table.tsx:113 - TableCaption (used in module)
+client/src/components/ui/toggle-group.tsx:73 - ToggleGroup (used in module)
+client/src/components/ui/toggle-group.tsx:73 - ToggleGroupItem (used in module)
+client/src/components/ui/toggle.tsx:45 - Toggle (used in module)
+client/src/features/auth/schemas.ts:3 - LoginSchema (used in module)
+client/src/features/auth/schemas.ts:8 - LoginInput
+client/src/features/auth/schemas.ts:10 - BocatasRoleSchema (used in module)
+client/src/features/auth/schemas.ts:11 - BocatasRole
+client/src/features/checkin/constants.ts:10 - PROGRAMA_VALUES (used in module)
+client/src/features/checkin/constants.ts:19 - CheckinPrograma (used in module)
+client/src/features/checkin/constants.ts:21 - METODO_VALUES (used in module)
+client/src/features/checkin/constants.ts:27 - CheckinMetodo (used in module)
+client/src/features/checkin/constants.ts:32 - PROGRAMA_LABELS
+client/src/features/checkin/constants.ts:41 - METODO_LABELS
+client/src/features/dashboard/schemas.ts:6 - PeriodSchema (used in module)
+client/src/features/dashboard/schemas.ts:9 - KPIStatsSchema (used in module)
+client/src/features/dashboard/schemas.ts:14 - KPIStats
+client/src/features/dashboard/schemas.ts:16 - TrendPointSchema (used in module)
+client/src/features/dashboard/schemas.ts:22 - CSVRowSchema (used in module)
+client/src/features/dashboard/schemas.ts:32 - PERIOD_LABELS
+client/src/features/dashboard/schemas.ts:38 - PERIOD_KPI_LABELS
+client/src/features/families/constants.ts:8 - DocConfig (used in module)
+client/src/features/families/constants.ts:16 - FAMILIA_DOCS_CONFIG
+client/src/features/families/constants.ts:28 - DeliveryField (used in module)
+client/src/features/families/constants.ts:35 - FAMILIA_DELIVERY_FIELDS
+client/src/features/families/constants.ts:44 - MOTIVO_BAJA_LABELS
+client/src/features/families/constants.ts:55 - SessionCloseField (used in module)
+client/src/features/families/constants.ts:71 - GUF_STATUS_LABELS (used in module)
+client/src/features/families/constants.ts:78 - GufStatus
+client/src/features/families/schemas.ts:4 - MotivoBajaSchema (used in module)
+client/src/features/families/schemas.ts:12 - MotivoBaja
+client/src/features/families/schemas.ts:14 - EstadoFamiliaSchema (used in module)
+client/src/features/families/schemas.ts:15 - EstadoFamilia
+client/src/features/families/schemas.ts:18 - FamilyMemberSchema (used in module)
+client/src/features/families/schemas.ts:32 - IntakeStep1Schema (used in module)
+client/src/features/families/schemas.ts:37 - IntakeStep2Schema (used in module)
+client/src/features/families/schemas.ts:44 - IntakeStep3Schema (used in module)
+client/src/features/families/schemas.ts:55 - IntakeStep4Schema (used in module)
+client/src/features/families/schemas.ts:62 - IntakeStep5Schema (used in module)
+client/src/features/families/schemas.ts:77 - DeliveryCreateSchema (used in module)
+client/src/features/families/schemas.ts:91 - DeliveryCreate
+client/src/features/families/schemas.ts:94 - GufUpdateSchema
+client/src/features/families/schemas.ts:102 - ComplianceFilterSchema
+client/src/features/families/schemas.ts:111 - SessionCloseSchema
+client/src/features/persons/schemas.ts:5 - GeneroSchema (used in module)
+client/src/features/persons/schemas.ts:9 - IdiomaSchema (used in module)
+client/src/features/persons/schemas.ts:14 - TipoDocumentoSchema (used in module)
+client/src/features/persons/schemas.ts:19 - OcrTipoDocumentoSchema (used in module)
+client/src/features/persons/schemas.ts:24 - PaisDocumentoSchema (used in module)
+client/src/features/persons/schemas.ts:27 - SituacionLegalSchema (used in module)
+client/src/features/persons/schemas.ts:31 - TipoViviendaSchema (used in module)
+client/src/features/persons/schemas.ts:37 - EstabilidadHabitacionalSchema (used in module)
+client/src/features/persons/schemas.ts:41 - NivelEstudiosSchema (used in module)
+client/src/features/persons/schemas.ts:46 - SituacionLaboralSchema (used in module)
+client/src/features/persons/schemas.ts:51 - NivelIngresosSchema (used in module)
+client/src/features/persons/schemas.ts:55 - CanalLlegadaSchema (used in module)
+client/src/features/persons/schemas.ts:61 - FaseItinerarioSchema (used in module)
+client/src/features/persons/schemas.ts:65 - ConsentPurposeSchema (used in module)
+client/src/features/persons/schemas.ts:73 - ConsentPurpose
+client/src/features/persons/schemas.ts:154 - PersonCreateInput
+client/src/features/persons/schemas.ts:158 - PersonUpdateSchema (used in module)
+client/src/features/persons/schemas.ts:161 - PersonUpdateInput
+client/src/features/persons/schemas.ts:165 - Step0Schema
+client/src/features/persons/schemas.ts:171 - Section1Schema
+client/src/features/persons/schemas.ts:180 - Section2Schema
+client/src/features/persons/schemas.ts:187 - Section3Schema
+client/src/features/persons/schemas.ts:195 - Section4Schema
+client/src/features/persons/schemas.ts:203 - Section5Schema
+client/src/features/persons/schemas.ts:228 - OcrExtractedSchema (used in module)
+client/src/features/persons/schemas.ts:233 - ConsentTemplateSchema (used in module)
+client/src/features/persons/schemas.ts:247 - ProgramSchema (used in module)
+client/src/features/persons/schemas.ts:258 - Program (used in module)
+client/src/features/persons/schemas.ts:275 - PersonSchema (used in module)
+client/src/features/persons/schemas.ts:314 - Person
+client/src/features/persons/schemas.ts:318 - ConsentRowSchema (used in module)
+client/src/features/persons/schemas.ts:330 - ConsentRow
+client/src/features/persons/schemas.ts:427 - FASE_ITINERARIO_CONFIG
+client/src/features/programs/schemas.ts:5 - ProgramSchema (used in module)
+client/src/features/programs/schemas.ts:27 - ProgramWithCountsSchema (used in module)
+client/src/features/programs/schemas.ts:37 - EnrollmentEstadoSchema (used in module)
+client/src/features/programs/schemas.ts:40 - EnrollmentSchema (used in module)
+client/src/features/programs/schemas.ts:56 - Enrollment
+client/src/features/programs/schemas.ts:95 - ConsentPurpose
+client/src/lib/supabase/database.types.ts:2 - Database
+client/src/lib/supabase/server.ts:25 - createServerClient
+client/src/features/admin/schemas/index.ts:8 - StaffRoleSchema (used in module)
+client/src/features/admin/schemas/index.ts:9 - StaffRole
+client/src/features/admin/schemas/index.ts:12 - CreateStaffUserSchema (used in module)
+client/src/features/admin/schemas/index.ts:23 - CreateStaffUserValues
+client/src/features/admin/schemas/index.ts:26 - StaffUserSchema (used in module)
+client/src/features/admin/schemas/index.ts:34 - StaffUser
+client/src/features/admin/schemas/index.ts:37 - ROLE_LABELS
+client/src/features/admin/schemas/index.ts:46 - ROLE_COLORS
+client/src/features/checkin/machine/checkinMachine.ts:84 - CheckinEvent (used in module)
+client/src/features/checkin/machine/checkinMachine.ts:307 - CheckinState
+client/src/features/dashboard/hooks/useRealtimeAttendance.ts:16 - RealtimeStatus (used in module)
+client/src/features/dashboard/utils/exportCSV.ts:26 - buildCSVString (used in module)
+client/src/features/families/components/GufCutoffOverride.tsx:24 - GufCutoffOverride
+client/src/features/families/components/MemberConsentCollector.tsx:43 - MemberConsentCollector
+client/src/features/families/components/PendientesGrid.tsx:36 - PendientesGrid
+client/src/features/families/components/PendingItemsPanel.tsx:21 - PendingItemsPanel
+client/src/features/families/hooks/useFamilias.ts:61 - useCreateDelivery
+client/src/features/families/hooks/useFamilias.ts:120 - useMemberDocuments
+client/src/features/families/hooks/useFamilias.ts:127 - useCreateMemberDocument
+client/src/features/families/hooks/useFamilias.ts:137 - useVerifyFamilyIdentity
+client/src/features/persons/components/DocumentCaptureModal.tsx:17 - DocumentCaptureModal
+client/src/features/persons/components/OCRConfirmationCard.tsx:14 - OCRConfirmationCard
+client/src/features/persons/hooks/useCheckinHistory.ts:8 - CheckinHistoryRow (used in module)
+client/src/features/persons/hooks/useConsentTemplates.ts:18 - useAllConsentTemplates
+client/src/features/persons/hooks/useSearchPersons.ts:10 - PersonSearchResult
+client/src/features/persons/utils/imageUtils.ts:89 - base64ToFile
+client/src/features/programs/components/DeliveryRecorder.tsx:44 - DeliveryRecorder
+client/src/features/programs/components/DeliveryRecorder.tsx:17 - FamilyContext (used in module)
+client/src/features/programs/components/DeliveryRecorder.tsx:28 - DeliveryRecord (used in module)
+client/src/features/programs/components/DocumentChecklist.tsx:34 - DocumentChecklist
+client/src/features/programs/components/DocumentChecklist.tsx:16 - DocumentItem (used in module)
+client/src/features/programs/components/DocumentPhotoCapture.tsx:84 - DocumentPhotoCapture
+client/src/features/programs/components/DocumentPhotoCapture.tsx:19 - ExtractionType (used in module)
+client/src/features/programs/components/DocumentPhotoCapture.tsx:21 - DocumentPhotoCaptureProps (used in module)
