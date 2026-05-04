@@ -58,7 +58,7 @@ describe('OCR Delivery Extraction - Integration Tests', () => {
         'https://example.com/image.jpg'
       );
 
-      expect(result.success || result.errors.length === 0).toBe(true);
+      expect(result.errors.length === 0).toBe(true);
       if (result.batchId) {
         expect(result.savedCount).toBeGreaterThan(0);
       }
