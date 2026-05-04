@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { appRouter } from "../routers";
 import type { TrpcContext } from "../_core/context";
+import { Logger } from "../_core/logger";
 
 function createAdminContext(): TrpcContext {
   return {
@@ -15,13 +16,15 @@ function createAdminContext(): TrpcContext {
       updatedAt: new Date(),
       lastSignedIn: new Date(),
     },
+    logger: new Logger(),
+    correlationId: "test-correlation-id",
     req: {
       protocol: "https",
       headers: {},
     } as TrpcContext["req"],
     res: {
       clearCookie: () => {},
-    } as TrpcContext["res"],
+    } as unknown as TrpcContext["res"],
   };
 }
 
@@ -38,13 +41,15 @@ function createUserContext(): TrpcContext {
       updatedAt: new Date(),
       lastSignedIn: new Date(),
     },
+    logger: new Logger(),
+    correlationId: "test-correlation-id",
     req: {
       protocol: "https",
       headers: {},
     } as TrpcContext["req"],
     res: {
       clearCookie: () => {},
-    } as TrpcContext["res"],
+    } as unknown as TrpcContext["res"],
   };
 }
 

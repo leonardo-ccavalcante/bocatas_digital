@@ -1,6 +1,7 @@
 import { getDb } from './db';
-import { families, entregas, entregas_batch } from '../drizzle/schema';
-import { eq, and } from 'drizzle-orm';
+import { families } from '../drizzle/schema';
+import { eq } from 'drizzle-orm';
+import { createAdminClient } from '../client/src/lib/supabase/server';
 import { v4 as uuidv4 } from 'uuid';
 
 /**
@@ -327,13 +328,15 @@ export async function validateBatchHeaderWithDB(
       };
     }
 
-    const existing = await db
-      .select()
-      .from(entregas_batch)
-      .where(eq(entregas_batch.numero_albaran, header.numero_albaran))
+    // Check for duplicate albarán via deliveries metadata
+    const adminDb = createAdminClient();
+    const { data: existingBatch } = await (adminDb as any)
+      .from('deliveries')
+      .select('id')
+      .eq('metadata->>numero_albaran', header.numero_albaran)
       .limit(1);
 
-    if (existing.length > 0) {
+    if (existingBatch && existingBatch.length > 0) {
       return {
         isValid: false,
         errors: [`Número de Albarán duplicado: ${header.numero_albaran}`],
@@ -474,47 +477,38 @@ export async function saveDeliveryBatch(
     };
   }
 
-  // Insert batch header
-  const batchId = uuidv4();
-  try {
-    await db
-      .insert(entregas_batch)
-      .values({
-        id: batchId,
-        numero_albaran: header.numero_albaran,
-        numero_reparto: header.numero_reparto,
-        numero_factura_carne: header.numero_factura_carne,
-        total_personas_asistidas: header.total_personas_asistidas,
-        fecha_reparto: header.fecha_reparto,
-        documento_imagen_url: documentImageUrl,
-        ocr_confidence: header.confidence,
-        estado: 'completed',
-      });
-  } catch (error) {
-    return {
-      batchId: '',
-      savedCount: 0,
-      errors: [`Error al guardar encabezado de lote: ${error instanceof Error ? error.message : 'desconocido'}`],
-    };
-  }
+  // Insert delivery rows directly into the canonical `deliveries` table.
+  // Batch metadata (albarán info) is stored in the JSONB `metadata` column.
+  // session_id groups all rows from the same batch.
+  const sessionId = uuidv4();
+  const batchId = sessionId;
+  const adminDb = createAdminClient();
 
-  // Insert delivery rows
-  const entregasToInsert = rows.map(row => ({
-    id: uuidv4(),
-    entregas_batch_id: batchId,
-    familia_id: row.familia_id,
-    fecha: row.fecha,
-    persona_recibio: row.persona_recibio,
-    frutas_hortalizas_cantidad: row.frutas_hortalizas_cantidad,
-    frutas_hortalizas_unidad: row.frutas_hortalizas_unidad,
-    carne_cantidad: row.carne_cantidad,
-    carne_unidad: row.carne_unidad,
-    notas: row.notas,
-    ocr_row_confidence: row.confidence,
+  const deliveriesToInsert = rows.map(row => ({
+    family_id: row.familia_id,
+    fecha_entrega: row.fecha,
+    recogido_por: row.persona_recibio || null,
+    kg_frutas_hortalizas: row.frutas_hortalizas_cantidad || null,
+    kg_carne: row.carne_cantidad || null,
+    notas: row.notas || null,
+    session_id: sessionId,
+    metadata: {
+      numero_albaran: header.numero_albaran,
+      numero_reparto: header.numero_reparto,
+      numero_factura_carne: header.numero_factura_carne,
+      total_personas_asistidas: header.total_personas_asistidas,
+      fecha_reparto: header.fecha_reparto,
+      documento_imagen_url: documentImageUrl,
+      ocr_confidence: header.confidence,
+      ocr_row_confidence: row.confidence,
+      frutas_hortalizas_unidad: row.frutas_hortalizas_unidad,
+      carne_unidad: row.carne_unidad,
+    },
   }));
 
   try {
-    await db.insert(entregas).values(entregasToInsert);
+    const { error } = await (adminDb as any).from('deliveries').insert(deliveriesToInsert);
+    if (error) throw new Error(error.message);
   } catch (error) {
     return {
       batchId,

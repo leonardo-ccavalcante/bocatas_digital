@@ -60,6 +60,8 @@ async function startServer() {
   app.use("/api/trpc/ocr", uploadJsonParser);
   app.use("/api/trpc/persons.uploadPhoto", uploadJsonParser);
 
+  // Trust the first proxy (required for express-rate-limit to correctly identify IPs behind reverse proxies)
+  app.set("trust proxy", 1);
   // Rate limiting
   app.use("/api/trpc", apiLimiter);
   app.use("/api/oauth", authLimiter);

@@ -287,6 +287,7 @@ import { initTRPC } from "@trpc/server";
 import { checkinRouter } from "../server/routers/checkin";
 
 import type { TrpcContext } from "./_core/context";
+import { Logger } from "./_core/logger";
 const t = initTRPC.context<TrpcContext>().create({ transformer: { serialize: (v: unknown) => v, deserialize: (v: unknown) => v } });
 const createCaller = t.createCallerFactory(checkinRouter);
 
@@ -303,6 +304,8 @@ describe("checkinRouter — input validation", () => {
       updatedAt: new Date(),
       lastSignedIn: new Date(),
     },
+    logger: new Logger(),
+    correlationId: "test-correlation-id",
     req: {} as any,
     res: {} as any,
   });

@@ -29,6 +29,7 @@ import { TRPCError } from "@trpc/server";
 import { router, adminProcedure, protectedProcedure } from "../_core/trpc";
 import { ENV } from "../_core/env";
 import { createAdminClient } from "../../client/src/lib/supabase/server";
+import type { Json } from "../../client/src/lib/database.types";
 import {
   ANNOUNCEMENT_TYPES,
   type TipoAnnouncement,
@@ -590,8 +591,8 @@ export const announcementsRouter = router({
           edited_by: string | null;
           edited_at: string;
           field: string;
-          old_value: string | null;
-          new_value: string | null;
+          old_value: Json | null;
+          new_value: Json | null;
         }) => ({
           ...r,
           editor_nombre: r.edited_by ? (editorNames[r.edited_by] ?? r.edited_by) : null,

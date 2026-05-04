@@ -101,10 +101,10 @@ describe('families.getById - miembros array', () => {
     // CRITICAL: miembros array should be returned
     expect(family?.miembros).toBeDefined();
     expect(Array.isArray(family?.miembros)).toBe(true);
-    expect(family?.miembros?.length).toBe(1);
+    expect((family?.miembros as unknown[])?.length).toBe(1);
 
     // Verify member data
-    const member = family?.miembros?.[0] as Record<string, unknown>;
+    const member = (family?.miembros as unknown[])?.[0] as Record<string, unknown>;
     expect(member?.nombre).toBe('Test Member 1');
     expect(member?.apellidos).toBe('Member Apellido');
   });
@@ -163,7 +163,7 @@ describe('families.getById - miembros array', () => {
       expect(error).toBeNull();
       expect(family?.miembros).toBeDefined();
       expect(Array.isArray(family?.miembros)).toBe(true);
-      expect(family?.miembros?.length).toBe(0);
+      expect((family?.miembros as unknown[])?.length).toBe(0);
     } finally {
       // Clean up
       await db.from('families').delete().eq('id', emptyFamilyId);

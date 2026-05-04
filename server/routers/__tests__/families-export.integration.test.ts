@@ -6,6 +6,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { appRouter } from "../../routers";
 import type { TrpcContext } from "../../_core/context";
+import { Logger } from "../../_core/logger";
 
 // Schema fix verification test
 
@@ -28,13 +29,15 @@ describe("Families Export Integration", () => {
         updatedAt: new Date(),
         lastSignedIn: new Date(),
       },
+      logger: new Logger(),
+      correlationId: "test-correlation-id",
       req: {
         protocol: "https",
         headers: {},
       } as TrpcContext["req"],
       res: {
         clearCookie: () => {},
-      } as TrpcContext["res"],
+      } as unknown as TrpcContext["res"],
     };
 
     caller = appRouter.createCaller(mockCtx);
