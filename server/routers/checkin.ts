@@ -186,4 +186,112 @@ export const checkinRouter = router({
 
       return { status: "registered" as const };
     }),
+
+  /**
+   * searchPersons — fuzzy search by nombre/apellidos for manual fallback.
+   */
+  searchPersons: protectedProcedure
+    .input(
+      z.object({
+        query: z.string().min(3).max(100),
+      })
+    )
+    .query(async ({ input }) => {
+      const supabase = createAdminClient();
+      const { data, error } = await supabase
+        .from("persons_safe")
+        .select("id, nombre, apellidos, fecha_nacimiento, foto_perfil_url, restricciones_alimentarias")
+        .or(
+          `nombre.ilike.%${input.query}%,apellidos.ilike.%${input.query}%`
+        )
+        .is("deleted_at", null)
+        .limit(10);
+      if (error) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: error.message,
+        });
+      }
+      return (data ?? []).map((p) => ({
+        ...p,
+        nombre: p.nombre ?? "",
+        apellidos: p.apellidos ?? "",
+      }));
+    }),
+
+  /**
+   * getLocations — list active locations.
+   */
+  getLocations: protectedProcedure.query(async () => {
+    const supabase = createAdminClient();
+    const { data, error } = await supabase
+      .from("locations")
+      .select("id, nombre, tipo")
+      .eq("activo", true)
+      .order("nombre");
+    if (error) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: error.message,
+      });
+    }
+    return data ?? [];
+  }),
+
+  /**
+   * getPrograms — list active programs for the program selector.
+   */
+  getPrograms: protectedProcedure.query(async () => {
+    const supabase = createAdminClient();
+    const { data, error } = await supabase
+      .from("programs")
+      .select("id, slug, name, icon, is_default")
+      .eq("is_active", true)
+      .order("display_order");
+    if (error) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: error.message,
+      });
+    }
+    return data ?? [];
+  }),
+
+  /**
+   * syncOfflineQueue — idempotent batch insert for offline queue flush.
+   * 23505 (unique_violation) is treated as success (already synced).
+   */
+  syncOfflineQueue: protectedProcedure
+    .input(
+      z.array(
+        z.object({
+          clientId: uuidLike,
+          personId: uuidLike.nullable(),
+          locationId: uuidLike,
+          programa: ProgramaEnum,
+          metodo: MetodoEnum,
+          isDemoMode: z.boolean().default(false),
+          queuedAt: z.string(),
+        })
+      )
+    )
+    .mutation(async ({ input }) => {
+      const supabase = createAdminClient();
+      const results: Array<{ clientId: string; status: "synced" | "duplicate" | "error"; error?: string }> = [];
+      for (const item of input) {
+        const { error } = await supabase.from("attendances").insert({
+          person_id: item.personId,
+          location_id: item.locationId,
+          programa: item.programa,
+          metodo: item.metodo,
+          es_demo: item.isDemoMode,
+        });
+        if (!error || error.code === "23505") {
+          results.push({ clientId: item.clientId, status: error?.code === "23505" ? "duplicate" : "synced" });
+        } else {
+          results.push({ clientId: item.clientId, status: "error", error: error.message });
+        }
+      }
+      return results;
+    }),
 });
