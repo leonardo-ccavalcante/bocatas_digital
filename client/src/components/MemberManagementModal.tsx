@@ -30,12 +30,14 @@ interface MemberManagementModalProps {
   familiaId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  miembros?: Array<Record<string, unknown>>;
 }
 
 export function MemberManagementModal({
   familiaId,
   open,
   onOpenChange,
+  miembros: propMiembros,
 }: MemberManagementModalProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<{
@@ -52,18 +54,16 @@ export function MemberManagementModal({
     fechaNacimiento: "",
   });
 
-  // Queries
-  const { data: members = [], isLoading, refetch } = (trpc.families as any).getMembers.useQuery(
-    { familiaId },
-    { enabled: open }
-  );
+  // Use miembros passed from parent (FamiliaDetalle)
+  // These come from familia_miembros table via families.getById
+  const members = propMiembros ?? [];
+  const isLoading = false;
 
   // Mutations
   const addMemberMutation = (trpc.families as any).addMember.useMutation({
     onSuccess: () => {
       toast.success("Miembro agregado exitosamente");
       resetForm();
-      refetch();
     },
     onError: (error: any) => {
       toast.error(error.message || "No se pudo agregar el miembro");
@@ -74,7 +74,6 @@ export function MemberManagementModal({
     onSuccess: () => {
       toast.success("Miembro actualizado");
       resetForm();
-      refetch();
     },
     onError: (error: any) => {
       toast.error(error.message || "No se pudo actualizar el miembro");
@@ -84,7 +83,6 @@ export function MemberManagementModal({
   const deleteMemberMutation = (trpc.families as any).deleteMember.useMutation({
     onSuccess: () => {
       toast.success("Miembro eliminado");
-      refetch();
     },
     onError: (error: any) => {
       toast.error(error.message || "No se pudo eliminar el miembro");

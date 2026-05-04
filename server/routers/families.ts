@@ -210,9 +210,11 @@ export const familiesRouter = router({
   /** GET /families/:id */
   getById: adminProcedure
     .input(z.object({ id: uuidLike }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const db = createAdminClient();
-      const { data, error } = await db
+      
+      // Fetch family
+      const { data: family, error } = await db
         .from("families")
         .select(
           `*, persons!titular_id(id, nombre, apellidos, telefono, email, idioma_principal)`
@@ -220,9 +222,29 @@ export const familiesRouter = router({
         .eq("id", input.id)
         .is("deleted_at", null)
         .single();
-      if (error || !data)
+      
+      if (error || !family) {
+        ctx.logger.error('Family not found', { familiaId: input.id, error });
         throw new TRPCError({ code: "NOT_FOUND", message: "Familia no encontrada" });
-      return data;
+      }
+      
+      // Fetch members from familia_miembros table
+      const { data: miembros = [], error: miembrosError } = await db
+        .from("familia_miembros")
+        .select("*")
+        .eq("familia_id", input.id)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: true });
+      
+      if (miembrosError) {
+        ctx.logger.warn('Failed to fetch members', { familiaId: input.id, error: miembrosError });
+      }
+      
+      // Return family with members array
+      return {
+        ...family,
+        miembros: miembros || [],
+      };
     }),
 
   // ─── Job 1: Create Family (intake submit) ───────────────────────────────

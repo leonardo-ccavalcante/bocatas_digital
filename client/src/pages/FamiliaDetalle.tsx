@@ -418,12 +418,34 @@ export default function FamiliaDetalle() {
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground">
               {miembros.length > 0 ? (
-                <p>{miembros.length} miembro(s) registrado(s) en el sistema antiguo</p>
+                <div>
+                  <p className="mb-2 font-medium text-foreground">{miembros.length} miembro(s) registrado(s):</p>
+                  <ul className="list-disc list-inside space-y-1">
+                    {miembros.map((m: any, idx: number) => (
+                      <li key={idx} className="text-xs">
+                        {m.nombre} {m.apellidos ? `${m.apellidos}` : ""}
+                        {m.fecha_nacimiento && (
+                          <span className="text-muted-foreground ml-1">
+                            (Nac: {new Date(m.fecha_nacimiento).toLocaleDateString('es-ES')})
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               ) : (
                 <p>No hay miembros registrados. Usa el botón arriba para agregar miembros.</p>
               )}
             </CardContent>
           </Card>
+          
+          {/* Modal - pass miembros to modal */}
+          <MemberManagementModal
+            familiaId={id!}
+            open={memberModalOpen}
+            onOpenChange={setMemberModalOpen}
+            miembros={miembros}
+          />
 
           {/* Authorized person */}
           {family.autorizado && (
