@@ -114,7 +114,7 @@ export const PersonCreateSchema = z.object({
   numero_documento: z.string().max(30).optional().nullable(),
   pais_documento: PaisDocumentoSchema, // Country of document origin (ISO 3166-1 alpha-2)
   situacion_legal: SituacionLegalSchema.optional().nullable(), // stored as text in DB
-  fecha_llegada_espana: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+  fecha_llegada_espana: z.string().transform(v => v === "" ? null : v).pipe(z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable()).optional().nullable(),
 
   // Section 3 — Contacto
   telefono: z.string().max(30).optional().nullable(),
