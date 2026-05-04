@@ -13,6 +13,7 @@ import { z } from "zod";
 import { createAdminClient } from "../../client/src/lib/supabase/server";
 import { protectedProcedure, router } from "../_core/trpc";
 import { storagePut } from "../storage";
+import { logProcedureAction, logProcedureError } from "../_core/logging-middleware";
 
 // ─── Input schemas (mirrors PersonCreateSchema from client) ───────────────────
 // We re-define here to keep server code independent of client Vite aliases.
@@ -82,9 +83,10 @@ export const personsRouter = router({
    */
   create: protectedProcedure
     .input(PersonCreateInput)
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       const supabase = createAdminClient();
       const { program_ids: _, ...personData } = input;
+      const startTime = Date.now();
 
       // Validation warnings
       const validationWarnings: string[] = [];
@@ -147,12 +149,24 @@ export const personsRouter = router({
         .single();
 
       if (error) {
+        logProcedureError(ctx, 'Failed to create person', error as Error, {
+          nombre: personData.nombre,
+          apellidos: personData.apellidos,
+        });
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: `Error al crear persona: ${error.message}`,
           cause: error,
         });
       }
+
+      const duration = Date.now() - startTime;
+      logProcedureAction(ctx, 'Person created successfully', {
+        personId: person.id,
+        nombre: person.nombre,
+        apellidos: person.apellidos,
+        duration,
+      });
 
       return {
         ...person,
@@ -169,7 +183,7 @@ export const personsRouter = router({
       personId: z.string().uuid(),
       programIds: z.array(z.string().uuid()),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       if (input.programIds.length === 0) return [];
 
       const supabase = createAdminClient();

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, adminProcedure, protectedProcedure, superadminProcedure } from "../_core/trpc";
 import { createAdminClient } from "../../client/src/lib/supabase/server";
+import { logProcedureAction, logProcedureError } from "../_core/logging-middleware";
 import type { Database } from "../../client/src/lib/database.types";
 import { generateFamiliesCSV, type ExportMode } from "../csvExport";
 import { validateFamiliesCSV, parseFamiliesCSV } from "../csvImport";
@@ -25,6 +26,8 @@ import {
 const uuidLike = z
   .string()
   .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, "Invalid UUID format");
+
+
 
 // ─── Member-Resolution Helpers ──────────────────────────────────────────────
 
@@ -243,8 +246,9 @@ export const familiesRouter = router({
         informe_social_fecha: z.string().optional(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       const db = createAdminClient();
+      const startTime = Date.now();
       const { data: family, error: familyError } = await db
         .from("families")
         .insert({
@@ -267,6 +271,10 @@ export const familiesRouter = router({
         .single();
 
       if (familyError) {
+        logProcedureError(ctx, 'Failed to create family', familyError as Error, {
+          titularId: input.titular_id,
+          numMiembros: input.miembros.length,
+        });
         if (familyError.code === "23505") {
           throw new TRPCError({
             code: "CONFLICT",
@@ -275,6 +283,16 @@ export const familiesRouter = router({
         }
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: familyError.message });
       }
+
+      const duration = Date.now() - startTime;
+      logProcedureAction(ctx, 'Family created successfully', {
+        familyId: family.id,
+        titularId: input.titular_id,
+        numMiembros: input.miembros.length,
+        numAdultos: input.num_adultos,
+        numMenores: input.num_menores_18,
+        duration,
+      });
 
       // Enroll the titular (member_index 0 by convention).
       await ensureFamiliaEnrollment(db, input.titular_id, input.program_id, family.id, 0);

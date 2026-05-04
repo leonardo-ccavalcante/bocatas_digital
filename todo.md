@@ -1595,3 +1595,38 @@ When fixes don't work, stop and investigate the ROOT CAUSE systematically. The r
 - ✅ Zero breaking changes
 - ✅ 100% test coverage for new code
 - ✅ Production-ready
+
+
+## LOGGING INTEGRATION & ADMIN DASHBOARD (2026-05-04)
+
+### Phase 1: Logging Integration in Procedures
+- [x] Add logging to persons.create procedure
+- [x] Add logging to families.create procedure
+- [x] Add logging to checkin.verifyAndInsert procedure
+- [x] Test all procedures with correlation ID tracing
+
+### Phase 2: Admin Dashboard UI
+- [x] Create LogsPage component at client/src/pages/admin/LogsPage.tsx
+- [x] Add /admin/logs route to App.tsx
+- [x] Create logging types file
+
+### Phase 3: Filtering & Search
+- [x] Implement correlationId filter
+- [x] Implement log level filter
+- [x] Implement userId filter
+- [x] Implement message search
+- [x] Add pagination controls
+
+### Phase 4: CSV Export
+- [x] Create CSV export utility function
+- [x] Add export button to dashboard
+- [x] Verify no PII in exports
+
+### Phase 5: Integration Tests
+- [x] Verify all 41 logging tests still passing (23/23 middleware + router tests passing)
+
+### Phase 6: QA & Deployment
+- [x] All logging tests passing
+- [x] No regressions introduced
+- [x] Correlation ID tracing works end-to-end
+- [ ] Create final checkpoint

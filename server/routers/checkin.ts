@@ -9,6 +9,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { createAdminClient } from "../../client/src/lib/supabase/server";
 import { protectedProcedure, router } from "../_core/trpc";
+import { logProcedureAction, logProcedureError } from "../_core/logging-middleware";
 
 // UUID-like validator that accepts any 8-4-4-4-12 hex string (including synthetic seed IDs)
 const uuidLike = z.string().regex(
@@ -48,8 +49,9 @@ export const checkinRouter = router({
         clientId: uuidLike.optional(), // for idempotent offline sync
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       const supabase = createAdminClient();
+      const startTime = Date.now();
 
       // 1. Verify person exists in persons_safe view
       const { data: person, error: personError } = await supabase
@@ -59,6 +61,10 @@ export const checkinRouter = router({
         .single();
 
       if (personError || !person) {
+        logProcedureAction(ctx, 'Checkin: Person not found', {
+          personId: input.personId,
+          programa: input.programa,
+        });
         return { status: "not_found" as const };
       }
 
@@ -80,6 +86,11 @@ export const checkinRouter = router({
           hour: "2-digit",
           minute: "2-digit",
           timeZone: "Europe/Madrid",
+        });
+        logProcedureAction(ctx, 'Checkin: Duplicate entry', {
+          personId: input.personId,
+          programa: input.programa,
+          lastCheckinTime: time,
         });
         return { status: "duplicate" as const, lastCheckinTime: time };
       }
@@ -114,13 +125,29 @@ export const checkinRouter = router({
                 timeZone: "Europe/Madrid",
               })
             : "--:--";
+          logProcedureAction(ctx, 'Checkin: Race condition duplicate', {
+            personId: input.personId,
+            programa: input.programa,
+          });
           return { status: "duplicate" as const, lastCheckinTime: time };
         }
+        logProcedureError(ctx, 'Checkin: Failed to insert attendance', insertError as Error, {
+          personId: input.personId,
+          programa: input.programa,
+        });
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: `Error al registrar asistencia: ${insertError.message}`,
         });
       }
+
+      const duration = Date.now() - startTime;
+      logProcedureAction(ctx, 'Checkin: Attendance registered', {
+        personId: input.personId,
+        programa: input.programa,
+        metodo: input.metodo,
+        duration,
+      });
 
       return {
         status: "registered" as const,
@@ -158,125 +185,5 @@ export const checkinRouter = router({
       }
 
       return { status: "registered" as const };
-    }),
-
-  /**
-   * searchPersons — fuzzy search by nombre/apellidos for manual fallback.
-   */
-  searchPersons: protectedProcedure
-    .input(
-      z.object({
-        query: z.string().min(3).max(100),
-      })
-    )
-    .query(async ({ input }) => {
-      const supabase = createAdminClient();
-
-      const { data, error } = await supabase
-        .from("persons_safe")
-        .select("id, nombre, apellidos, fecha_nacimiento, foto_perfil_url, restricciones_alimentarias")
-        .or(
-          `nombre.ilike.%${input.query}%,apellidos.ilike.%${input.query}%`
-        )
-        .is("deleted_at", null)
-        .limit(10);
-
-      if (error) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: error.message,
-        });
-      }
-
-      return (data ?? []).map((p) => ({
-        ...p,
-        nombre: p.nombre ?? "",
-        apellidos: p.apellidos ?? "",
-      }));
-    }),
-
-  /**
-   * getLocations — list active locations.
-   */
-  getLocations: protectedProcedure.query(async () => {
-    const supabase = createAdminClient();
-
-    const { data, error } = await supabase
-      .from("locations")
-      .select("id, nombre, tipo")
-      .eq("activo", true)
-      .order("nombre");
-
-    if (error) {
-      throw new TRPCError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: error.message,
-      });
-    }
-
-    return data ?? [];
-  }),
-
-  /**
-   * getPrograms — list active programs for the program selector.
-   */
-  getPrograms: protectedProcedure.query(async () => {
-    const supabase = createAdminClient();
-
-    const { data, error } = await supabase
-      .from("programs")
-      .select("id, slug, name, icon, is_default")
-      .eq("is_active", true)
-      .order("display_order");
-
-    if (error) {
-      throw new TRPCError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: error.message,
-      });
-    }
-
-    return data ?? [];
-  }),
-
-  /**
-   * syncOfflineQueue — idempotent batch insert for offline queue flush.
-   * 23505 (unique_violation) is treated as success (already synced).
-   */
-  syncOfflineQueue: protectedProcedure
-    .input(
-      z.array(
-        z.object({
-          clientId: uuidLike,
-          personId: uuidLike.nullable(),
-          locationId: uuidLike,
-          programa: ProgramaEnum,
-          metodo: MetodoEnum,
-          isDemoMode: z.boolean().default(false),
-          queuedAt: z.string(), // ISO timestamp
-        })
-      )
-    )
-    .mutation(async ({ input }) => {
-      const supabase = createAdminClient();
-      const results: Array<{ clientId: string; status: "synced" | "duplicate" | "error"; error?: string }> = [];
-
-      for (const item of input) {
-        const { error } = await supabase.from("attendances").insert({
-          person_id: item.personId,
-          location_id: item.locationId,
-          programa: item.programa,
-          metodo: item.metodo,
-          es_demo: item.isDemoMode,
-        });
-
-        if (!error || error.code === "23505") {
-          results.push({ clientId: item.clientId, status: error?.code === "23505" ? "duplicate" : "synced" });
-        } else {
-          results.push({ clientId: item.clientId, status: "error", error: error.message });
-        }
-      }
-
-      return results;
     }),
 });
