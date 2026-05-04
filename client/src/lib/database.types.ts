@@ -74,51 +74,194 @@ export type Database = {
       announcements: {
         Row: {
           activo: boolean
+          audiences: Json | null
           autor_id: string | null
           autor_nombre: string | null
           contenido: string
           created_at: string
+          es_urgente: boolean
+          expires_at: string | null
           fecha_fin: string | null
           fecha_inicio: string
           fijado: boolean
           id: string
+          image_url: string | null
           imagen_url: string | null
-          roles_visibles: string[]
+          published_at: string | null
+          roles_visibles: string[] | null
           tipo: string
           titulo: string
           updated_at: string
         }
         Insert: {
           activo?: boolean
+          audiences?: Json | null
           autor_id?: string | null
           autor_nombre?: string | null
           contenido: string
           created_at?: string
+          es_urgente?: boolean
+          expires_at?: string | null
           fecha_fin?: string | null
           fecha_inicio?: string
           fijado?: boolean
           id?: string
+          image_url?: string | null
           imagen_url?: string | null
-          roles_visibles?: string[]
+          published_at?: string | null
+          roles_visibles?: string[] | null
           tipo?: string
           titulo: string
           updated_at?: string
         }
         Update: {
           activo?: boolean
+          audiences?: Json | null
           autor_id?: string | null
           autor_nombre?: string | null
           contenido?: string
           created_at?: string
+          es_urgente?: boolean
+          expires_at?: string | null
           fecha_fin?: string | null
           fecha_inicio?: string
           fijado?: boolean
           id?: string
+          image_url?: string | null
           imagen_url?: string | null
-          roles_visibles?: string[]
+          published_at?: string | null
+          roles_visibles?: string[] | null
           tipo?: string
           titulo?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      announcement_audit_log: {
+        Row: {
+          announcement_id: string
+          edited_at: string
+          edited_by: string | null
+          field: string
+          id: string
+          new_value: Json | null
+          old_value: Json | null
+        }
+        Insert: {
+          announcement_id: string
+          edited_at?: string
+          edited_by?: string | null
+          field: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+        }
+        Update: {
+          announcement_id?: string
+          edited_at?: string
+          edited_by?: string | null
+          field?: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+        }
+        Relationships: []
+      }
+      announcement_audiences: {
+        Row: {
+          announcement_id: string
+          created_at: string
+          id: string
+          programs: string[] | null
+          roles: string[] | null
+        }
+        Insert: {
+          announcement_id: string
+          created_at?: string
+          id?: string
+          programs?: string[] | null
+          roles?: string[] | null
+        }
+        Update: {
+          announcement_id?: string
+          created_at?: string
+          id?: string
+          programs?: string[] | null
+          roles?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "announcement_audiences_announcement_id_fkey"
+            columns: ["announcement_id"]
+            isOneToOne: false
+            referencedRelation: "announcements"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      announcement_webhook_log: {
+        Row: {
+          id: string
+          announcement_id: string
+          attempted_at: string
+          status_code: number | null
+          response_body: string | null
+          error: string | null
+        }
+        Insert: {
+          id?: string
+          announcement_id: string
+          attempted_at?: string
+          status_code?: number | null
+          response_body?: string | null
+          error?: string | null
+        }
+        Update: {
+          id?: string
+          announcement_id?: string
+          attempted_at?: string
+          status_code?: number | null
+          response_body?: string | null
+          error?: string | null
+        }
+        Relationships: []
+      }
+      bulk_import_previews: {
+        Row: {
+          token: string
+          parsed_rows: Json
+          created_by: string
+          created_at: string
+        }
+        Insert: {
+          token?: string
+          parsed_rows: Json
+          created_by: string
+          created_at?: string
+        }
+        Update: {
+          token?: string
+          parsed_rows?: Json
+          created_by?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
+      announcement_dismissals: {
+        Row: {
+          announcement_id: string
+          person_id: string
+          dismissed_at: string
+        }
+        Insert: {
+          announcement_id: string
+          person_id: string
+          dismissed_at?: string
+        }
+        Update: {
+          announcement_id?: string
+          person_id?: string
+          dismissed_at?: string
         }
         Relationships: []
       }
@@ -1535,6 +1678,10 @@ export type Database = {
       }
     }
     Functions: {
+      confirm_bulk_announcement_import: {
+        Args: { p_token: string; p_autor_id: string; p_autor_nombre: string | null }
+        Returns: { created_count: number; error_count: number }
+      }
       find_duplicate_persons: {
         Args: { p_apellidos: string; p_nombre: string; p_threshold?: number }
         Returns: {

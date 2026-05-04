@@ -89,11 +89,11 @@ export const softDeleteRecoveryRouter = router({
         .eq("familia_id", input.familyId)
         .not("deleted_at", "is", null);
 
-      // Get deleted deliveries
-      const { data: deletedDeliveries } = await db
-        .from("entregas")
-        .select("id, fecha, estado, deleted_at")
-        .eq("familia_id", input.familyId)
+      // Get soft-deleted deliveries from canonical deliveries table
+      const { data: deletedDeliveries } = await (db as any)
+        .from("deliveries")
+        .select("id, fecha_entrega, deleted_at")
+        .eq("family_id", input.familyId)
         .not("deleted_at", "is", null);
 
       return {

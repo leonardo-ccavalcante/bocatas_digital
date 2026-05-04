@@ -305,7 +305,7 @@ export default function FamiliaDetalle() {
   }
 
   const titular = family.persons as { id: string; nombre: string; apellidos: string | null; telefono: string | null; fecha_nacimiento: string | null } | null;
-  const miembros = (family.miembros as unknown[]) ?? [];
+  const miembros = (family.miembros as Record<string, unknown>[]) ?? [];
 
   return (
     <div className="container py-6 space-y-6">
@@ -504,9 +504,9 @@ export default function FamiliaDetalle() {
             Subir Documento de Entregas
           </Button>
 
-          {deliveries && deliveries.length > 0 ? (
+          {deliveries?.data && deliveries.data.length > 0 ? (
             <div className="space-y-2">
-              {deliveries.map((d) => (
+              {deliveries.data.map((d) => (
                 <Card key={d.id}>
                   <CardContent className="space-y-3 py-3 px-4">
                     <div className="flex items-center justify-between">
@@ -570,7 +570,7 @@ export default function FamiliaDetalle() {
         <DeliveryDocumentModal
           familyId={id!}
           deliveryId={deliveryDocModalOpen}
-          deliveryDate={deliveries?.find((d) => d.id === deliveryDocModalOpen)?.fecha_entrega || new Date().toISOString()}
+          deliveryDate={deliveries?.data?.find((d) => d.id === deliveryDocModalOpen)?.fecha_entrega || new Date().toISOString()}
           open={!!deliveryDocModalOpen}
           onOpenChange={(open) => !open && setDeliveryDocModalOpen(null)}
         />

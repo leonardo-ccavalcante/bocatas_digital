@@ -1,7 +1,5 @@
 import { z } from 'zod';
-
 // Permissive UUID validator — matches the pattern used across all other routers.
-// Accepts test/demo IDs like d0000000-0000-0000-0000-000000000001 that fail strict UUID v1-v8.
 const uuidLike = z
   .string()
   .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, 'Invalid UUID format');
@@ -19,35 +17,40 @@ import { storagePut } from '../storage';
 import { TRPCError } from '@trpc/server';
 
 /**
- * Type definitions for entregas table (not in Supabase types)
+ * Type definitions for the canonical `deliveries` table.
  */
-interface Entrega {
+export interface Entrega {
   id: string;
-  entregas_batch_id: string;
-  familia_id: string;
-  fecha: string;
-  persona_recibio: string;
-  frutas_hortalizas_cantidad: number | null;
-  frutas_hortalizas_unidad: string | null;
-  carne_cantidad: number | null;
-  carne_unidad: string | null;
+  family_id: string;
+  grant_id: string | null;
+  session_id: string | null;
+  fecha_entrega: string;
+  kg_frutas_hortalizas: number | null;
+  kg_carne: number | null;
+  kg_infantil: number | null;
+  kg_otros: number | null;
+  kg_total: number | null;
+  unidades_no_alimenticias: number | null;
+  recogido_por: string | null;
+  es_autorizado: boolean | null;
+  firma_url: string | null;
+  recogido_por_documento_url: string | null;
+  registrado_por: string | null;
   notas: string | null;
-  ocr_row_confidence: number | null;
-  createdAt: string;
-  updatedAt: string;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
 }
 
 /**
  * Entregas (delivery) router
- * Handles OCR document upload, extraction, validation, and saving
- * Uses .from() method to access entregas table (not in Supabase types)
+ * All CRUD operations use the canonical `deliveries` table.
+ * OCR/batch operations also insert into `deliveries` (with metadata JSONB for batch info).
  */
 export const entregasRouter = router({
   /**
-   * Extract delivery data from a photo of physical delivery document
-   * Uses LLM-based table extraction to identify beneficiaries, dates, and quantities
-   * Input: photo URL (S3), programa ID
-   * Output: Extracted beneficiaries with deliveries and confidence scores
+   * Extract delivery data from a photo of physical delivery document.
    */
   extractFromPhoto: protectedProcedure
     .input(
@@ -59,7 +62,6 @@ export const entregasRouter = router({
     .mutation(async ({ input }) => {
       try {
         const result = await extractDeliveryDataFromImage(input.photoUrl, input.programaId);
-
         return {
           success: result.success,
           extractionConfidence: result.extractionConfidence,
@@ -84,9 +86,7 @@ export const entregasRouter = router({
     }),
 
   /**
-   * Extract deliveries from OCR text
-   * Input: image URL and OCR text
-   * Output: Extracted header and rows with confidence scores
+   * Extract deliveries from OCR text.
    */
   extractFromOCR: protectedProcedure
     .input(
@@ -98,7 +98,6 @@ export const entregasRouter = router({
     .mutation(async ({ input }) => {
       try {
         const result = await extractDeliveriesFromOCR(input.imageUrl, input.ocrText);
-
         return {
           success: true,
           data: result,
@@ -114,9 +113,8 @@ export const entregasRouter = router({
     }),
 
   /**
-   * Save extracted delivery batch to database
-   * Input: Extracted header, rows, and document image URL
-   * Output: Batch ID and saved count
+   * Save extracted delivery batch to database.
+   * Inserts into the canonical `deliveries` table (via saveDeliveryBatch).
    */
   saveBatch: protectedProcedure
     .input(
@@ -150,11 +148,10 @@ export const entregasRouter = router({
     .mutation(async ({ input }) => {
       try {
         const result = await saveDeliveryBatch(
-          input.header,
-          input.rows,
+          input.header as ExtractedBatchHeader,
+          input.rows as ExtractedDeliveryRow[],
           input.documentImageUrl
         );
-
         if (result.errors.length > 0) {
           return {
             success: false,
@@ -163,7 +160,6 @@ export const entregasRouter = router({
             message: `Errores de validación: ${result.errors.join(', ')}`,
           };
         }
-
         return {
           success: true,
           batchId: result.batchId,
@@ -181,9 +177,7 @@ export const entregasRouter = router({
     }),
 
   /**
-   * Get deliveries for current user's programs
-   * Uses .from() method to access entregas table
-   * Respects RLS policies - only returns entregas for families in user's enrolled programs
+   * Get deliveries from the canonical `deliveries` table.
    */
   getDeliveries: protectedProcedure
     .input(
@@ -195,40 +189,30 @@ export const entregasRouter = router({
         fechaTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
       })
     )
-    .query(async ({ input, ctx }) => {
+    .query(async ({ input }) => {
       try {
         const db = createAdminClient();
-
-        // Use .from() method with type casting for entregas table
-        let query = (db as any).from('entregas').select('*');
-
-        // Filter by familia if provided
+        let query = (db as any)
+          .from('deliveries')
+          .select('*', { count: 'exact' })
+          .is('deleted_at', null);
         if (input.familiaId) {
-          query = query.eq('familia_id', input.familiaId);
+          query = query.eq('family_id', input.familiaId);
         }
-
-        // Filter by date range if provided
         if (input.fechaFrom) {
-          query = query.gte('fecha', input.fechaFrom);
+          query = query.gte('fecha_entrega', input.fechaFrom);
         }
         if (input.fechaTo) {
-          query = query.lte('fecha', input.fechaTo);
+          query = query.lte('fecha_entrega', input.fechaTo);
         }
-
-        // Apply pagination
-        query = query.range(input.offset, input.offset + input.limit - 1);
-        query = query.order('createdAt', { ascending: false });
-
+        query = query
+          .order('fecha_entrega', { ascending: false })
+          .range(input.offset, input.offset + input.limit - 1);
         const { data, error, count } = await query;
-
         if (error) {
           console.error('Error fetching deliveries:', error);
-          throw new TRPCError({
-            code: 'INTERNAL_SERVER_ERROR',
-            message: 'Error al obtener entregas',
-          });
+          throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Error al obtener entregas' });
         }
-
         return {
           success: true,
           data: (data as Entrega[]) || [],
@@ -236,40 +220,28 @@ export const entregasRouter = router({
           message: `${(data as Entrega[])?.length || 0} entregas encontradas`,
         };
       } catch (error) {
-        console.error('Error in getDeliveries:', error);
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: error instanceof Error ? error.message : 'Error desconocido',
-        });
+        if (error instanceof TRPCError) throw error;
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error instanceof Error ? error.message : 'Error desconocido' });
       }
     }),
 
   /**
-   * Get single delivery by ID
+   * Get single delivery by ID from the canonical `deliveries` table.
    */
   getDeliveryById: protectedProcedure
-    .input(
-      z.object({
-        id: uuidLike,
-      })
-    )
+    .input(z.object({ id: z.string().uuid() }))
     .query(async ({ input }) => {
       try {
         const db = createAdminClient();
-
         const { data, error } = await (db as any)
-          .from('entregas')
+          .from('deliveries')
           .select('*')
           .eq('id', input.id)
+          .is('deleted_at', null)
           .single();
-
-        if (error || !data) {
-          throw new TRPCError({
-            code: 'NOT_FOUND',
-            message: 'Entrega no encontrada',
-          });
+        if (error) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Entrega no encontrada' });
         }
-
         return {
           success: true,
           data: data as Entrega,
@@ -277,67 +249,52 @@ export const entregasRouter = router({
         };
       } catch (error) {
         if (error instanceof TRPCError) throw error;
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: error instanceof Error ? error.message : 'Error desconocido',
-        });
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error instanceof Error ? error.message : 'Error desconocido' });
       }
     }),
 
   /**
-   * Create a new delivery record
+   * Create a delivery record in the canonical `deliveries` table.
    */
   createDelivery: protectedProcedure
     .input(
       z.object({
-        entregas_batch_id: uuidLike,
-        familia_id: uuidLike,
-        fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-        persona_recibio: z.string().min(1),
-        frutas_hortalizas_cantidad: z.number().nonnegative().optional(),
-        frutas_hortalizas_unidad: z.string().optional(),
-        carne_cantidad: z.number().nonnegative().optional(),
-        carne_unidad: z.string().optional(),
+        family_id: uuidLike,
+        fecha_entrega: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        recogido_por: z.string().optional(),
+        es_autorizado: z.boolean().optional(),
+        kg_frutas_hortalizas: z.number().nonnegative().optional(),
+        kg_carne: z.number().nonnegative().optional(),
+        kg_infantil: z.number().nonnegative().optional(),
+        kg_otros: z.number().nonnegative().optional(),
         notas: z.string().optional(),
-        ocr_row_confidence: z.number().min(0).max(100).optional(),
+        session_id: uuidLike.optional(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       try {
         const db = createAdminClient();
-        const id = crypto.randomUUID();
-        const now = new Date().toISOString();
-
         const { data, error } = await (db as any)
-          .from('entregas')
-          .insert([
-            {
-              id,
-              entregas_batch_id: input.entregas_batch_id,
-              familia_id: input.familia_id,
-              fecha: input.fecha,
-              persona_recibio: input.persona_recibio,
-              frutas_hortalizas_cantidad: input.frutas_hortalizas_cantidad || null,
-              frutas_hortalizas_unidad: input.frutas_hortalizas_unidad || null,
-              carne_cantidad: input.carne_cantidad || null,
-              carne_unidad: input.carne_unidad || null,
-              notas: input.notas || null,
-              ocr_row_confidence: input.ocr_row_confidence || null,
-              createdAt: now,
-              updatedAt: now,
-            },
-          ])
+          .from('deliveries')
+          .insert([{
+            family_id: input.family_id,
+            fecha_entrega: input.fecha_entrega,
+            recogido_por: input.recogido_por ?? null,
+            es_autorizado: input.es_autorizado ?? false,
+            kg_frutas_hortalizas: input.kg_frutas_hortalizas ?? null,
+            kg_carne: input.kg_carne ?? null,
+            kg_infantil: input.kg_infantil ?? null,
+            kg_otros: input.kg_otros ?? null,
+            notas: input.notas ?? null,
+            session_id: input.session_id ?? null,
+            registrado_por: ctx.user?.name ?? null,
+          }])
           .select()
           .single();
-
         if (error) {
           console.error('Error creating delivery:', error);
-          throw new TRPCError({
-            code: 'BAD_REQUEST',
-            message: error.message || 'Error al crear entrega',
-          });
+          throw new TRPCError({ code: 'BAD_REQUEST', message: error.message || 'Error al crear entrega' });
         }
-
         return {
           success: true,
           data: data as Entrega,
@@ -345,26 +302,24 @@ export const entregasRouter = router({
         };
       } catch (error) {
         if (error instanceof TRPCError) throw error;
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: error instanceof Error ? error.message : 'Error desconocido',
-        });
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error instanceof Error ? error.message : 'Error desconocido' });
       }
     }),
 
   /**
-   * Update an existing delivery record
+   * Update a delivery record in the canonical `deliveries` table.
    */
   updateDelivery: protectedProcedure
     .input(
       z.object({
         id: z.string().uuid(),
         updates: z.object({
-          persona_recibio: z.string().optional(),
-          frutas_hortalizas_cantidad: z.number().nonnegative().optional(),
-          frutas_hortalizas_unidad: z.string().optional(),
-          carne_cantidad: z.number().nonnegative().optional(),
-          carne_unidad: z.string().optional(),
+          recogido_por: z.string().optional(),
+          es_autorizado: z.boolean().optional(),
+          kg_frutas_hortalizas: z.number().nonnegative().optional(),
+          kg_carne: z.number().nonnegative().optional(),
+          kg_infantil: z.number().nonnegative().optional(),
+          kg_otros: z.number().nonnegative().optional(),
           notas: z.string().optional(),
         }),
       })
@@ -372,102 +327,48 @@ export const entregasRouter = router({
     .mutation(async ({ input }) => {
       try {
         const db = createAdminClient();
-        const now = new Date().toISOString();
-
-        // Build update object
-        const updateData: any = {
-          updatedAt: now,
-        };
-
-        if (input.updates.persona_recibio !== undefined) {
-          updateData.persona_recibio = input.updates.persona_recibio;
-        }
-        if (input.updates.frutas_hortalizas_cantidad !== undefined) {
-          updateData.frutas_hortalizas_cantidad = input.updates.frutas_hortalizas_cantidad;
-        }
-        if (input.updates.frutas_hortalizas_unidad !== undefined) {
-          updateData.frutas_hortalizas_unidad = input.updates.frutas_hortalizas_unidad;
-        }
-        if (input.updates.carne_cantidad !== undefined) {
-          updateData.carne_cantidad = input.updates.carne_cantidad;
-        }
-        if (input.updates.carne_unidad !== undefined) {
-          updateData.carne_unidad = input.updates.carne_unidad;
-        }
-        if (input.updates.notas !== undefined) {
-          updateData.notas = input.updates.notas;
-        }
-
         const { data, error } = await (db as any)
-          .from('entregas')
-          .update(updateData)
+          .from('deliveries')
+          .update({ ...input.updates, updated_at: new Date().toISOString() })
           .eq('id', input.id)
+          .is('deleted_at', null)
           .select()
           .single();
-
         if (error) {
-          throw new TRPCError({
-            code: 'BAD_REQUEST',
-            message: error.message || 'Error al actualizar entrega',
-          });
+          throw new TRPCError({ code: 'BAD_REQUEST', message: error.message || 'Error al actualizar entrega' });
         }
-
-        return {
-          success: true,
-          data: data as Entrega,
-          message: 'Entrega actualizada exitosamente',
-        };
+        return { success: true, data: data as Entrega, message: 'Entrega actualizada exitosamente' };
       } catch (error) {
         if (error instanceof TRPCError) throw error;
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: error instanceof Error ? error.message : 'Error desconocido',
-        });
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error instanceof Error ? error.message : 'Error desconocido' });
       }
     }),
 
   /**
-   * Delete a delivery record
+   * Soft-delete a delivery record in the canonical `deliveries` table.
    */
   deleteDelivery: protectedProcedure
-    .input(
-      z.object({
-        id: z.string().uuid(),
-      })
-    )
+    .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ input }) => {
       try {
         const db = createAdminClient();
-
         const { error } = await (db as any)
-          .from('entregas')
-          .delete()
+          .from('deliveries')
+          .update({ deleted_at: new Date().toISOString() })
           .eq('id', input.id);
-
         if (error) {
-          throw new TRPCError({
-            code: 'BAD_REQUEST',
-            message: error.message || 'Error al eliminar entrega',
-          });
+          throw new TRPCError({ code: 'BAD_REQUEST', message: error.message || 'Error al eliminar entrega' });
         }
-
-        return {
-          success: true,
-          message: 'Entrega eliminada exitosamente',
-        };
+        return { success: true, message: 'Entrega eliminada exitosamente' };
       } catch (error) {
         if (error instanceof TRPCError) throw error;
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: error instanceof Error ? error.message : 'Error desconocido',
-        });
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error instanceof Error ? error.message : 'Error desconocido' });
       }
     }),
 
   /**
-   * Get delivery batches for a family
-   * Input: familia_id
-   * Output: List of batches with row counts
+   * Get delivery sessions (batches) for a family from `deliveries`.
+   * Groups by session_id (replaces old entregas_batch_id grouping).
    */
   getBatchesByFamilia: protectedProcedure
     .input(
@@ -480,105 +381,75 @@ export const entregasRouter = router({
     .query(async ({ input }) => {
       try {
         const db = createAdminClient();
-
         const { data, error } = await (db as any)
-          .from('entregas')
-          .select('entregas_batch_id')
-          .eq('familia_id', input.familia_id)
-          .range(input.offset, input.offset + input.limit - 1)
-          .order('createdAt', { ascending: false });
-
+          .from('deliveries')
+          .select('session_id, fecha_entrega')
+          .eq('family_id', input.familia_id)
+          .is('deleted_at', null)
+          .order('fecha_entrega', { ascending: false })
+          .range(input.offset, input.offset + input.limit - 1);
         if (error) {
-          throw new TRPCError({
-            code: 'INTERNAL_SERVER_ERROR',
-            message: 'Error al obtener lotes',
-          });
+          throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Error al obtener sesiones' });
         }
-
-        // Group by batch_id
-        const batches = new Map<string, number>();
+        // Group by session_id (null session_id = individual delivery)
+        const sessions = new Map<string, number>();
         (data as any[])?.forEach((row) => {
-          const batchId = row.entregas_batch_id;
-          batches.set(batchId, (batches.get(batchId) || 0) + 1);
+          const key = row.session_id ?? `individual-${row.fecha_entrega}`;
+          sessions.set(key, (sessions.get(key) || 0) + 1);
         });
-
         return {
           success: true,
-          data: Array.from(batches.entries()).map(([batchId, count]) => ({
-            entregas_batch_id: batchId,
+          data: Array.from(sessions.entries()).map(([sessionId, count]) => ({
+            session_id: sessionId,
             count,
           })),
-          total: batches.size,
-          message: 'Lotes obtenidos exitosamente',
+          total: sessions.size,
+          message: 'Sesiones obtenidas exitosamente',
         };
       } catch (error) {
         if (error instanceof TRPCError) throw error;
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: error instanceof Error ? error.message : 'Error desconocido',
-        });
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error instanceof Error ? error.message : 'Error desconocido' });
       }
     }),
 
   /**
-   * Get delivery batch details
-   * Input: batch_id
-   * Output: Batch header and all associated rows
+   * Get delivery details for a session from `deliveries`.
    */
   getBatchDetails: protectedProcedure
-    .input(
-      z.object({
-        batchId: z.string().uuid(),
-      })
-    )
+    .input(z.object({ batchId: z.string() }))
     .query(async ({ input }) => {
       try {
         const db = createAdminClient();
-
         const { data, error } = await (db as any)
-          .from('entregas')
+          .from('deliveries')
           .select('*')
-          .eq('entregas_batch_id', input.batchId)
-          .order('createdAt', { ascending: false });
-
+          .eq('session_id', input.batchId)
+          .is('deleted_at', null)
+          .order('fecha_entrega', { ascending: false });
         if (error) {
-          throw new TRPCError({
-            code: 'INTERNAL_SERVER_ERROR',
-            message: 'Error al obtener lote',
-          });
+          throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Error al obtener sesión' });
         }
-
         return {
           success: true,
           data: (data as Entrega[]) || [],
-          message: 'Lote obtenido exitosamente',
+          message: 'Sesión obtenida exitosamente',
         };
       } catch (error) {
         if (error instanceof TRPCError) throw error;
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: error instanceof Error ? error.message : 'Error desconocido',
-        });
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error instanceof Error ? error.message : 'Error desconocido' });
       }
     }),
 
   /**
-   * Download CSV template with sample data and guide
-   * Output: CSV content, guide content, and filename
+   * Download CSV template with sample data and guide.
    */
   downloadTemplate: publicProcedure.query(async () => {
     const { csvContent, guideContent, fileName } = generateEntregasCSVTemplate();
-    return {
-      csvContent,
-      guideContent,
-      fileName,
-    };
+    return { csvContent, guideContent, fileName };
   }),
 
   /**
-   * Upload photo to S3 storage and return URL
-   * Input: photo file (as base64 or buffer), rotation degrees
-   * Output: { photoUrl, photoKey, rotation }
+   * Upload photo to S3 storage and return URL.
    */
   uploadPhotoToStorage: protectedProcedure
     .input(
@@ -590,18 +461,12 @@ export const entregasRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       try {
-        // Generate unique file key
         const timestamp = Date.now();
         const randomSuffix = Math.random().toString(36).substring(7);
         const fileName = input.fileName || `photo-${timestamp}-${randomSuffix}.jpg`;
-        const fileKey = `entregas/photos/${ctx.user?.id || 'unknown'}/${fileName}`;
-
-        // Convert base64 to buffer
+        const fileKey = `deliveries/photos/${ctx.user?.id || 'unknown'}/${fileName}`;
         const buffer = Buffer.from(input.photoData, 'base64');
-
-        // Upload to S3
         const { url, key } = await storagePut(fileKey, buffer, 'image/jpeg');
-
         return {
           success: true,
           photoUrl: url,

@@ -13,6 +13,7 @@ import { describe, expect, it } from "vitest";
 import { TRPCError } from "@trpc/server";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
+import { Logger } from "./_core/logger";
 
 type AuthenticatedUser = NonNullable<TrpcContext["user"]>;
 
@@ -30,6 +31,8 @@ function createAuthContext(): TrpcContext {
   };
   return {
     user,
+    logger: new Logger(),
+    correlationId: "test-correlation-id",
     req: {
       protocol: "https",
       headers: {},
@@ -43,6 +46,8 @@ function createAuthContext(): TrpcContext {
 function createAnonContext(): TrpcContext {
   return {
     user: null,
+    logger: new Logger(),
+    correlationId: "test-correlation-id",
     req: {
       protocol: "https",
       headers: {},

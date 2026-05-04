@@ -16,7 +16,8 @@ describe("Soft-Delete Cascade Rules", () => {
     // Create test family
     const { data: familyData, error: familyError } = await db
       .from("families")
-      .insert({ familia_numero: 99999, estado: "activa" })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .insert({ familia_numero: 99999, estado: "activa" } as any)
       .select()
       .single();
 
@@ -24,16 +25,16 @@ describe("Soft-Delete Cascade Rules", () => {
       throw new Error(`Failed to create test family: ${familyError?.message}`);
     }
 
-    testFamilyId = familyData.id;
+    testFamilyId = (familyData as { id: string }).id;
 
     // Create test member
-    const { data: memberData, error: memberError } = await db
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: memberData, error: memberError } = await (db as any)
       .from("familia_miembros")
       .insert({
         familia_id: testFamilyId,
         nombre: "Test Member",
         rol: "titular",
-        deleted_at: null,
       })
       .select()
       .single();
@@ -42,7 +43,7 @@ describe("Soft-Delete Cascade Rules", () => {
       throw new Error(`Failed to create test member: ${memberError?.message}`);
     }
 
-    testMemberId = memberData.id;
+    testMemberId = (memberData as { id: string }).id;
   });
 
   afterAll(async () => {
@@ -62,16 +63,18 @@ describe("Soft-Delete Cascade Rules", () => {
       .eq("id", testFamilyId)
       .single();
 
-    expect(family.deleted_at).not.toBeNull();
+    expect((family as { deleted_at: string | null } | null)?.deleted_at).not.toBeNull();
 
     // Verify members are also soft-deleted
     const { data: members } = await db
       .from("familia_miembros")
-      .select("deleted_at")
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .select("deleted_at" as any)
       .eq("familia_id", testFamilyId);
 
     expect(members).toHaveLength(1);
-    expect(members[0].deleted_at).not.toBeNull();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect((members as any)?.[0]?.deleted_at).not.toBeNull();
   });
 
   it("preserves deletion timestamp for audit trail", async () => {
@@ -85,7 +88,8 @@ describe("Soft-Delete Cascade Rules", () => {
       .eq("id", testFamilyId)
       .single();
 
-    const deletedAt = new Date(family.deleted_at);
+    const familyAny = family as { deleted_at: string | null } | null;
+    const deletedAt = new Date(familyAny?.deleted_at ?? "");
     expect(deletedAt.getTime()).toBeGreaterThanOrEqual(beforeDelete.getTime());
     expect(deletedAt.getTime()).toBeLessThanOrEqual(afterDelete.getTime());
   });

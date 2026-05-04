@@ -8,7 +8,6 @@ import { generateFamiliesCSV, type ExportMode } from "../csvExport";
 import { validateFamiliesCSV, parseFamiliesCSV } from "../csvImport";
 import { generateFamiliesCSVWithMembers } from "../csvExportWithMembers";
 import { validateFamiliesWithMembersCSV, parseFamiliesWithMembersCSV } from "../csvImportWithMembers";
-import { entregas } from "../../drizzle/schema";
 import { eq, desc } from "drizzle-orm";
 import { getDb } from "../db";
 import {
@@ -761,14 +760,15 @@ export const familiesRouter = router({
       .eq("estado", "activa")
       .is("deleted_at", null);
 
-    // Query entregas table (deliveries table was dropped)
+    // Query canonical deliveries table
     const { data: recentDeliveries } = await (db as any)
-      .from("entregas")
-      .select("familia_id")
-      .gte("fecha", cutoff60.toISOString().split("T")[0]);
+      .from("deliveries")
+      .select("family_id")
+      .gte("fecha_entrega", cutoff60.toISOString().split("T")[0])
+      .is("deleted_at", null);
 
     const recentFamilyIds = new Set(
-      (recentDeliveries ?? []).map((d: { familia_id: string }) => d.familia_id)
+      (recentDeliveries ?? []).map((d: { family_id: string }) => d.family_id)
     );
     const cm5List = (allActiveFamilies ?? []).filter(
       (f: { id: string }) => !recentFamilyIds.has(f.id)
@@ -1075,7 +1075,7 @@ export const familiesRouter = router({
       const { data: inserted, error: rpcErr } = await db.rpc("upload_family_document", {
         p_family_id: input.family_id,
         p_member_index: input.member_index,
-        p_member_person_id: input.member_person_id ?? null,
+        p_member_person_id: (input.member_person_id ?? null) as string,
         p_documento_tipo: input.documento_tipo,
         p_documento_url: input.documento_url,
         p_verified_by: String(ctx.user.id),
@@ -1575,21 +1575,25 @@ export const familiesRouter = router({
         const db = await getDb();
         if (!db) throw new Error("Database connection failed");
 
-        const result = await db
-          .select()
-          .from(entregas)
-          .where(eq(entregas.familia_id, input.familyId))
-          .orderBy(desc(entregas.fecha));
+        const adminDb = createAdminClient();
+        const { data: rows, error: rowsError } = await (adminDb as any)
+          .from("deliveries")
+          .select("id, fecha_entrega, recogido_por, recogido_por_documento_url, created_at, updated_at")
+          .eq("family_id", input.familyId)
+          .is("deleted_at", null)
+          .order("fecha_entrega", { ascending: false });
 
-        return result.map((row) => ({
+        if (rowsError) throw new Error(rowsError.message);
+
+        return (rows ?? []).map((row: any) => ({
           id: row.id,
           delivery_id: row.id,
-          recogido_por_documento_url: null,
+          recogido_por_documento_url: row.recogido_por_documento_url ?? null,
           verified_by: null,
-          created_at: row.createdAt.toISOString(),
-          updated_at: row.updatedAt?.toISOString() ?? null,
-          fecha: row.fecha,
-          persona_recibio: row.persona_recibio,
+          created_at: row.created_at,
+          updated_at: row.updated_at ?? null,
+          fecha: row.fecha_entrega,
+          persona_recibio: row.recogido_por,
         }));
       } catch (error) {
         throw new TRPCError({
@@ -1612,93 +1616,5 @@ export const familiesRouter = router({
         success: true,
         message: "Document uploaded successfully",
       };
-    }),
-
-  // ─── Family Member Documents ─────────────────────────────────────────────
-  /** GET all documents for a family (optionally filtered by member_index) */
-  getFamilyDocuments: adminProcedure
-    .input(
-      z.object({
-        family_id: uuidLike,
-        member_index: z.number().int().min(-1).optional(),
-      })
-    )
-    .query(async ({ input }) => {
-      const db = createAdminClient();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let query = (db as any)
-        .from("family_member_documents")
-        .select(
-          "id, family_id, member_index, member_person_id, documento_tipo, documento_url, fecha_upload, verified_by, is_current, deleted_at, created_at"
-        )
-        .eq("family_id", input.family_id)
-        .is("deleted_at", null)
-        .order("fecha_upload", { ascending: false });
-      if (input.member_index !== undefined) {
-        query = query.eq("member_index", input.member_index);
-      }
-      const { data, error } = await query;
-      if (error) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
-      return (data ?? []) as Array<{
-        id: string;
-        family_id: string;
-        member_index: number;
-        member_person_id: string | null;
-        documento_tipo: string;
-        documento_url: string | null;
-        fecha_upload: string | null;
-        verified_by: string | null;
-        is_current: boolean;
-        deleted_at: string | null;
-        created_at: string;
-      }>;
-    }),
-
-  /** Atomic upsert: calls upload_family_document RPC (version-rollover) */
-  uploadFamilyDocument: adminProcedure
-    .input(
-      z.object({
-        family_id: uuidLike,
-        member_index: z.number().int().min(-1),
-        member_person_id: uuidLike.nullable().optional(),
-        documento_tipo: z.string().min(1),
-        documento_url: z.string().min(1),
-        verified_by: z.string().min(1),
-      })
-    )
-    .mutation(async ({ input }) => {
-      const db = createAdminClient();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (db as any).rpc("upload_family_document", {
-        p_family_id: input.family_id,
-        p_member_index: input.member_index,
-        p_member_person_id: input.member_person_id ?? null,
-        p_documento_tipo: input.documento_tipo,
-        p_documento_url: input.documento_url,
-        p_verified_by: input.verified_by,
-      });
-      if (error) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
-      return data as {
-        id: string;
-        family_id: string;
-        member_index: number;
-        documento_tipo: string;
-        documento_url: string;
-        is_current: boolean;
-      };
-    }),
-
-  /** Soft-delete a family document row (sets deleted_at + is_current = false) */
-  deleteFamilyDocument: adminProcedure
-    .input(z.object({ id: uuidLike }))
-    .mutation(async ({ input }) => {
-      const db = createAdminClient();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (db as any)
-        .from("family_member_documents")
-        .update({ deleted_at: new Date().toISOString(), is_current: false })
-        .eq("id", input.id);
-      if (error) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
-      return { success: true };
     }),
 });

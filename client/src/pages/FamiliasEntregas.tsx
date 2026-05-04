@@ -50,7 +50,7 @@ export default function FamiliasEntregas() {
 
   const deliveredFamilyIds = new Set<string>(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ((todayDeliveries?.data as any[]) ?? []).map((d: any) => d.familia_id)
+    ((todayDeliveries?.data as any[]) ?? []).map((d: any) => d.family_id)
   );
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -71,12 +71,10 @@ export default function FamiliasEntregas() {
 
   const handleQuickDelivery = async (familyId: string) => {
     await createDelivery.mutateAsync({
-      entregas_batch_id: "",
-      familia_id: familyId,
-      fecha: today,
-      persona_recibio: "Voluntario",
-      frutas_hortalizas_cantidad: 0,
-      carne_cantidad: 0,
+      family_id: familyId,
+      fecha_entrega: today,
+      recogido_por: "Voluntario",
+      es_autorizado: false,
     });
   };
 

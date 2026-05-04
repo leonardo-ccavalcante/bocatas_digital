@@ -168,7 +168,7 @@ export function DocumentUploadModal({
         member_index: memberIndex,
         documento_tipo: documentoTipo,
         documento_url: storagePath,
-        verified_by: user?.name ?? "admin",
+        // verified_by is set server-side from ctx.user
       });
 
       // 2. Storage upload — if this fails, await the soft-delete to roll back.
