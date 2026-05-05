@@ -986,6 +986,10 @@ export const familiesRouter = router({
         family_id: uuidLike,
         member_index: z.number().int().min(-1),
         member_person_id: uuidLike.optional(),
+        // FK to familia_miembros.id — populated for member_index >= 1.
+        // member_index is kept for backward compat; member_id is the
+        // stable anchor that survives JSON column removal.
+        member_id: uuidLike.nullable().optional(),
         documento_tipo: z.string().min(1),
         documento_url: z.string().optional(),
         deferred: z.boolean().default(false),
@@ -998,6 +1002,7 @@ export const familiesRouter = router({
         family_id: input.family_id,
         member_index: input.member_index,
         member_person_id: input.member_person_id ?? null,
+        member_id: input.member_id ?? null,
         documento_tipo: input.documento_tipo,
         documento_url: input.deferred ? null : (input.documento_url ?? null),
         fecha_upload: input.deferred ? null : new Date().toISOString(),
