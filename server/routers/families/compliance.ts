@@ -291,8 +291,7 @@ export const complianceRouter = router({
       .eq("estado", "activa")
       .is("deleted_at", null);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: recentDeliveries } = await (db as any)
+    const { data: recentDeliveries } = await db
       .from("deliveries")
       .select("family_id")
       .gte("fecha_entrega", cutoff60.toISOString().split("T")[0])
