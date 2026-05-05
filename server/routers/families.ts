@@ -133,22 +133,22 @@ const FamilyMemberSchema = z.object({
   person_id: uuidLike.optional(),
 });
 
-// Spanish parentesco -> English relacion enum (familia_miembros.relacion CHECK).
-// Lossy by design: spouse/in-law/grandparent collapse to 'other'.
-export function mapParentescoToRelacion(
-  parentesco?: string | null
-): "parent" | "child" | "sibling" | "other" {
-  switch (parentesco) {
-    case "hijo_a":
-      return "child";
-    case "madre":
-    case "padre":
-      return "parent";
-    case "hermano_a":
-      return "sibling";
-    default:
-      return "other";
+// Normalize input parentesco/relacion to a value the familia_miembros.relacion
+// CHECK constraint accepts. As of migration 20260505000003 the constraint
+// accepts both English vocab (parent/child/sibling/other) and Spanish
+// parentesco vocab (esposo_a, hijo_a, madre, padre, suegro_a, hermano_a,
+// abuelo_a, otro). Pass-through for known values; unknown -> 'other'.
+const VALID_RELACION_VALUES = new Set([
+  "parent", "child", "sibling", "other",
+  "esposo_a", "hijo_a", "madre", "padre",
+  "suegro_a", "hermano_a", "abuelo_a", "otro",
+]);
+
+export function mapParentescoToRelacion(parentesco?: string | null): string {
+  if (parentesco && VALID_RELACION_VALUES.has(parentesco)) {
+    return parentesco;
   }
+  return "other";
 }
 
 // Mirror family members from JSON write paths into the relational
