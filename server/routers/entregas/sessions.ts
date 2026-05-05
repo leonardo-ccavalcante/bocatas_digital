@@ -20,7 +20,7 @@ export const sessionsRouter = router({
     .query(async ({ input }) => {
       try {
         const db = createAdminClient();
-        const { data, error } = await (db as any)
+        const { data, error } = await db
           .from("deliveries")
           .select("session_id, fecha_entrega")
           .eq("family_id", input.familia_id)
@@ -59,7 +59,7 @@ export const sessionsRouter = router({
     .query(async ({ input }) => {
       try {
         const db = createAdminClient();
-        const { data, error } = await (db as any)
+        const { data, error } = await db
           .from("deliveries")
           .select("*")
           .eq("session_id", input.batchId)
