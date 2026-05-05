@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { FamilyIntakeSchema, type FamilyIntake, type FamilyMember } from "../schemas";
 import { useCreateFamilia } from "../hooks/useFamilias";
+import { usePrograms } from "@/features/programs/hooks/usePrograms";
 import { CheckCircle, ChevronRight, ChevronLeft, Search, UserPlus, Users, FileText, Shield, User } from "lucide-react";
 
 interface IntakeWizardProps {
@@ -29,14 +30,21 @@ const STEPS = [
   { id: 5, label: "Autorizado", icon: CheckCircle },
 ];
 
-// ─── Step 1: Titular search/select ───────────────────────────────────────────
+// ─── Step 1: Titular search/select + Programa ────────────────────────────────
 function Step1Titular({
   titularId,
-  onSelect,
+  selectedTitular,
+  programId,
+  onSelectTitular,
+  onSelectProgram,
 }: {
   titularId?: string;
-  onSelect: (id: string, name: string) => void;
+  selectedTitular: { id: string; name: string } | null;
+  programId: string;
+  onSelectTitular: (id: string, name: string) => void;
+  onSelectProgram: (id: string) => void;
 }) {
+  const { programs, isLoading: programsLoading } = usePrograms();
   const [query, setQuery] = useState("");
   const { data: results, isLoading } = trpc.persons.search.useQuery(
     { query },
@@ -45,6 +53,30 @@ function Step1Titular({
   const { data: preloaded } = trpc.persons.getById.useQuery(
     { id: titularId! },
     { enabled: !!titularId }
+  );
+
+  // Programa selector — shown once a titular is chosen (or pre-loaded). Required before "Siguiente".
+  const ProgramaSelector = (
+    <div className="space-y-2">
+      <Label className="text-sm font-medium">Programa</Label>
+      <Select value={programId} onValueChange={onSelectProgram} disabled={programsLoading}>
+        <SelectTrigger>
+          <SelectValue placeholder={programsLoading ? "Cargando programas..." : "Seleccionar programa"} />
+        </SelectTrigger>
+        <SelectContent>
+          {programs.map((p) => (
+            <SelectItem key={p.id} value={p.id}>
+              {p.icon} {p.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {!programId && (
+        <p className="text-xs text-muted-foreground">
+          Programa requerido para registrar la familia.
+        </p>
+      )}
+    </div>
   );
 
   if (titularId && preloaded) {
@@ -62,45 +94,61 @@ function Step1Titular({
           </div>
           <Badge variant="secondary" className="ml-auto">Ya registrado</Badge>
         </div>
-        <Button onClick={() => onSelect(preloaded.id, `${preloaded.nombre} ${preloaded.apellidos}`)}>
-          Confirmar titular <ChevronRight className="ml-2 h-4 w-4" />
-        </Button>
+        {!selectedTitular && (
+          <Button onClick={() => onSelectTitular(preloaded.id, `${preloaded.nombre} ${preloaded.apellidos}`)}>
+            Confirmar titular <ChevronRight className="ml-2 h-4 w-4" />
+          </Button>
+        )}
+        {selectedTitular && ProgramaSelector}
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      <div className="relative">
-        <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-        <Input
-          className="pl-9"
-          placeholder="Buscar por nombre o apellidos..."
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-      </div>
-      {isLoading && <p className="text-sm text-muted-foreground">Buscando...</p>}
-      {results && results.length > 0 && (
-        <div className="space-y-2">
-          {results.map((p) => (
-            <button
-              key={p.id}
-              className="w-full text-left p-3 border rounded-lg hover:bg-accent transition-colors"
-              onClick={() => onSelect(p.id, `${p.nombre} ${p.apellidos}`)}
-            >
-              <p className="font-medium">{p.nombre} {p.apellidos}</p>
-              <p className="text-xs text-muted-foreground">
-                {p.fecha_nacimiento ? `Nac: ${p.fecha_nacimiento}` : "Sin fecha de nacimiento"}
-              </p>
-            </button>
-          ))}
-        </div>
+      {!selectedTitular && (
+        <>
+          <div className="relative">
+            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Input
+              className="pl-9"
+              placeholder="Buscar por nombre o apellidos..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </div>
+          {isLoading && <p className="text-sm text-muted-foreground">Buscando...</p>}
+          {results && results.length > 0 && (
+            <div className="space-y-2">
+              {results.map((p) => (
+                <button
+                  key={p.id}
+                  className="w-full text-left p-3 border rounded-lg hover:bg-accent transition-colors"
+                  onClick={() => onSelectTitular(p.id, `${p.nombre} ${p.apellidos}`)}
+                >
+                  <p className="font-medium">{p.nombre} {p.apellidos}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {p.fecha_nacimiento ? `Nac: ${p.fecha_nacimiento}` : "Sin fecha de nacimiento"}
+                  </p>
+                </button>
+              ))}
+            </div>
+          )}
+          {results && results.length === 0 && query.length >= 2 && (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              No se encontró ninguna persona con ese nombre. El titular debe estar registrado en el sistema.
+            </p>
+          )}
+        </>
       )}
-      {results && results.length === 0 && query.length >= 2 && (
-        <p className="text-sm text-muted-foreground text-center py-4">
-          No se encontró ninguna persona con ese nombre. El titular debe estar registrado en el sistema.
-        </p>
+      {selectedTitular && (
+        <>
+          <div className="flex items-center gap-3 p-3 border rounded-lg bg-green-50 dark:bg-green-950">
+            <CheckCircle className="h-5 w-5 text-green-600" />
+            <p className="font-medium text-sm">{selectedTitular.name}</p>
+          </div>
+          {ProgramaSelector}
+        </>
       )}
     </div>
   );
@@ -392,6 +440,7 @@ export function IntakeWizard({ titularId }: IntakeWizardProps) {
     resolver: zodResolver(FamilyIntakeSchema) as any,
     defaultValues: {
       titular_id: titularId ?? "",
+      program_id: "",
       num_adultos: 1,
       num_menores_18: 0,
       miembros: [],
@@ -407,11 +456,16 @@ export function IntakeWizard({ titularId }: IntakeWizardProps) {
   });
 
   const createFamilia = useCreateFamilia();
+  const programId = form.watch("program_id");
 
   const handleTitularSelect = (id: string, name: string) => {
     setSelectedTitular({ id, name });
     form.setValue("titular_id", id);
-    setStep(2);
+    // Do NOT auto-advance — programa selection is required before step 2
+  };
+
+  const handleProgramaSelect = (id: string) => {
+    form.setValue("program_id", id);
   };
 
   const handleSubmit = async () => {
@@ -442,7 +496,7 @@ export function IntakeWizard({ titularId }: IntakeWizardProps) {
         consent_banco_alimentos: values.consent_banco_alimentos,
         autorizado: values.autorizado,
         persona_recoge: values.persona_recoge ?? "",
-        program_id: "00000000-0000-0000-0000-000000000000", // TODO: select program
+        program_id: values.program_id,
       });
       toast.success(`Familia #${result.familia_numero} registrada correctamente`);
       navigate(`/familias/${result.id}`);
@@ -488,7 +542,13 @@ export function IntakeWizard({ titularId }: IntakeWizardProps) {
         </CardHeader>
         <CardContent>
           {step === 1 && (
-            <Step1Titular titularId={titularId} onSelect={handleTitularSelect} />
+            <Step1Titular
+              titularId={titularId}
+              selectedTitular={selectedTitular}
+              programId={programId}
+              onSelectTitular={handleTitularSelect}
+              onSelectProgram={handleProgramaSelect}
+            />
           )}
           {step === 2 && (
             <Step2Members members={members} onChange={setMembers} />
@@ -512,12 +572,19 @@ export function IntakeWizard({ titularId }: IntakeWizardProps) {
         {step < 5 ? (
           <Button
             onClick={() => {
-              if (step === 1 && !selectedTitular) {
-                toast.error("Selecciona un titular primero");
-                return;
+              if (step === 1) {
+                if (!selectedTitular) {
+                  toast.error("Selecciona un titular primero");
+                  return;
+                }
+                if (!programId) {
+                  toast.error("Selecciona un programa antes de continuar");
+                  return;
+                }
               }
               setStep((s) => s + 1);
             }}
+            disabled={step === 1 && (!selectedTitular || !programId)}
           >
             Siguiente <ChevronRight className="ml-2 h-4 w-4" />
           </Button>
