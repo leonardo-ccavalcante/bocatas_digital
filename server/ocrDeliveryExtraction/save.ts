@@ -81,7 +81,7 @@ export async function saveDeliveryBatch(
   }));
 
   try {
-    const { error } = await (adminDb as any).from('deliveries').insert(deliveriesToInsert);
+    const { error } = await adminDb.from('deliveries').insert(deliveriesToInsert);
     if (error) throw new Error(error.message);
   } catch (error) {
     return {

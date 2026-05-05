@@ -73,7 +73,7 @@ export async function validateBatchHeaderWithDB(
   // Check for duplicate albarán via deliveries metadata (JSONB filter)
   if (header.numero_albaran) {
     const adminDb = createAdminClient();
-    const { data: existingBatch } = await (adminDb as any)
+    const { data: existingBatch } = await adminDb
       .from('deliveries')
       .select('id')
       .filter('metadata->>numero_albaran', 'eq', header.numero_albaran)
@@ -153,7 +153,7 @@ export async function validateDeliveryRowWithDB(
   // Check if familia exists via Supabase
   if (isValidUUID(row.familia_id)) {
     const adminDb = createAdminClient();
-    const { data: familia, error: familiaError } = await (adminDb as any)
+    const { data: familia, error: familiaError } = await adminDb
       .from('families')
       .select('id')
       .eq('id', row.familia_id)
