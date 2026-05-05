@@ -27,6 +27,19 @@ const uuidLike = z
   .string()
   .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, "Invalid UUID format");
 
+const SENTINEL_UUID = "00000000-0000-0000-0000-000000000000";
+
+/**
+ * program_id input validator that rejects the all-zero sentinel UUID.
+ * IntakeWizard historically defaulted to the sentinel before a Programa-selection step
+ * existed; FK violations made the form unusable. This guard surfaces the missing program
+ * with a clear message so the UI follow-up (add Programa step) is unambiguous.
+ */
+const programIdSchema = uuidLike.refine(
+  (v) => v !== SENTINEL_UUID,
+  { message: "Programa requerido: seleccione un programa antes de registrar la familia" }
+);
+
 
 
 // ─── Member-Resolution Helpers ──────────────────────────────────────────────
@@ -350,7 +363,7 @@ export const familiesRouter = router({
         num_menores_18: z.number().int().min(0),
         persona_recoge: z.string().min(1),
         autorizado: z.boolean().default(false),
-        program_id: uuidLike,
+        program_id: programIdSchema,
         consent_bocatas: z.boolean().default(false),
         consent_banco_alimentos: z.boolean().default(false),
         docs_identidad: z.boolean().default(false),
@@ -879,7 +892,7 @@ export const familiesRouter = router({
   closeSession: adminProcedure
     .input(
       z.object({
-        program_id: uuidLike,
+        program_id: programIdSchema,
         fecha: z.string(),
         location_id: uuidLike.optional(),
         session_data: z.record(z.string(), z.unknown()),
@@ -915,7 +928,7 @@ export const familiesRouter = router({
   getOpenSession: adminProcedure
     .input(
       z.object({
-        program_id: uuidLike,
+        program_id: programIdSchema,
         fecha: z.string().optional(),
         location_id: uuidLike.optional(),
       })
@@ -1050,7 +1063,7 @@ export const familiesRouter = router({
     .input(
       z.object({
         family_id: uuidLike,
-        program_id: uuidLike,
+        program_id: programIdSchema,
         member: FamilyMemberSchema,
       })
     )
