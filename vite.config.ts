@@ -5,6 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { defineConfig, type Plugin, type ViteDevServer } from "vite";
 import { vitePluginManusRuntime } from "vite-plugin-manus-runtime";
+import { VitePWA } from "vite-plugin-pwa";
 
 // =============================================================================
 // Manus Debug Collector - Vite Plugin
@@ -150,7 +151,56 @@ function vitePluginManusDebugCollector(): Plugin {
   };
 }
 
-const plugins = [react(), tailwindcss(), jsxLocPlugin(), vitePluginManusRuntime(), vitePluginManusDebugCollector()];
+const pwa = VitePWA({
+  registerType: "autoUpdate",
+  includeAssets: ["bocatas-logo.png"],
+  // Existing logo is 148x148 — under PWA spec recommendations (192/512).
+  // Track-as-TODO: replace with proper icon set before public install prompt.
+  manifest: {
+    name: "Bocatas Digital",
+    short_name: "Bocatas",
+    description: "Plataforma digital para Asociación Bocatas",
+    theme_color: "#b45309",
+    background_color: "#ffffff",
+    display: "standalone",
+    start_url: "/",
+    lang: "es",
+    icons: [
+      {
+        src: "bocatas-logo.png",
+        sizes: "148x148",
+        type: "image/png",
+        purpose: "any",
+      },
+    ],
+  },
+  workbox: {
+    // Pre-cache app shell + small route chunks; let Supabase/tRPC pass-through.
+    globPatterns: ["**/*.{js,css,html,ico,svg,woff2}"],
+    navigateFallback: "/index.html",
+    navigateFallbackDenylist: [/^\/api\//, /^\/trpc\//, /^\/auth\//],
+    runtimeCaching: [
+      {
+        urlPattern: ({ url }) => url.origin === "https://fonts.googleapis.com",
+        handler: "StaleWhileRevalidate",
+        options: { cacheName: "google-fonts-stylesheets" },
+      },
+      {
+        urlPattern: ({ url }) => url.origin === "https://fonts.gstatic.com",
+        handler: "CacheFirst",
+        options: {
+          cacheName: "google-fonts-webfonts",
+          expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 365 },
+        },
+      },
+    ],
+  },
+  devOptions: {
+    enabled: false,
+  },
+});
+
+const plugins = [react(), tailwindcss(), jsxLocPlugin(), vitePluginManusRuntime(), vitePluginManusDebugCollector(), pwa];
 
 export default defineConfig({
   plugins,
