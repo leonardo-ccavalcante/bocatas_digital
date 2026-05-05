@@ -140,8 +140,9 @@ IMPORTANT: Return ONLY the JSON object, no markdown, no explanation.`,
           return { success: false, data: {} };
         }
 
-        // Log the actual LLM response for debugging
-        console.log("OCR: LLM response:", JSON.stringify(extractedData, null, 2));
+        // PII redaction: do NOT log extractedData — it contains NIE / names /
+        // document numbers from beneficiary documents. CLAUDE.md §Compliance
+        // prohibits PII in logs.
 
         // Normalize extracted data: map to lowercase enum values matching OcrTipoDocumentoSchema
         if (extractedData && typeof extractedData === "object" && "tipo_documento" in extractedData) {
