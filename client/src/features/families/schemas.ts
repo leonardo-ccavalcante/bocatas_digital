@@ -28,9 +28,16 @@ export const FamilyMemberSchema = z.object({
 export type FamilyMember = z.infer<typeof FamilyMemberSchema>;
 
 // ─── Intake Wizard Steps ──────────────────────────────────────────────────────
-/** Step 1: Titular (pre-loaded from persons registry) */
+/** Step 1: Titular (pre-loaded from persons registry) + Programa */
+const SENTINEL_UUID = "00000000-0000-0000-0000-000000000000";
 export const IntakeStep1Schema = z.object({
   titular_id: z.string().uuid("Debe seleccionar un titular del registro"),
+  program_id: z
+    .string()
+    .uuid("Debe seleccionar un programa")
+    .refine((v) => v !== SENTINEL_UUID, {
+      message: "Programa requerido: seleccione un programa válido",
+    }),
 });
 
 /** Step 2: Family members */
