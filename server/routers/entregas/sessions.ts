@@ -32,7 +32,7 @@ export const sessionsRouter = router({
         }
         // Group by session_id (null session_id = individual delivery)
         const sessions = new Map<string, number>();
-        (data as any[])?.forEach((row) => {
+        data?.forEach((row) => {
           const key = row.session_id ?? `individual-${row.fecha_entrega}`;
           sessions.set(key, (sessions.get(key) || 0) + 1);
         });

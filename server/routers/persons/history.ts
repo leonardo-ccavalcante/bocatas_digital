@@ -47,7 +47,7 @@ export const historyRouter = router({
         });
       }
 
-      const rows = (data ?? []).map((row: any) => ({
+      const rows = (data ?? []).map((row) => ({
         id: row.id as string,
         fecha: row.checked_in_date as string,
         hora: row.checked_in_at
@@ -61,7 +61,7 @@ export const historyRouter = router({
               minute: "2-digit",
               timeZone: "Europe/Madrid",
             }),
-        sede: (row.locations as any)?.nombre ?? "—",
+        sede: row.locations?.nombre ?? "—",
         programa: row.programa as string,
         metodo: row.metodo as string,
         esDemo: row.es_demo as boolean,
