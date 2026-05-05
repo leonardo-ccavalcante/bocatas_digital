@@ -6,6 +6,7 @@ import { createRoot } from "react-dom/client";
 import superjson from "superjson";
 import App from "./App";
 import { getLoginUrl } from "./const";
+import { registerSwUpdateToast } from "./lib/swUpdate";
 import "./index.css";
 
 const queryClient = new QueryClient();
@@ -59,3 +60,5 @@ createRoot(document.getElementById("root")!).render(
     </QueryClientProvider>
   </trpc.Provider>
 );
+
+void registerSwUpdateToast();
