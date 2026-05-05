@@ -33,8 +33,10 @@ export const bulkImportRouter = router({
   previewBulkImport: adminProcedure
     .input(z.object({ csv: z.string().min(1).max(10_000_000) }))
     .mutation(async ({ input, ctx }) => {
-      const db = createAdminClient();
-
+      // Phase 6 QA-9: validate input shape BEFORE allocating Supabase
+      // resources — keeps the row-cap, line-count, and header-shape
+      // checks unit-testable without a DB env, and (correctly) reports
+      // BAD_REQUEST instead of INTERNAL_SERVER_ERROR for these cases.
       const lines = input.csv
         .replace(/\r\n/g, "\n")
         .replace(/\r/g, "\n")
@@ -77,6 +79,8 @@ export const bulkImportRouter = router({
           message: `Encabezado inválido. Esperado: ${EXPECTED_HEADERS.join(",")}.`,
         });
       }
+
+      const db = createAdminClient();
 
       type ParsedBulkRowWithLine = ParsedBulkRow & { row_number: number };
       const valid: ParsedBulkRowWithLine[] = [];
