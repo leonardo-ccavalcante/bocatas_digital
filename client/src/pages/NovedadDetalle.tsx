@@ -75,6 +75,8 @@ export default function NovedadDetalle() {
           src={a.imagen_url as string}
           alt={a.titulo as string}
           className="w-full rounded-2xl object-cover max-h-64"
+          loading="lazy"
+          decoding="async"
         />
       )}
 
