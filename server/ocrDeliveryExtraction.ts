@@ -436,8 +436,26 @@ export async function saveDeliveryBatch(
     };
   }
 
-  // Validate all rows with DB checks
-  const rowValidations = await Promise.all(rows.map(r => validateDeliveryRowWithDB(r)));
+  // Validate all rows with DB checks. Use allSettled so a single transient DB error
+  // (e.g. network blip on validateDeliveryRowWithDB) doesn't reject the entire batch
+  // and discard the partial results — surface every problem to the operator at once.
+  const rowSettlements = await Promise.allSettled(
+    rows.map(r => validateDeliveryRowWithDB(r))
+  );
+
+  const rowValidations = rowSettlements.map((s, idx) =>
+    s.status === "fulfilled"
+      ? s.value
+      : {
+          isValid: false,
+          errors: [
+            `Row ${idx + 1}: validation threw — ${
+              s.reason instanceof Error ? s.reason.message : String(s.reason)
+            }`,
+          ],
+        }
+  );
+
   const invalidRows = rowValidations.filter(v => !v.isValid);
 
   if (invalidRows.length > 0) {
