@@ -19,12 +19,30 @@ interface Member {
   familia_id: string;
   nombre: string;
   rol: "head_of_household" | "dependent" | "other";
-  relacion: "parent" | "child" | "sibling" | "other" | null;
+  // English (modal-form vocab) + Spanish parentesco (intake/registration vocab).
+  // Both are accepted by the familia_miembros.relacion CHECK constraint as of
+  // migration 20260505000003.
+  relacion: string | null;
   estado: "activo" | "inactivo";
   fecha_nacimiento: string | null;
   created_at: string;
   updated_at: string;
 }
+
+const RELACION_LABEL_ES: Record<string, string> = {
+  parent: "Padre/Madre",
+  child: "Hijo/Hija",
+  sibling: "Hermano/Hermana",
+  other: "Otro",
+  esposo_a: "Esposo/a",
+  hijo_a: "Hijo/a",
+  madre: "Madre",
+  padre: "Padre",
+  suegro_a: "Suegro/a",
+  hermano_a: "Hermano/a",
+  abuelo_a: "Abuelo/a",
+  otro: "Otro",
+};
 
 interface MemberManagementModalProps {
   familiaId: string;
@@ -43,7 +61,7 @@ export function MemberManagementModal({
   const [formData, setFormData] = useState<{
     nombre: string;
     rol: "head_of_household" | "dependent" | "other";
-    relacion: "parent" | "child" | "sibling" | "other" | "";
+    relacion: string;
     estado: "activo" | "inactivo";
     fechaNacimiento: string;
   }>({
@@ -284,8 +302,7 @@ export function MemberManagementModal({
                           : member.rol === "dependent"
                             ? "Dependiente"
                             : "Otro"}{" "}
-                        {member.relacion &&
-                          `• ${member.relacion === "parent" ? "Padre/Madre" : member.relacion === "child" ? "Hijo/Hija" : member.relacion === "sibling" ? "Hermano/Hermana" : "Otro"}`}
+                        {member.relacion && `• ${RELACION_LABEL_ES[member.relacion] ?? member.relacion}`}
                       </p>
                       {member.fecha_nacimiento && (
                         <p className="text-xs text-muted-foreground">

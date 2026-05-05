@@ -71,6 +71,137 @@ export type Database = {
           },
         ]
       }
+      announcement_audiences: {
+        Row: {
+          announcement_id: string
+          created_at: string
+          id: string
+          programs: Database["public"]["Enums"]["programa"][]
+          roles: string[]
+        }
+        Insert: {
+          announcement_id: string
+          created_at?: string
+          id?: string
+          programs?: Database["public"]["Enums"]["programa"][]
+          roles?: string[]
+        }
+        Update: {
+          announcement_id?: string
+          created_at?: string
+          id?: string
+          programs?: Database["public"]["Enums"]["programa"][]
+          roles?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "announcement_audiences_announcement_id_fkey"
+            columns: ["announcement_id"]
+            isOneToOne: false
+            referencedRelation: "announcements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      announcement_audit_log: {
+        Row: {
+          announcement_id: string
+          edited_at: string
+          edited_by: string
+          field: string
+          id: string
+          new_value: Json | null
+          old_value: Json | null
+        }
+        Insert: {
+          announcement_id: string
+          edited_at?: string
+          edited_by: string
+          field: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+        }
+        Update: {
+          announcement_id?: string
+          edited_at?: string
+          edited_by?: string
+          field?: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "announcement_audit_log_announcement_id_fkey"
+            columns: ["announcement_id"]
+            isOneToOne: false
+            referencedRelation: "announcements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      announcement_dismissals: {
+        Row: {
+          announcement_id: string
+          dismissed_at: string
+          person_id: string
+        }
+        Insert: {
+          announcement_id: string
+          dismissed_at?: string
+          person_id: string
+        }
+        Update: {
+          announcement_id?: string
+          dismissed_at?: string
+          person_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "announcement_dismissals_announcement_id_fkey"
+            columns: ["announcement_id"]
+            isOneToOne: false
+            referencedRelation: "announcements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      announcement_webhook_log: {
+        Row: {
+          announcement_id: string
+          attempted_at: string
+          error: string | null
+          id: string
+          response_body: string | null
+          status_code: number | null
+        }
+        Insert: {
+          announcement_id: string
+          attempted_at?: string
+          error?: string | null
+          id?: string
+          response_body?: string | null
+          status_code?: number | null
+        }
+        Update: {
+          announcement_id?: string
+          attempted_at?: string
+          error?: string | null
+          id?: string
+          response_body?: string | null
+          status_code?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "announcement_webhook_log_announcement_id_fkey"
+            columns: ["announcement_id"]
+            isOneToOne: false
+            referencedRelation: "announcements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       announcements: {
         Row: {
           activo: boolean
@@ -88,8 +219,7 @@ export type Database = {
           image_url: string | null
           imagen_url: string | null
           published_at: string | null
-          roles_visibles: string[] | null
-          tipo: string
+          tipo: Database["public"]["Enums"]["tipo_announcement"]
           titulo: string
           updated_at: string
         }
@@ -109,8 +239,7 @@ export type Database = {
           image_url?: string | null
           imagen_url?: string | null
           published_at?: string | null
-          roles_visibles?: string[] | null
-          tipo?: string
+          tipo?: Database["public"]["Enums"]["tipo_announcement"]
           titulo: string
           updated_at?: string
         }
@@ -130,138 +259,9 @@ export type Database = {
           image_url?: string | null
           imagen_url?: string | null
           published_at?: string | null
-          roles_visibles?: string[] | null
-          tipo?: string
+          tipo?: Database["public"]["Enums"]["tipo_announcement"]
           titulo?: string
           updated_at?: string
-        }
-        Relationships: []
-      }
-      announcement_audit_log: {
-        Row: {
-          announcement_id: string
-          edited_at: string
-          edited_by: string | null
-          field: string
-          id: string
-          new_value: Json | null
-          old_value: Json | null
-        }
-        Insert: {
-          announcement_id: string
-          edited_at?: string
-          edited_by?: string | null
-          field: string
-          id?: string
-          new_value?: Json | null
-          old_value?: Json | null
-        }
-        Update: {
-          announcement_id?: string
-          edited_at?: string
-          edited_by?: string | null
-          field?: string
-          id?: string
-          new_value?: Json | null
-          old_value?: Json | null
-        }
-        Relationships: []
-      }
-      announcement_audiences: {
-        Row: {
-          announcement_id: string
-          created_at: string
-          id: string
-          programs: string[] | null
-          roles: string[] | null
-        }
-        Insert: {
-          announcement_id: string
-          created_at?: string
-          id?: string
-          programs?: string[] | null
-          roles?: string[] | null
-        }
-        Update: {
-          announcement_id?: string
-          created_at?: string
-          id?: string
-          programs?: string[] | null
-          roles?: string[] | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "announcement_audiences_announcement_id_fkey"
-            columns: ["announcement_id"]
-            isOneToOne: false
-            referencedRelation: "announcements"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      announcement_webhook_log: {
-        Row: {
-          id: string
-          announcement_id: string
-          attempted_at: string
-          status_code: number | null
-          response_body: string | null
-          error: string | null
-        }
-        Insert: {
-          id?: string
-          announcement_id: string
-          attempted_at?: string
-          status_code?: number | null
-          response_body?: string | null
-          error?: string | null
-        }
-        Update: {
-          id?: string
-          announcement_id?: string
-          attempted_at?: string
-          status_code?: number | null
-          response_body?: string | null
-          error?: string | null
-        }
-        Relationships: []
-      }
-      bulk_import_previews: {
-        Row: {
-          token: string
-          parsed_rows: Json
-          created_by: string
-          created_at: string
-        }
-        Insert: {
-          token?: string
-          parsed_rows: Json
-          created_by: string
-          created_at?: string
-        }
-        Update: {
-          token?: string
-          parsed_rows?: Json
-          created_by?: string
-          created_at?: string
-        }
-        Relationships: []
-      }
-      announcement_dismissals: {
-        Row: {
-          announcement_id: string
-          person_id: string
-          dismissed_at: string
-        }
-        Insert: {
-          announcement_id: string
-          person_id: string
-          dismissed_at?: string
-        }
-        Update: {
-          announcement_id?: string
-          person_id?: string
-          dismissed_at?: string
         }
         Relationships: []
       }
@@ -365,6 +365,27 @@ export type Database = {
             referencedColumns: ["slug"]
           },
         ]
+      }
+      bulk_import_previews: {
+        Row: {
+          created_at: string
+          created_by: string
+          parsed_rows: Json
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          parsed_rows: Json
+          token?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          parsed_rows?: Json
+          token?: string
+        }
+        Relationships: []
       }
       consent_templates: {
         Row: {
@@ -552,7 +573,7 @@ export type Database = {
         Row: {
           created_at: string
           deleted_at: string | null
-          es_autorizado: boolean
+          es_autorizado: boolean | null
           family_id: string
           fecha_entrega: string
           firma_url: string | null
@@ -575,9 +596,9 @@ export type Database = {
         Insert: {
           created_at?: string
           deleted_at?: string | null
-          es_autorizado?: boolean
+          es_autorizado?: boolean | null
           family_id: string
-          fecha_entrega?: string
+          fecha_entrega: string
           firma_url?: string | null
           grant_id?: string | null
           id?: string
@@ -598,7 +619,7 @@ export type Database = {
         Update: {
           created_at?: string
           deleted_at?: string | null
-          es_autorizado?: boolean
+          es_autorizado?: boolean | null
           family_id?: string
           fecha_entrega?: string
           firma_url?: string | null
@@ -752,37 +773,46 @@ export type Database = {
       }
       familia_miembros: {
         Row: {
+          apellidos: string | null
           created_at: string | null
           documentacion_id: string | null
+          documento: string | null
           estado: string | null
           familia_id: string
           fecha_nacimiento: string | null
           id: string
           nombre: string
+          person_id: string | null
           relacion: string | null
           rol: string
           updated_at: string | null
         }
         Insert: {
+          apellidos?: string | null
           created_at?: string | null
           documentacion_id?: string | null
+          documento?: string | null
           estado?: string | null
           familia_id: string
           fecha_nacimiento?: string | null
           id?: string
           nombre: string
+          person_id?: string | null
           relacion?: string | null
           rol: string
           updated_at?: string | null
         }
         Update: {
+          apellidos?: string | null
           created_at?: string | null
           documentacion_id?: string | null
+          documento?: string | null
           estado?: string | null
           familia_id?: string
           fecha_nacimiento?: string | null
           id?: string
           nombre?: string
+          person_id?: string | null
           relacion?: string | null
           rol?: string
           updated_at?: string | null
@@ -800,6 +830,20 @@ export type Database = {
             columns: ["familia_id"]
             isOneToOne: false
             referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "familia_miembros_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "persons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "familia_miembros_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "persons_safe"
             referencedColumns: ["id"]
           },
         ]
@@ -1678,9 +1722,11 @@ export type Database = {
       }
     }
     Functions: {
+      // Manual augmentation: supabase type-gen widens nullable function args to non-null.
+      // p_autor_nombre maps to a Postgres text param that allows NULL (autor.nombre may be missing).
       confirm_bulk_announcement_import: {
-        Args: { p_token: string; p_autor_id: string; p_autor_nombre: string | null }
-        Returns: { created_count: number; error_count: number }
+        Args: { p_autor_id: string; p_autor_nombre: string | null; p_token: string }
+        Returns: Json
       }
       find_duplicate_persons: {
         Args: { p_apellidos: string; p_nombre: string; p_threshold?: number }
@@ -1824,6 +1870,13 @@ export type Database = {
         | "jubilado"
         | "incapacidad_permanente"
         | "sin_permiso_trabajo"
+      tipo_announcement:
+        | "info"
+        | "evento"
+        | "cierre_servicio"
+        | "convocatoria"
+        | "cierre"
+        | "urgente"
       tipo_documento:
         | "DNI"
         | "NIE"
@@ -2049,6 +2102,14 @@ export const Constants = {
         "jubilado",
         "incapacidad_permanente",
         "sin_permiso_trabajo",
+      ],
+      tipo_announcement: [
+        "info",
+        "evento",
+        "cierre_servicio",
+        "convocatoria",
+        "cierre",
+        "urgente",
       ],
       tipo_documento: [
         "DNI",

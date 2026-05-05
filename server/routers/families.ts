@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { router, adminProcedure, protectedProcedure, superadminProcedure } from "../_core/trpc";
 import { createAdminClient } from "../../client/src/lib/supabase/server";
 import { logProcedureAction, logProcedureError } from "../_core/logging-middleware";
+import type { TrpcContext } from "../_core/context";
 import type { Database } from "../../client/src/lib/database.types";
 import { generateFamiliesCSV, type ExportMode } from "../csvExport";
 import { validateFamiliesCSV, parseFamiliesCSV } from "../csvImport";
@@ -131,6 +132,64 @@ const FamilyMemberSchema = z.object({
   documento: z.string().optional(),
   person_id: uuidLike.optional(),
 });
+
+// Normalize input parentesco/relacion to a value the familia_miembros.relacion
+// CHECK constraint accepts. As of migration 20260505000003 the constraint
+// accepts both English vocab (parent/child/sibling/other) and Spanish
+// parentesco vocab (esposo_a, hijo_a, madre, padre, suegro_a, hermano_a,
+// abuelo_a, otro). Pass-through for known values; unknown -> 'other'.
+const VALID_RELACION_VALUES = new Set([
+  "parent", "child", "sibling", "other",
+  "esposo_a", "hijo_a", "madre", "padre",
+  "suegro_a", "hermano_a", "abuelo_a", "otro",
+]);
+
+export function mapParentescoToRelacion(parentesco?: string | null): string {
+  if (parentesco && VALID_RELACION_VALUES.has(parentesco)) {
+    return parentesco;
+  }
+  return "other";
+}
+
+// Mirror family members from JSON write paths into the relational
+// familia_miembros table so families.getById (table-based) sees them.
+// Logs but does not throw on failure: JSON column is the source-of-truth
+// backup until Phase 5.1 cleanup drops it.
+export type MirrorMember = {
+  nombre: string;
+  apellidos: string;
+  fecha_nacimiento?: string | null;
+  documento?: string | null;
+  person_id?: string | null;
+  parentesco?: string | null;
+};
+
+export async function mirrorMembersToTable(
+  db: ReturnType<typeof createAdminClient>,
+  ctx: TrpcContext,
+  familyId: string,
+  miembros: MirrorMember[]
+): Promise<void> {
+  if (miembros.length === 0) return;
+  const rows = miembros.map((m) => ({
+    familia_id: familyId,
+    nombre: m.nombre,
+    apellidos: m.apellidos,
+    fecha_nacimiento: m.fecha_nacimiento ?? null,
+    documento: m.documento ?? null,
+    person_id: m.person_id ?? null,
+    rol: "dependent" as const,
+    relacion: mapParentescoToRelacion(m.parentesco),
+    estado: "activo" as const,
+  }));
+  const { error } = await db.from("familia_miembros").insert(rows);
+  if (error) {
+    logProcedureError(ctx, "Failed to mirror members to familia_miembros", error as unknown as Error, {
+      familyId,
+      numMiembros: miembros.length,
+    });
+  }
+}
 
 const DeactivateFamilyInputSchema = z
   .object({
@@ -345,6 +404,9 @@ export const familiesRouter = router({
           .update({ miembros: resolvedMiembros })
           .eq("id", family.id);
       }
+
+      // Mirror to familia_miembros so families.getById (table-based reads) sees them.
+      await mirrorMembersToTable(db, ctx, family.id, resolvedMiembros);
 
       return family;
     }),
@@ -959,7 +1021,7 @@ export const familiesRouter = router({
         member: FamilyMemberSchema,
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const db = createAdminClient();
 
       // Fetch current family to get existing miembros array.
@@ -984,6 +1046,9 @@ export const familiesRouter = router({
       const newMember = { ...input.member, person_id: personId };
       const updatedMiembros = [...miembros, newMember] as unknown as Database["public"]["Tables"]["families"]["Update"]["miembros"];
       await db.from("families").update({ miembros: updatedMiembros }).eq("id", input.family_id);
+
+      // Mirror to familia_miembros so families.getById (table-based reads) sees this new member.
+      await mirrorMembersToTable(db, ctx, input.family_id, [newMember]);
 
       return { person_id: personId, member_index: nextIndex };
     }),

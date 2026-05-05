@@ -14,6 +14,7 @@ import { createAdminClient } from "../../client/src/lib/supabase/server";
 import { protectedProcedure, router } from "../_core/trpc";
 import { storagePut } from "../storage";
 import { logProcedureAction, logProcedureError } from "../_core/logging-middleware";
+import { mirrorMembersToTable } from "./families";
 
 // ─── Input schemas (mirrors PersonCreateSchema from client) ───────────────────
 // We re-define here to keep server code independent of client Vite aliases.
@@ -430,7 +431,7 @@ export const personsRouter = router({
       numAdultos: z.number().int().min(1).default(1),
       numMenores: z.number().int().min(0).default(0),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const supabase = createAdminClient();
       const { data, error } = await supabase
         .from("families")
@@ -451,6 +452,12 @@ export const personsRouter = router({
           message: `Error al crear familia: ${error.message}`,
         });
       }
+
+      // Mirror to familia_miembros so families.getById (table-based reads) sees them.
+      // Note: this schema's `apellidos` is required but `parentesco` is freeform string|null;
+      // mirror helper handles null parentesco by mapping to 'other'.
+      await mirrorMembersToTable(supabase, ctx, data.id, input.miembros);
+
       return data;
     }),
 
