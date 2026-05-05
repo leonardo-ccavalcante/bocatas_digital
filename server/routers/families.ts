@@ -191,6 +191,40 @@ export async function mirrorMembersToTable(
   }
 }
 
+// Insert a row into `families` with shared error handling. Two procedures use this:
+// families.create (full intake payload, adminProcedure) and persons.createFamily
+// (minimal payload, protectedProcedure). Both want the 23505 -> CONFLICT mapping.
+type FamiliesInsertPayload = Database["public"]["Tables"]["families"]["Insert"];
+type FamiliesRow = Database["public"]["Tables"]["families"]["Row"];
+
+export async function insertFamilyRow(
+  db: ReturnType<typeof createAdminClient>,
+  ctx: TrpcContext,
+  payload: FamiliesInsertPayload,
+  logMetadata?: Record<string, unknown>
+): Promise<FamiliesRow> {
+  const { data, error } = await db.from("families").insert([payload]).select().single();
+  if (error || !data) {
+    logProcedureError(
+      ctx,
+      "Failed to create family row",
+      (error ?? new Error("Unknown error")) as Error,
+      logMetadata
+    );
+    if (error?.code === "23505") {
+      throw new TRPCError({
+        code: "CONFLICT",
+        message: "Esta persona ya es titular de una familia activa",
+      });
+    }
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: error?.message ?? "Failed to create family",
+    });
+  }
+  return data;
+}
+
 const DeactivateFamilyInputSchema = z
   .object({
     id: z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i),
@@ -329,9 +363,10 @@ export const familiesRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = createAdminClient();
       const startTime = Date.now();
-      const { data: family, error: familyError } = await db
-        .from("families")
-        .insert({
+      const family = await insertFamilyRow(
+        db,
+        ctx,
+        {
           titular_id: input.titular_id,
           miembros: input.miembros,
           num_adultos: input.num_adultos,
@@ -346,23 +381,9 @@ export const familiesRouter = router({
           justificante_recibido: input.justificante_recibido,
           informe_social: input.informe_social,
           informe_social_fecha: input.informe_social_fecha ?? null,
-        })
-        .select()
-        .single();
-
-      if (familyError) {
-        logProcedureError(ctx, 'Failed to create family', familyError as Error, {
-          titularId: input.titular_id,
-          numMiembros: input.miembros.length,
-        });
-        if (familyError.code === "23505") {
-          throw new TRPCError({
-            code: "CONFLICT",
-            message: "Esta persona ya es titular de una familia activa",
-          });
-        }
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: familyError.message });
-      }
+        },
+        { titularId: input.titular_id, numMiembros: input.miembros.length }
+      );
 
       const duration = Date.now() - startTime;
       logProcedureAction(ctx, 'Family created successfully', {
