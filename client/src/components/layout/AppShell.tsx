@@ -176,6 +176,7 @@ export default function AppShell({ children }: AppShellProps) {
                 src="/bocatas-logo.png"
                 alt="Bocatas"
                 className="w-9 h-9 rounded-full object-cover"
+                decoding="async"
               />
             )}
           </button>
@@ -271,6 +272,7 @@ export default function AppShell({ children }: AppShellProps) {
               src="/bocatas-logo.png"
               alt="Bocatas"
               className="w-9 h-9 rounded-full object-cover shrink-0"
+              decoding="async"
             />
             <span className="font-bold text-base text-[#C41230]">Bocatas Digital</span>
           </button>
@@ -306,6 +308,7 @@ export default function AppShell({ children }: AppShellProps) {
                 src="/bocatas-logo.png"
                 alt="Bocatas"
                 className="w-9 h-9 rounded-full object-cover"
+                decoding="async"
               />
               <span className="font-bold text-base text-[#C41230]">Bocatas Digital</span>
             </div>
