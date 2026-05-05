@@ -200,7 +200,19 @@ const pwa = VitePWA({
   },
 });
 
-const plugins = [react(), tailwindcss(), jsxLocPlugin(), vitePluginManusRuntime(), vitePluginManusDebugCollector(), pwa];
+// React Compiler — opt-in via VITE_REACT_COMPILER=1.
+// Default OFF: ship the flag, flip on after device QA pass. See
+// docs/runbooks/react-compiler-rollout.md for the rollout plan.
+const reactCompilerEnabled = process.env.VITE_REACT_COMPILER === "1";
+const reactPlugin = reactCompilerEnabled
+  ? react({
+      babel: {
+        plugins: [["babel-plugin-react-compiler", {}]],
+      },
+    })
+  : react();
+
+const plugins = [reactPlugin, tailwindcss(), jsxLocPlugin(), vitePluginManusRuntime(), vitePluginManusDebugCollector(), pwa];
 
 export default defineConfig({
   plugins,
