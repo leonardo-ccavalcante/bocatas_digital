@@ -8,4 +8,13 @@ export const ENV = {
   appUrl: process.env.APP_URL ?? "https://bocatasdg-mvcpdsc2.manus.space",
   forgeApiUrl: process.env.BUILT_IN_FORGE_API_URL ?? "",
   forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? "",
+  /**
+   * 256-bit secret used to HMAC-sign QR-code payloads (Phase 6 QA-1A).
+   * Falls back to JWT_SECRET in dev so existing dev environments keep
+   * working without an extra env var; production MUST set this explicitly
+   * via QR_SIGNING_SECRET. See `shared/qr/payload.ts` for usage and
+   * `docs/runbooks/qr-secret-rotation.md` for rotation procedure.
+   */
+  qrSigningSecret:
+    process.env.QR_SIGNING_SECRET ?? process.env.JWT_SECRET ?? "",
 };
