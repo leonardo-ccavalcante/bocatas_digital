@@ -111,6 +111,10 @@ export const bulkImportRouter = router({
       const { data: preview, error: previewErr } = await db
         .from("bulk_import_previews")
         .insert({
+          // Supabase's generated types model parsed_rows (jsonb) as the wide
+          // `Json` union which doesn't accept ParsedBulkRowWithLine[] directly.
+          // Cast through `unknown` is the pragmatic fix; runtime correctness
+          // is guaranteed by validateBulkRow above (line ~95).
           parsed_rows: valid as unknown as never,
           created_by: String(ctx.user.id),
         })
@@ -171,6 +175,9 @@ export const bulkImportRouter = router({
       let error_count = 0;
 
       if (rpcErr) {
+        // Reading back the JSONB column we wrote in previewBulkImport above —
+        // shape was validated by validateBulkRow before insert; cast preserves
+        // that contract. (Same pattern as the insert site at line ~114.)
         const total = (
           preview.parsed_rows as unknown as ParsedBulkRow[]
         ).length;
@@ -191,6 +198,8 @@ export const bulkImportRouter = router({
       created_count = rpcResult?.created_count ?? 0;
       error_count = rpcResult?.error_count ?? 0;
 
+      // Same JSONB-readback as above — shape contract preserved via
+      // validateBulkRow at preview time (this is the second of three sites).
       const parsedRows = (
         preview.parsed_rows as unknown as ParsedBulkRow[]
       ).filter((r) => r.es_urgente);
