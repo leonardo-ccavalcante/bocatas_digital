@@ -178,7 +178,6 @@ export default defineConfig({
           "vendor-query": ["@tanstack/react-query", "@trpc/client", "@trpc/react-query"],
           "vendor-form": ["react-hook-form", "@hookform/resolvers", "zod"],
           "vendor-store": ["zustand"],
-          "vendor-charts": ["recharts"],
           "vendor-date": ["react-day-picker"],
           "vendor-radix-extra": [
             "@radix-ui/react-accordion",
