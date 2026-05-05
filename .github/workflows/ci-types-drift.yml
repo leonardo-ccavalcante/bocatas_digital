@@ -1,0 +1,44 @@
+name: Types Drift Gate
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "supabase/migrations/**"
+      - "client/src/lib/database.types.ts"
+      - ".github/workflows/ci-types-drift.yml"
+
+jobs:
+  types-drift:
+    name: database.types.ts vs supabase migrations
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local Supabase
+        run: supabase start
+
+      - name: Generate types from local schema
+        run: supabase gen types typescript --local > /tmp/types.ts
+
+      - name: Diff against committed types
+        run: |
+          if ! diff -q /tmp/types.ts client/src/lib/database.types.ts; then
+            echo "::error::client/src/lib/database.types.ts is stale vs current migrations."
+            echo "Run locally: supabase gen types typescript --local > client/src/lib/database.types.ts"
+            diff /tmp/types.ts client/src/lib/database.types.ts || true
+            exit 1
+          fi
+          echo "Types match migrations. ✓"
+
+      - name: Stop local Supabase
+        if: always()
+        run: supabase stop --no-backup
