@@ -5,6 +5,32 @@ import { protectedProcedure, router } from "../../_core/trpc";
 import { logProcedureAction, logProcedureError } from "../../_core/logging-middleware";
 import { PersonCreateInput } from "./_shared";
 
+/**
+ * Phase 6 QA-1C — RLS-equivalent column-list gate for `persons.getAll`.
+ *
+ * Manus OAuth users have no Supabase JWT, so RLS policies see them as
+ * anon and we use `createAdminClient()` (service role). To preserve the
+ * RLS guarantee from CLAUDE.md §3 — high-risk fields (`situacion_legal`,
+ * `foto_documento_url`, `recorrido_migratorio`) restricted to
+ * admin/superadmin — we pick the SELECT column list at the tRPC layer
+ * based on the caller's role.
+ *
+ * Exported separately so the gate is unit-testable without a Supabase
+ * mock. The other high-risk fields aren't used in `getAll` today; if
+ * added later, this is the single place to extend.
+ */
+export const PERSONS_GETALL_BASE_COLUMNS =
+  "id, nombre, apellidos, fecha_nacimiento, foto_perfil_url, fase_itinerario, created_at, tipo_documento, numero_documento, fecha_llegada_espana, role";
+
+export const PERSONS_GETALL_ADMIN_COLUMNS =
+  PERSONS_GETALL_BASE_COLUMNS + ", situacion_legal";
+
+export function getAllColumnsForRole(role: string | undefined | null): string {
+  return role === "admin" || role === "superadmin"
+    ? PERSONS_GETALL_ADMIN_COLUMNS
+    : PERSONS_GETALL_BASE_COLUMNS;
+}
+
 export const crudRouter = router({
   /**
    * Create a new person record.
@@ -134,14 +160,16 @@ export const crudRouter = router({
 
   /**
    * Get all persons (admin view).
-   * Uses service role key to bypass RLS.
+   * Uses service role key to bypass RLS — the role gate is enforced at
+   * the tRPC layer via getAllColumnsForRole(ctx.user.role) so high-risk
+   * fields (e.g. situacion_legal) only ship to admin/superadmin callers.
    */
-  getAll: protectedProcedure.query(async () => {
+  getAll: protectedProcedure.query(async ({ ctx }) => {
     const supabase = createAdminClient();
 
     const { data, error } = await supabase
       .from("persons")
-      .select("id, nombre, apellidos, fecha_nacimiento, foto_perfil_url, fase_itinerario, created_at, tipo_documento, numero_documento, situacion_legal, fecha_llegada_espana, role")
+      .select(getAllColumnsForRole(ctx.user.role))
       .is("deleted_at", null)
       .order("nombre");
 
