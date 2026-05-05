@@ -1,38 +1,19 @@
 -- Migration: Migrate family members from families.miembros JSON to familia_miembros table
--- Date: 2026-05-05
--- Purpose: Consolidate members into scalable relational table
-
--- Step 1: Migrate data from families.miembros JSON array to familia_miembros table
--- This inserts all members from the JSON array into the relational table
-INSERT INTO public.familia_miembros (
-  familia_id,
-  nombre,
-  apellidos,
-  fecha_nacimiento,
-  documento,
-  person_id,
-  rol,
-  relacion,
-  estado,
-  created_at,
-  updated_at
-)
-SELECT
-  f.id as familia_id,
-  (member->>'nombre')::text as nombre,
-  (member->>'apellidos')::text as apellidos,
-  (member->>'fecha_nacimiento')::date as fecha_nacimiento,
-  (member->>'documento')::text as documento,
-  (member->>'person_id')::uuid as person_id,
-  COALESCE((member->>'rol')::text, 'dependent') as rol,
-  (member->>'relacion')::text as relacion,
-  COALESCE((member->>'estado')::text, 'activo') as estado,
-  NOW() as created_at,
-  NOW() as updated_at
-FROM public.families f
-CROSS JOIN LATERAL jsonb_array_elements(COALESCE(f.miembros, '[]'::jsonb)) as member
-WHERE f.miembros IS NOT NULL AND jsonb_array_length(COALESCE(f.miembros, '[]'::jsonb)) > 0
-ON CONFLICT DO NOTHING;
+--
+-- DO NOT APPLY. SUPERSEDED by 20260505000001_backfill_familia_miembros_from_json.sql.
+--
+-- This file represents Manus's original intent (b170c05). It was never successfully
+-- applied — the live DB had a separate migration `migrate_miembros_data_v2` insert
+-- the rows ahead of time without apellidos/documento/person_id (which didn't exist
+-- on the table yet). The 20260505000001 migration backfills those rows in place.
+--
+-- The original INSERT below is left commented for historical reference. It would
+-- fail on this DB because (1) the rows already exist and would be duplicated, and
+-- (2) `parentesco` values like 'esposo_a'/'Amigo' violate the relacion CHECK
+-- constraint.
+--
+-- INSERT INTO public.familia_miembros (...)
+-- SELECT ... FROM public.families ...;
 
 -- Step 2: Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_familia_miembros_familia_id 
@@ -44,14 +25,3 @@ CREATE INDEX IF NOT EXISTS idx_familia_miembros_nombre
 CREATE INDEX IF NOT EXISTS idx_familia_miembros_estado 
   ON public.familia_miembros(estado);
 
--- Step 3: Verify migration success
--- This query shows how many members were migrated per family
--- SELECT 
---   f.id,
---   f.familia_numero,
---   COUNT(fm.id) as miembros_migrados,
---   jsonb_array_length(COALESCE(f.miembros, '[]'::jsonb)) as miembros_json_original
--- FROM public.families f
--- LEFT JOIN public.familia_miembros fm ON f.id = fm.familia_id
--- GROUP BY f.id, f.familia_numero, f.miembros
--- ORDER BY f.familia_numero;

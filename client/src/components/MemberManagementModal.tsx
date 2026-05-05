@@ -77,11 +77,19 @@ export function MemberManagementModal({
   const members = propMiembros ?? [];
   const isLoading = false;
 
+  // Invalidate the parent families.getById query so the modal list reflects
+  // mutations without requiring the user to close + reopen.
+  const utils = trpc.useUtils();
+  const invalidateFamily = () => {
+    void utils.families.getById.invalidate({ id: familiaId });
+  };
+
   // Mutations
   const addMemberMutation = (trpc.families as any).addMember.useMutation({
     onSuccess: () => {
       toast.success("Miembro agregado exitosamente");
       resetForm();
+      invalidateFamily();
     },
     onError: (error: any) => {
       toast.error(error.message || "No se pudo agregar el miembro");
@@ -92,6 +100,7 @@ export function MemberManagementModal({
     onSuccess: () => {
       toast.success("Miembro actualizado");
       resetForm();
+      invalidateFamily();
     },
     onError: (error: any) => {
       toast.error(error.message || "No se pudo actualizar el miembro");
@@ -101,6 +110,7 @@ export function MemberManagementModal({
   const deleteMemberMutation = (trpc.families as any).deleteMember.useMutation({
     onSuccess: () => {
       toast.success("Miembro eliminado");
+      invalidateFamily();
     },
     onError: (error: any) => {
       toast.error(error.message || "No se pudo eliminar el miembro");
