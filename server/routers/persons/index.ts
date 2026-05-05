@@ -9,6 +9,7 @@
  *   family.ts:   createFamily
  *   admin.ts:    updateRole, updateFaseItinerario
  *   history.ts:  getCheckinHistory
+ *   qr.ts:       getQrPayload, getCheckinTarget    (Phase 6 QA-1A)
  */
 
 import { router } from "../../_core/trpc";
@@ -19,6 +20,7 @@ import { photoRouter } from "./photo";
 import { familyRouter } from "./family";
 import { adminRouter } from "./admin";
 import { historyRouter } from "./history";
+import { qrRouter } from "./qr";
 
 export const personsRouter = router({
   create: crudRouter.create,
@@ -34,4 +36,6 @@ export const personsRouter = router({
   updateRole: adminRouter.updateRole,
   updateFaseItinerario: adminRouter.updateFaseItinerario,
   getCheckinHistory: historyRouter.getCheckinHistory,
+  getQrPayload: qrRouter.getQrPayload,
+  getCheckinTarget: qrRouter.getCheckinTarget,
 });
