@@ -21,7 +21,7 @@ export const crudRouter = router({
     .query(async ({ input }) => {
       try {
         const db = createAdminClient();
-        let query = (db as any)
+        let query = db
           .from("deliveries")
           .select("*", { count: "exact" })
           .is("deleted_at", null);
@@ -62,7 +62,7 @@ export const crudRouter = router({
     .query(async ({ input }) => {
       try {
         const db = createAdminClient();
-        const { data, error } = await (db as any)
+        const { data, error } = await db
           .from("deliveries")
           .select("*")
           .eq("id", input.id)
@@ -103,7 +103,7 @@ export const crudRouter = router({
     .mutation(async ({ input, ctx }) => {
       try {
         const db = createAdminClient();
-        const { data, error } = await (db as any)
+        const { data, error } = await db
           .from("deliveries")
           .insert([{
             family_id: input.family_id,
@@ -156,7 +156,7 @@ export const crudRouter = router({
     .mutation(async ({ input }) => {
       try {
         const db = createAdminClient();
-        const { data, error } = await (db as any)
+        const { data, error } = await db
           .from("deliveries")
           .update({ ...input.updates, updated_at: new Date().toISOString() })
           .eq("id", input.id)
@@ -181,7 +181,7 @@ export const crudRouter = router({
     .mutation(async ({ input }) => {
       try {
         const db = createAdminClient();
-        const { error } = await (db as any)
+        const { error } = await db
           .from("deliveries")
           .update({ deleted_at: new Date().toISOString() })
           .eq("id", input.id);
