@@ -1,61 +1,34 @@
 /**
- * MiQR.tsx — Beneficiario QR code page.
+ * MiQR.tsx — beneficiary's own QR page (Phase 6 QA-1B stub).
  *
- * Root cause of previous bug: the useEffect was drawing a fake canvas pattern
- * (hash-based pixel grid) that looked like a QR but was NOT a real QR code —
- * no QR reader could decode it.
+ * Pre-QA-1B this page generated a QR from `user.openId` (Manus OAuth ID).
+ * The check-in scanner expects a Supabase `persons.id` UUID and extracts
+ * via regex `[0-9a-f]{8}-[0-9a-f]{4}-...`. Manus openId is not UUID-shaped,
+ * so the generated QR was never scannable. This was a latent functional
+ * bug (F-002 in the Phase 6 audit, paired with the F-001 PII leak).
  *
- * Fix: use the `qrcode` npm package (already installed) to generate a real,
- * standards-compliant QR code on the canvas element. The QR payload is the
- * user's openId, matching what QRScanner expects.
+ * The proper fix requires linking the Manus auth user to a Supabase
+ * `persons` row (a `persons.auth_open_id` column + backfill, or a session-
+ * level join table). That's a schema + data-migration change that needs:
+ *   - legal review (which Manus user identifies which person row?)
+ *   - Schema-Agent ownership per CLAUDE.md §2 swim lanes
+ *   - Stakeholder confirmation that beneficiaries actually use this page
+ *     today (in Gate 1 the operator-driven flow is dominant)
+ *
+ * Until that lands, render a friendly "no disponible aún" message instead
+ * of a broken QR. This stops the production bug (PII-leaking + non-
+ * scannable QR) without shipping unverified architecture.
+ *
+ * Tracking: see docs/superpowers/findings/2026-05-06-consolidated.md F-002.
  */
-import { useEffect, useRef } from "react";
-import QRCode from "qrcode";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { QrCode, Download, Info, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { QrCode, Info } from "lucide-react";
+import { Link } from "wouter";
 
 export default function MiQR() {
   const { user } = useAuth();
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isGenerating, setIsGenerating] = useState(true);
-  const [genError, setGenError] = useState<string | null>(null);
-
-  // The QR payload — must match what QRScanner decodes and CheckIn processes
-  const qrPayload = user?.openId ?? "";
-
-  useEffect(() => {
-    if (!qrPayload || !canvasRef.current) return;
-
-    setIsGenerating(true);
-    setGenError(null);
-
-    QRCode.toCanvas(canvasRef.current, qrPayload, {
-      width: 240,
-      margin: 2,
-      color: {
-        dark: "#1A1A1A",
-        light: "#FFFFFF",
-      },
-      errorCorrectionLevel: "M",
-    })
-      .then(() => setIsGenerating(false))
-      .catch((err: Error) => {
-        setGenError(`Error al generar el QR: ${err.message}`);
-        setIsGenerating(false);
-      });
-  }, [qrPayload]);
-
-  const handleDownload = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const link = document.createElement("a");
-    link.download = `bocatas-qr-${user?.name?.replace(/\s+/g, "-").toLowerCase() ?? "mi-qr"}.png`;
-    link.href = canvas.toDataURL("image/png");
-    link.click();
-  };
 
   return (
     <div className="p-5 md:p-8 max-w-md mx-auto">
@@ -65,65 +38,35 @@ export default function MiQR() {
         </div>
         <h1 className="text-2xl font-bold text-foreground">Mi código QR</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Muestra este código al voluntario para registrar tu asistencia
+          {user?.name ? `Hola, ${user.name}.` : "Tu código personal."}
         </p>
       </header>
 
-      <Card className="mb-4">
+      <Card className="mb-4 border-amber-200 bg-amber-50">
         <CardHeader>
-          <CardTitle className="text-base text-center">{user?.name ?? "Mi QR"}</CardTitle>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Info className="h-4 w-4 text-amber-700" aria-hidden="true" />
+            <span>Aún no disponible</span>
+          </CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col items-center gap-4">
-          {/* QR Canvas */}
-          <div className="relative p-4 bg-white rounded-2xl border-2 border-[#C41230]/20 shadow-inner">
-            {isGenerating && (
-              <div className="absolute inset-0 flex items-center justify-center bg-white/80 rounded-2xl">
-                <Loader2 className="h-6 w-6 animate-spin text-[#C41230]" />
-              </div>
-            )}
-            {genError ? (
-              <div className="w-[200px] h-[200px] flex items-center justify-center text-center text-sm text-destructive p-4">
-                {genError}
-              </div>
-            ) : (
-              <canvas
-                ref={canvasRef}
-                className="block"
-                style={{ imageRendering: "pixelated", width: 200, height: 200 }}
-                aria-label={`Código QR de ${user?.name}`}
-              />
-            )}
-          </div>
-
-          {/* ID display */}
-          <div className="text-center w-full">
-            <p className="text-xs text-muted-foreground font-mono bg-muted rounded-lg px-3 py-1.5 break-all">
-              {qrPayload || "—"}
-            </p>
-          </div>
-
-          {/* Download button */}
-          <Button
-            variant="outline"
-            className="w-full gap-2"
-            onClick={handleDownload}
-            disabled={isGenerating || !!genError}
-          >
-            <Download className="h-4 w-4" />
-            Descargar QR
-          </Button>
-        </CardContent>
-      </Card>
-
-      {/* Info card */}
-      <Card className="border-blue-200 bg-blue-50">
-        <CardContent className="py-4 flex gap-3">
-          <Info className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
-          <p className="text-sm text-blue-800">
-            Guarda una captura de pantalla de tu QR para usarlo sin conexión a internet.
+        <CardContent className="space-y-3 text-sm text-amber-900">
+          <p>
+            Estamos preparando tu código QR personal. Mientras tanto, si vienes
+            al comedor un voluntario te registrará con tu nombre — el servicio
+            funciona igual.
+          </p>
+          <p className="text-xs text-amber-800">
+            Cuando esté listo, tu QR aparecerá aquí y podrás guardarlo en el
+            móvil para usarlo sin conexión.
           </p>
         </CardContent>
       </Card>
+
+      <div className="text-center">
+        <Link href="/inicio">
+          <Button variant="outline">Volver al inicio</Button>
+        </Link>
+      </div>
     </div>
   );
 }

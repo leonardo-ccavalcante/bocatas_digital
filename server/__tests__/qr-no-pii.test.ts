@@ -19,8 +19,23 @@ import * as path from "node:path";
 
 const ROOT = path.resolve(__dirname, "..", "..");
 
+/**
+ * Files that ARE allowed to generate a QR. They must use the canonical
+ * server-signed payload via `persons.getQrPayload` and must never embed
+ * PII column references in a QR `JSON.stringify` / payload assignment.
+ *
+ * MiQR.tsx was a QR generator pre-QA-1B. It now stubs the page (the
+ * Manus-openId ↔ persons.id mapping is unfinished — see F-002 in
+ * docs/superpowers/findings/2026-05-06-consolidated.md). It is therefore
+ * checked separately below: it must NOT call QRCode.toCanvas at all
+ * until the mapping fix lands.
+ */
 const QR_GENERATION_FILES = [
   "client/src/features/persons/components/QRCodeCard.tsx",
+];
+
+const FORBIDDEN_QR_GENERATION_FILES = [
+  // QR generation here is forbidden until F-002 is fixed (post-QA-1B).
   "client/src/pages/MiQR.tsx",
 ];
 
@@ -40,6 +55,20 @@ const PII_COLUMN_NAMES = [
 ];
 
 describe("QR generation must contain zero PII (CLAUDE.md guard-rail + Phase 6 F-001)", () => {
+  for (const relPath of FORBIDDEN_QR_GENERATION_FILES) {
+    it(`${relPath}: no QRCode.toCanvas calls allowed (stub for F-002)`, () => {
+      const fullPath = path.join(ROOT, relPath);
+      const src = fs.readFileSync(fullPath, "utf-8");
+      const toCanvasCalls = src.match(/QRCode\.toCanvas\(/g) ?? [];
+      expect(
+        toCanvasCalls.length,
+        `${relPath} must remain a stub (no QR generation) until F-002 ` +
+          "openId ↔ persons.id mapping lands. Currently has " +
+          `${toCanvasCalls.length} QR generation call(s).`
+      ).toBe(0);
+    });
+  }
+
   for (const relPath of QR_GENERATION_FILES) {
     it(`${relPath}: no PII keys in QR.toCanvas/toDataURL payload`, () => {
       const fullPath = path.join(ROOT, relPath);
