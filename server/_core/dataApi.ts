@@ -20,8 +20,14 @@ export async function callDataApi(
   if (!ENV.forgeApiUrl) {
     throw new Error("BUILT_IN_FORGE_API_URL is not configured");
   }
-  if (!ENV.forgeApiKey) {
-    throw new Error("BUILT_IN_FORGE_API_KEY is not configured");
+  // QA-4 (F-201): require a non-trivial token. A truncated or
+  // accidentally-empty Bearer token would otherwise hit the wire and
+  // (a) leak debug info via the 401 response body, (b) waste a roundtrip,
+  // (c) potentially open a timing-channel where an attacker varies the
+  // token length and measures latency. 20 chars is a conservative floor
+  // for any real Forge key shape.
+  if (!ENV.forgeApiKey || ENV.forgeApiKey.length < 20) {
+    throw new Error("BUILT_IN_FORGE_API_KEY is not configured (or is malformed)");
   }
 
   // Build the full URL by appending the service path to the base URL
