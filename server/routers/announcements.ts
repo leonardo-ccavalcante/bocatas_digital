@@ -971,9 +971,13 @@ export const announcementsRouter = router({
   /**
    * previewBulkImport — parse CSV, validate rows, stash in bulk_import_previews.
    * Returns valid_count, per-row errors, and a preview_token (UUID).
+   *
+   * Hard cap at 10000 data rows to match the DB-side CHECK constraint
+   * `bulk_import_previews_parsed_rows_max` (migration 20260506000008).
+   * Above that, operators split the import.
    */
   previewBulkImport: adminProcedure
-    .input(z.object({ csv: z.string().min(1) }))
+    .input(z.object({ csv: z.string().min(1).max(10_000_000) }))
     .mutation(async ({ input, ctx }) => {
       const db = createAdminClient();
 
@@ -981,6 +985,19 @@ export const announcementsRouter = router({
         .replace(/\r\n/g, "\n")
         .replace(/\r/g, "\n")
         .split("\n");
+
+      const MAX_BULK_ROWS = 10000;
+      // Header (line 0) + N data rows. Reject early if N > MAX_BULK_ROWS — the DB
+      // CHECK constraint would refuse the insert at the end anyway, but failing
+      // here gives the operator a clear, actionable message before doing all the
+      // per-row validation work.
+      const dataLineCount = lines.length - 1;
+      if (dataLineCount > MAX_BULK_ROWS) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `El CSV tiene ${dataLineCount} filas de datos; el máximo por importación es ${MAX_BULK_ROWS}. Divide el archivo en lotes más pequeños.`,
+        });
+      }
 
       // Expect header on line 0.
       const EXPECTED_HEADERS = [
