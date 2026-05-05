@@ -201,6 +201,8 @@ export function DocumentCaptureInline({ onExtracted }: DocumentCaptureInlineProp
           src={previewUrl}
           alt="Vista previa del documento"
           className="w-full rounded-lg object-contain max-h-48"
+          loading="lazy"
+          decoding="async"
         />
         {errorMsg && (
           <div className="flex items-start gap-2 rounded-md bg-destructive/10 p-2 text-xs text-destructive">

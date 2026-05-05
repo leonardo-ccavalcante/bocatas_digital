@@ -34,6 +34,8 @@ export function Step6Foto({
               src={profilePhotoPreview}
               alt="Vista previa"
               className="h-36 w-36 rounded-full object-cover mx-auto border-2 border-primary"
+              loading="lazy"
+              decoding="async"
             />
             <div className="flex gap-2 justify-center">
               <Button type="button" size="sm" variant="outline"
