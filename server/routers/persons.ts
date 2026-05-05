@@ -438,7 +438,8 @@ export const personsRouter = router({
         ctx,
         {
           titular_id: input.titularId,
-          miembros: input.miembros,
+          // miembros JSON column was dropped (migration 20260505000005);
+          // members live in familia_miembros — written below.
           num_miembros: input.numAdultos + input.numMenores,
           num_adultos: input.numAdultos,
           num_menores_18: input.numMenores,
@@ -447,7 +448,7 @@ export const personsRouter = router({
         { titularId: input.titularId, numMiembros: input.miembros.length }
       );
 
-      // Mirror to familia_miembros so families.getById (table-based reads) sees them.
+      // Members live in familia_miembros — table is the canonical store.
       await mirrorMembersToTable(supabase, ctx, data.id, input.miembros);
 
       return { id: data.id, familia_numero: data.familia_numero };

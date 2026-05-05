@@ -775,6 +775,7 @@ export type Database = {
         Row: {
           apellidos: string | null
           created_at: string | null
+          deleted_at: string | null
           documentacion_id: string | null
           documento: string | null
           estado: string | null
@@ -790,6 +791,7 @@ export type Database = {
         Insert: {
           apellidos?: string | null
           created_at?: string | null
+          deleted_at?: string | null
           documentacion_id?: string | null
           documento?: string | null
           estado?: string | null
@@ -805,6 +807,7 @@ export type Database = {
         Update: {
           apellidos?: string | null
           created_at?: string | null
+          deleted_at?: string | null
           documentacion_id?: string | null
           documento?: string | null
           estado?: string | null
@@ -871,7 +874,6 @@ export type Database = {
           informe_social_fecha: string | null
           justificante_recibido: boolean | null
           metadata: Json | null
-          miembros: Json | null
           motivo_baja: Database["public"]["Enums"]["motivo_baja_familia"] | null
           num_adultos: number | null
           num_menores_18: number | null
@@ -905,7 +907,6 @@ export type Database = {
           informe_social_fecha?: string | null
           justificante_recibido?: boolean | null
           metadata?: Json | null
-          miembros?: Json | null
           motivo_baja?:
             | Database["public"]["Enums"]["motivo_baja_familia"]
             | null
@@ -941,7 +942,6 @@ export type Database = {
           informe_social_fecha?: string | null
           justificante_recibido?: boolean | null
           metadata?: Json | null
-          miembros?: Json | null
           motivo_baja?:
             | Database["public"]["Enums"]["motivo_baja_familia"]
             | null
@@ -971,6 +971,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      families_miembros_backup_20260505: {
+        Row: {
+          backup_taken_at: string | null
+          id: string | null
+          miembros: Json | null
+        }
+        Insert: {
+          backup_taken_at?: string | null
+          id?: string | null
+          miembros?: Json | null
+        }
+        Update: {
+          backup_taken_at?: string | null
+          id?: string | null
+          miembros?: Json | null
+        }
+        Relationships: []
       }
       families_pre_backfill_20260430: {
         Row: {
@@ -1012,6 +1030,7 @@ export type Database = {
           fecha_upload: string | null
           id: string
           is_current: boolean
+          member_id: string | null
           member_index: number
           member_person_id: string | null
           verified_by: string | null
@@ -1025,6 +1044,7 @@ export type Database = {
           fecha_upload?: string | null
           id?: string
           is_current?: boolean
+          member_id?: string | null
           member_index: number
           member_person_id?: string | null
           verified_by?: string | null
@@ -1038,6 +1058,7 @@ export type Database = {
           fecha_upload?: string | null
           id?: string
           is_current?: boolean
+          member_id?: string | null
           member_index?: number
           member_person_id?: string | null
           verified_by?: string | null
@@ -1048,6 +1069,13 @@ export type Database = {
             columns: ["family_id"]
             isOneToOne: false
             referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "family_member_documents_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "familia_miembros"
             referencedColumns: ["id"]
           },
           {
@@ -1784,6 +1812,7 @@ export type Database = {
           fecha_upload: string | null
           id: string
           is_current: boolean
+          member_id: string | null
           member_index: number
           member_person_id: string | null
           verified_by: string | null
