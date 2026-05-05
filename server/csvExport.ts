@@ -111,6 +111,9 @@ export function generateFamiliesCSV(families: Family[], mode: ExportMode): strin
       .map((field) => {
         // Map 'id' field to familia_id for clarity in CSV
         const fieldKey = field === 'id' ? 'id' : field;
+        // Dynamic field access on a Supabase row whose keys are bounded by
+        // EXPORT_FIELDS[mode]; widening to Record<string, unknown> is safe
+        // because every entry in EXPORT_FIELDS is a column name on `families`.
         const value = (family as unknown as Record<string, unknown>)[fieldKey];
         return escapeCSVField(value);
       })

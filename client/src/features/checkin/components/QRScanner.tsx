@@ -25,7 +25,12 @@ export function QRScanner({ onDecoded, onCancel, isDemoMode = false }: QRScanner
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  // Phase 6 QA-2 (F-202): split into two refs — raf IDs are number, setTimeout
+  // returns number in browser DOM but `NodeJS.Timeout` in Node typings. Conflating
+  // them via `as unknown as number` masked a real type-safety hole. Each ref now
+  // holds the platform-correct shape and is cleared via the matching API.
   const rafRef = useRef<number | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasDecodedRef = useRef(false);
   // Use ref for callbacks to avoid stale closures and prevent scan loop restarts on parent re-renders
   const onDecodedRef = useRef(onDecoded);
@@ -64,17 +69,21 @@ export function QRScanner({ onDecoded, onCancel, isDemoMode = false }: QRScanner
         return;
       }
 
-    // Schedule next frame (~10fps)
-    rafRef.current = setTimeout(() => {
+    // Schedule next frame (~10fps) — store timeout in timeoutRef, schedule
+    // raf inside the callback and store its handle in rafRef.
+    timeoutRef.current = setTimeout(() => {
       rafRef.current = requestAnimationFrame(scanFrame);
-    }, 100) as unknown as number;
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    }, 100);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- intentionally empty: refs are mutable cells, no closure issues
 
   const stopCamera = useCallback(() => {
     if (rafRef.current !== null) {
-      cancelAnimationFrame(rafRef.current as number);
-      clearTimeout(rafRef.current as unknown as number);
+      cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
+    }
+    if (timeoutRef.current !== null) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
     }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop());

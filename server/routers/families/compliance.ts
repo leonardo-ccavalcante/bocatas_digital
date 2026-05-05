@@ -163,7 +163,10 @@ export const complianceRouter = router({
             member_name: titularName,
             parentesco: "familia",
             person_id: titular?.id ?? null,
-            missing: familyMissingDocs as unknown as string[],
+            // ReadonlyArray<FamilyDocType> → string[] via spread (no cast needed):
+            // FamilyDocType is a string-literal union, so each element is structurally
+            // a string. Spread also strips the Readonly to satisfy the target string[].
+            missing: [...familyMissingDocs],
             days_pending: daysPending,
           });
         }
@@ -225,7 +228,8 @@ export const complianceRouter = router({
               member_name: `${member.nombre} ${member.apellidos ?? ""}`.trim(),
               parentesco: member.parentesco,
               person_id: member.person_id,
-              missing: missingDocs as unknown as string[],
+              // Same justification as above: ReadonlyArray<FamilyDocType> → string[] via spread.
+              missing: [...missingDocs],
               days_pending: daysPending,
             });
           }

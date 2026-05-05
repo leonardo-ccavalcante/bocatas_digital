@@ -17,6 +17,8 @@ export default defineConfig({
     include: [
       "server/**/*.test.ts",
       "server/**/*.spec.ts",
+      "shared/**/*.test.ts",
+      "shared/**/*.spec.ts",
       "client/src/features/**/__tests__/*.test.ts",
       "client/src/features/**/__tests__/*.spec.ts",
       "client/src/components/**/__tests__/*.test.ts",
