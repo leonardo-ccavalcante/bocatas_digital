@@ -259,7 +259,16 @@ export const checkinRouter = router({
 
   /**
    * syncOfflineQueue — idempotent batch insert for offline queue flush.
-   * 23505 (unique_violation) is treated as success (already synced).
+   *
+   * Phase 6 QA-7A (F-005, CRITICAL): pre-fix this looped over `input` and
+   * awaited one INSERT per item — 50–250ms hangs on a 10–50-item flush at
+   * end-of-shift. Now: single `.upsert(..., { ignoreDuplicates: true })`
+   * call. Latency ~1 round-trip regardless of batch size.
+   *
+   * 23505 unique-constraint violations are silently absorbed by
+   * ignoreDuplicates. We mirror the old per-item return shape by
+   * comparing each input's composite key against the rows the DB
+   * actually inserted (returned in `data`).
    */
   syncOfflineQueue: protectedProcedure
     .input(
@@ -276,22 +285,58 @@ export const checkinRouter = router({
       )
     )
     .mutation(async ({ input }) => {
+      if (input.length === 0) return [];
       const supabase = createAdminClient();
-      const results: Array<{ clientId: string; status: "synced" | "duplicate" | "error"; error?: string }> = [];
-      for (const item of input) {
-        const { error } = await supabase.from("attendances").insert({
-          person_id: item.personId,
-          location_id: item.locationId,
-          programa: item.programa,
-          metodo: item.metodo,
-          es_demo: item.isDemoMode,
-        });
-        if (!error || error.code === "23505") {
-          results.push({ clientId: item.clientId, status: error?.code === "23505" ? "duplicate" : "synced" });
-        } else {
-          results.push({ clientId: item.clientId, status: "error", error: error.message });
-        }
+
+      // Pin the date server-side so the result-mapping key matches what
+      // the unique constraint sees. Anonymous (person_id null) check-ins
+      // bypass the partial unique index → always insert (no key collision).
+      const today = new Date().toISOString().slice(0, 10);
+      const rows = input.map((item) => ({
+        person_id: item.personId,
+        location_id: item.locationId,
+        programa: item.programa,
+        metodo: item.metodo,
+        es_demo: item.isDemoMode,
+        checked_in_date: today,
+      }));
+
+      const { data, error } = await supabase
+        .from("attendances")
+        .upsert(rows, {
+          onConflict: "person_id,location_id,programa,checked_in_date",
+          ignoreDuplicates: true,
+        })
+        .select("person_id, location_id, programa, checked_in_date");
+
+      if (error) {
+        // Whole-batch failure — return all as error so the client can retry.
+        return input.map((item) => ({
+          clientId: item.clientId,
+          status: "error" as const,
+          error: error.message,
+        }));
       }
-      return results;
+
+      // Build a key set of rows the DB actually inserted; anything missing
+      // is a duplicate (or, for anonymous, was always going to insert).
+      const insertedKeys = new Set(
+        (data ?? []).map((r) =>
+          `${r.person_id ?? "anon"}|${r.location_id}|${r.programa}|${r.checked_in_date}`
+        )
+      );
+      // For anonymous rows the unique constraint doesn't apply, so every
+      // anonymous input is "synced" by definition. For non-anon, status is
+      // derived from membership in insertedKeys.
+      return input.map((item) => {
+        if (item.personId === null) {
+          return { clientId: item.clientId, status: "synced" as const };
+        }
+        const key = `${item.personId}|${item.locationId}|${item.programa}|${today}`;
+        return {
+          clientId: item.clientId,
+          status: insertedKeys.has(key) ? ("synced" as const) : ("duplicate" as const),
+        };
+      });
     }),
 });

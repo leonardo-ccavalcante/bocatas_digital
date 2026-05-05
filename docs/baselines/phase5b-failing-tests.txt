@@ -1,0 +1,31 @@
+   × Environment variables > VITE_SUPABASE_URL is set and is a valid URL 3ms
+   × Environment variables > VITE_SUPABASE_ANON_KEY is set and looks like a JWT 0ms
+   × Environment variables > SUPABASE_SERVICE_ROLE_KEY is set 0ms
+   × persons router — updateRole procedure > allows updateRole when user is admin 6ms
+   × persons router — updateRole procedure > allows updateRole when user is superadmin 1ms
+   × persons router — updateRole procedure > accepts updateRole with all valid roles 1ms
+   × persons router — updateFaseItinerario procedure > allows updateFaseItinerario when user is admin 0ms
+   × persons router — updateFaseItinerario procedure > allows updateFaseItinerario when user is superadmin 1ms
+   × persons router — updateFaseItinerario procedure > accepts updateFaseItinerario with all valid fase values 1ms
+   × persons router — document country validation > should warn when Documento_Extranjero lacks pais_documento 4ms
+   × persons router — document country validation > should not warn when Documento_Extranjero has pais_documento 0ms
+   × persons router — document country validation > should not warn for DNI without pais_documento 0ms
+   × Supabase Client Environment Variables (C2 Fix) > createAdminClient > should use process.env.SUPABASE_URL (not VITE_SUPABASE_URL) 42ms
+   × Soft-Delete Schema Audit > identifies all tables with soft-delete requirements 5ms
+   × Soft-Delete Schema Audit > identifies tables missing deleted_at column 0ms
+   × Soft-Delete Schema Audit > verifies deleted_at indexes exist for performance 0ms
+   × Soft-Delete Schema Audit > generates migration SQL for missing columns 0ms
+   × Soft-Delete Recovery Procedures > lists soft-deleted families with metadata 7ms
+   × Soft-Delete Recovery Procedures > lists soft-deleted persons with metadata 0ms
+ FAIL  server/entregas.supabase.test.ts [ server/entregas.supabase.test.ts ]
+ FAIL  server/__tests__/announcements.getall-filtering.test.ts [ server/__tests__/announcements.getall-filtering.test.ts ]
+ FAIL  server/__tests__/announcements.published-expires.test.ts [ server/__tests__/announcements.published-expires.test.ts ]
+ FAIL  server/__tests__/families-getbyid.test.ts > families.getById - miembros array
+ FAIL  server/__tests__/families-getbyid.test.ts > families.getById - miembros array
+ FAIL  server/__tests__/soft-delete-cascade.test.ts > Soft-Delete Cascade Rules
+ FAIL  server/__tests__/soft-delete-cascade.test.ts > Soft-Delete Cascade Rules
+ FAIL  server/bocatas.test.ts > Environment variables > VITE_SUPABASE_URL is set and is a valid URL
+ FAIL  server/bocatas.test.ts > Environment variables > VITE_SUPABASE_ANON_KEY is set and looks like a JWT
+ FAIL  server/bocatas.test.ts > Environment variables > SUPABASE_SERVICE_ROLE_KEY is set
+ FAIL  server/persons.test.ts > persons router — updateRole procedure > allows updateRole when user is admin
+ FAIL  server/persons.test.ts > persons router — updateRole procedure > allows updateRole when user is superadmin
