@@ -152,7 +152,8 @@ function generateFamilyRow(family: Family, mode: ExportMode): string {
   const familyFields = EXPORT_FIELDS[mode].family;
   const memberFields = EXPORT_FIELDS[mode].member;
 
-  // Family data
+  // Family data — dynamic field access bounded by EXPORT_FIELDS[mode].family;
+  // every entry there is a column name on `families`. Widening cast is safe.
   const familyValues = familyFields.map(field => {
     const value = (family as unknown as Record<string, unknown>)[field];
     return escapeCSVField(value);
@@ -171,13 +172,14 @@ function generateMemberRow(family: Family, member: FamilyMember, mode: ExportMod
   const familyFields = EXPORT_FIELDS[mode].family;
   const memberFields = EXPORT_FIELDS[mode].member;
 
-  // Family data (repeated for each member)
+  // Family data (repeated for each member) — see generateFamilyRow for the
+  // safety justification of this dynamic-field cast.
   const familyValues = familyFields.map(field => {
     const value = (family as unknown as Record<string, unknown>)[field];
     return escapeCSVField(value);
   });
 
-  // Member data
+  // Member data — same pattern: keys bounded by EXPORT_FIELDS[mode].member.
   const memberValues = memberFields.map(field => {
     const value = (member as unknown as Record<string, unknown>)[field];
     return escapeCSVField(value);
