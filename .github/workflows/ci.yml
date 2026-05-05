@@ -22,9 +22,11 @@ jobs:
           node-version: "22"
 
       - name: Setup pnpm
+        # No `version` input here — pnpm/action-setup@v4 errors when both
+        # `version` and `package.json#packageManager` are set. The pinned
+        # version (with SHA) lives in package.json; that's the single
+        # source of truth for both CI and local dev. (Phase 6.b CI fix.)
         uses: pnpm/action-setup@v4
-        with:
-          version: 10
 
       - name: Get pnpm store directory
         id: pnpm-cache
