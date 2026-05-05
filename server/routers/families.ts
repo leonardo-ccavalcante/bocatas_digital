@@ -368,7 +368,8 @@ export const familiesRouter = router({
         ctx,
         {
           titular_id: input.titular_id,
-          miembros: input.miembros,
+          // miembros JSON column was dropped (migration 20260505000005);
+          // members live in familia_miembros — written by mirrorMembersToTable below.
           num_adultos: input.num_adultos,
           num_menores_18: input.num_menores_18,
           persona_recoge: input.persona_recoge,
@@ -399,11 +400,11 @@ export const familiesRouter = router({
       await ensureFamiliaEnrollment(db, input.titular_id, input.program_id, family.id, 0);
 
       // Enroll every adult member (≥14 or unknown DOB — treat unknown as adult to be safe).
-      // Also resolve/create person rows for members that have no person_id yet,
-      // then persist the resolved person_id back into families.miembros JSONB.
+      // Resolve/create person rows for members that have no person_id yet so the
+      // mirror INSERT can store a valid person_id FK. JSON write-back is gone —
+      // familia_miembros is now the canonical store.
       const today = new Date();
       const resolvedMiembros = [...input.miembros];
-      let miembrosUpdated = false;
 
       for (let i = 0; i < input.miembros.length; i++) {
         const member = input.miembros[i];
@@ -414,19 +415,10 @@ export const familiesRouter = router({
 
         if (personId !== member.person_id) {
           resolvedMiembros[i] = { ...member, person_id: personId };
-          miembrosUpdated = true;
         }
       }
 
-      // Write resolved person_ids back to families.miembros in one UPDATE.
-      if (miembrosUpdated) {
-        await db
-          .from("families")
-          .update({ miembros: resolvedMiembros })
-          .eq("id", family.id);
-      }
-
-      // Mirror to familia_miembros so families.getById (table-based reads) sees them.
+      // Mirror to familia_miembros — now the canonical store for member rows.
       await mirrorMembersToTable(db, ctx, family.id, resolvedMiembros);
 
       return family;
@@ -643,7 +635,7 @@ export const familiesRouter = router({
       let familiesQuery = db
         .from("families")
         .select(
-          "id, familia_numero, miembros, created_at, persons!titular_id(id, nombre, apellidos, telefono)"
+          "id, familia_numero, created_at, persons!titular_id(id, nombre, apellidos, telefono)"
         )
         .eq("estado", "activa")
         .is("deleted_at", null);
@@ -657,6 +649,21 @@ export const familiesRouter = router({
       if (!families?.length) return [];
 
       const familyIds = families.map((f) => f.id);
+
+      // Fetch all members for these families from familia_miembros in one query,
+      // grouped by familia_id. Replaces the legacy families.miembros JSON read.
+      const { data: allMemberRows = [] } = await db
+        .from("familia_miembros")
+        .select("id, familia_id, nombre, apellidos, person_id, fecha_nacimiento, relacion")
+        .in("familia_id", familyIds)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: true });
+      const membersByFamily = new Map<string, typeof allMemberRows>();
+      for (const m of allMemberRows ?? []) {
+        const list = membersByFamily.get(m.familia_id) ?? [];
+        list.push(m);
+        membersByFamily.set(m.familia_id, list);
+      }
 
       // Fetch all uploaded current docs for these families in a single query.
       // A combination is "uploaded" when: is_current=true, deleted_at IS NULL,
@@ -752,15 +759,15 @@ export const familiesRouter = router({
           });
         }
 
-        const miembros = (family.miembros as Array<Record<string, unknown>>) ?? [];
-        miembros.forEach((m, idx) => {
+        const familyMembers = membersByFamily.get(family.id) ?? [];
+        familyMembers.forEach((m, idx) => {
           allMembers.push({
-            member_index: idx + 1,
-            nombre: (m.nombre as string) ?? "",
-            apellidos: (m.apellidos as string) ?? null,
-            person_id: (m.person_id as string) ?? null,
-            parentesco: (m.parentesco as string) ?? "",
-            fecha_nacimiento: (m.fecha_nacimiento as string) ?? null,
+            member_index: idx + 1, // positional in familia_miembros (created_at order)
+            nombre: m.nombre,
+            apellidos: m.apellidos ?? null,
+            person_id: m.person_id ?? null,
+            parentesco: m.relacion ?? "", // relacion now stores parentesco values
+            fecha_nacimiento: m.fecha_nacimiento ?? null,
           });
         });
 
@@ -1033,7 +1040,7 @@ export const familiesRouter = router({
     }),
 
   /** ADD a new member to family — resolves or creates a persons row for adults (≥14),
-   *  ensures program_enrollments, and appends to families.miembros JSONB. */
+   *  ensures program_enrollments, and inserts into familia_miembros. */
   addMember: adminProcedure
     .input(
       z.object({
@@ -1045,17 +1052,23 @@ export const familiesRouter = router({
     .mutation(async ({ input, ctx }) => {
       const db = createAdminClient();
 
-      // Fetch current family to get existing miembros array.
+      // Verify the family exists and is not soft-deleted.
       const { data: family, error: fetchErr } = await db
         .from("families")
-        .select("miembros")
+        .select("id")
         .eq("id", input.family_id)
         .is("deleted_at", null)
         .single();
       if (fetchErr || !family) throw new TRPCError({ code: "NOT_FOUND" });
 
-      const miembros = (family.miembros as Array<Record<string, unknown>>) ?? [];
-      const nextIndex = miembros.length;
+      // Compute the next positional member_index from familia_miembros count
+      // (replaces the legacy JSON-array-length approach).
+      const { count: existingCount } = await db
+        .from("familia_miembros")
+        .select("id", { count: "exact", head: true })
+        .eq("familia_id", input.family_id)
+        .is("deleted_at", null);
+      const nextIndex = (existingCount ?? 0) + 1;
 
       const personId = await resolveMemberPersonId(db, input.member);
 
@@ -1065,8 +1078,6 @@ export const familiesRouter = router({
       }
 
       const newMember = { ...input.member, person_id: personId };
-      const updatedMiembros = [...miembros, newMember] as unknown as Database["public"]["Tables"]["families"]["Update"]["miembros"];
-      await db.from("families").update({ miembros: updatedMiembros }).eq("id", input.family_id);
 
       // Mirror to familia_miembros so families.getById (table-based reads) sees this new member.
       await mirrorMembersToTable(db, ctx, input.family_id, [newMember]);

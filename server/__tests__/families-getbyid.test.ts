@@ -36,22 +36,12 @@ describe('families.getById - miembros array', () => {
 
     testTitularId = person.id;
 
-    // Create a test family with miembros array
-    const testMiembros = [
-      {
-        nombre: 'Test Member 1',
-        apellidos: 'Member Apellido',
-        fecha_nacimiento: '2010-01-01',
-        documento: 'DOC123',
-        person_id: null,
-      },
-    ];
-
+    // Create a test family (miembros JSON column was dropped — members live in
+    // familia_miembros now)
     const { data: family, error: familyError } = await db
       .from('families')
       .insert({
         titular_id: testTitularId,
-        miembros: testMiembros,
         num_adultos: 1,
         num_menores_18: 1,
         persona_recoge: 'Test Person',
@@ -63,6 +53,20 @@ describe('families.getById - miembros array', () => {
 
     if (familyError || !family) {
       throw new Error(`Failed to create test family: ${familyError?.message}`);
+    }
+
+    // Insert the test member into familia_miembros (canonical store).
+    const { error: memberError } = await db.from('familia_miembros').insert({
+      familia_id: family.id,
+      nombre: 'Test Member 1',
+      apellidos: 'Member Apellido',
+      fecha_nacimiento: '2010-01-01',
+      documento: 'DOC123',
+      rol: 'dependent',
+      estado: 'activo',
+    });
+    if (memberError) {
+      throw new Error(`Failed to create test member: ${memberError.message}`);
     }
 
     testFamilyId = family.id;
@@ -84,29 +88,31 @@ describe('families.getById - miembros array', () => {
   it('should return miembros array when fetching family by id', async () => {
     const db = createAdminClient();
 
-    // This is the exact query from families.getById procedure
+    // Mirror families.getById's two-query shape: family row + familia_miembros rows
     const { data: family, error } = await db
       .from('families')
       .select(
-        `*, persons!titular_id(id, nombre, apellidos, telefono, email, idioma_principal)`
+        `id, persons!titular_id(id, nombre, apellidos, telefono, email, idioma_principal)`
       )
       .eq('id', testFamilyId)
       .is('deleted_at', null)
       .single();
 
-    // Verify no error
     expect(error).toBeNull();
     expect(family).toBeDefined();
 
-    // CRITICAL: miembros array should be returned
-    expect(family?.miembros).toBeDefined();
-    expect(Array.isArray(family?.miembros)).toBe(true);
-    expect((family?.miembros as unknown[])?.length).toBe(1);
+    const { data: miembros, error: miembrosError } = await db
+      .from('familia_miembros')
+      .select('*')
+      .eq('familia_id', testFamilyId)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: true });
 
-    // Verify member data
-    const member = (family?.miembros as unknown[])?.[0] as Record<string, unknown>;
-    expect(member?.nombre).toBe('Test Member 1');
-    expect(member?.apellidos).toBe('Member Apellido');
+    expect(miembrosError).toBeNull();
+    expect(Array.isArray(miembros)).toBe(true);
+    expect(miembros?.length).toBe(1);
+    expect(miembros?.[0]?.nombre).toBe('Test Member 1');
+    expect(miembros?.[0]?.apellidos).toBe('Member Apellido');
   });
 
   it('should have miembros array not null even if empty', async () => {
@@ -128,12 +134,11 @@ describe('families.getById - miembros array', () => {
       throw new Error(`Failed to create second test person: ${personError2?.message}`);
     }
 
-    // Create a family with empty miembros array
+    // Create a family with no member rows in familia_miembros
     const { data: emptyFamily, error: createError } = await db
       .from('families')
       .insert({
         titular_id: person2.id,
-        miembros: [],
         num_adultos: 1,
         num_menores_18: 0,
         persona_recoge: 'Test Person',
@@ -150,22 +155,16 @@ describe('families.getById - miembros array', () => {
     const emptyFamilyId = emptyFamily.id;
 
     try {
-      // Fetch with same query
-      const { data: family, error } = await db
-        .from('families')
-        .select(
-          `*, persons!titular_id(id, nombre, apellidos, telefono, email, idioma_principal)`
-        )
-        .eq('id', emptyFamilyId)
-        .is('deleted_at', null)
-        .single();
+      const { data: miembros, error } = await db
+        .from('familia_miembros')
+        .select('*')
+        .eq('familia_id', emptyFamilyId)
+        .is('deleted_at', null);
 
       expect(error).toBeNull();
-      expect(family?.miembros).toBeDefined();
-      expect(Array.isArray(family?.miembros)).toBe(true);
-      expect((family?.miembros as unknown[])?.length).toBe(0);
+      expect(Array.isArray(miembros)).toBe(true);
+      expect(miembros?.length).toBe(0);
     } finally {
-      // Clean up
       await db.from('families').delete().eq('id', emptyFamilyId);
       await db.from('persons').delete().eq('id', (person2 as any)?.id);
     }
