@@ -1,0 +1,60 @@
+name: Migration Filename Lint
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "supabase/migrations/**"
+      - ".github/workflows/ci-migration-filenames.yml"
+
+jobs:
+  lint:
+    name: Enforce migration filename pattern
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate filenames
+        run: |
+          set -euo pipefail
+
+          # Allowed:
+          #   1. Canonical Supabase pattern: 14-digit timestamp + underscore + name.sql
+          #      e.g. 20260506000001_drop_dead_tables.sql
+          #   2. Re-exported from prod (Phase 1.6): <14-digit version>_<original_name>.sql
+          #      lives under supabase/migrations/EXPORTED/ — same regex applies.
+          #   3. README.md inside EXPORTED/ — explanatory only.
+          #
+          # Rejected:
+          #   - 20260505_xxx.sql (8-digit timestamp; missing time portion)
+          #   - any non-SQL file at the migrations root
+
+          allowed_pattern='^[0-9]{14}_[a-z0-9_]+\.sql$'
+          fail=0
+
+          while IFS= read -r path; do
+            file=$(basename "$path")
+            dir=$(dirname "$path")
+
+            # README.md inside EXPORTED/ is allowed
+            if [[ "$file" == "README.md" && "$dir" == *"/EXPORTED" ]]; then
+              continue
+            fi
+
+            if [[ ! "$file" =~ $allowed_pattern ]]; then
+              echo "::error file=$path::Migration filename '$file' does not match required pattern: ^[0-9]{14}_[a-z0-9_]+\.sql$"
+              fail=1
+            fi
+          done < <(find supabase/migrations -type f -name "*.sql" -o -type f -name "*.md" | sort)
+
+          if [[ "$fail" -eq 1 ]]; then
+            echo ""
+            echo "Naming convention: <YYYYMMDDhhmmss>_<snake_case_description>.sql"
+            echo "Example: 20260506120000_add_index_on_persons_email.sql"
+            exit 1
+          fi
+
+          echo "All migration filenames match the required pattern. ✓"
