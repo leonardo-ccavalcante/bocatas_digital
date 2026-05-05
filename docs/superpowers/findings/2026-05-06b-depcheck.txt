@@ -1,0 +1,23 @@
+Unused dependencies
+* tailwindcss-animate
+Unused devDependencies
+* @tailwindcss/typography
+* @testing-library/jest-dom
+* @testing-library/react
+* @testing-library/user-event
+* @types/google.maps
+* autoprefixer
+* depcheck
+* knip
+* pnpm
+* postcss
+* tailwindcss
+* ts-prune
+* tw-animate-css
+Missing dependencies
+* https:: ./supabase/functions/extract-document/index.ts
+* @shared/const: ./server/routers.ts
+* @shared/familyDocuments: ./server/routers/families/_shared.ts
+* server: ./server/_core/imageGeneration.ts
+* @shared/_core: ./server/_core/sdk.ts
+* @shared/announcementTypes: ./client/src/pages/Novedades.tsx
