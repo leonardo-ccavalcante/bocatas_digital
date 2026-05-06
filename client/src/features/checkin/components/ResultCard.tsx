@@ -14,6 +14,17 @@ interface ResultCardProps {
   onReset: () => void;
 }
 
+// Phase A.2.3 — WCAG 2.1 AA: low-literacy beneficiaries need a non-text
+// announcement. role="status" + aria-live="polite" lets screen readers
+// announce the result; aria-label gives a deterministic spoken phrase.
+const RESULT_ARIA_LABELS: Record<ResultCardProps["stateValue"], string> = {
+  registered: "Check-in registrado correctamente",
+  duplicate: "Persona ya registrada hoy",
+  not_found: "Persona no encontrada",
+  error: "Error al registrar el check-in",
+  offline: "Check-in guardado sin conexión",
+};
+
 const DIETARY_BADGE_COLORS: Record<string, string> = {
   "Sin gluten": "bg-amber-100 text-amber-800 border-amber-300",
   "Vegetariano": "bg-green-100 text-green-800 border-green-300",
@@ -40,7 +51,12 @@ export function ResultCard({ stateValue, context, onReset }: ResultCardProps) {
     : null;
 
   return (
-    <div className="flex flex-col items-center gap-5 py-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
+    <div
+      className="flex flex-col items-center gap-5 py-4 animate-in fade-in slide-in-from-bottom-4 duration-300"
+      role="status"
+      aria-live="polite"
+      aria-label={RESULT_ARIA_LABELS[stateValue]}
+    >
       {/* Icon + Title */}
       {stateValue === "registered" && (
         <>

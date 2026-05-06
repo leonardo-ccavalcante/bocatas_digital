@@ -19,12 +19,30 @@ interface Member {
   familia_id: string;
   nombre: string;
   rol: "head_of_household" | "dependent" | "other";
-  relacion: "parent" | "child" | "sibling" | "other" | null;
+  // English (modal-form vocab) + Spanish parentesco (intake/registration vocab).
+  // Both are accepted by the familia_miembros.relacion CHECK constraint as of
+  // migration 20260505000003.
+  relacion: string | null;
   estado: "activo" | "inactivo";
   fecha_nacimiento: string | null;
   created_at: string;
   updated_at: string;
 }
+
+const RELACION_LABEL_ES: Record<string, string> = {
+  parent: "Padre/Madre",
+  child: "Hijo/Hija",
+  sibling: "Hermano/Hermana",
+  other: "Otro",
+  esposo_a: "Esposo/a",
+  hijo_a: "Hijo/a",
+  madre: "Madre",
+  padre: "Padre",
+  suegro_a: "Suegro/a",
+  hermano_a: "Hermano/a",
+  abuelo_a: "Abuelo/a",
+  otro: "Otro",
+};
 
 interface MemberManagementModalProps {
   familiaId: string;
@@ -43,7 +61,7 @@ export function MemberManagementModal({
   const [formData, setFormData] = useState<{
     nombre: string;
     rol: "head_of_household" | "dependent" | "other";
-    relacion: "parent" | "child" | "sibling" | "other" | "";
+    relacion: string;
     estado: "activo" | "inactivo";
     fechaNacimiento: string;
   }>({
@@ -59,11 +77,19 @@ export function MemberManagementModal({
   const members = propMiembros ?? [];
   const isLoading = false;
 
+  // Invalidate the parent families.getById query so the modal list reflects
+  // mutations without requiring the user to close + reopen.
+  const utils = trpc.useUtils();
+  const invalidateFamily = () => {
+    void utils.families.getById.invalidate({ id: familiaId });
+  };
+
   // Mutations
   const addMemberMutation = (trpc.families as any).addMember.useMutation({
     onSuccess: () => {
       toast.success("Miembro agregado exitosamente");
       resetForm();
+      invalidateFamily();
     },
     onError: (error: any) => {
       toast.error(error.message || "No se pudo agregar el miembro");
@@ -74,6 +100,7 @@ export function MemberManagementModal({
     onSuccess: () => {
       toast.success("Miembro actualizado");
       resetForm();
+      invalidateFamily();
     },
     onError: (error: any) => {
       toast.error(error.message || "No se pudo actualizar el miembro");
@@ -83,6 +110,7 @@ export function MemberManagementModal({
   const deleteMemberMutation = (trpc.families as any).deleteMember.useMutation({
     onSuccess: () => {
       toast.success("Miembro eliminado");
+      invalidateFamily();
     },
     onError: (error: any) => {
       toast.error(error.message || "No se pudo eliminar el miembro");
@@ -284,8 +312,7 @@ export function MemberManagementModal({
                           : member.rol === "dependent"
                             ? "Dependiente"
                             : "Otro"}{" "}
-                        {member.relacion &&
-                          `• ${member.relacion === "parent" ? "Padre/Madre" : member.relacion === "child" ? "Hijo/Hija" : member.relacion === "sibling" ? "Hermano/Hermana" : "Otro"}`}
+                        {member.relacion && `• ${RELACION_LABEL_ES[member.relacion] ?? member.relacion}`}
                       </p>
                       {member.fecha_nacimiento && (
                         <p className="text-xs text-muted-foreground">

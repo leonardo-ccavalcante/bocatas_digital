@@ -83,7 +83,11 @@ export function ExportFamiliesModal({ open, onOpenChange }: ExportFamiliesModalP
                   <div className="pt-3">
                     <RadioGroupItem value={mode} id={mode} />
                   </div>
-                  <div className="flex-1 cursor-pointer" onClick={() => setSelectedMode(mode)}>
+                  {/* QA-6 (F-W2G-03): replace clickable <div> with semantic
+                      <label htmlFor={mode}> — keyboard-focusable, screen-
+                      reader announces as part of the radio group, click
+                      forwards to the matching RadioGroupItem natively. */}
+                  <label htmlFor={mode} className="flex-1 cursor-pointer">
                     <Card className={`cursor-pointer transition hover:shadow-md ${selectedMode === mode ? "ring-2 ring-primary" : ""}`}>
                       <CardHeader className="pb-2">
                         <div className="flex items-start justify-between gap-2">
@@ -94,7 +98,7 @@ export function ExportFamiliesModal({ open, onOpenChange }: ExportFamiliesModalP
                         </div>
                       </CardHeader>
                     </Card>
-                  </div>
+                  </label>
                 </div>
               )
             )}

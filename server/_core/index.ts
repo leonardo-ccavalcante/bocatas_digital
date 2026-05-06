@@ -84,6 +84,10 @@ async function startServer() {
   }
 
   const preferredPort = parseInt(process.env.PORT || "3000");
+  // Override the host shown in the startup banner via DEV_HOST. Defaults to
+  // localhost. Useful when running inside Docker / a dev container where the
+  // host-visible address is not 'localhost' (e.g. docker-compose service name).
+  const displayHost = process.env.DEV_HOST || "localhost";
 
   // In production the PORT env var is authoritative (set by the platform).
   // Silently drifting to a different port would make the container unreachable.
@@ -95,7 +99,7 @@ async function startServer() {
       process.exit(1);
     }
     server.listen(preferredPort, () => {
-      console.log(`Server running on http://localhost:${preferredPort}/`);
+      console.log(`Server running on http://${displayHost}:${preferredPort}/`);
     });
   } else {
     // Development: auto-find next available port for convenience
@@ -104,7 +108,7 @@ async function startServer() {
       console.log(`Port ${preferredPort} is busy, using port ${port} instead`);
     }
     server.listen(port, () => {
-      console.log(`Server running on http://localhost:${port}/`);
+      console.log(`Server running on http://${displayHost}:${port}/`);
     });
   }
 }

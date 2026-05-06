@@ -203,6 +203,8 @@ export const PhotoUploadInput: React.FC<PhotoUploadInputProps> = ({
               src={preview}
               alt="preview"
               className="w-full"
+              loading="lazy"
+              decoding="async"
               style={{
                 transform: `rotate(${rotation}deg)`,
                 transition: 'transform 0.2s ease-in-out',
