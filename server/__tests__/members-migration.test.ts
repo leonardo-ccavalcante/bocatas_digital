@@ -73,6 +73,34 @@ describe('Family Members Migration - TDD', () => {
     }
 
     testFamilyId = family.id;
+
+    // Explicitly insert members into familia_miembros
+    // (no automatic trigger — migration is done by the application layer)
+    const { error: membersError } = await db
+      .from('familia_miembros')
+      .insert([
+        {
+          familia_id: testFamilyId,
+          nombre: 'Member 1',
+          apellidos: 'Apellido 1',
+          fecha_nacimiento: '2010-01-01',
+          documento: 'DOC001',
+          rol: 'dependent',
+          person_id: null,
+        },
+        {
+          familia_id: testFamilyId,
+          nombre: 'Member 2',
+          apellidos: 'Apellido 2',
+          fecha_nacimiento: '2015-06-15',
+          documento: 'DOC002',
+          rol: 'dependent',
+          person_id: null,
+        },
+      ]);
+    if (membersError) {
+      throw new Error(`Failed to insert test members: ${membersError.message}`);
+    }
   });
 
   afterAll(async () => {
@@ -118,7 +146,7 @@ describe('Family Members Migration - TDD', () => {
     // Verify member data
     const member1 = miembros?.[0];
     expect(member1?.nombre).toBe('Member 1');
-    // Note: familia_miembros table does not have 'apellidos' column
+    expect(member1?.apellidos).toBe('Apellido 1');
     expect(member1?.familia_id).toBe(testFamilyId);
   });
 
@@ -191,12 +219,16 @@ describe('Family Members Migration - TDD', () => {
     const member1 = miembros?.[0];
     const member2 = miembros?.[1];
 
-    // Verify all fields preserved (columns that exist in familia_miembros)
+    // Verify all fields preserved (familia_miembros has: nombre, apellidos, fecha_nacimiento, documento, rol)
     expect(member1?.nombre).toBe('Member 1');
-    // Note: 'apellidos' and 'documento' are not columns in familia_miembros
+    expect(member1?.apellidos).toBe('Apellido 1');
     expect(member1?.fecha_nacimiento).toBe('2010-01-01');
+    expect(member1?.documento).toBe('DOC001');
+    expect(member1?.rol).toBe('dependent');
 
     expect(member2?.nombre).toBe('Member 2');
+    expect(member2?.apellidos).toBe('Apellido 2');
     expect(member2?.fecha_nacimiento).toBe('2015-06-15');
+    expect(member2?.documento).toBe('DOC002');
   });
 });

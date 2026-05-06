@@ -34,7 +34,7 @@ describe("Soft-Delete Cascade Rules", () => {
       .insert({
         familia_id: testFamilyId,
         nombre: "Test Member",
-        rol: "titular",
+        rol: "head_of_household",
       })
       .select()
       .single();
