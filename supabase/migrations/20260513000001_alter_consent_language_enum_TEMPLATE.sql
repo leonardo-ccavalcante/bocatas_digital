@@ -1,0 +1,40 @@
+-- TEMPLATE — replace `<language>` placeholders with the actual language codes
+-- that pass the population threshold per B.5.1 query results.
+-- PENDING REVIEW. Do not apply.
+--
+-- Phase B.5.4 (deferred) — Expand the `consent_language` enum to cover
+-- long-tail languages whose active person population has crossed the
+-- threshold (≥ 5 persons with `idioma_principal = <language>`).
+--
+-- The query that drives this migration lives in
+-- `server/__tests__/consent.template.completeness.test.ts` (B.5.1).
+-- Run that audit against production data BEFORE replacing the placeholders
+-- below. Without live data we cannot know which languages qualify, so this
+-- file ships as a template and not as a runnable migration.
+--
+-- Workflow when you DO have the audit results:
+--   1. Run the population query (group by idioma_principal, count > 4).
+--   2. For each non-{es,ar,fr,bm} language above threshold, replace one
+--      `<language>` placeholder below with the ISO code (e.g. `en`, `ro`).
+--   3. Remove every line still containing `<language>`.
+--   4. Rename this file from `..._TEMPLATE.sql` to a runnable timestamped
+--      migration name.
+--   5. Seed translations through the consent_templates table only AFTER
+--      RGPD lawyer signoff. That seed migration is OUT OF SCOPE here.
+--
+-- Why ALTER TYPE … ADD VALUE and not a new migration set:
+--   The four base values (es, ar, fr, bm) are already in production rows.
+--   ADD VALUE is non-destructive; CREATE TYPE … with a different name
+--   would force every consuming column to be re-typed.
+
+-- Example shape (DO NOT UNCOMMENT until placeholders are resolved):
+--
+-- ALTER TYPE consent_language ADD VALUE IF NOT EXISTS '<language>';
+-- ALTER TYPE consent_language ADD VALUE IF NOT EXISTS '<language>';
+-- ALTER TYPE consent_language ADD VALUE IF NOT EXISTS '<language>';
+--
+-- NB: PostgreSQL requires ALTER TYPE … ADD VALUE statements to run
+-- OUTSIDE a transaction block. If your migration tool wraps every file
+-- in a transaction, split each ADD VALUE into its own migration file.
+
+-- TODO(B.5.1 audit): replace `<language>` placeholders before running.

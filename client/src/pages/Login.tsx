@@ -44,6 +44,8 @@ export default function LoginPage() {
             src="/bocatas-logo.png"
             alt="Bocatas"
             className="h-20 w-20 rounded-full object-cover mx-auto mb-2"
+            decoding="async"
+            fetchPriority="high"
           />
           <CardTitle className="text-2xl font-bold text-amber-900">Bienvenidos a Bocatas Digital</CardTitle>
           <CardDescription className="text-amber-700 text-sm">

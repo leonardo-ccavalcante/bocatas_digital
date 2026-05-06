@@ -119,3 +119,24 @@ export function logProcedureError(
     ...metadata,
   });
 }
+
+/**
+ * Procedure-level audit log helper — for compliance-relevant admin actions
+ * (role assignment, account creation, account revocation, etc).
+ *
+ * Caller MUST NOT include PII fields in metadata — use stable IDs instead.
+ * See CLAUDE.md §Compliance ("No PII in logs or error messages").
+ */
+export function logAudit(
+  ctx: TrpcContext,
+  action: string,
+  metadata?: Record<string, any>
+): void {
+  const { logger, correlationId, user } = ctx;
+
+  logger.audit(action, {
+    correlationId,
+    actorId: user?.id ?? "unknown",
+    ...metadata,
+  });
+}

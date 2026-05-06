@@ -1,0 +1,11 @@
+[
+  {
+    "id": "d0000000-0000-0000-0000-000000000001",
+    "docs_identidad": true,
+    "informe_social": true,
+    "consent_bocatas": false,
+    "padron_recibido": false,
+    "justificante_recibido": false,
+    "consent_banco_alimentos": false
+  }
+]

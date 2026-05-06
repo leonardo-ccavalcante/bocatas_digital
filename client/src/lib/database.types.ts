@@ -14,59 +14,133 @@ export type Database = {
   }
   public: {
     Tables: {
-      acompanamientos: {
+      announcement_audiences: {
         Row: {
-          asignado_a: string | null
+          announcement_id: string
           created_at: string
-          deleted_at: string | null
-          descripcion: string | null
-          entidad_derivacion: string | null
-          estado: string | null
           id: string
-          metadata: Json | null
-          person_id: string
-          tipo: string | null
-          updated_at: string
+          programs: Database["public"]["Enums"]["programa"][]
+          roles: string[]
         }
         Insert: {
-          asignado_a?: string | null
+          announcement_id: string
           created_at?: string
-          deleted_at?: string | null
-          descripcion?: string | null
-          entidad_derivacion?: string | null
-          estado?: string | null
           id?: string
-          metadata?: Json | null
-          person_id: string
-          tipo?: string | null
-          updated_at?: string
+          programs?: Database["public"]["Enums"]["programa"][]
+          roles?: string[]
         }
         Update: {
-          asignado_a?: string | null
+          announcement_id?: string
           created_at?: string
-          deleted_at?: string | null
-          descripcion?: string | null
-          entidad_derivacion?: string | null
-          estado?: string | null
           id?: string
-          metadata?: Json | null
-          person_id?: string
-          tipo?: string | null
-          updated_at?: string
+          programs?: Database["public"]["Enums"]["programa"][]
+          roles?: string[]
         }
         Relationships: [
           {
-            foreignKeyName: "acompanamientos_person_id_fkey"
-            columns: ["person_id"]
+            foreignKeyName: "announcement_audiences_announcement_id_fkey"
+            columns: ["announcement_id"]
             isOneToOne: false
-            referencedRelation: "persons"
+            referencedRelation: "announcements"
             referencedColumns: ["id"]
           },
+        ]
+      }
+      announcement_audit_log: {
+        Row: {
+          announcement_id: string
+          edited_at: string
+          edited_by: string
+          field: string
+          id: string
+          new_value: Json | null
+          old_value: Json | null
+        }
+        Insert: {
+          announcement_id: string
+          edited_at?: string
+          edited_by: string
+          field: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+        }
+        Update: {
+          announcement_id?: string
+          edited_at?: string
+          edited_by?: string
+          field?: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+        }
+        Relationships: [
           {
-            foreignKeyName: "acompanamientos_person_id_fkey"
-            columns: ["person_id"]
+            foreignKeyName: "announcement_audit_log_announcement_id_fkey"
+            columns: ["announcement_id"]
             isOneToOne: false
-            referencedRelation: "persons_safe"
+            referencedRelation: "announcements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      announcement_dismissals: {
+        Row: {
+          announcement_id: string
+          dismissed_at: string
+          person_id: string
+        }
+        Insert: {
+          announcement_id: string
+          dismissed_at?: string
+          person_id: string
+        }
+        Update: {
+          announcement_id?: string
+          dismissed_at?: string
+          person_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "announcement_dismissals_announcement_id_fkey"
+            columns: ["announcement_id"]
+            isOneToOne: false
+            referencedRelation: "announcements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      announcement_webhook_log: {
+        Row: {
+          announcement_id: string
+          attempted_at: string
+          error: string | null
+          id: string
+          response_body: string | null
+          status_code: number | null
+        }
+        Insert: {
+          announcement_id: string
+          attempted_at?: string
+          error?: string | null
+          id?: string
+          response_body?: string | null
+          status_code?: number | null
+        }
+        Update: {
+          announcement_id?: string
+          attempted_at?: string
+          error?: string | null
+          id?: string
+          response_body?: string | null
+          status_code?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "announcement_webhook_log_announcement_id_fkey"
+            columns: ["announcement_id"]
+            isOneToOne: false
+            referencedRelation: "announcements"
             referencedColumns: ["id"]
           },
         ]
@@ -88,8 +162,7 @@ export type Database = {
           image_url: string | null
           imagen_url: string | null
           published_at: string | null
-          roles_visibles: string[] | null
-          tipo: string
+          tipo: Database["public"]["Enums"]["tipo_announcement"]
           titulo: string
           updated_at: string
         }
@@ -109,8 +182,7 @@ export type Database = {
           image_url?: string | null
           imagen_url?: string | null
           published_at?: string | null
-          roles_visibles?: string[] | null
-          tipo?: string
+          tipo?: Database["public"]["Enums"]["tipo_announcement"]
           titulo: string
           updated_at?: string
         }
@@ -130,138 +202,9 @@ export type Database = {
           image_url?: string | null
           imagen_url?: string | null
           published_at?: string | null
-          roles_visibles?: string[] | null
-          tipo?: string
+          tipo?: Database["public"]["Enums"]["tipo_announcement"]
           titulo?: string
           updated_at?: string
-        }
-        Relationships: []
-      }
-      announcement_audit_log: {
-        Row: {
-          announcement_id: string
-          edited_at: string
-          edited_by: string | null
-          field: string
-          id: string
-          new_value: Json | null
-          old_value: Json | null
-        }
-        Insert: {
-          announcement_id: string
-          edited_at?: string
-          edited_by?: string | null
-          field: string
-          id?: string
-          new_value?: Json | null
-          old_value?: Json | null
-        }
-        Update: {
-          announcement_id?: string
-          edited_at?: string
-          edited_by?: string | null
-          field?: string
-          id?: string
-          new_value?: Json | null
-          old_value?: Json | null
-        }
-        Relationships: []
-      }
-      announcement_audiences: {
-        Row: {
-          announcement_id: string
-          created_at: string
-          id: string
-          programs: string[] | null
-          roles: string[] | null
-        }
-        Insert: {
-          announcement_id: string
-          created_at?: string
-          id?: string
-          programs?: string[] | null
-          roles?: string[] | null
-        }
-        Update: {
-          announcement_id?: string
-          created_at?: string
-          id?: string
-          programs?: string[] | null
-          roles?: string[] | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "announcement_audiences_announcement_id_fkey"
-            columns: ["announcement_id"]
-            isOneToOne: false
-            referencedRelation: "announcements"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      announcement_webhook_log: {
-        Row: {
-          id: string
-          announcement_id: string
-          attempted_at: string
-          status_code: number | null
-          response_body: string | null
-          error: string | null
-        }
-        Insert: {
-          id?: string
-          announcement_id: string
-          attempted_at?: string
-          status_code?: number | null
-          response_body?: string | null
-          error?: string | null
-        }
-        Update: {
-          id?: string
-          announcement_id?: string
-          attempted_at?: string
-          status_code?: number | null
-          response_body?: string | null
-          error?: string | null
-        }
-        Relationships: []
-      }
-      bulk_import_previews: {
-        Row: {
-          token: string
-          parsed_rows: Json
-          created_by: string
-          created_at: string
-        }
-        Insert: {
-          token?: string
-          parsed_rows: Json
-          created_by: string
-          created_at?: string
-        }
-        Update: {
-          token?: string
-          parsed_rows?: Json
-          created_by?: string
-          created_at?: string
-        }
-        Relationships: []
-      }
-      announcement_dismissals: {
-        Row: {
-          announcement_id: string
-          person_id: string
-          dismissed_at: string
-        }
-        Insert: {
-          announcement_id: string
-          person_id: string
-          dismissed_at?: string
-        }
-        Update: {
-          announcement_id?: string
-          person_id?: string
-          dismissed_at?: string
         }
         Relationships: []
       }
@@ -365,6 +308,27 @@ export type Database = {
             referencedColumns: ["slug"]
           },
         ]
+      }
+      bulk_import_previews: {
+        Row: {
+          created_at: string
+          created_by: string
+          parsed_rows: Json
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          parsed_rows: Json
+          token?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          parsed_rows?: Json
+          token?: string
+        }
+        Relationships: []
       }
       consent_templates: {
         Row: {
@@ -489,70 +453,11 @@ export type Database = {
           },
         ]
       }
-      courses: {
-        Row: {
-          created_at: string
-          cupo_maximo: number | null
-          deleted_at: string | null
-          descripcion: string | null
-          estado: string | null
-          fecha_fin: string | null
-          fecha_inicio: string | null
-          formador: string | null
-          id: string
-          location_id: string | null
-          metadata: Json | null
-          nombre: string
-          tipo: string | null
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          cupo_maximo?: number | null
-          deleted_at?: string | null
-          descripcion?: string | null
-          estado?: string | null
-          fecha_fin?: string | null
-          fecha_inicio?: string | null
-          formador?: string | null
-          id?: string
-          location_id?: string | null
-          metadata?: Json | null
-          nombre: string
-          tipo?: string | null
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          cupo_maximo?: number | null
-          deleted_at?: string | null
-          descripcion?: string | null
-          estado?: string | null
-          fecha_fin?: string | null
-          fecha_inicio?: string | null
-          formador?: string | null
-          id?: string
-          location_id?: string | null
-          metadata?: Json | null
-          nombre?: string
-          tipo?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "courses_location_id_fkey"
-            columns: ["location_id"]
-            isOneToOne: false
-            referencedRelation: "locations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       deliveries: {
         Row: {
           created_at: string
           deleted_at: string | null
-          es_autorizado: boolean
+          es_autorizado: boolean | null
           family_id: string
           fecha_entrega: string
           firma_url: string | null
@@ -575,9 +480,9 @@ export type Database = {
         Insert: {
           created_at?: string
           deleted_at?: string | null
-          es_autorizado?: boolean
+          es_autorizado?: boolean | null
           family_id: string
-          fecha_entrega?: string
+          fecha_entrega: string
           firma_url?: string | null
           grant_id?: string | null
           id?: string
@@ -598,7 +503,7 @@ export type Database = {
         Update: {
           created_at?: string
           deleted_at?: string | null
-          es_autorizado?: boolean
+          es_autorizado?: boolean | null
           family_id?: string
           fecha_entrega?: string
           firma_url?: string | null
@@ -642,113 +547,54 @@ export type Database = {
           },
         ]
       }
-      entregas: {
+      delivery_signature_audit: {
         Row: {
-          carne_cantidad: number | null
-          carne_unidad: string | null
-          createdAt: string
-          entregas_batch_id: string
-          familia_id: string
-          fecha: string
-          frutas_hortalizas_cantidad: number | null
-          frutas_hortalizas_unidad: string | null
+          client_ip_hash: string | null
+          created_at: string
+          delivery_id: string
           id: string
-          notas: string | null
-          ocr_row_confidence: number | null
-          persona_recibio: string | null
-          updatedAt: string
+          signed_at: string
+          signer_person_id: string
         }
         Insert: {
-          carne_cantidad?: number | null
-          carne_unidad?: string | null
-          createdAt?: string
-          entregas_batch_id: string
-          familia_id: string
-          fecha: string
-          frutas_hortalizas_cantidad?: number | null
-          frutas_hortalizas_unidad?: string | null
+          client_ip_hash?: string | null
+          created_at?: string
+          delivery_id: string
           id?: string
-          notas?: string | null
-          ocr_row_confidence?: number | null
-          persona_recibio?: string | null
-          updatedAt?: string
+          signed_at?: string
+          signer_person_id: string
         }
         Update: {
-          carne_cantidad?: number | null
-          carne_unidad?: string | null
-          createdAt?: string
-          entregas_batch_id?: string
-          familia_id?: string
-          fecha?: string
-          frutas_hortalizas_cantidad?: number | null
-          frutas_hortalizas_unidad?: string | null
+          client_ip_hash?: string | null
+          created_at?: string
+          delivery_id?: string
           id?: string
-          notas?: string | null
-          ocr_row_confidence?: number | null
-          persona_recibio?: string | null
-          updatedAt?: string
+          signed_at?: string
+          signer_person_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "entregas_entregas_batch_id_fkey"
-            columns: ["entregas_batch_id"]
+            foreignKeyName: "delivery_signature_audit_delivery_id_fkey"
+            columns: ["delivery_id"]
             isOneToOne: false
-            referencedRelation: "entregas_batch"
+            referencedRelation: "deliveries"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "entregas_familia_id_fkey"
-            columns: ["familia_id"]
+            foreignKeyName: "delivery_signature_audit_signer_person_id_fkey"
+            columns: ["signer_person_id"]
             isOneToOne: false
-            referencedRelation: "families"
+            referencedRelation: "persons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_signature_audit_signer_person_id_fkey"
+            columns: ["signer_person_id"]
+            isOneToOne: false
+            referencedRelation: "persons_safe"
             referencedColumns: ["id"]
           },
         ]
-      }
-      entregas_batch: {
-        Row: {
-          createdAt: string
-          documento_imagen_url: string | null
-          estado: string | null
-          estado_batch: string
-          fecha_reparto: string
-          id: string
-          numero_albaran: string
-          numero_factura_carne: string | null
-          numero_reparto: string
-          ocr_confidence: number | null
-          total_personas_asistidas: number
-          updatedAt: string
-        }
-        Insert: {
-          createdAt?: string
-          documento_imagen_url?: string | null
-          estado?: string | null
-          estado_batch?: string
-          fecha_reparto: string
-          id?: string
-          numero_albaran: string
-          numero_factura_carne?: string | null
-          numero_reparto: string
-          ocr_confidence?: number | null
-          total_personas_asistidas: number
-          updatedAt?: string
-        }
-        Update: {
-          createdAt?: string
-          documento_imagen_url?: string | null
-          estado?: string | null
-          estado_batch?: string
-          fecha_reparto?: string
-          id?: string
-          numero_albaran?: string
-          numero_factura_carne?: string | null
-          numero_reparto?: string
-          ocr_confidence?: number | null
-          total_personas_asistidas?: number
-          updatedAt?: string
-        }
-        Relationships: []
       }
       familia_miembros: {
         Row: {
@@ -814,6 +660,20 @@ export type Database = {
             referencedRelation: "families"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "familia_miembros_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "persons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "familia_miembros_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "persons_safe"
+            referencedColumns: ["id"]
+          },
         ]
       }
       families: {
@@ -839,12 +699,12 @@ export type Database = {
           informe_social_fecha: string | null
           justificante_recibido: boolean | null
           metadata: Json | null
-          miembros: Json | null
           motivo_baja: Database["public"]["Enums"]["motivo_baja_familia"] | null
           num_adultos: number | null
           num_menores_18: number | null
           num_miembros: number | null
           padron_recibido: boolean | null
+          padron_recibido_fecha: string | null
           persona_recoge: string | null
           sin_guf: boolean | null
           sin_informe_social: boolean | null
@@ -873,7 +733,6 @@ export type Database = {
           informe_social_fecha?: string | null
           justificante_recibido?: boolean | null
           metadata?: Json | null
-          miembros?: Json | null
           motivo_baja?:
             | Database["public"]["Enums"]["motivo_baja_familia"]
             | null
@@ -881,6 +740,7 @@ export type Database = {
           num_menores_18?: number | null
           num_miembros?: number | null
           padron_recibido?: boolean | null
+          padron_recibido_fecha?: string | null
           persona_recoge?: string | null
           sin_guf?: boolean | null
           sin_informe_social?: boolean | null
@@ -909,7 +769,6 @@ export type Database = {
           informe_social_fecha?: string | null
           justificante_recibido?: boolean | null
           metadata?: Json | null
-          miembros?: Json | null
           motivo_baja?:
             | Database["public"]["Enums"]["motivo_baja_familia"]
             | null
@@ -917,6 +776,7 @@ export type Database = {
           num_menores_18?: number | null
           num_miembros?: number | null
           padron_recibido?: boolean | null
+          padron_recibido_fecha?: string | null
           persona_recoge?: string | null
           sin_guf?: boolean | null
           sin_informe_social?: boolean | null
@@ -940,36 +800,6 @@ export type Database = {
           },
         ]
       }
-      families_pre_backfill_20260430: {
-        Row: {
-          consent_banco_alimentos: boolean | null
-          consent_bocatas: boolean | null
-          docs_identidad: boolean | null
-          id: string | null
-          informe_social: boolean | null
-          justificante_recibido: boolean | null
-          padron_recibido: boolean | null
-        }
-        Insert: {
-          consent_banco_alimentos?: boolean | null
-          consent_bocatas?: boolean | null
-          docs_identidad?: boolean | null
-          id?: string | null
-          informe_social?: boolean | null
-          justificante_recibido?: boolean | null
-          padron_recibido?: boolean | null
-        }
-        Update: {
-          consent_banco_alimentos?: boolean | null
-          consent_bocatas?: boolean | null
-          docs_identidad?: boolean | null
-          id?: string | null
-          informe_social?: boolean | null
-          justificante_recibido?: boolean | null
-          padron_recibido?: boolean | null
-        }
-        Relationships: []
-      }
       family_member_documents: {
         Row: {
           created_at: string
@@ -980,6 +810,7 @@ export type Database = {
           fecha_upload: string | null
           id: string
           is_current: boolean
+          member_id: string | null
           member_index: number
           member_person_id: string | null
           verified_by: string | null
@@ -993,6 +824,7 @@ export type Database = {
           fecha_upload?: string | null
           id?: string
           is_current?: boolean
+          member_id?: string | null
           member_index: number
           member_person_id?: string | null
           verified_by?: string | null
@@ -1006,6 +838,7 @@ export type Database = {
           fecha_upload?: string | null
           id?: string
           is_current?: boolean
+          member_id?: string | null
           member_index?: number
           member_person_id?: string | null
           verified_by?: string | null
@@ -1016,6 +849,13 @@ export type Database = {
             columns: ["family_id"]
             isOneToOne: false
             referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "family_member_documents_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "familia_miembros"
             referencedColumns: ["id"]
           },
           {
@@ -1030,6 +870,44 @@ export type Database = {
             columns: ["member_person_id"]
             isOneToOne: false
             referencedRelation: "persons_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      family_webhook_log: {
+        Row: {
+          attempted_at: string
+          error: string | null
+          event: string
+          family_id: string
+          id: string
+          response_body: string | null
+          status_code: number | null
+        }
+        Insert: {
+          attempted_at?: string
+          error?: string | null
+          event: string
+          family_id: string
+          id?: string
+          response_body?: string | null
+          status_code?: number | null
+        }
+        Update: {
+          attempted_at?: string
+          error?: string | null
+          event?: string
+          family_id?: string
+          id?: string
+          response_body?: string | null
+          status_code?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "family_webhook_log_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
             referencedColumns: ["id"]
           },
         ]
@@ -1319,13 +1197,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "fk_enrollment_course"
-            columns: ["course_id"]
-            isOneToOne: false
-            referencedRelation: "courses"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "fk_enrollment_program"
             columns: ["program_id"]
             isOneToOne: false
@@ -1478,72 +1349,6 @@ export type Database = {
         }
         Relationships: []
       }
-      volunteers: {
-        Row: {
-          activo: boolean
-          created_at: string
-          deleted_at: string | null
-          disponibilidad: Json | null
-          fecha_alta: string
-          fecha_baja: string | null
-          habilidades: string[] | null
-          id: string
-          metadata: Json | null
-          person_id: string
-          seguro_caducidad: string | null
-          seguro_numero: string | null
-          updated_at: string
-          user_id: string | null
-        }
-        Insert: {
-          activo?: boolean
-          created_at?: string
-          deleted_at?: string | null
-          disponibilidad?: Json | null
-          fecha_alta?: string
-          fecha_baja?: string | null
-          habilidades?: string[] | null
-          id?: string
-          metadata?: Json | null
-          person_id: string
-          seguro_caducidad?: string | null
-          seguro_numero?: string | null
-          updated_at?: string
-          user_id?: string | null
-        }
-        Update: {
-          activo?: boolean
-          created_at?: string
-          deleted_at?: string | null
-          disponibilidad?: Json | null
-          fecha_alta?: string
-          fecha_baja?: string | null
-          habilidades?: string[] | null
-          id?: string
-          metadata?: Json | null
-          person_id?: string
-          seguro_caducidad?: string | null
-          seguro_numero?: string | null
-          updated_at?: string
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "volunteers_person_id_fkey"
-            columns: ["person_id"]
-            isOneToOne: true
-            referencedRelation: "persons"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "volunteers_person_id_fkey"
-            columns: ["person_id"]
-            isOneToOne: true
-            referencedRelation: "persons_safe"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
     }
     Views: {
       persons_safe: {
@@ -1691,8 +1496,8 @@ export type Database = {
     }
     Functions: {
       confirm_bulk_announcement_import: {
-        Args: { p_token: string; p_autor_id: string; p_autor_nombre: string | null }
-        Returns: { created_count: number; error_count: number }
+        Args: { p_autor_id: string; p_autor_nombre: string; p_token: string }
+        Returns: Json
       }
       find_duplicate_persons: {
         Args: { p_apellidos: string; p_nombre: string; p_threshold?: number }
@@ -1738,7 +1543,7 @@ export type Database = {
           p_documento_url: string
           p_family_id: string
           p_member_index: number
-          p_member_person_id: string
+          p_member_person_id: string | null
           p_verified_by: string
         }
         Returns: {
@@ -1750,6 +1555,7 @@ export type Database = {
           fecha_upload: string | null
           id: string
           is_current: boolean
+          member_id: string | null
           member_index: number
           member_person_id: string | null
           verified_by: string | null
@@ -1836,6 +1642,13 @@ export type Database = {
         | "jubilado"
         | "incapacidad_permanente"
         | "sin_permiso_trabajo"
+      tipo_announcement:
+        | "info"
+        | "evento"
+        | "cierre_servicio"
+        | "convocatoria"
+        | "cierre"
+        | "urgente"
       tipo_documento:
         | "DNI"
         | "NIE"
@@ -2061,6 +1874,14 @@ export const Constants = {
         "jubilado",
         "incapacidad_permanente",
         "sin_permiso_trabajo",
+      ],
+      tipo_announcement: [
+        "info",
+        "evento",
+        "cierre_servicio",
+        "convocatoria",
+        "cierre",
+        "urgente",
       ],
       tipo_documento: [
         "DNI",

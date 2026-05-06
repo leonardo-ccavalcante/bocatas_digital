@@ -72,8 +72,7 @@ export const dashboardRouter = router({
         query = query.eq("location_id", input.locationId);
       }
       if (input.programa !== "all") {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        query = (query as any).eq("programa", input.programa);
+        query = query.eq("programa", input.programa);
       }
 
       const { count, error } = await query;
@@ -122,8 +121,7 @@ export const dashboardRouter = router({
         query = query.eq("location_id", input.locationId);
       }
       if (input.programa !== "all") {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        query = (query as any).eq("programa", input.programa);
+        query = query.eq("programa", input.programa);
       }
 
       const { data, error } = await query;
@@ -185,8 +183,7 @@ export const dashboardRouter = router({
         query = query.eq("location_id", input.locationId);
       }
       if (input.programa !== "all") {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        query = (query as any).eq("programa", input.programa);
+        query = query.eq("programa", input.programa);
       }
 
       const { data, error } = await query;
@@ -248,8 +245,7 @@ export const dashboardRouter = router({
         query = query.eq("location_id", input.locationId);
       }
       if (input.programa !== "all") {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        query = (query as any).eq("programa", input.programa);
+        query = query.eq("programa", input.programa);
       }
 
       const { data: attendanceData, error: attendanceError } = await query;

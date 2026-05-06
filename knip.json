@@ -1,0 +1,29 @@
+{
+  "$schema": "https://unpkg.com/knip@latest/schema.json",
+  "entry": [
+    "server/_core/index.ts",
+    "client/src/main.tsx",
+    "vitest.config.ts",
+    "vite.config.ts",
+    "eslint.config.js",
+    "drizzle.config.ts",
+    "scripts/**/*.{ts,js,mjs,cjs}",
+    "supabase/functions/**/index.ts"
+  ],
+  "project": [
+    "server/**/*.ts",
+    "client/src/**/*.{ts,tsx}",
+    "shared/**/*.ts"
+  ],
+  "ignore": [
+    "client/src/lib/database.types.ts",
+    "client/src/components/ui/**",
+    "supabase/functions/**",
+    "drizzle/**",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/__tests__/**"
+  ],
+  "ignoreDependencies": []
+}
