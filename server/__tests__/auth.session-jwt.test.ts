@@ -9,7 +9,6 @@ import {
 import type { TrpcContext } from "../_core/context";
 import { Logger } from "../_core/logger";
 import type { User } from "../../drizzle/schema";
-import { Logger } from "../_core/logger";
 
 /**
  * A.6.1 Session/JWT contract test.
