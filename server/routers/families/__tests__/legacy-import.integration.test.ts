@@ -63,6 +63,9 @@ vi.mock("../../../../client/src/lib/supabase/server", () => {
   return {
     createAdminClient: () => ({ from: s.fromMock, rpc: s.rpcMock }),
     createServerClient: vi.fn(),
+    // createUserImpersonationClient is async; return a client with the same rpc stub
+    // so confirmLegacyImport tests exercise the RPC dispatch path.
+    createUserImpersonationClient: vi.fn().mockResolvedValue({ rpc: s.rpcMock }),
   };
 });
 
@@ -134,7 +137,7 @@ function makeLogger() {
 
 function makeCtx() {
   return {
-    user: { id: "admin-uuid", name: "Admin Tester" },
+    user: { id: "admin-uuid", openId: "test-admin-openid", role: "admin", name: "Admin Tester" },
     logger: makeLogger(),
     correlationId: "test-corr",
   };
