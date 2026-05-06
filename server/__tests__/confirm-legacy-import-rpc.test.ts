@@ -145,13 +145,69 @@ describe("createUserImpersonationClient — SUPABASE_JWT_SECRET integration", ()
       expect(rpcErr.message).not.toContain("unauthenticated");
     }
 
-    // RPC succeeded — data should have the expected shape
+    // RPC succeeded — data should have the expected shape (created_count/skipped_count/error_count)
     if (!rpcErr) {
       expect(data).toMatchObject({
-        created: expect.any(Number),
-        skipped: expect.any(Number),
-        errors: expect.any(Number),
+        created_count: expect.any(Number),
+        skipped_count: expect.any(Number),
+        error_count: expect.any(Number),
+        error_details: expect.any(Array),
       });
+    }
+  });
+
+  it("RPC response shape matches ConfirmResponseSchema field names (regression: shape invalid bug)", async () => {
+    // Root cause: migration 20260506000003 rewrote the SQL function with
+    // RETURN jsonb_build_object('created', ..., 'skipped', ..., 'errors', ..., 'error_details', ...)
+    // but ConfirmResponseSchema expects created_count/skipped_count/error_count/error_details.
+    // Fix: the SQL function must return created_count/skipped_count/error_count/error_details.
+    //
+    // This test inserts a real preview and calls the live RPC, then validates
+    // that the returned JSON keys match what ConfirmResponseSchema expects.
+    const actorId = `shape-test-${Date.now()}`;
+    const payload = {
+      groups: [
+        {
+          legacy_numero_familia: `TEST-SHAPE-${Date.now()}`,
+          titular_index: 0,
+          rows: [],
+          person_dedup_hits: [],
+          errors: [],
+          family_already_imported: false,
+        },
+      ],
+      src_filename: "test-shape.csv",
+    };
+
+    const { data: preview, error: insertErr } = await adminDb
+      .from("bulk_import_previews")
+      .insert({ parsed_rows: payload, created_by: actorId })
+      .select("token")
+      .single();
+
+    expect(insertErr).toBeNull();
+    createdTokens.push(preview!.token);
+
+    const userClient = await makeUserClient(actorId, "admin");
+    const { data, error: rpcErr } = await userClient.rpc(
+      "confirm_legacy_familias_import",
+      { p_token: preview!.token, p_src_filename: "test-shape.csv" }
+    );
+
+    // The RPC must succeed (no auth/role errors)
+    expect(rpcErr?.code).not.toBe("42501");
+    expect(rpcErr?.code).not.toBe("22P02");
+
+    if (!rpcErr && data) {
+      // The response MUST use the names that ConfirmResponseSchema expects
+      expect(data).toHaveProperty("created_count");
+      expect(data).toHaveProperty("skipped_count");
+      expect(data).toHaveProperty("error_count");
+      expect(data).toHaveProperty("error_details");
+      // Must NOT use the wrong names from the broken migration
+      expect(data).not.toHaveProperty("created");
+      expect(data).not.toHaveProperty("skipped");
+      expect(data).not.toHaveProperty("errors");
     }
   });
 });

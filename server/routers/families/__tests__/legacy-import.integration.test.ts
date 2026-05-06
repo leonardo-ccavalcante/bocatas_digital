@@ -474,8 +474,9 @@ describe("confirmLegacyImport", () => {
         error: null,
       })
     );
+    // RPC returns the SQL function's native field names
     rpcMock.mockResolvedValue({
-      data: { created_count: 5, skipped_count: 1, error_count: 0, errors: [] },
+      data: { created_count: 5, skipped_count: 1, error_count: 0, error_details: [] },
       error: null,
     });
 
@@ -488,7 +489,7 @@ describe("confirmLegacyImport", () => {
       ctx: makeCtx(),
     });
 
-    expect(result).toEqual({ created_count: 5, skipped_count: 1, error_count: 0, errors: [] });
+    expect(result).toEqual({ created_count: 5, skipped_count: 1, error_count: 0, error_details: [] });
     expect(rpcMock).toHaveBeenCalledWith(
       "confirm_legacy_familias_import",
       // src_filename must be sanitized to its basename before going to the RPC.
@@ -531,7 +532,7 @@ describe("confirmLegacyImport", () => {
       })
     );
     rpcMock.mockResolvedValue({
-      data: { created_count: "five" /* wrong type */, skipped_count: 0, error_count: 0, errors: [] },
+      data: { created_count: "five" /* wrong type */, skipped_count: 0, error_count: 0, error_details: [] },
       error: null,
     });
 
