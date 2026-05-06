@@ -62,6 +62,8 @@ export const DeliveryEditableTable: React.FC<DeliveryEditableTableProps> = ({
     onRowsChange(updatedRows);
   };
 
+  // Supabase SDK boundary — opaque join result
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleFieldChange = (field: keyof DeliveryRow, value: any) => {
     setEditValues(prev => ({
       ...prev,

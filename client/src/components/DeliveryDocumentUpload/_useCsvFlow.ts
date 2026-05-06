@@ -13,6 +13,8 @@ export function useCsvFlow({ onSuccess }: UseCsvFlowArgs) {
   const [csvStep, setCsvStep] = useState<CsvStep>("upload");
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [csvOcrText, setCsvOcrText] = useState("");
+  // CSV parser boundary — untyped row
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [csvExtractedData, setCsvExtractedData] = useState<any>(null);
   const [csvLoading, setCsvLoading] = useState(false);
   const [csvError, setCsvError] = useState<string | null>(null);

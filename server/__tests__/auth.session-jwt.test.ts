@@ -7,6 +7,7 @@ import {
   superadminProcedure,
 } from "../_core/trpc";
 import type { TrpcContext } from "../_core/context";
+import { Logger } from "../_core/logger";
 import type { User } from "../../drizzle/schema";
 
 /**
@@ -42,6 +43,8 @@ function buildContext(user: User | null): TrpcContext {
       headers: {},
     } as TrpcContext["req"],
     res: {} as TrpcContext["res"],
+    logger: new Logger(),
+    correlationId: "test-correlation-id",
   };
 }
 

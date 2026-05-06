@@ -16,6 +16,8 @@ interface DeletedRecord {
   id: string;
   deleted_at: string;
   updated_at: string;
+  // Supabase SDK boundary — opaque join result
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [key: string]: any;
 }
 

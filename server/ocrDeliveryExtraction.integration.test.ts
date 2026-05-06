@@ -11,6 +11,8 @@ import {
 import { v4 as uuidv4 } from 'uuid';
 
 describe('OCR Delivery Extraction - Integration Tests', () => {
+  // test mock boundary — integration test
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let db: any;
   let testFamiliaId: string;
 

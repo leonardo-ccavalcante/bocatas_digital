@@ -3,10 +3,16 @@ import { describe, it, expect, vi } from 'vitest';
 describe('DeliveryValidationTable - Logic Tests', () => {
   // Mock component behavior
   class ValidationTable {
+    // test mock boundary
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     records: any[];
+    // test mock boundary
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onUpdate: (id: string, updates: any) => void;
     onRemove?: (id: string) => void;
 
+    // test mock boundary
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     constructor(records: any[], onUpdate: any, onRemove?: any) {
       this.records = records;
       this.onUpdate = onUpdate;

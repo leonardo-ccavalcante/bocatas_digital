@@ -58,6 +58,8 @@ export function useOcrFlow({ onSuccess }: UseOcrFlowArgs) {
       });
 
       if (result.success && result.beneficiaries) {
+        // OCR result boundary — untyped response
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const mappedRecords = result.beneficiaries.map((d: any) => ({
           id: d.id || `${Date.now()}-${Math.random()}`,
           // Required ExtractedBeneficiary fields

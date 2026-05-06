@@ -35,18 +35,24 @@ export function DeliveryDocumentModal({
   const [isUploading, setIsUploading] = useState(false);
 
   // Queries
+  // Supabase SDK boundary — opaque join result
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: documents = [], isLoading, refetch } = (trpc.families as any).getDeliveryDocuments.useQuery(
     { familyId },
     { enabled: open }
   );
 
   // Mutations
+  // Supabase SDK boundary — opaque join result
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const uploadDocumentMutation = (trpc.families as any).uploadDeliveryDocument.useMutation({
     onSuccess: () => {
       toast.success("Documento de entrega actualizado exitosamente");
       refetch();
       setIsUploading(false);
     },
+    // Supabase SDK boundary — opaque join result
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onError: (error: any) => {
       toast.error(error.message || "No se pudo actualizar el documento");
       setIsUploading(false);

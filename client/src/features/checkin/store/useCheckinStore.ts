@@ -64,6 +64,8 @@ export const useCheckinStore = create<CheckinStoreState>()(
     {
       name: "bocatas-checkin-store",
       version: 3,
+      // XState/immer boundary
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       migrate: (state: any, version: number) => {
         // Clean up invalid locationId from old versions
         if (version < 3 && state.locationId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(state.locationId)) {

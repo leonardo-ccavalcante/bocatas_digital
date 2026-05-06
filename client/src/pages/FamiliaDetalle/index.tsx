@@ -166,6 +166,7 @@ export default function FamiliaDetalle() {
                 <div>
                   <p className="mb-2 font-medium text-foreground">{miembros.length} miembro(s) registrado(s):</p>
                   <ul className="list-disc list-inside space-y-1">
+                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                     {miembros.map((m: any, idx: number) => (
                       <li key={idx} className="text-xs">
                         {m.nombre} {m.apellidos ? `${m.apellidos}` : ""}
