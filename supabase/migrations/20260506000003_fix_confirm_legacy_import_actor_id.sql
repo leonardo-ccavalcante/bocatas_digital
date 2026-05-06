@@ -177,9 +177,9 @@ BEGIN
   DELETE FROM bulk_import_previews WHERE token = p_token;
 
   RETURN jsonb_build_object(
-    'created', v_created,
-    'skipped', v_skipped,
-    'errors',  v_errors,
+    'created_count', v_created,
+    'skipped_count', v_skipped,
+    'error_count',   v_errors,
     'error_details', v_error_list
   );
 END;

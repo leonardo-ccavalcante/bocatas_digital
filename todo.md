@@ -50,3 +50,7 @@
 ## Bug: "Error al confirmar la importación" en /familias
 
 - [x] Bug: `families.confirmLegacyImport` falla con "Error al confirmar la importación" — causa doble: (1) service-role key no tiene JWT de usuario → `get_user_role()` retorna `'beneficiario'` → role check falla 42501; (2) `auth.uid()` en PG castea `sub` a UUID → `String(user.id)="1"` falla 22P02. Fix completo: (a) `createUserImpersonationClient(actorId, role)` firma JWT HS256 con `sub=actorId`; (b) migração `20260506000003` reemplaza `auth.uid()::text` por `auth.jwt() ->> 'sub'` en la función SQL. Tests: `confirm-legacy-import-rpc.test.ts` (3 tests DB reales GREEN) + `legacy-import.integration.test.ts` (21 tests mock GREEN). Suite: 1554 pasando, 0 errores TS.
+
+## Bug: "Respuesta del RPC con shape inválido" en /familias
+
+- [x] Bug: `families.confirmLegacyImport` falla con "Respuesta del RPC con shape inválido" — causa: migración `20260506000003` reescribió la función SQL con nombres `created/skipped/errors/error_details` pero `ConfirmResponseSchema` esperaba `created_count/skipped_count/error_count/errors`. Fix quirurgico: (1) corregir los 4 nombres en `RETURN jsonb_build_object` de la migración SQL; (2) actualizar `ConfirmResponseSchema.errors` a `error_details`; (3) actualizar mocks en tests. Proceso: systematic-debugging Phase 1 (root cause) → TDD RED (test falla por razón correcta) → GREEN (fix mínimo) → REFACTOR. 1555 tests pasando, 0 errores TS.
