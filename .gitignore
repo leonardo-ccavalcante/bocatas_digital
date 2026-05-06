@@ -114,3 +114,12 @@ client/public/__manus__/version.json
 
 # Git worktrees (isolated development branches)
 .worktrees/
+
+# Playwright artifacts (specs in e2e/ are tracked; outputs are not)
+playwright-report/
+test-results/
+reports/
+playwright/.cache/
+
+# Supabase CLI temporary files
+supabase/.temp/
