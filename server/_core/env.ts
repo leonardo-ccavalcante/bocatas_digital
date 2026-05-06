@@ -17,4 +17,11 @@ export const ENV = {
    */
   qrSigningSecret:
     process.env.QR_SIGNING_SECRET ?? process.env.JWT_SECRET ?? "",
+  /**
+   * Supabase JWT secret (HS256) used to sign short-lived impersonation tokens
+   * so server-side tRPC procedures can call SECURITY DEFINER RPCs that check
+   * `auth.jwt() -> 'app_metadata' ->> 'role'` (e.g. confirm_legacy_familias_import).
+   * Set via SUPABASE_JWT_SECRET env var (Supabase Dashboard → Settings → API → JWT Secret).
+   */
+  supabaseJwtSecret: process.env.SUPABASE_JWT_SECRET ?? "",
 };

@@ -46,3 +46,7 @@
 - [x] Agregar test de regresión: `bulk_import_previews` INSERT con payload objeto `{groups, src_filename}` no viola constraint — 3 tests GREEN en `bulk-import-previews-constraint.test.ts`
 - [x] Test de integración real DB: `bulk-import-previews-db.test.ts` — 4 tests GREEN que realizan INSERT real en Supabase; verifican que constraint acepta `{groups, src_filename}` y rechaza grupos > 10000
 - [x] Verificación manual confirmada: INSERT directo con service-role key a `bulk_import_previews` con payload `{groups: [...], src_filename: ...}` retorna token UUID (no error 22023)
+
+## Bug: "Error al confirmar la importación" en /familias
+
+- [x] Bug: `families.confirmLegacyImport` falla con "Error al confirmar la importación" — causa doble: (1) service-role key no tiene JWT de usuario → `get_user_role()` retorna `'beneficiario'` → role check falla 42501; (2) `auth.uid()` en PG castea `sub` a UUID → `String(user.id)="1"` falla 22P02. Fix completo: (a) `createUserImpersonationClient(actorId, role)` firma JWT HS256 con `sub=actorId`; (b) migração `20260506000003` reemplaza `auth.uid()::text` por `auth.jwt() ->> 'sub'` en la función SQL. Tests: `confirm-legacy-import-rpc.test.ts` (3 tests DB reales GREEN) + `legacy-import.integration.test.ts` (21 tests mock GREEN). Suite: 1554 pasando, 0 errores TS.
