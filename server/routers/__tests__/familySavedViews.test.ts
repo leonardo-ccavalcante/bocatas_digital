@@ -6,6 +6,12 @@ import type { User } from "../../../drizzle/schema";
 // Capture insert calls so we can assert they reached Supabase with valid shape.
 const insertCalls: Array<{ table: string; payload: unknown }> = [];
 
+// Configurable delete result — tests set this before calling delete procedures.
+let deleteResult: { data: { id: string }[] | null; error: { message: string } | null } = {
+  data: [{ id: "a1b2c3d4-e5f6-4789-8abc-def012345678" }],
+  error: null,
+};
+
 vi.mock("../../../client/src/lib/supabase/server", () => ({
   createAdminClient: () => ({
     from: (table: string) => ({
@@ -29,7 +35,7 @@ vi.mock("../../../client/src/lib/supabase/server", () => ({
       delete: () => ({
         eq: () => ({
           eq: () => ({
-            select: () => async () => ({ data: [], error: null }),
+            select: async () => deleteResult,
           }),
         }),
       }),
@@ -126,5 +132,20 @@ describe("familySavedViews router", () => {
       // @ts-expect-error — missing id on purpose
       caller.update({ nombre: "x" })
     ).rejects.toThrow();
+  });
+
+  it("delete returns success when one row is deleted", async () => {
+    deleteResult = { data: [{ id: "a1b2c3d4-e5f6-4789-8abc-def012345678" }], error: null };
+    const caller = familySavedViewsRouter.createCaller(buildCtx(buildUser("admin")));
+    const result = await caller.delete({ id: "a1b2c3d4-e5f6-4789-8abc-def012345678" });
+    expect(result).toEqual({ success: true });
+  });
+
+  it("delete throws NOT_FOUND when zero rows are matched (wrong owner or missing id)", async () => {
+    deleteResult = { data: [], error: null };
+    const caller = familySavedViewsRouter.createCaller(buildCtx(buildUser("admin")));
+    await expect(
+      caller.delete({ id: "a1b2c3d4-e5f6-4789-8abc-def012345678" })
+    ).rejects.toThrow(/NOT_FOUND|no encontrada/i);
   });
 });
