@@ -218,7 +218,8 @@ export const ConfirmResponseSchema = z.object({
   created_count: z.number().int().nonnegative(),
   skipped_count: z.number().int().nonnegative(),
   error_count: z.number().int().nonnegative(),
-  errors: z.array(ConfirmErrorSchema),
+  // The SQL function returns this as 'error_details' (array of per-family errors)
+  error_details: z.array(ConfirmErrorSchema).default([]),
 });
 export type ConfirmResponse = z.infer<typeof ConfirmResponseSchema>;
 
