@@ -109,10 +109,10 @@ export function useCreateDelivery() {
   const utils = trpc.useUtils();
   // Use entregas router for delivery mutations
   return trpc.entregas.createDelivery.useMutation({
-    onSuccess: (data) => {
-      const familiaId =
-        (data as { data?: { familia_id?: string } } | null)?.data?.familia_id;
-      utils.entregas.getDeliveries.invalidate({ familiaId });
+    // Supabase SDK boundary — opaque join result
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    onSuccess: (data: any) => {
+      utils.entregas.getDeliveries.invalidate({ familiaId: data.data?.familia_id });
     },
   });
 }
