@@ -1,0 +1,38 @@
+-- PENDING REVIEW: confirm Espe/Sole's renewal cadence is 180 days for
+-- padrón before applying. Do not run until cadence is signed off.
+--
+-- Phase B.6.1 — Renewal alerts (CM-X / padrón).
+--
+-- Today the `families` table tracks `padron_recibido` (boolean) but NOT
+-- the date the padrón certificate was received. Renewal alerts therefore
+-- cannot fire because we have nothing to compare against the 180-day
+-- cutoff documented in `server/routers/families/compliance.ts` (CM-X
+-- candidate). This migration introduces `padron_recibido_fecha DATE`
+-- (nullable) so legacy rows continue to load and the renewal-alert query
+-- can flag rows where `padron_recibido_fecha < (today - 180 days)`.
+--
+-- Field policy:
+--   * Column is nullable. Legacy rows that pre-date this column simply
+--     don't fire the renewal alert until the next padrón is registered.
+--   * No backfill. Sole's CSV / GUF imports may populate it later; until
+--     then NULL is the explicit "unknown date" signal.
+--   * No DEFAULT now() on insert: padrón is something we receive from the
+--     user, not something we generate at row creation.
+--
+-- Cadence to confirm before applying:
+--   * Bocatas current rule (per Sole): "padrón vigente = expedido en los
+--     últimos 6 meses". 180 days is the upper bound of that window.
+--   * Open question for review: does the 180-day window restart on
+--     `padron_recibido_fecha` (date received by Bocatas) or on the
+--     padrón's emission date (date stamped on the document)? Schema as
+--     written tracks the former — reception date by Bocatas — which is
+--     what the volunteer/coordinator can act on.
+--
+-- DO NOT APPLY until Espe/Sole sign off on the 180-day cadence and the
+-- "reception vs. emission" question above.
+
+-- ALTER TABLE public.families
+--   ADD COLUMN padron_recibido_fecha DATE;
+--
+-- COMMENT ON COLUMN public.families.padron_recibido_fecha IS
+--   'Fecha en la que Bocatas recibió el último padrón. Renueva si > 180 días.';

@@ -25,6 +25,12 @@ interface ConsentModalProps {
   templates: ConsentTemplate[];
   onClose: () => void;
   onSaved: () => void;
+  /**
+   * Phase B.5 — beneficiary's primary language (idioma). Used by tests + future
+   * fallback flow to detect when no template matches and show the verbal-translation
+   * banner. Optional: existing call sites pass undefined and behavior is unchanged.
+   */
+  personLanguage?: string;
 }
 
 interface ConsentState {
@@ -32,7 +38,15 @@ interface ConsentState {
   documentoFotoUrl?: string;
 }
 
-export function ConsentModal({ open, personId, templates, onClose, onSaved }: ConsentModalProps) {
+// Phase B.5 — consent_language enum: es, ar, fr, bm. Anything outside this
+// set triggers the verbal-translation fallback banner. RTL languages live
+// here so the body wrapper can flip dir="rtl".
+const TEMPLATE_LANGUAGES = new Set(["es", "ar", "fr", "bm"]);
+const RTL_LANGUAGES = new Set(["ar"]);
+
+export function ConsentModal({ open, personId, templates, onClose, onSaved, personLanguage }: ConsentModalProps) {
+  const needsVerbalFallback = !!personLanguage && !TEMPLATE_LANGUAGES.has(personLanguage);
+  const dir = personLanguage && RTL_LANGUAGES.has(personLanguage) ? "rtl" : "ltr";
   const supabase = createClient();
   const [consents, setConsents] = useState<Record<string, ConsentState>>({});
   const [isSaving, setIsSaving] = useState(false);
@@ -120,7 +134,20 @@ export function ConsentModal({ open, personId, templates, onClose, onSaved }: Co
         </DialogHeader>
 
         <ScrollArea className="max-h-[70vh] pr-2">
-          <div className="space-y-4">
+          <div data-testid="consent-body" className="space-y-4" dir={dir}>
+            {needsVerbalFallback && (
+              <div
+                className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800"
+                data-testid="verbal-translation-banner"
+                role="status"
+              >
+                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                <span>
+                  Pide a Sole / a tu volunteer una traducción verbal antes de firmar.
+                  El consentimiento debajo está en español.
+                </span>
+              </div>
+            )}
             {templates.length === 0 && (
               <div className="flex items-center gap-2 rounded-md bg-muted p-3 text-sm text-muted-foreground">
                 <AlertCircle className="h-4 w-4 shrink-0" />

@@ -4,10 +4,13 @@
 
 CREATE TABLE IF NOT EXISTS public.deliveries (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  family_id UUID NOT NULL REFERENCES public.families(id) ON DELETE CASCADE,
-  grant_id UUID REFERENCES public.grants(id) ON DELETE SET NULL,
-  session_id UUID REFERENCES public.program_sessions(id) ON DELETE SET NULL,
-  
+
+  -- Foreign keys (named so the constraint is stable across replays — verified in prod
+  -- as deliveries_{family,grant,session}_id_fkey).
+  family_id  UUID NOT NULL CONSTRAINT deliveries_family_id_fkey  REFERENCES public.families(id)         ON DELETE CASCADE,
+  grant_id   UUID          CONSTRAINT deliveries_grant_id_fkey   REFERENCES public.grants(id)           ON DELETE SET NULL,
+  session_id UUID          CONSTRAINT deliveries_session_id_fkey REFERENCES public.program_sessions(id) ON DELETE SET NULL,
+
   -- Delivery details
   fecha_entrega DATE NOT NULL,
   kg_frutas_hortalizas NUMERIC(10, 2),
@@ -16,28 +19,24 @@ CREATE TABLE IF NOT EXISTS public.deliveries (
   kg_otros NUMERIC(10, 2) DEFAULT 0,
   kg_total NUMERIC(10, 2),
   unidades_no_alimenticias INTEGER,
-  
+
   -- Recipient info
   recogido_por VARCHAR(255),
   es_autorizado BOOLEAN DEFAULT FALSE,
-  
+
   -- Documentation
   firma_url TEXT,
   recogido_por_documento_url TEXT,
-  
+
   -- Audit trail
   registrado_por TEXT,
   notas TEXT,
   metadata JSONB,
-  
+
   -- Timestamps
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
-  deleted_at TIMESTAMP WITH TIME ZONE,
-  
-  CONSTRAINT deliveries_family_id_fkey FOREIGN KEY (family_id) REFERENCES public.families(id) ON DELETE CASCADE,
-  CONSTRAINT deliveries_grant_id_fkey FOREIGN KEY (grant_id) REFERENCES public.grants(id) ON DELETE SET NULL,
-  CONSTRAINT deliveries_session_id_fkey FOREIGN KEY (session_id) REFERENCES public.program_sessions(id) ON DELETE SET NULL
+  deleted_at TIMESTAMP WITH TIME ZONE
 );
 
 -- Create indexes for common queries

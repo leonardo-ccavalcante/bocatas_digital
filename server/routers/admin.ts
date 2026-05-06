@@ -14,6 +14,7 @@ import { TRPCError } from "@trpc/server";
 import { router, superadminProcedure } from "../\_core/trpc";
 import { createAdminClient } from "../../client/src/lib/supabase/server";
 import { softDeleteRecoveryRouter } from "./admin/soft-delete-recovery";
+import { logAudit, logProcedureError } from "../\_core/logging-middleware";
 
 const uuidLike = z
   .string()
@@ -78,16 +79,6 @@ export const adminRouter = router({
     .mutation(async ({ input, ctx }) => {
       const supabase = createAdminClient();
 
-      // M2: Audit log — critical action
-      console.log(JSON.stringify({
-        audit: true,
-        action: "admin.createStaffUser",
-        actor: ctx.user?.id ?? "unknown",
-        target_email: input.email,
-        target_role: input.role,
-        ts: new Date().toISOString(),
-      }));
-
       const { data, error } = await supabase.auth.admin.createUser({
         email: input.email,
         email_confirm: false, // triggers invite email flow
@@ -101,6 +92,9 @@ export const adminRouter = router({
       });
 
       if (error) {
+        logProcedureError(ctx, "admin.createStaffUser failed", error as Error, {
+          assignedRole: input.role,
+        });
         // 422 or duplicate email
         if (
           error.message.toLowerCase().includes("already") ||
@@ -118,6 +112,12 @@ export const adminRouter = router({
           message: `Error al crear usuario: ${error.message}`,
         });
       }
+
+      // Audit success with stable user_id (no PII).
+      logAudit(ctx, "admin.createStaffUser", {
+        targetUserId: data.user.id,
+        assignedRole: input.role,
+      });
 
       return {
         id: data.user.id,
@@ -142,24 +142,24 @@ export const adminRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       const supabase = createAdminClient();
-      console.log(JSON.stringify({
-        audit: true,
-        action: "admin.setUserRole",
-        actor: ctx.user?.id ?? "unknown",
-        target_user_id: input.userId,
-        new_role: input.role,
-        target_nombre: input.nombre ?? "unknown",
-        ts: new Date().toISOString(),
-      }));
       const { error } = await supabase.auth.admin.updateUserById(input.userId, {
         app_metadata: { role: input.role },
       });
       if (error) {
+        logProcedureError(ctx, "admin.setUserRole failed", error as Error, {
+          targetUserId: input.userId,
+          newRole: input.role,
+        });
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: `Error al asignar rol: ${error.message}`,
         });
       }
+      // Audit success — stable IDs only, no PII (target_nombre dropped).
+      logAudit(ctx, "admin.setUserRole", {
+        targetUserId: input.userId,
+        newRole: input.role,
+      });
       return { success: true, userId: input.userId, role: input.role };
     }),
 
@@ -221,16 +221,6 @@ export const adminRouter = router({
     .mutation(async ({ input, ctx }) => {
       const supabase = createAdminClient();
 
-      // M2: Audit log — critical action
-      console.log(JSON.stringify({
-        audit: true,
-        action: "admin.revokeStaffAccess",
-        actor: ctx.user?.id ?? "unknown",
-        target_user_id: input.userId,
-        target_nombre: input.nombre ?? "unknown",
-        ts: new Date().toISOString(),
-      }));
-
       const { error } = await supabase.auth.admin.updateUserById(input.userId, {
         app_metadata: {
           role: null,
@@ -238,11 +228,19 @@ export const adminRouter = router({
       });
 
       if (error) {
+        logProcedureError(ctx, "admin.revokeStaffAccess failed", error as Error, {
+          targetUserId: input.userId,
+        });
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: `Error al revocar acceso: ${error.message}`,
         });
       }
+
+      // Audit success — stable IDs only, no PII (target_nombre dropped).
+      logAudit(ctx, "admin.revokeStaffAccess", {
+        targetUserId: input.userId,
+      });
 
       return { success: true, userId: input.userId };
     }),

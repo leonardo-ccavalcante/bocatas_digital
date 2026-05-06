@@ -75,6 +75,16 @@ export class Logger {
   }
 
   /**
+   * Log audit-level message — for compliance-relevant admin actions.
+   * Stored at info level in the ring buffer with audit:true marker.
+   * Caller MUST NOT include PII (emails, names, document numbers) in metadata —
+   * use stable IDs instead. See CLAUDE.md §Compliance.
+   */
+  audit(action: string, metadata?: Record<string, any>): void {
+    this.addLog('info', action, { ...metadata, audit: true });
+  }
+
+  /**
    * Get all logs
    */
   getLogs(): LogEntry[] {
