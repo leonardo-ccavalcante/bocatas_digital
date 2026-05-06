@@ -42,3 +42,7 @@
 - [x] Los 2 casts `as any` en legacy-import.ts ya eliminados en PR #37
 - [x] Verificado: pnpm check → 0 errores, pnpm test → 1544 pasando 0 fallos
 - [x] Checkpoint y push a GitHub
+- [x] Bug: "Error guardando previsualización" en /familias — causa: constraint `bulk_import_previews_parsed_rows_max` llamaba `jsonb_array_length()` sobre un objeto JSONB (error 22023); fix: migración `20260506000002` reemplaza constraint para verificar `parsed_rows->'groups'`
+- [x] Agregar test de regresión: `bulk_import_previews` INSERT con payload objeto `{groups, src_filename}` no viola constraint — 3 tests GREEN en `bulk-import-previews-constraint.test.ts`
+- [x] Test de integración real DB: `bulk-import-previews-db.test.ts` — 4 tests GREEN que realizan INSERT real en Supabase; verifican que constraint acepta `{groups, src_filename}` y rechaza grupos > 10000
+- [x] Verificación manual confirmada: INSERT directo con service-role key a `bulk_import_previews` con payload `{groups: [...], src_filename: ...}` retorna token UUID (no error 22023)
