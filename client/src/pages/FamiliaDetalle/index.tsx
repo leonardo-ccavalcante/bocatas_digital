@@ -293,13 +293,6 @@ export default function FamiliaDetalle() {
         </TabsContent>
       </Tabs>
 
-      {/* Member Management Modal */}
-      <MemberManagementModal
-        familiaId={id!}
-        open={memberModalOpen}
-        onOpenChange={setMemberModalOpen}
-      />
-
       {/* Document Upload Modal */}
       {docModalOpen && (
         <DocumentUploadModal
