@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, adminProcedure } from "../../_core/trpc";
-import { createAdminClient } from "../../../client/src/lib/supabase/server";
+import { createAdminClient, createUserImpersonationClient } from "../../../client/src/lib/supabase/server";
 import { parseCSVLine } from "../announcements/_shared";
 import {
   fieldsToLegacyRow,
@@ -342,7 +342,8 @@ export const legacyImportRouter = router({
       })
     )
     .mutation(async ({ input, ctx }): Promise<ConfirmResponse> => {
-      const db = createAdminClient();
+      // Use admin client for ownership/TTL pre-check (service-role bypasses RLS).
+      const adminDb = createAdminClient();
       const actorId = String(ctx.user.id);
       const safeName = safeFilename(input.src_filename);
 
@@ -350,7 +351,7 @@ export const legacyImportRouter = router({
       // (the RPC also re-checks ownership inside the SECURITY DEFINER
       // boundary; this is defense in depth and a friendlier error path).
       const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
-      const { data: preview, error: fetchErr } = await db
+      const { data: preview, error: fetchErr } = await adminDb
         .from("bulk_import_previews")
         .select("token, created_by, created_at")
         .eq("token", input.preview_token)
@@ -364,7 +365,20 @@ export const legacyImportRouter = router({
         });
       }
 
-      const { data: result, error: rpcErr } = await db.rpc(
+      // The RPC `confirm_legacy_familias_import` is SECURITY DEFINER and calls
+      // `get_user_role()` → `auth.jwt() -> 'app_metadata' ->> 'role'` internally.
+      // Calling it with the service-role key yields no user JWT, so get_user_role()
+      // returns 'beneficiario' and the role check fails (42501).
+      // Fix: sign a short-lived Supabase JWT for the authenticated user so the RPC
+      // sees the correct role and uid.
+      // IMPORTANT: sub must equal actorId (String(ctx.user.id)) because the RPC
+      // checks `created_by = auth.uid()::text` for ownership verification.
+      const userDb = await createUserImpersonationClient(
+        actorId,
+        ctx.user.role
+      );
+
+      const { data: result, error: rpcErr } = await userDb.rpc(
         "confirm_legacy_familias_import",
         {
           p_token: input.preview_token,
@@ -375,12 +389,13 @@ export const legacyImportRouter = router({
         // Cleanup the preview to avoid stuck tokens. Don't surface the raw
         // pg message to the client (could embed PII for constraint
         // violations); log it server-side and return a generic error.
-        await db
+        await adminDb
           .from("bulk_import_previews")
           .delete()
           .eq("token", input.preview_token);
         ctx.logger.error("[legacy-import] confirm RPC failed", {
           code: rpcErr.code,
+          message: rpcErr.message,
           correlationId: ctx.correlationId,
         });
         throw new TRPCError({
