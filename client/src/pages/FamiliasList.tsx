@@ -10,6 +10,7 @@ import { Users, Plus, Search, ChevronRight, Download, Upload, FileText } from "l
 import { useFamiliasList } from "@/features/families/hooks/useFamilias";
 import { ExportFamiliesModal } from "@/components/ExportFamiliesModal";
 import { ImportFamiliesModal } from "@/components/ImportFamiliesModal";
+import { BulkImportFamiliasLegacyModal } from "@/components/BulkImportFamiliasLegacyModal";
 import { DeliveryDocumentUpload } from "@/components/DeliveryDocumentUpload";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -20,6 +21,7 @@ export default function FamiliasList() {
   const [sinInforme, setSinInforme] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [legacyImportOpen, setLegacyImportOpen] = useState(false);
   const [deliveryUploadOpen, setDeliveryUploadOpen] = useState(false);
 
   const { data: families, isLoading } = useFamiliasList({
@@ -50,7 +52,10 @@ export default function FamiliasList() {
               <Download className="mr-1 sm:mr-2 h-3 sm:h-4 w-3 sm:w-4" /> <span className="hidden sm:inline">Exportar CSV</span><span className="sm:hidden">Exportar</span>
             </Button>
             <Button variant="outline" size="sm" className="text-xs sm:text-sm" onClick={() => setImportOpen(true)}>
-              <Upload className="mr-1 sm:mr-2 h-3 sm:h-4 w-3 sm:w-4" /> <span className="hidden sm:inline">Importar CSV</span><span className="sm:hidden">Importar</span>
+              <Upload className="mr-1 sm:mr-2 h-3 sm:h-4 w-3 sm:w-4" /> <span className="hidden sm:inline">Importar CSV interno</span><span className="sm:hidden">Importar</span>
+            </Button>
+            <Button variant="outline" size="sm" className="text-xs sm:text-sm" onClick={() => setLegacyImportOpen(true)}>
+              <Upload className="mr-1 sm:mr-2 h-3 sm:h-4 w-3 sm:w-4" /> <span className="hidden sm:inline">Importar CSV legacy</span><span className="sm:hidden">Legacy</span>
             </Button>
             <Link href="/familias/nueva">
               <Button size="sm" className="text-xs sm:text-sm">
@@ -63,6 +68,7 @@ export default function FamiliasList() {
         {/* CSV Modals */}
         <ExportFamiliesModal open={exportOpen} onOpenChange={setExportOpen} />
         <ImportFamiliesModal open={importOpen} onOpenChange={setImportOpen} />
+        <BulkImportFamiliasLegacyModal open={legacyImportOpen} onOpenChange={setLegacyImportOpen} />
 
         {/* Delivery Upload Modal */}
         <Dialog open={deliveryUploadOpen} onOpenChange={setDeliveryUploadOpen}>
