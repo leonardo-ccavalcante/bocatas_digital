@@ -1441,6 +1441,66 @@ export type Database = {
         }
         Relationships: []
       }
+      program_document_types: {
+        Row: {
+          id: string
+          programa_id: string
+          slug: string
+          nombre: string
+          descripcion: string | null
+          scope: string
+          template_url: string | null
+          template_version: string | null
+          template_filename: string | null
+          guide_url: string | null
+          guide_version: string | null
+          guide_filename: string | null
+          is_required: boolean
+          is_active: boolean
+          display_order: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          programa_id: string
+          slug: string
+          nombre: string
+          descripcion?: string | null
+          scope: string
+          template_url?: string | null
+          template_version?: string | null
+          template_filename?: string | null
+          guide_url?: string | null
+          guide_version?: string | null
+          guide_filename?: string | null
+          is_required?: boolean
+          is_active?: boolean
+          display_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          programa_id?: string
+          slug?: string
+          nombre?: string
+          descripcion?: string | null
+          scope?: string
+          template_url?: string | null
+          template_version?: string | null
+          template_filename?: string | null
+          guide_url?: string | null
+          guide_version?: string | null
+          guide_filename?: string | null
+          is_required?: boolean
+          is_active?: boolean
+          display_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       persons_safe: {
