@@ -7,7 +7,9 @@ CREATE TABLE IF NOT EXISTS family_saved_views (
   programa_id uuid NOT NULL REFERENCES programs(id) ON DELETE CASCADE,
   nombre text NOT NULL,
   descripcion text,
-  filters_json jsonb NOT NULL,                        -- Zod-validated FamiliasFiltersSpec
+  filters_json jsonb NOT NULL,                        -- Zod-validated FamiliasFiltersSpec; may contain
+                                                      -- free-text search terms typed by admins — treat as
+                                                      -- operational PII per CLAUDE.md §3 Compliance.
   is_shared boolean NOT NULL DEFAULT false,
   display_order integer NOT NULL DEFAULT 0,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -22,7 +24,7 @@ CREATE INDEX family_saved_views_shared_idx
 ALTER TABLE family_saved_views ENABLE ROW LEVEL SECURITY;
 
 -- Admins/superadmins can read their own views + shared views in their tenant.
-CREATE POLICY "saved_views_admin_read"
+CREATE POLICY family_saved_views_admin_read
   ON family_saved_views FOR SELECT
   TO authenticated
   USING (
@@ -31,7 +33,7 @@ CREATE POLICY "saved_views_admin_read"
   );
 
 -- Admins/superadmins can write only their own rows.
-CREATE POLICY "saved_views_admin_write"
+CREATE POLICY family_saved_views_admin_write
   ON family_saved_views FOR ALL
   TO authenticated
   USING (public.get_user_role() IN ('admin','superadmin') AND user_id = (auth.jwt() ->> 'sub'))
