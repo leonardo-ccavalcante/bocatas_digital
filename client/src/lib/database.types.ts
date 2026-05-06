@@ -14,63 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      acompanamientos: {
-        Row: {
-          asignado_a: string | null
-          created_at: string
-          deleted_at: string | null
-          descripcion: string | null
-          entidad_derivacion: string | null
-          estado: string | null
-          id: string
-          metadata: Json | null
-          person_id: string
-          tipo: string | null
-          updated_at: string
-        }
-        Insert: {
-          asignado_a?: string | null
-          created_at?: string
-          deleted_at?: string | null
-          descripcion?: string | null
-          entidad_derivacion?: string | null
-          estado?: string | null
-          id?: string
-          metadata?: Json | null
-          person_id: string
-          tipo?: string | null
-          updated_at?: string
-        }
-        Update: {
-          asignado_a?: string | null
-          created_at?: string
-          deleted_at?: string | null
-          descripcion?: string | null
-          entidad_derivacion?: string | null
-          estado?: string | null
-          id?: string
-          metadata?: Json | null
-          person_id?: string
-          tipo?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "acompanamientos_person_id_fkey"
-            columns: ["person_id"]
-            isOneToOne: false
-            referencedRelation: "persons"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "acompanamientos_person_id_fkey"
-            columns: ["person_id"]
-            isOneToOne: false
-            referencedRelation: "persons_safe"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       announcement_audiences: {
         Row: {
           announcement_id: string
@@ -510,65 +453,6 @@ export type Database = {
           },
         ]
       }
-      courses: {
-        Row: {
-          created_at: string
-          cupo_maximo: number | null
-          deleted_at: string | null
-          descripcion: string | null
-          estado: string | null
-          fecha_fin: string | null
-          fecha_inicio: string | null
-          formador: string | null
-          id: string
-          location_id: string | null
-          metadata: Json | null
-          nombre: string
-          tipo: string | null
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          cupo_maximo?: number | null
-          deleted_at?: string | null
-          descripcion?: string | null
-          estado?: string | null
-          fecha_fin?: string | null
-          fecha_inicio?: string | null
-          formador?: string | null
-          id?: string
-          location_id?: string | null
-          metadata?: Json | null
-          nombre: string
-          tipo?: string | null
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          cupo_maximo?: number | null
-          deleted_at?: string | null
-          descripcion?: string | null
-          estado?: string | null
-          fecha_fin?: string | null
-          fecha_inicio?: string | null
-          formador?: string | null
-          id?: string
-          location_id?: string | null
-          metadata?: Json | null
-          nombre?: string
-          tipo?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "courses_location_id_fkey"
-            columns: ["location_id"]
-            isOneToOne: false
-            referencedRelation: "locations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       deliveries: {
         Row: {
           created_at: string
@@ -663,113 +547,54 @@ export type Database = {
           },
         ]
       }
-      entregas: {
+      delivery_signature_audit: {
         Row: {
-          carne_cantidad: number | null
-          carne_unidad: string | null
-          createdAt: string
-          entregas_batch_id: string
-          familia_id: string
-          fecha: string
-          frutas_hortalizas_cantidad: number | null
-          frutas_hortalizas_unidad: string | null
+          client_ip_hash: string | null
+          created_at: string
+          delivery_id: string
           id: string
-          notas: string | null
-          ocr_row_confidence: number | null
-          persona_recibio: string | null
-          updatedAt: string
+          signed_at: string
+          signer_person_id: string
         }
         Insert: {
-          carne_cantidad?: number | null
-          carne_unidad?: string | null
-          createdAt?: string
-          entregas_batch_id: string
-          familia_id: string
-          fecha: string
-          frutas_hortalizas_cantidad?: number | null
-          frutas_hortalizas_unidad?: string | null
+          client_ip_hash?: string | null
+          created_at?: string
+          delivery_id: string
           id?: string
-          notas?: string | null
-          ocr_row_confidence?: number | null
-          persona_recibio?: string | null
-          updatedAt?: string
+          signed_at?: string
+          signer_person_id: string
         }
         Update: {
-          carne_cantidad?: number | null
-          carne_unidad?: string | null
-          createdAt?: string
-          entregas_batch_id?: string
-          familia_id?: string
-          fecha?: string
-          frutas_hortalizas_cantidad?: number | null
-          frutas_hortalizas_unidad?: string | null
+          client_ip_hash?: string | null
+          created_at?: string
+          delivery_id?: string
           id?: string
-          notas?: string | null
-          ocr_row_confidence?: number | null
-          persona_recibio?: string | null
-          updatedAt?: string
+          signed_at?: string
+          signer_person_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "entregas_entregas_batch_id_fkey"
-            columns: ["entregas_batch_id"]
+            foreignKeyName: "delivery_signature_audit_delivery_id_fkey"
+            columns: ["delivery_id"]
             isOneToOne: false
-            referencedRelation: "entregas_batch"
+            referencedRelation: "deliveries"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "entregas_familia_id_fkey"
-            columns: ["familia_id"]
+            foreignKeyName: "delivery_signature_audit_signer_person_id_fkey"
+            columns: ["signer_person_id"]
             isOneToOne: false
-            referencedRelation: "families"
+            referencedRelation: "persons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_signature_audit_signer_person_id_fkey"
+            columns: ["signer_person_id"]
+            isOneToOne: false
+            referencedRelation: "persons_safe"
             referencedColumns: ["id"]
           },
         ]
-      }
-      entregas_batch: {
-        Row: {
-          createdAt: string
-          documento_imagen_url: string | null
-          estado: string | null
-          estado_batch: string
-          fecha_reparto: string
-          id: string
-          numero_albaran: string
-          numero_factura_carne: string | null
-          numero_reparto: string
-          ocr_confidence: number | null
-          total_personas_asistidas: number
-          updatedAt: string
-        }
-        Insert: {
-          createdAt?: string
-          documento_imagen_url?: string | null
-          estado?: string | null
-          estado_batch?: string
-          fecha_reparto: string
-          id?: string
-          numero_albaran: string
-          numero_factura_carne?: string | null
-          numero_reparto: string
-          ocr_confidence?: number | null
-          total_personas_asistidas: number
-          updatedAt?: string
-        }
-        Update: {
-          createdAt?: string
-          documento_imagen_url?: string | null
-          estado?: string | null
-          estado_batch?: string
-          fecha_reparto?: string
-          id?: string
-          numero_albaran?: string
-          numero_factura_carne?: string | null
-          numero_reparto?: string
-          ocr_confidence?: number | null
-          total_personas_asistidas?: number
-          updatedAt?: string
-        }
-        Relationships: []
       }
       familia_miembros: {
         Row: {
@@ -879,6 +704,7 @@ export type Database = {
           num_menores_18: number | null
           num_miembros: number | null
           padron_recibido: boolean | null
+          padron_recibido_fecha: string | null
           persona_recoge: string | null
           sin_guf: boolean | null
           sin_informe_social: boolean | null
@@ -914,6 +740,7 @@ export type Database = {
           num_menores_18?: number | null
           num_miembros?: number | null
           padron_recibido?: boolean | null
+          padron_recibido_fecha?: string | null
           persona_recoge?: string | null
           sin_guf?: boolean | null
           sin_informe_social?: boolean | null
@@ -949,6 +776,7 @@ export type Database = {
           num_menores_18?: number | null
           num_miembros?: number | null
           padron_recibido?: boolean | null
+          padron_recibido_fecha?: string | null
           persona_recoge?: string | null
           sin_guf?: boolean | null
           sin_informe_social?: boolean | null
@@ -971,54 +799,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      families_miembros_backup_20260505: {
-        Row: {
-          backup_taken_at: string | null
-          id: string | null
-          miembros: Json | null
-        }
-        Insert: {
-          backup_taken_at?: string | null
-          id?: string | null
-          miembros?: Json | null
-        }
-        Update: {
-          backup_taken_at?: string | null
-          id?: string | null
-          miembros?: Json | null
-        }
-        Relationships: []
-      }
-      families_pre_backfill_20260430: {
-        Row: {
-          consent_banco_alimentos: boolean | null
-          consent_bocatas: boolean | null
-          docs_identidad: boolean | null
-          id: string | null
-          informe_social: boolean | null
-          justificante_recibido: boolean | null
-          padron_recibido: boolean | null
-        }
-        Insert: {
-          consent_banco_alimentos?: boolean | null
-          consent_bocatas?: boolean | null
-          docs_identidad?: boolean | null
-          id?: string | null
-          informe_social?: boolean | null
-          justificante_recibido?: boolean | null
-          padron_recibido?: boolean | null
-        }
-        Update: {
-          consent_banco_alimentos?: boolean | null
-          consent_bocatas?: boolean | null
-          docs_identidad?: boolean | null
-          id?: string | null
-          informe_social?: boolean | null
-          justificante_recibido?: boolean | null
-          padron_recibido?: boolean | null
-        }
-        Relationships: []
       }
       family_member_documents: {
         Row: {
@@ -1090,6 +870,44 @@ export type Database = {
             columns: ["member_person_id"]
             isOneToOne: false
             referencedRelation: "persons_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      family_webhook_log: {
+        Row: {
+          attempted_at: string
+          error: string | null
+          event: string
+          family_id: string
+          id: string
+          response_body: string | null
+          status_code: number | null
+        }
+        Insert: {
+          attempted_at?: string
+          error?: string | null
+          event: string
+          family_id: string
+          id?: string
+          response_body?: string | null
+          status_code?: number | null
+        }
+        Update: {
+          attempted_at?: string
+          error?: string | null
+          event?: string
+          family_id?: string
+          id?: string
+          response_body?: string | null
+          status_code?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "family_webhook_log_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
             referencedColumns: ["id"]
           },
         ]
@@ -1379,13 +1197,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "fk_enrollment_course"
-            columns: ["course_id"]
-            isOneToOne: false
-            referencedRelation: "courses"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "fk_enrollment_program"
             columns: ["program_id"]
             isOneToOne: false
@@ -1538,72 +1349,6 @@ export type Database = {
         }
         Relationships: []
       }
-      volunteers: {
-        Row: {
-          activo: boolean
-          created_at: string
-          deleted_at: string | null
-          disponibilidad: Json | null
-          fecha_alta: string
-          fecha_baja: string | null
-          habilidades: string[] | null
-          id: string
-          metadata: Json | null
-          person_id: string
-          seguro_caducidad: string | null
-          seguro_numero: string | null
-          updated_at: string
-          user_id: string | null
-        }
-        Insert: {
-          activo?: boolean
-          created_at?: string
-          deleted_at?: string | null
-          disponibilidad?: Json | null
-          fecha_alta?: string
-          fecha_baja?: string | null
-          habilidades?: string[] | null
-          id?: string
-          metadata?: Json | null
-          person_id: string
-          seguro_caducidad?: string | null
-          seguro_numero?: string | null
-          updated_at?: string
-          user_id?: string | null
-        }
-        Update: {
-          activo?: boolean
-          created_at?: string
-          deleted_at?: string | null
-          disponibilidad?: Json | null
-          fecha_alta?: string
-          fecha_baja?: string | null
-          habilidades?: string[] | null
-          id?: string
-          metadata?: Json | null
-          person_id?: string
-          seguro_caducidad?: string | null
-          seguro_numero?: string | null
-          updated_at?: string
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "volunteers_person_id_fkey"
-            columns: ["person_id"]
-            isOneToOne: true
-            referencedRelation: "persons"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "volunteers_person_id_fkey"
-            columns: ["person_id"]
-            isOneToOne: true
-            referencedRelation: "persons_safe"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
     }
     Views: {
       persons_safe: {
@@ -1750,10 +1495,8 @@ export type Database = {
       }
     }
     Functions: {
-      // Manual augmentation: supabase type-gen widens nullable function args to non-null.
-      // p_autor_nombre maps to a Postgres text param that allows NULL (autor.nombre may be missing).
       confirm_bulk_announcement_import: {
-        Args: { p_autor_id: string; p_autor_nombre: string | null; p_token: string }
+        Args: { p_autor_id: string; p_autor_nombre: string; p_token: string }
         Returns: Json
       }
       find_duplicate_persons: {
@@ -1800,7 +1543,7 @@ export type Database = {
           p_documento_url: string
           p_family_id: string
           p_member_index: number
-          p_member_person_id: string
+          p_member_person_id: string | null
           p_verified_by: string
         }
         Returns: {
