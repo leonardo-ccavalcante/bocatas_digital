@@ -93,6 +93,8 @@ export function IdentityVerifier({ familyId, onVerified, onRejected }: IdentityV
               src={titular.foto_perfil_url}
               alt="Foto titular"
               className="h-16 w-16 rounded-full object-cover border-2 border-border"
+              loading="lazy"
+              decoding="async"
             />
           ) : (
             <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center">

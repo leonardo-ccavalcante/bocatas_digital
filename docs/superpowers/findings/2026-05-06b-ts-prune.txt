@@ -1,0 +1,247 @@
+server/announcements-helpers.ts:6 - VisibilityInput
+server/announcements-helpers.ts:18 - DSLParseResult
+server/announcements-helpers.ts:23 - BulkRowInput
+server/announcements-helpers.ts:30 - TipoAnnouncement
+server/announcements-helpers.ts:31 - AnnouncementRole
+server/announcements-helpers.ts:32 - AnnouncementProgram
+server/announcements-helpers.ts:33 - AudienceRule
+server/announcements-helpers.ts:36 - ANNOUNCEMENT_TYPES
+server/announcements-helpers.ts:37 - LEGACY_ANNOUNCEMENT_TYPES
+server/announcements-helpers.ts:38 - ANNOUNCEMENT_ROLES
+server/announcements-helpers.ts:39 - ANNOUNCEMENT_PROGRAMS
+server/announcements-helpers.ts:40 - isCurrentTipo
+server/announcements-helpers.ts:41 - isLegacyTipo
+server/csvFamiliesWithMembers.ts:8 - MergeStrategy (used in module)
+server/csvFamiliesWithMembers.ts:10 - FamilyWithMembersRow (used in module)
+server/csvFamiliesWithMembers.ts:20 - FamilyWithMembers (used in module)
+server/csvFamiliesWithMembers.ts:32 - ValidationResult (used in module)
+server/csvImportWithMembers.ts:1 - ImportValidationResult (used in module)
+server/csvTemplateGenerator.ts:3 - CSVTemplateData (used in module)
+server/families-doc-helpers.ts:55 - buildDocKey
+server/storage.ts:95 - storageGet
+shared/announcementTypes.ts:34 - LegacyTipoAnnouncement
+shared/announcementTypes.ts:37 - ANNOUNCEMENT_TYPE_LABELS
+shared/announcementTypes.ts:48 - ANNOUNCEMENT_TYPE_DESCRIPTIONS
+shared/familyDocuments.ts:66 - isFamilyLevelDocType
+shared/familyDocuments.ts:70 - isPerMemberDocType
+shared/familyDocuments.ts:23 - FamilyBooleanCacheColumn (used in module)
+shared/familyDocuments.ts:54 - satisfies (used in module)
+shared/familyDocuments.ts:54 - readonly (used in module)
+shared/types.ts:8 - users
+shared/types.ts:25 - User
+shared/types.ts:26 - InsertUser
+shared/types.ts:31 - families
+shared/types.ts:42 - Family
+shared/types.ts:43 - InsertFamily
+shared/types.ts:5 - HttpError
+shared/types.ts:16 - BadRequestError
+shared/types.ts:17 - UnauthorizedError
+shared/types.ts:18 - ForbiddenError
+shared/types.ts:19 - NotFoundError
+client/src/const.ts:1 - COOKIE_NAME
+client/src/const.ts:1 - ONE_YEAR_MS
+server/_core/dataApi.ts:16 - callDataApi
+server/_core/dataApi.ts:9 - DataApiCallOptions (used in module)
+server/_core/delivery-ocr.ts:3 - ExtractedDelivery (used in module)
+server/_core/delivery-ocr.ts:24 - OCRExtractionResult (used in module)
+server/_core/imageGeneration.ts:34 - generateImage
+server/_core/imageGeneration.ts:21 - GenerateImageOptions (used in module)
+server/_core/imageGeneration.ts:30 - GenerateImageResponse (used in module)
+server/_core/logging-middleware.ts:8 - LoggingOptions (used in module)
+server/_core/map.ts:54 - makeRequest
+server/_core/map.ts:96 - TravelMode
+server/_core/map.ts:97 - MapType
+server/_core/map.ts:98 - SpeedUnit
+server/_core/map.ts:100 - LatLng (used in module)
+server/_core/map.ts:105 - DirectionsResult
+server/_core/map.ts:131 - DistanceMatrixResult
+server/_core/map.ts:144 - GeocodingResult
+server/_core/map.ts:166 - PlacesSearchResult
+server/_core/map.ts:182 - PlaceDetailsResult
+server/_core/map.ts:209 - ElevationResult
+server/_core/map.ts:218 - TimeZoneResult
+server/_core/map.ts:226 - RoadsResult
+server/_core/notification.ts:4 - NotificationPayload (used in module)
+server/_core/ocr-country-detection.ts:3 - CountrySuggestion (used in module)
+server/_core/sdk.ts:21 - SessionPayload (used in module)
+server/_core/voiceTranscription.ts:73 - transcribeAudio
+server/_core/voiceTranscription.ts:30 - TranscribeOptions (used in module)
+server/_core/voiceTranscription.ts:37 - WhisperSegment (used in module)
+server/_core/voiceTranscription.ts:51 - WhisperResponse (used in module)
+server/_core/voiceTranscription.ts:59 - TranscriptionResponse (used in module)
+server/_core/voiceTranscription.ts:61 - TranscriptionError (used in module)
+server/db/csv-validation.ts:102 - validateAnnouncementRows
+server/db/csv-validation.ts:6 - ValidationResult (used in module)
+server/db/soft-delete-audit.ts:91 - generateMigrationScript
+server/db/soft-delete-audit.ts:3 - TableAudit (used in module)
+server/db/soft-delete-cascade.ts:141 - getCascadeRules
+server/db/soft-delete-cascade.ts:3 - CascadeRule (used in module)
+server/ocrDeliveryExtraction/index.ts:5 - ExtractedBatchHeader
+server/ocrDeliveryExtraction/index.ts:6 - ExtractedDeliveryRow
+server/ocrDeliveryExtraction/index.ts:7 - ExtractedDeliveryDocument
+server/ocrDeliveryExtraction/index.ts:8 - ValidationResult
+server/ocrDeliveryExtraction/index.ts:9 - ParsedQuantity
+server/ocrDeliveryExtraction/index.ts:12 - parseQuantityWithUnit
+server/ocrDeliveryExtraction/index.ts:13 - isValidUUID
+server/ocrDeliveryExtraction/index.ts:14 - extractDeliveriesFromOCR
+server/ocrDeliveryExtraction/index.ts:17 - validateBatchHeader
+server/ocrDeliveryExtraction/index.ts:18 - validateBatchHeaderWithDB
+server/ocrDeliveryExtraction/index.ts:19 - validateDeliveryRow
+server/ocrDeliveryExtraction/index.ts:20 - validateDeliveryRowWithDB
+server/ocrDeliveryExtraction/index.ts:22 - saveDeliveryBatch
+server/routers/families-csv-members-procedures.ts:4 - csvMembersProcedures
+client/src/components/AnnouncementMetaPanels.tsx:31 - AnnouncementMetaPanels
+client/src/components/AnnouncementMetaPanels.tsx:7 - AuditLogEntry (used in module)
+client/src/components/AnnouncementMetaPanels.tsx:17 - DismissalStats (used in module)
+client/src/components/AudiencesSelector.tsx:6 - AudienceRule (used in module)
+client/src/components/AudiencesSelector.tsx:11 - Program (used in module)
+client/src/components/BatchAccumulatorContext.tsx:27 - ErrorLogEntry (used in module)
+client/src/components/BatchAccumulatorContext.tsx:50 - BatchAccumulatorProvider
+client/src/components/BatchAccumulatorContext.tsx:106 - useBatchAccumulator
+client/src/components/DeliveryPhotoModal.tsx:3 - DeliveryPhotoModal
+client/src/components/DeliveryPreviewTable.tsx:33 - DeliveryPreviewTable
+client/src/components/DeliveryPreviewTable.tsx:13 - DeliveryRow (used in module)
+client/src/components/ValidationWarnings.tsx:21 - ValidationWarnings
+client/src/components/ValidationWarnings.tsx:5 - ValidationWarning (used in module)
+client/src/contexts/ThemeContext.tsx:58 - useTheme
+client/src/hooks/useBatchAccumulator.ts:3 - ExtractedBeneficiary (used in module)
+client/src/hooks/useBatchAccumulator.ts:27 - ErrorLogEntry (used in module)
+client/src/hooks/useComposition.ts:4 - UseCompositionReturn (used in module)
+client/src/hooks/useComposition.ts:13 - UseCompositionOptions (used in module)
+client/src/lib/database.types.ts:1937 - Tables (used in module)
+client/src/lib/database.types.ts:1966 - TablesInsert
+client/src/lib/database.types.ts:1991 - TablesUpdate
+client/src/lib/database.types.ts:2016 - Enums (used in module)
+client/src/lib/database.types.ts:2033 - CompositeTypes (used in module)
+client/src/lib/database.types.ts:2050 - Constants
+client/src/lib/dateUtils.ts:43 - parseDateInput
+client/src/lib/logging-types.ts:1 - LogLevel (used in module)
+client/src/store/useAppStore.ts:4 - Location (used in module)
+client/src/store/useAppStore.ts:10 - PendingCheckin (used in module)
+server/_core/types/manusTypes.ts:5 - AuthorizeRequest
+server/_core/types/manusTypes.ts:13 - AuthorizeResponse
+server/_core/types/manusTypes.ts:35 - GetUserInfoRequest
+server/_core/types/manusTypes.ts:48 - CanAccessRequest
+server/_core/types/manusTypes.ts:53 - CanAccessResponse
+server/routers/announcements/_shared.ts:27 - AudienceRuleSchema (used in module)
+server/routers/announcements/index.ts:27 - announcementsRouter
+server/routers/entregas/index.ts:24 - Entrega
+server/routers/entregas/index.ts:26 - entregasRouter
+server/routers/families/index.ts:15 - insertFamilyRow
+server/routers/families/index.ts:16 - mirrorMembersToTable
+server/routers/families/index.ts:17 - mapParentescoToRelacion
+server/routers/families/index.ts:18 - resolveMemberPersonId
+server/routers/families/index.ts:19 - ensureFamiliaEnrollment
+server/routers/families/index.ts:20 - uuidLike
+server/routers/families/index.ts:21 - programIdSchema
+server/routers/families/index.ts:22 - SENTINEL_UUID
+server/routers/families/index.ts:23 - FamilyMemberSchema
+server/routers/families/index.ts:24 - DeactivateFamilyInputSchema
+server/routers/families/index.ts:25 - familyDocTypeSchema
+server/routers/families/index.ts:27 - MirrorMember
+server/routers/families/index.ts:27 - FamiliesUpdate
+server/routers/families/index.ts:29 - familiesRouter
+server/routers/persons/_shared.ts:6 - TipoDocumentoEnum (used in module)
+server/routers/persons/_shared.ts:7 - GeneroEnum (used in module)
+server/routers/persons/_shared.ts:8 - IdiomaEnum (used in module)
+server/routers/persons/_shared.ts:9 - SituacionLegalEnum (used in module)
+server/routers/persons/_shared.ts:10 - TipoViviendaEnum (used in module)
+server/routers/persons/_shared.ts:11 - EstabilidadHabitacionalEnum (used in module)
+server/routers/persons/_shared.ts:12 - NivelEstudiosEnum (used in module)
+server/routers/persons/_shared.ts:13 - SituacionLaboralEnum (used in module)
+server/routers/persons/_shared.ts:14 - NivelIngresosEnum (used in module)
+server/routers/persons/_shared.ts:15 - CanalLlegadaEnum (used in module)
+server/routers/persons/_shared.ts:19 - PersonCreateResult
+server/routers/persons/index.ts:25 - personsRouter
+client/src/components/DeliveryDocumentUpload/_useCsvFlow.ts:6 - CsvStep (used in module)
+client/src/components/DeliveryDocumentUpload/_useOcrFlow.ts:6 - OcrStep (used in module)
+client/src/components/DeliveryDocumentUpload/index.tsx:13 - DeliveryDocumentUpload
+client/src/components/ui/accordion.tsx:64 - Accordion (used in module)
+client/src/components/ui/accordion.tsx:64 - AccordionItem (used in module)
+client/src/components/ui/accordion.tsx:64 - AccordionTrigger (used in module)
+client/src/components/ui/accordion.tsx:64 - AccordionContent (used in module)
+client/src/components/ui/alert-dialog.tsx:145 - AlertDialogPortal (used in module)
+client/src/components/ui/alert-dialog.tsx:146 - AlertDialogOverlay (used in module)
+client/src/components/ui/aspect-ratio.tsx:9 - AspectRatio (used in module)
+client/src/components/ui/badge.tsx:46 - badgeVariants (used in module)
+client/src/components/ui/breadcrumb.tsx:102 - Breadcrumb (used in module)
+client/src/components/ui/breadcrumb.tsx:103 - BreadcrumbList (used in module)
+client/src/components/ui/breadcrumb.tsx:104 - BreadcrumbItem (used in module)
+client/src/components/ui/breadcrumb.tsx:105 - BreadcrumbLink (used in module)
+client/src/components/ui/breadcrumb.tsx:106 - BreadcrumbPage (used in module)
+client/src/components/ui/breadcrumb.tsx:107 - BreadcrumbSeparator (used in module)
+client/src/components/ui/breadcrumb.tsx:108 - BreadcrumbEllipsis (used in module)
+client/src/components/ui/button-group.tsx:79 - ButtonGroup (used in module)
+client/src/components/ui/button-group.tsx:80 - ButtonGroupSeparator (used in module)
+client/src/components/ui/button-group.tsx:81 - ButtonGroupText (used in module)
+client/src/components/ui/button-group.tsx:82 - buttonGroupVariants (used in module)
+client/src/components/ui/calendar.tsx:211 - Calendar (used in module)
+client/src/components/ui/calendar.tsx:211 - CalendarDayButton (used in module)
+client/src/components/ui/card.tsx:87 - CardFooter (used in module)
+client/src/components/ui/card.tsx:89 - CardAction (used in module)
+client/src/components/ui/carousel.tsx:233 - CarouselApi (used in module)
+client/src/components/ui/carousel.tsx:234 - Carousel (used in module)
+client/src/components/ui/carousel.tsx:235 - CarouselContent (used in module)
+client/src/components/ui/carousel.tsx:236 - CarouselItem (used in module)
+client/src/components/ui/carousel.tsx:237 - CarouselPrevious (used in module)
+client/src/components/ui/carousel.tsx:238 - CarouselNext (used in module)
+client/src/components/ui/chart.tsx:9 - ChartConfig (used in module)
+client/src/components/ui/chart.tsx:349 - ChartContainer (used in module)
+client/src/components/ui/chart.tsx:350 - ChartTooltip (used in module)
+client/src/components/ui/chart.tsx:351 - ChartTooltipContent (used in module)
+client/src/components/ui/chart.tsx:352 - ChartLegend (used in module)
+client/src/components/ui/chart.tsx:353 - ChartLegendContent (used in module)
+client/src/components/ui/chart.tsx:354 - ChartStyle (used in module)
+client/src/components/ui/collapsible.tsx:31 - Collapsible (used in module)
+client/src/components/ui/collapsible.tsx:31 - CollapsibleTrigger (used in module)
+client/src/components/ui/collapsible.tsx:31 - CollapsibleContent (used in module)
+client/src/components/ui/command.tsx:175 - Command (used in module)
+client/src/components/ui/command.tsx:176 - CommandDialog (used in module)
+client/src/components/ui/command.tsx:177 - CommandInput (used in module)
+client/src/components/ui/command.tsx:178 - CommandList (used in module)
+client/src/components/ui/command.tsx:179 - CommandEmpty (used in module)
+client/src/components/ui/command.tsx:180 - CommandGroup (used in module)
+client/src/components/ui/command.tsx:181 - CommandItem (used in module)
+client/src/components/ui/command.tsx:182 - CommandShortcut (used in module)
+client/src/components/ui/command.tsx:183 - CommandSeparator (used in module)
+client/src/components/ui/context-menu.tsx:235 - ContextMenu (used in module)
+client/src/components/ui/context-menu.tsx:236 - ContextMenuTrigger (used in module)
+client/src/components/ui/context-menu.tsx:237 - ContextMenuContent (used in module)
+client/src/components/ui/context-menu.tsx:238 - ContextMenuItem (used in module)
+client/src/components/ui/context-menu.tsx:239 - ContextMenuCheckboxItem (used in module)
+client/src/components/ui/context-menu.tsx:240 - ContextMenuRadioItem (used in module)
+client/src/components/ui/context-menu.tsx:241 - ContextMenuLabel (used in module)
+client/src/components/ui/context-menu.tsx:242 - ContextMenuSeparator (used in module)
+client/src/components/ui/context-menu.tsx:243 - ContextMenuShortcut (used in module)
+client/src/components/ui/context-menu.tsx:244 - ContextMenuGroup (used in module)
+client/src/components/ui/context-menu.tsx:245 - ContextMenuPortal (used in module)
+client/src/components/ui/context-menu.tsx:246 - ContextMenuSub (used in module)
+client/src/components/ui/context-menu.tsx:247 - ContextMenuSubContent (used in module)
+client/src/components/ui/context-menu.tsx:248 - ContextMenuSubTrigger (used in module)
+client/src/components/ui/context-menu.tsx:249 - ContextMenuRadioGroup (used in module)
+client/src/components/ui/dialog.tsx:199 - DialogClose (used in module)
+client/src/components/ui/dialog.tsx:204 - DialogOverlay (used in module)
+client/src/components/ui/dialog.tsx:205 - DialogPortal (used in module)
+client/src/components/ui/drawer.tsx:123 - Drawer (used in module)
+client/src/components/ui/drawer.tsx:124 - DrawerPortal (used in module)
+client/src/components/ui/drawer.tsx:125 - DrawerOverlay (used in module)
+client/src/components/ui/drawer.tsx:126 - DrawerTrigger (used in module)
+client/src/components/ui/drawer.tsx:127 - DrawerClose (used in module)
+client/src/components/ui/drawer.tsx:128 - DrawerContent (used in module)
+client/src/components/ui/drawer.tsx:129 - DrawerHeader (used in module)
+client/src/components/ui/drawer.tsx:130 - DrawerFooter (used in module)
+client/src/components/ui/drawer.tsx:131 - DrawerTitle (used in module)
+client/src/components/ui/drawer.tsx:132 - DrawerDescription (used in module)
+client/src/components/ui/dropdown-menu.tsx:240 - DropdownMenu (used in module)
+client/src/components/ui/dropdown-menu.tsx:241 - DropdownMenuPortal (used in module)
+client/src/components/ui/dropdown-menu.tsx:242 - DropdownMenuTrigger (used in module)
+client/src/components/ui/dropdown-menu.tsx:243 - DropdownMenuContent (used in module)
+client/src/components/ui/dropdown-menu.tsx:244 - DropdownMenuGroup (used in module)
+client/src/components/ui/dropdown-menu.tsx:245 - DropdownMenuLabel (used in module)
+client/src/components/ui/dropdown-menu.tsx:246 - DropdownMenuItem (used in module)
+client/src/components/ui/dropdown-menu.tsx:247 - DropdownMenuCheckboxItem (used in module)
+client/src/components/ui/dropdown-menu.tsx:248 - DropdownMenuRadioGroup (used in module)
+client/src/components/ui/dropdown-menu.tsx:249 - DropdownMenuRadioItem (used in module)
+client/src/components/ui/dropdown-menu.tsx:250 - DropdownMenuSeparator (used in module)
+client/src/components/ui/dropdown-menu.tsx:251 - DropdownMenuShortcut (used in module)
+client/src/components/ui/dropdown-menu.tsx:252 - DropdownMenuSub (used in module)

@@ -202,7 +202,7 @@ export function Step7Consent({
           </div>
           {consentDocPreview ? (
             <div className="space-y-2">
-              <img src={consentDocPreview} alt="Documento" className="w-full rounded border object-cover max-h-32" />
+              <img src={consentDocPreview} alt="Documento" className="w-full rounded border object-cover max-h-32" loading="lazy" decoding="async" />
               <div className="flex gap-2">
                 <Button type="button" size="sm" variant="outline"
                   onClick={() => { setConsentDocBase64(null); setConsentDocPreview(null); }}>

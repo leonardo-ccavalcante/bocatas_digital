@@ -90,6 +90,8 @@ export function ManualSearchModal({ open, onClose, onSelect }: ManualSearchModal
                         // with sighted scanning.
                         alt={`${person.nombre} ${person.apellidos ?? ""}`.trim()}
                         className="w-10 h-10 rounded-full object-cover shrink-0"
+                        loading="lazy"
+                        decoding="async"
                       />
                     ) : (
                       <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0">

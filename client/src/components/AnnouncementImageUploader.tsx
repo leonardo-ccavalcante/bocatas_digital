@@ -107,6 +107,8 @@ export function AnnouncementImageUploader({
               src={value}
               alt="Imagen de novedad"
               className="w-full h-40 object-cover rounded"
+              loading="lazy"
+              decoding="async"
             />
             <div className="flex gap-2">
               <Button
