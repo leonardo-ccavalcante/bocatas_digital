@@ -698,6 +698,7 @@ export type Database = {
           informe_social: boolean | null
           informe_social_fecha: string | null
           justificante_recibido: boolean | null
+          legacy_numero: string | null
           metadata: Json | null
           motivo_baja: Database["public"]["Enums"]["motivo_baja_familia"] | null
           num_adultos: number | null
@@ -732,6 +733,7 @@ export type Database = {
           informe_social?: boolean | null
           informe_social_fecha?: string | null
           justificante_recibido?: boolean | null
+          legacy_numero?: string | null
           metadata?: Json | null
           motivo_baja?:
             | Database["public"]["Enums"]["motivo_baja_familia"]
@@ -768,6 +770,7 @@ export type Database = {
           informe_social?: boolean | null
           informe_social_fecha?: string | null
           justificante_recibido?: boolean | null
+          legacy_numero?: string | null
           metadata?: Json | null
           motivo_baja?:
             | Database["public"]["Enums"]["motivo_baja_familia"]
@@ -870,6 +873,50 @@ export type Database = {
             columns: ["member_person_id"]
             isOneToOne: false
             referencedRelation: "persons_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      family_legacy_import_audit: {
+        Row: {
+          actor_id: string
+          family_id: string | null
+          id: string
+          legacy_numero: string
+          notes: string | null
+          operation: string
+          row_count: number
+          src_filename: string | null
+          ts: string
+        }
+        Insert: {
+          actor_id: string
+          family_id?: string | null
+          id?: string
+          legacy_numero: string
+          notes?: string | null
+          operation: string
+          row_count: number
+          src_filename?: string | null
+          ts?: string
+        }
+        Update: {
+          actor_id?: string
+          family_id?: string | null
+          id?: string
+          legacy_numero?: string
+          notes?: string | null
+          operation?: string
+          row_count?: number
+          src_filename?: string | null
+          ts?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "family_legacy_import_audit_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
             referencedColumns: ["id"]
           },
         ]
@@ -1497,6 +1544,10 @@ export type Database = {
     Functions: {
       confirm_bulk_announcement_import: {
         Args: { p_autor_id: string; p_autor_nombre: string; p_token: string }
+        Returns: Json
+      }
+      confirm_legacy_familias_import: {
+        Args: { p_token: string; p_src_filename?: string }
         Returns: Json
       }
       find_duplicate_persons: {
