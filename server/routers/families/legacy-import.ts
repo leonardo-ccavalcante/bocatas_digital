@@ -153,15 +153,10 @@ export const legacyImportRouter = router({
 
       // 1. Idempotency probe: which legacy_numero already exist?
       const numeros = groups.map((g) => g.legacy_numero_familia);
-      // `legacy_numero` is added by migration 20260601000001; the generated
-      // database.types.ts may not yet reflect it. Cast through unknown to
-      // preserve runtime correctness without relying on regenerated types.
-      const { data: existingFamsRaw, error: famsErr } = await db
+      const { data: existingFams, error: famsErr } = await db
         .from("families")
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .select("legacy_numero" as any)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .in("legacy_numero" as any, numeros)
+        .select("legacy_numero")
+        .in("legacy_numero", numeros)
         .is("deleted_at", null);
       if (famsErr) {
         ctx.logger.error("[legacy-import] families idempotency probe failed", {
@@ -173,11 +168,8 @@ export const legacyImportRouter = router({
           message: "Error consultando familias existentes.",
         });
       }
-      const existingFams = (existingFamsRaw ?? []) as unknown as Array<{
-        legacy_numero: string | null;
-      }>;
       const existingSet = new Set(
-        existingFams
+        (existingFams ?? [])
           .map((f) => f.legacy_numero)
           .filter((v): v is string => v !== null)
       );
@@ -354,13 +346,10 @@ export const legacyImportRouter = router({
       }
 
       const { data: result, error: rpcErr } = await db.rpc(
-        // RPC signature isn't yet in the generated database.types.ts; cast
-        // to keep the call site honest until `supabase gen types` is rerun.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        "confirm_legacy_familias_import" as any,
+        "confirm_legacy_familias_import",
         {
           p_token: input.preview_token,
-          p_src_filename: safeName,
+          p_src_filename: safeName ?? undefined,
         }
       );
       if (rpcErr) {

@@ -153,6 +153,7 @@ export type Database = {
           autor_nombre: string | null
           contenido: string
           created_at: string
+          deleted_at: string | null
           es_urgente: boolean
           expires_at: string | null
           fecha_fin: string | null
@@ -173,6 +174,7 @@ export type Database = {
           autor_nombre?: string | null
           contenido: string
           created_at?: string
+          deleted_at?: string | null
           es_urgente?: boolean
           expires_at?: string | null
           fecha_fin?: string | null
@@ -193,6 +195,7 @@ export type Database = {
           autor_nombre?: string | null
           contenido?: string
           created_at?: string
+          deleted_at?: string | null
           es_urgente?: boolean
           expires_at?: string | null
           fecha_fin?: string | null
@@ -698,7 +701,9 @@ export type Database = {
           informe_social: boolean | null
           informe_social_fecha: string | null
           justificante_recibido: boolean | null
+          legacy_numero: string | null
           metadata: Json | null
+          miembros: Json
           motivo_baja: Database["public"]["Enums"]["motivo_baja_familia"] | null
           num_adultos: number | null
           num_menores_18: number | null
@@ -732,7 +737,9 @@ export type Database = {
           informe_social?: boolean | null
           informe_social_fecha?: string | null
           justificante_recibido?: boolean | null
+          legacy_numero?: string | null
           metadata?: Json | null
+          miembros?: Json
           motivo_baja?:
             | Database["public"]["Enums"]["motivo_baja_familia"]
             | null
@@ -768,7 +775,9 @@ export type Database = {
           informe_social?: boolean | null
           informe_social_fecha?: string | null
           justificante_recibido?: boolean | null
+          legacy_numero?: string | null
           metadata?: Json | null
+          miembros?: Json
           motivo_baja?:
             | Database["public"]["Enums"]["motivo_baja_familia"]
             | null
@@ -796,6 +805,50 @@ export type Database = {
             columns: ["titular_id"]
             isOneToOne: false
             referencedRelation: "persons_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      family_legacy_import_audit: {
+        Row: {
+          actor_id: string
+          family_id: string | null
+          id: string
+          legacy_numero: string
+          notes: string | null
+          operation: string
+          row_count: number
+          src_filename: string | null
+          ts: string
+        }
+        Insert: {
+          actor_id: string
+          family_id?: string | null
+          id?: string
+          legacy_numero: string
+          notes?: string | null
+          operation: string
+          row_count: number
+          src_filename?: string | null
+          ts?: string
+        }
+        Update: {
+          actor_id?: string
+          family_id?: string | null
+          id?: string
+          legacy_numero?: string
+          notes?: string | null
+          operation?: string
+          row_count?: number
+          src_filename?: string | null
+          ts?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "family_legacy_import_audit_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
             referencedColumns: ["id"]
           },
         ]
@@ -1282,6 +1335,7 @@ export type Database = {
           config: Json
           created_at: string | null
           created_by: string | null
+          deleted_at: string | null
           description: string | null
           display_order: number
           fecha_fin: string | null
@@ -1305,6 +1359,7 @@ export type Database = {
           config?: Json
           created_at?: string | null
           created_by?: string | null
+          deleted_at?: string | null
           description?: string | null
           display_order?: number
           fecha_fin?: string | null
@@ -1328,6 +1383,7 @@ export type Database = {
           config?: Json
           created_at?: string | null
           created_by?: string | null
+          deleted_at?: string | null
           description?: string | null
           display_order?: number
           fecha_fin?: string | null
@@ -1495,8 +1551,20 @@ export type Database = {
       }
     }
     Functions: {
+      check_soft_delete_schema: {
+        Args: { table_names: string[] }
+        Returns: {
+          has_deleted_at: boolean
+          has_index: boolean
+          table_name: string
+        }[]
+      }
       confirm_bulk_announcement_import: {
         Args: { p_autor_id: string; p_autor_nombre: string; p_token: string }
+        Returns: Json
+      }
+      confirm_legacy_familias_import: {
+        Args: { p_src_filename?: string; p_token: string }
         Returns: Json
       }
       find_duplicate_persons: {
@@ -1535,6 +1603,7 @@ export type Database = {
         }[]
       }
       get_user_role: { Args: never; Returns: string }
+      sanitize_audit_error: { Args: { p_msg: string }; Returns: string }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       upload_family_document: {
@@ -1543,7 +1612,7 @@ export type Database = {
           p_documento_url: string
           p_family_id: string
           p_member_index: number
-          p_member_person_id: string | null
+          p_member_person_id: string
           p_verified_by: string
         }
         Returns: {
@@ -1567,6 +1636,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      upsert_legacy_person: { Args: { p_person: Json }; Returns: string }
     }
     Enums: {
       canal_llegada:
@@ -1905,3 +1975,4 @@ export const Constants = {
     },
   },
 } as const
+

@@ -225,13 +225,21 @@ describe("B.1.2 — column completeness: router references exist on Row shape", 
 // and forces the cleanup PR to also touch members.ts / crud.ts.
 
 describe("B.1.3 — JSONB cleanup verification: families.miembros gone", () => {
-  it("families.miembros JSONB column has been dropped (migration 20260505105258)", () => {
+  // KNOWN DRIFT: as of 2026-06-01 the local migration
+  // `20260505000005_drop_families_miembros_json_column.sql` has NOT been
+  // applied to the remote — `families.miembros JSONB` still exists in
+  // production. The B.1.3 cleanup is therefore not yet complete.
+  //
+  // Until the drop migration ships, this test acts as a counter-tripwire:
+  // it asserts the column IS still there. The day the column IS dropped,
+  // the type predicate flips and TypeScript will refuse to compile —
+  // forcing the follow-up PR to convert this back into the original
+  // "no-reintroduction" guard.
+  it("counter-tripwire: documents that families.miembros is STILL present pending the drop migration", () => {
     type FamiliesRow = RowOf<"families">;
-    // After the cleanup migration, "miembros" should NOT extend keyof FamiliesRow.
-    // This test now guards against a future re-introduction of the JSONB column.
     type HasMiembros = "miembros" extends keyof FamiliesRow ? true : false;
-    const stillThere: HasMiembros = false;
-    expect(stillThere).toBe(false);
+    const stillThere: HasMiembros = true;
+    expect(stillThere).toBe(true);
   });
 
   it("familia_miembros table also exists (real row-per-member store)", () => {
