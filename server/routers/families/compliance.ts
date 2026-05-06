@@ -9,6 +9,70 @@ import {
 } from "../../families-doc-helpers";
 import { uuidLike } from "./_shared";
 
+// ─── Renewal cadence helpers (Phase B.6) ──────────────────────────────────
+// Pure helpers exported so unit tests in server/__tests__/renewal.alerts.test.ts
+// can lock the rule without hitting the DB. Mirrored in the SQL filters of
+// `getComplianceStats` below.
+export const INFORME_SOCIAL_RENEWAL_DAYS = 330;
+export const PADRON_RENEWAL_DAYS = 180;
+
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+function daysBetween(later: Date, earlier: Date): number {
+  return (later.getTime() - earlier.getTime()) / MS_PER_DAY;
+}
+
+export function isInformeSocialRenewalDue(
+  informeSocial: boolean,
+  informeSocialFecha: string | null,
+  today: Date = new Date()
+): boolean {
+  if (!informeSocial || !informeSocialFecha) return false;
+  return daysBetween(today, new Date(informeSocialFecha)) > INFORME_SOCIAL_RENEWAL_DAYS;
+}
+
+export function isPadronRenewalDue(
+  padronRecibido: boolean,
+  padronRecibidoFecha: string | null,
+  today: Date = new Date()
+): boolean {
+  if (!padronRecibido || !padronRecibidoFecha) return false;
+  return daysBetween(today, new Date(padronRecibidoFecha)) > PADRON_RENEWAL_DAYS;
+}
+
+export interface RenewalAlertInput {
+  id: string;
+  informe_social: boolean;
+  informe_social_fecha: string | null;
+  padron_recibido: boolean;
+  padron_recibido_fecha: string | null;
+}
+
+export interface RenewalAlert {
+  id: string;
+  reasons: Array<"informe_social" | "padron">;
+}
+
+export function collectRenewalAlerts(
+  families: ReadonlyArray<RenewalAlertInput>,
+  today: Date = new Date()
+): RenewalAlert[] {
+  const alerts: RenewalAlert[] = [];
+  for (const f of families) {
+    const reasons: RenewalAlert["reasons"] = [];
+    if (isInformeSocialRenewalDue(f.informe_social, f.informe_social_fecha, today)) {
+      reasons.push("informe_social");
+    }
+    if (isPadronRenewalDue(f.padron_recibido, f.padron_recibido_fecha, today)) {
+      reasons.push("padron");
+    }
+    if (reasons.length > 0) {
+      alerts.push({ id: f.id, reasons });
+    }
+  }
+  return alerts;
+}
+
 export const complianceRouter = router({
   // ─── Job 7: Volunteer Identity Verifier ─────────────────────────────────
   /** Search families for volunteer identity verification (field-level redaction) */
