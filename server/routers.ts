@@ -11,6 +11,7 @@ import { familiesRouter } from "./routers/families";
 import { announcementsRouter } from "./routers/announcements";
 import { ocrRouter } from "./routers/ocr";
 import { entregasRouter } from "./routers/entregas";
+import { familySavedViewsRouter } from "./routers/familySavedViews";
 import { loggingRouter } from "./routers/logging";
 
 export const appRouter = router({
@@ -32,6 +33,7 @@ export const appRouter = router({
   programs: programsRouter,
   admin: adminRouter,
   families: familiesRouter,
+  familySavedViews: familySavedViewsRouter,
   announcements: announcementsRouter,
   ocr: ocrRouter,
   entregas: entregasRouter,
