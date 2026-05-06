@@ -304,13 +304,15 @@ export const complianceRouter = router({
     }),
 
   // ─── Job 9: Compliance Dashboard ────────────────────────────────────────
-  /** GET compliance stats (CM-1 to CM-5) */
+  /** GET compliance stats (CM-1 to CM-6) */
   getComplianceStats: adminProcedure.query(async () => {
     const db = createAdminClient();
     const today = new Date();
 
     const cutoff330 = new Date(today);
     cutoff330.setDate(cutoff330.getDate() - 330);
+    const cutoff180 = new Date(today);
+    cutoff180.setDate(cutoff180.getDate() - 180);
     const cutoff60 = new Date(today);
     cutoff60.setDate(cutoff60.getDate() - 60);
     const cutoff30 = new Date(today);
@@ -368,6 +370,15 @@ export const complianceRouter = router({
       (f: { id: string }) => !recentFamilyIds.has(f.id)
     );
 
+    // CM-6: active families with overdue padrón municipal (>180 days since receipt)
+    const { count: cm6 } = await db
+      .from("families")
+      .select("*", { count: "exact", head: true })
+      .eq("estado", "activa")
+      .is("deleted_at", null)
+      .eq("padron_recibido", true)
+      .lt("padron_recibido_fecha", cutoff180.toISOString().split("T")[0]);
+
     return {
       cm1: cm1 ?? 0,
       cm2: cm2 ?? 0,
@@ -375,6 +386,7 @@ export const complianceRouter = router({
       cm4: cm4 ?? 0,
       cm5: cm5List.length,
       cm5List,
+      cm6: cm6 ?? 0,
     };
   }),
 

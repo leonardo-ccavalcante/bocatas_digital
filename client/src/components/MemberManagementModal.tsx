@@ -48,6 +48,7 @@ interface MemberManagementModalProps {
   familiaId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  // Accepts the opaque Supabase join result; cast to Member internally for rendering.
   miembros?: Array<Record<string, unknown>>;
 }
 
@@ -85,33 +86,40 @@ export function MemberManagementModal({
   };
 
   // Mutations
+  // NOTE: This modal is legacy — it predates the FamilyMemberSchema refactor (PR #35).
+  // The router now uses { family_id, program_id, member: FamilyMemberSchema }.
+  // This modal will be replaced by RegistrationWizard in v2.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const addMemberMutation = (trpc.families as any).addMember.useMutation({
     onSuccess: () => {
       toast.success("Miembro agregado exitosamente");
       resetForm();
       invalidateFamily();
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onError: (error: any) => {
       toast.error(error.message || "No se pudo agregar el miembro");
     },
   });
-
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const updateMemberMutation = (trpc.families as any).updateMember.useMutation({
     onSuccess: () => {
       toast.success("Miembro actualizado");
       resetForm();
       invalidateFamily();
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onError: (error: any) => {
       toast.error(error.message || "No se pudo actualizar el miembro");
     },
   });
-
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const deleteMemberMutation = (trpc.families as any).deleteMember.useMutation({
     onSuccess: () => {
       toast.success("Miembro eliminado");
       invalidateFamily();
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onError: (error: any) => {
       toast.error(error.message || "No se pudo eliminar el miembro");
     },
@@ -299,7 +307,11 @@ export function MemberManagementModal({
               </p>
             ) : (
               <div className="space-y-2">
-                {members.map((member: any) => (
+                {members.map((rawMember) => {
+                  // Supabase join returns Record<string,unknown>; cast to Member for rendering.
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  const member = rawMember as unknown as Member;
+                  return (
                   <div
                     key={member.id}
                     className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition"
@@ -339,7 +351,8 @@ export function MemberManagementModal({
                       </Button>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

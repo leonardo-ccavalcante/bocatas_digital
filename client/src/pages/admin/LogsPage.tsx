@@ -271,6 +271,7 @@ export function LogsPage() {
                   )}
 
                   {/* Additional metadata */}
+                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                   {Object.keys(log as any).filter(k => !['level', 'message', 'timestamp', 'correlationId', 'userId', 'duration', 'success', 'errorMessage', 'errorStack'].includes(k)).length > 0 && (
                     <details className="text-xs">
                       <summary className="text-gray-600 cursor-pointer">Additional metadata</summary>
@@ -323,6 +324,8 @@ export function LogsPage() {
 }
 
 // Helper functions
+// Supabase SDK boundary — opaque log metadata
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function convertToCSV(logs: any[]): string {
   const headers = ['timestamp', 'level', 'message', 'correlationId', 'userId', 'duration', 'success', 'errorMessage'];
   const rows = logs.map(log =>

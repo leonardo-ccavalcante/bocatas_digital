@@ -90,7 +90,7 @@ describe("DocumentUploadModal — DB-first ordering invariant", () => {
   });
 
   it("on Storage failure, DB row is soft-deleted (rollback)", () => {
-    let storageOk = false;
+    const storageOk = false;
     let dbDeleted = false;
     function simulateStorageFailure() {
       // dbInsert succeeded — predicted URL committed

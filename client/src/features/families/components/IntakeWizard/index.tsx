@@ -36,6 +36,8 @@ export function IntakeWizard({ titularId }: IntakeWizardProps) {
   const [members, setMembers] = useState<FamilyMember[]>([]);
 
   const form = useForm<FamilyIntake>({
+    // Supabase SDK boundary
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(FamilyIntakeSchema) as any,
     defaultValues: {
       titular_id: titularId ?? "",

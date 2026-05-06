@@ -11,5 +11,5 @@ export interface LogEntry {
   success?: boolean;
   errorMessage?: string;
   errorStack?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }

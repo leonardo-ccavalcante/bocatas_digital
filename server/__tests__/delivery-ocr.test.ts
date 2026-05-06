@@ -46,6 +46,8 @@ describe('DeliveryDocumentOCRService', () => {
           },
         ],
       };
+      // test mock boundary — Supabase client mock
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       vi.mocked(llmModule.invokeLLM).mockResolvedValueOnce(mockLLMResponse as any);
 
       // Mock image URL (would be S3 URL in real usage)
@@ -123,6 +125,8 @@ describe('DeliveryDocumentOCRService', () => {
           },
         ],
       };
+      // test mock boundary — Supabase client mock
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       vi.mocked(llmModule.invokeLLM).mockResolvedValueOnce(mockLLMResponse as any);
 
       const imageUrl = 'https://example.com/delivery-document.jpg';
@@ -172,6 +176,8 @@ describe('DeliveryDocumentOCRService', () => {
           },
         ],
       };
+      // test mock boundary — Supabase client mock
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       vi.mocked(llmModule.invokeLLM).mockResolvedValueOnce(mockLLMResponse as any);
 
       const imageUrl = 'https://example.com/delivery-document-handwritten.jpg';
@@ -206,6 +212,8 @@ describe('DeliveryDocumentOCRService', () => {
           },
         ],
       };
+      // test mock boundary — Supabase client mock
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       vi.mocked(llmModule.invokeLLM).mockResolvedValueOnce(mockLLMResponse as any);
 
       const imageUrl = 'https://example.com/delivery-document-blurry.jpg';
