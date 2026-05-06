@@ -283,6 +283,32 @@ Tras 4 agents en paralelo (typescript-reviewer, database-reviewer, security-revi
 **Quedó flagged como project-wide concern (out of scope):**
 - `persons.metadata.colectivos` (LGTBI/Gitanos/Sin_Hogar/Reclusos) sin column-level RLS. El proyecto ya tiene migration pending `20260508000001_high_risk_fields_rls.sql` que protege `situacion_legal/recorrido_migratorio/foto_documento_url` — recomendación: extender ese patrón a `persons.metadata.colectivos` en una migration follow-up separada.
 
+## UUID + family-linkage contract (verified on live DB)
+
+Cada importación de una familia produce este conjunto de filas:
+
+| Entity | UUID | Linkage |
+|---|---|---|
+| Titular (persona) | `persons.id` (autogen `gen_random_uuid()` o reused via dedup en `nombre+apellidos+fecha_nacimiento`) | — |
+| Dependent N (persona) | `persons.id` propio (mismo dedup) | — |
+| Familia | `families.id` UUID propio | — |
+| Familia → titular | — | `families.titular_id` UUID FK → `persons.id` |
+| Familia → dependent N | — | `familia_miembros { familia_id, person_id, relacion }` |
+| Provenance Excel | — | `families.legacy_numero` (NUMERO FAMILIA BOCATAS) + `persons.metadata.legacy_orden` (NÚMERO DE ORDEN) + `families.metadata.legacy_orden` |
+| Bocatas internal seq | `families.familia_numero` integer (independiente de `legacy_numero`) | — |
+
+Pinned con un smoke test SQL contra la DB real (transacción con
+ROLLBACK):
+
+```bash
+psql "$DATABASE_URL" -f scripts/smoke-test-legacy-import-uuids.sql
+```
+
+Asserts ejecutados (A1–A8): 3 personas con UUIDs distintos, family
+linkea al titular, 2 familia_miembros rows con FKs válidas, legacy_numero
++ legacy_orden preservados, no UUID aliasing entre entities, familia_numero
+auto-asignado por SEQUENCE. Verificado vivo el 2026-06-01.
+
 ## Status
 
 **Ready for review.** Build verde, typecheck verde, lint sin issues en files de la feature, tests 111/111 verde, 0 regresiones en suite pre-existente. Migraciones escritas pero **no aplicadas** al remoto — esperan autorización explícita del admin.
