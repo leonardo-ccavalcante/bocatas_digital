@@ -42,7 +42,8 @@ export const readsRouter = router({
       // `persons` row at all, so the empty-result behavior matches the
       // intended "staff has no program enrollments" semantic). After
       // Supabase JWT auth lands, replace with the JWT `sub` UUID.
-      // Same pattern at lines 141, 184, 190, 220 below.
+      // Same pattern in `getById` and `getUrgentBannerAnnouncement`
+      // below — grep `String(ctx.user.id)` in this file for all sites.
       const { data: enrollments } = await db
         .from("program_enrollments")
         .select("program_id")
