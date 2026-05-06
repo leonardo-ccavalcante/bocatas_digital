@@ -155,7 +155,11 @@ export default function ProgramaDetalle() {
     is_active: program.is_active,
     display_order: program.display_order,
     volunteer_can_access: program.volunteer_can_access,
+    // Supabase SDK boundary — opaque join result
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     volunteer_can_write: (program as any).volunteer_can_write ?? true,
+    // Supabase SDK boundary — opaque join result
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     volunteer_visible_fields: (program as any).volunteer_visible_fields ?? [],
     requires_consents: (program.requires_consents as string[]) ?? [],
     fecha_inicio: program.fecha_inicio ?? undefined,
@@ -324,6 +328,8 @@ export default function ProgramaDetalle() {
           <EnrolledPersonsTable
             programId={program.id}
             isAdmin={isAdmin}
+            // Supabase SDK boundary — opaque join result
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             volunteerVisibleFields={(program as any).volunteer_visible_fields ?? []}
           />
         </div>

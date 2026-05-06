@@ -1,0 +1,66 @@
+{
+  "common": {
+    "home": "Inicio",
+    "logout": "Pechar sesión",
+    "loading": "Cargando...",
+    "error": "Erro",
+    "success": "Éxito",
+    "welcome": "Benvido, {{name}}",
+    "save": "Gardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "search": "Buscar",
+    "close": "Pechar",
+    "confirm": "Confirmar",
+    "back": "Volver",
+    "yes": "Si",
+    "no": "Non"
+  },
+  "nav": {
+    "dashboard": "Panel",
+    "families": "Familias",
+    "persons": "Persoas",
+    "deliveries": "Entregas",
+    "announcements": "Novidades",
+    "programs": "Programas",
+    "admin": "Administración",
+    "settings": "Configuración"
+  },
+  "forms": {
+    "submit": "Enviar",
+    "cancel": "Cancelar",
+    "required": "Campo obrigatorio",
+    "invalid": "Campo non válido",
+    "minLength": "Mínimo {{min}} caracteres",
+    "saving": "Gardando...",
+    "saved": "Gardado",
+    "error": "Erro ao gardar"
+  },
+  "errors": {
+    "notFound": "Non atopado",
+    "unauthorized": "Non autorizado",
+    "forbidden": "Acceso denegado",
+    "serverError": "Erro do servidor",
+    "unknown": "Erro descoñecido"
+  },
+  "families": {
+    "title": "Familias",
+    "add": "Engadir familia",
+    "search": "Buscar familia"
+  },
+  "persons": {
+    "title": "Persoas",
+    "add": "Engadir persoa"
+  },
+  "deliveries": {
+    "title": "Entregas",
+    "add": "Rexistrar entrega"
+  },
+  "checkin": {
+    "title": "Check-in"
+  },
+  "dashboard": {
+    "title": "Panel de control"
+  }
+}

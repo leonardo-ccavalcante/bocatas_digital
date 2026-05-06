@@ -37,6 +37,8 @@ export function ExportFamiliesModal({ open, onOpenChange }: ExportFamiliesModalP
   const [selectedMode, setSelectedMode] = useState<ExportMode>("update");
   const [isExporting, setIsExporting] = useState(false);
 
+  // Supabase SDK boundary — opaque join result
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const exportMutation = (trpc.families as any).exportFamiliesWithMembers.useMutation();
 
   const handleExport = async () => {

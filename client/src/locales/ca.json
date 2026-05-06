@@ -1,0 +1,66 @@
+{
+  "common": {
+    "home": "Inici",
+    "logout": "Tancar sessió",
+    "loading": "Carregant...",
+    "error": "Error",
+    "success": "Èxit",
+    "welcome": "Benvingut, {{name}}",
+    "save": "Desar",
+    "cancel": "Cancel·lar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "search": "Cercar",
+    "close": "Tancar",
+    "confirm": "Confirmar",
+    "back": "Tornar",
+    "yes": "Sí",
+    "no": "No"
+  },
+  "nav": {
+    "dashboard": "Tauler",
+    "families": "Famílies",
+    "persons": "Persones",
+    "deliveries": "Lliuraments",
+    "announcements": "Novetats",
+    "programs": "Programes",
+    "admin": "Administració",
+    "settings": "Configuració"
+  },
+  "forms": {
+    "submit": "Enviar",
+    "cancel": "Cancel·lar",
+    "required": "Camp obligatori",
+    "invalid": "Camp no vàlid",
+    "minLength": "Mínim {{min}} caràcters",
+    "saving": "Desant...",
+    "saved": "Desat",
+    "error": "Error en desar"
+  },
+  "errors": {
+    "notFound": "No trobat",
+    "unauthorized": "No autoritzat",
+    "forbidden": "Accés denegat",
+    "serverError": "Error del servidor",
+    "unknown": "Error desconegut"
+  },
+  "families": {
+    "title": "Famílies",
+    "add": "Afegir família",
+    "search": "Cercar família"
+  },
+  "persons": {
+    "title": "Persones",
+    "add": "Afegir persona"
+  },
+  "deliveries": {
+    "title": "Lliuraments",
+    "add": "Registrar lliurament"
+  },
+  "checkin": {
+    "title": "Check-in"
+  },
+  "dashboard": {
+    "title": "Tauler de control"
+  }
+}

@@ -2,6 +2,10 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, protectedProcedure } from "../_core/trpc";
 import { createAdminClient } from "../../client/src/lib/supabase/server";
+import type { Database } from "../../client/src/lib/database.types";
+
+type ProgramInsert = Database["public"]["Tables"]["programs"]["Insert"];
+type ProgramUpdate = Database["public"]["Tables"]["programs"]["Update"];
 const uuidLike = z
   .string()
   .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, "Invalid UUID format");
@@ -133,10 +137,10 @@ export const programsRouter = router({
           requires_consents: input.requires_consents,
           fecha_inicio: input.fecha_inicio ?? null,
           fecha_fin: input.fecha_fin ?? null,
-          config: (input.config ?? {}) as any,
+          config: (input.config ?? {}) as ProgramInsert["config"],
           responsable_id: input.responsable_id ?? null,
-          created_by: ctx.user.id,
-        } as any)
+          created_by: String(ctx.user.id),
+        })
         .select()
         .single();
 
@@ -162,7 +166,7 @@ export const programsRouter = router({
       const supabase = createAdminClient();
       const { data, error } = await supabase
         .from("programs")
-        .update({ ...(input.data as any), updated_at: new Date().toISOString() })
+        .update({ ...(input.data as ProgramUpdate), updated_at: new Date().toISOString() })
         .eq("id", input.id)
         .select()
         .single();

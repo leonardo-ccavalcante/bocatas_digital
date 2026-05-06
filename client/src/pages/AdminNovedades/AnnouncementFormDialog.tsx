@@ -13,6 +13,7 @@ interface AnnouncementFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   editingId: string | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   form: UseFormReturn<FormValues, any, FormValues>;
   programs: Program[];
   roles: string[];
@@ -118,6 +119,8 @@ export function AnnouncementFormDialog({
               programs={programs}
               roles={roles}
               value={form.watch("audiences") || DEFAULT_AUDIENCE}
+              // tRPC error boundary
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               onChange={(audiences) => form.setValue("audiences", audiences as any)}
             />
             {form.formState.errors.audiences && (
