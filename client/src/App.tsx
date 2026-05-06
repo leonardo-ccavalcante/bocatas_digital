@@ -24,7 +24,6 @@ const PersonaQR = lazy(() => import("./pages/PersonaQR"));
 // Check-in
 const CheckIn = lazy(() => import("./pages/CheckIn"));
 
-// Dashboard (recharts ~100KB gzip)
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 
 // Programas

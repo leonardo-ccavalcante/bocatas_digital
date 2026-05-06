@@ -192,8 +192,7 @@ export const documentsRouter = router({
         if (!db) throw new Error("Database connection failed");
 
         const adminDb = createAdminClient();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: rows, error: rowsError } = await (adminDb as any)
+        const { data: rows, error: rowsError } = await adminDb
           .from("deliveries")
           .select("id, fecha_entrega, recogido_por, recogido_por_documento_url, created_at, updated_at")
           .eq("family_id", input.familyId)
@@ -202,8 +201,7 @@ export const documentsRouter = router({
 
         if (rowsError) throw new Error(rowsError.message);
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return (rows ?? []).map((row: any) => ({
+        return (rows ?? []).map((row) => ({
           id: row.id,
           delivery_id: row.id,
           recogido_por_documento_url: row.recogido_por_documento_url ?? null,

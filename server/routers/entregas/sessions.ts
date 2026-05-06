@@ -20,7 +20,7 @@ export const sessionsRouter = router({
     .query(async ({ input }) => {
       try {
         const db = createAdminClient();
-        const { data, error } = await (db as any)
+        const { data, error } = await db
           .from("deliveries")
           .select("session_id, fecha_entrega")
           .eq("family_id", input.familia_id)
@@ -32,7 +32,7 @@ export const sessionsRouter = router({
         }
         // Group by session_id (null session_id = individual delivery)
         const sessions = new Map<string, number>();
-        (data as any[])?.forEach((row) => {
+        data?.forEach((row) => {
           const key = row.session_id ?? `individual-${row.fecha_entrega}`;
           sessions.set(key, (sessions.get(key) || 0) + 1);
         });
@@ -59,7 +59,7 @@ export const sessionsRouter = router({
     .query(async ({ input }) => {
       try {
         const db = createAdminClient();
-        const { data, error } = await (db as any)
+        const { data, error } = await db
           .from("deliveries")
           .select("*")
           .eq("session_id", input.batchId)

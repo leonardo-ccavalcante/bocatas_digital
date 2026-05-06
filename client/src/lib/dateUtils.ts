@@ -33,29 +33,6 @@ export function formatDateDisplay(isoDate: string | null | undefined): string | 
 }
 
 /**
- * Parse a DD/MM/YYYY string into ISO format YYYY-MM-DD.
- * Returns undefined if the input is null, undefined, empty, or invalid.
- *
- * @example
- * parseDateInput("15/03/1985") // → "1985-03-15"
- * parseDateInput("")           // → undefined
- */
-export function parseDateInput(ddmmyyyy: string | null | undefined): string | undefined {
-  if (!ddmmyyyy) return undefined;
-  const parts = ddmmyyyy.split("/");
-  if (parts.length !== 3) return undefined;
-  const [day, month, year] = parts;
-  if (!day || !month || !year) return undefined;
-  // Validate ranges
-  const d = parseInt(day, 10);
-  const m = parseInt(month, 10);
-  const y = parseInt(year, 10);
-  if (isNaN(d) || isNaN(m) || isNaN(y)) return undefined;
-  if (d < 1 || d > 31 || m < 1 || m > 12 || y < 1900 || y > 2100) return undefined;
-  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
-}
-
-/**
  * Calculate age from an ISO date string (YYYY-MM-DD).
  * Returns undefined if the date is invalid.
  *
