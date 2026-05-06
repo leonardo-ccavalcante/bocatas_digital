@@ -1,0 +1,107 @@
+ERROR: Error loading drizzle.config.ts (DATABASE_URL is required to run drizzle commands)
+ERROR: Please fix or visit https://knip.dev/reference/known-issues
+Unused files (21)
+client/src/components/AnnouncementMetaPanels.tsx: client/src/components/AnnouncementMetaPanels.tsx
+client/src/components/DeliveryPhotoModal.tsx: client/src/components/DeliveryPhotoModal.tsx
+client/src/components/DeliveryPreviewTable.tsx: client/src/components/DeliveryPreviewTable.tsx
+client/src/components/ValidationWarnings.tsx: client/src/components/ValidationWarnings.tsx
+client/src/features/auth/schemas.ts: client/src/features/auth/schemas.ts
+client/src/features/checkin/constants.ts: client/src/features/checkin/constants.ts
+client/src/features/families/components/GufCutoffOverride.tsx: client/src/features/families/components/GufCutoffOverride.tsx
+client/src/features/families/components/MemberConsentCollector.tsx: client/src/features/families/components/MemberConsentCollector.tsx
+client/src/features/families/components/PendientesGrid.tsx: client/src/features/families/components/PendientesGrid.tsx
+client/src/features/families/components/PendingItemsPanel.tsx: client/src/features/families/components/PendingItemsPanel.tsx
+client/src/features/persons/components/DocumentCaptureModal.tsx: client/src/features/persons/components/DocumentCaptureModal.tsx
+client/src/features/persons/components/OCRConfirmationCard.tsx: client/src/features/persons/components/OCRConfirmationCard.tsx
+client/src/features/programs/components/DocumentPhotoCapture.tsx: client/src/features/programs/components/DocumentPhotoCapture.tsx
+client/src/hooks/useMobile.tsx: client/src/hooks/useMobile.tsx
+client/src/lib/supabase/database.types.ts: client/src/lib/supabase/database.types.ts
+server/_core/dataApi.ts: server/_core/dataApi.ts
+server/_core/imageGeneration.ts: server/_core/imageGeneration.ts
+server/_core/map.ts: server/_core/map.ts
+server/_core/voiceTranscription.ts: server/_core/voiceTranscription.ts
+server/routers/families-csv-members-procedures.ts: server/routers/families-csv-members-procedures.ts
+shared/types.ts: shared/types.ts
+Unused dependencies (1)
+package.json: @radix-ui/react-accordion, @radix-ui/react-aspect-ratio, @radix-ui/react-collapsible, @radix-ui/react-context-menu, @radix-ui/react-dropdown-menu, @radix-ui/react-hover-card, @radix-ui/react-menubar, @radix-ui/react-navigation-menu, @radix-ui/react-popover, @radix-ui/react-slider, @radix-ui/react-toggle, @radix-ui/react-toggle-group, cmdk, embla-carousel-react, input-otp, react-day-picker, react-resizable-panels, tailwindcss-animate, vaul
+Unused devDependencies (1)
+package.json: @tailwindcss/typography, @testing-library/jest-dom, @testing-library/react, @testing-library/user-event, @types/google.maps, autoprefixer, depcheck, pnpm, postcss, tailwindcss, ts-prune, tw-animate-css
+Unused exports (32)
+client/src/components/BatchAccumulatorContext.tsx: BatchAccumulatorProvider, useBatchAccumulator
+client/src/const.ts: COOKIE_NAME, ONE_YEAR_MS
+client/src/contexts/ThemeContext.tsx: useTheme
+client/src/features/admin/schemas/index.ts: StaffRoleSchema, StaffUserSchema
+client/src/features/announcements/hooks/useAnnouncements.ts: useAnnouncementAudiences, useAnnouncementAuditLog, useDismissalStats
+client/src/features/announcements/hooks/useAudienceOptions.ts: AVAILABLE_ROLES
+client/src/features/dashboard/schemas.ts: PeriodSchema, KPIStatsSchema, TrendPointSchema, CSVRowSchema, PERIOD_LABELS, PERIOD_KPI_LABELS
+client/src/features/families/constants.ts: FAMILIA_DELIVERY_FIELDS, MOTIVO_BAJA_LABELS, GUF_STATUS_LABELS
+client/src/features/families/hooks/useFamilias.ts: useUpdateFamiliaDocField, useCreateDelivery, useMemberDocuments, useCreateMemberDocument, useVerifyFamilyIdentity
+client/src/features/families/schemas.ts: MotivoBajaSchema, EstadoFamiliaSchema, FamilyMemberSchema, IntakeStep1Schema, IntakeStep2Schema, IntakeStep3Schema, IntakeStep4Schema, IntakeStep5Schema, DeliveryCreateSchema, GufUpdateSchema, ComplianceFilterSchema, SessionCloseSchema
+client/src/features/persons/hooks/useConsentTemplates.ts: useAllConsentTemplates
+client/src/features/persons/schemas/labels.ts: FASE_ITINERARIO_CONFIG
+client/src/features/persons/schemas/personCreate.ts: PersonUpdateSchema, Step0Schema, Section1Schema, Section2Schema, Section3Schema, Section4Schema, Section5Schema
+client/src/features/persons/schemas/related.ts: PersonSchema, ConsentRowSchema
+client/src/features/programs/components/DeliveryRecorder.tsx: DeliveryRecorder
+client/src/features/programs/schemas.ts: EnrollmentSchema
+client/src/lib/dateUtils.ts: parseDateInput
+client/src/pages/AdminNovedades/_shared.ts: PROGRAMS, ROLES
+server/announcements-helpers.ts: ANNOUNCEMENT_TYPES, LEGACY_ANNOUNCEMENT_TYPES, ANNOUNCEMENT_ROLES, ANNOUNCEMENT_PROGRAMS, isCurrentTipo, isLegacyTipo
+server/db/csv-validation.ts: validateAnnouncementRows
+server/db/soft-delete-audit.ts: generateMigrationScript
+server/db/soft-delete-cascade.ts: getCascadeRules
+server/families-doc-helpers.ts: buildDocKey
+server/ocrDeliveryExtraction/index.ts: isValidUUID
+server/routers/announcements/_shared.ts: AudienceRuleSchema
+server/routers/families/_shared.ts: SENTINEL_UUID, mapParentescoToRelacion
+server/routers/families/index.ts: mapParentescoToRelacion, resolveMemberPersonId, ensureFamiliaEnrollment, uuidLike, programIdSchema, SENTINEL_UUID, FamilyMemberSchema, DeactivateFamilyInputSchema, familyDocTypeSchema
+server/routers/persons/_shared.ts: TipoDocumentoEnum, GeneroEnum, IdiomaEnum, SituacionLegalEnum, TipoViviendaEnum, EstabilidadHabitacionalEnum, NivelEstudiosEnum, SituacionLaboralEnum, NivelIngresosEnum, CanalLlegadaEnum
+server/storage.ts: storageGet
+shared/_core/errors.ts: HttpError, BadRequestError, UnauthorizedError, NotFoundError
+shared/announcementTypes.ts: LEGACY_ANNOUNCEMENT_TYPES, ANNOUNCEMENT_TYPE_LABELS, ANNOUNCEMENT_TYPE_DESCRIPTIONS
+shared/familyDocuments.ts: isFamilyLevelDocType, isPerMemberDocType
+Unused exported types (45)
+client/src/components/AudiencesSelector.tsx: AudienceRule, Program
+client/src/components/BatchAccumulatorContext.tsx: ErrorLogEntry
+client/src/components/DeliveryDocumentUpload/_useCsvFlow.ts: CsvStep
+client/src/components/DeliveryDocumentUpload/_useOcrFlow.ts: OcrStep
+client/src/features/admin/schemas/index.ts: StaffRole, StaffUser
+client/src/features/checkin/machine/checkinMachine.ts: CheckinEvent, CheckinState
+client/src/features/dashboard/hooks/useRealtimeAttendance.ts: RealtimeStatus
+client/src/features/dashboard/schemas.ts: KPIStats
+client/src/features/families/constants.ts: DocConfig, DeliveryField, SessionCloseField, GufStatus
+client/src/features/families/schemas.ts: MotivoBaja, EstadoFamilia, DeliveryCreate
+client/src/features/persons/hooks/useCheckinHistory.ts: CheckinHistoryRow
+client/src/features/persons/hooks/useSearchPersons.ts: PersonSearchResult
+client/src/features/persons/schemas/enums.ts: ConsentPurpose
+client/src/features/persons/schemas/personCreate.ts: PersonCreateInput, PersonUpdateInput
+client/src/features/persons/schemas/related.ts: Person, ConsentRow
+client/src/features/programs/schemas.ts: Enrollment, ConsentPurpose
+client/src/hooks/useBatchAccumulator.ts: ExtractedBeneficiary, ErrorLogEntry
+client/src/hooks/useComposition.ts: UseCompositionReturn, UseCompositionOptions
+client/src/lib/logging-types.ts: LogLevel
+client/src/store/useAppStore.ts: Location, PendingCheckin
+server/_core/delivery-ocr.ts: ExtractedDelivery, OCRExtractionResult
+server/_core/llm.ts: Role, TextContent, ImageContent, FileContent, MessageContent, Message, Tool, ToolChoicePrimitive, ToolChoiceByName, ToolChoiceExplicit, ToolChoice, InvokeParams, ToolCall, InvokeResult, JsonSchema, OutputSchema, ResponseFormat (llmModule)
+server/_core/logging-middleware.ts: LoggingOptions
+server/_core/notification.ts: NotificationPayload
+server/_core/ocr-country-detection.ts: CountrySuggestion
+server/_core/sdk.ts: SessionPayload
+server/_core/types/manusTypes.ts: AuthorizeRequest, AuthorizeResponse, GetUserInfoRequest, CanAccessRequest, CanAccessResponse
+server/announcements-helpers.ts: VisibilityInput, DSLParseResult, BulkRowInput, TipoAnnouncement, AnnouncementRole, AnnouncementProgram, AudienceRule
+server/announcements/helpers/bulkRow.ts: BulkRowInput
+server/announcements/helpers/dsl.ts: DSLParseResult
+server/announcements/helpers/visibility.ts: VisibilityInput
+server/csvFamiliesWithMembers.ts: MergeStrategy, FamilyWithMembersRow, FamilyWithMembers, ValidationResult
+server/csvImportWithMembers.ts: ImportValidationResult
+server/csvTemplateGenerator.ts: CSVTemplateData
+server/db/csv-validation.ts: ValidationResult
+server/db/soft-delete-audit.ts: TableAudit
+server/db/soft-delete-cascade.ts: CascadeRule
+server/ocrDeliveryExtraction/index.ts: ExtractedDeliveryDocument, ValidationResult, ParsedQuantity
+server/routers/entregas/index.ts: Entrega
+server/routers/families/_shared.ts: MirrorMember
+server/routers/families/index.ts: MirrorMember, FamiliesUpdate
+server/routers/persons/_shared.ts: PersonCreateResult
+shared/announcementTypes.ts: LegacyTipoAnnouncement
+shared/familyDocuments.ts: FamilyBooleanCacheColumn
+shared/qr/payload.ts: ParsedQrPayload

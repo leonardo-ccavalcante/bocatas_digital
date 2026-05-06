@@ -1,12 +1,19 @@
+export type CompressFormat = "image/jpeg" | "image/webp";
+
 /**
  * Client-side image compression before any upload.
  * Handles low-quality phones (Moto G, Samsung A-series) gracefully.
- * Canvas resize to maxPx + JPEG quality keeps payload under 100KB.
+ * Canvas resize to maxPx + format quality keeps payload under 100KB.
+ *
+ * format defaults to JPEG for backwards compatibility with existing
+ * callers and Supabase Storage MIME assumptions. Pass "image/webp" for
+ * ~25-35% smaller payloads on supported browsers (Safari 14+, all evergreen).
  */
 export async function compressImage(
   file: File | Blob,
   maxPx = 800,
-  quality = 0.8
+  quality = 0.8,
+  format: CompressFormat = "image/jpeg"
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -28,8 +35,7 @@ export async function compressImage(
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       URL.revokeObjectURL(url);
 
-      // Return base64 without the data:image/jpeg;base64, prefix
-      const dataUrl = canvas.toDataURL("image/jpeg", quality);
+      const dataUrl = canvas.toDataURL(format, quality);
       resolve(dataUrl.split(",")[1] ?? "");
     };
 
