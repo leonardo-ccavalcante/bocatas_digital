@@ -146,12 +146,27 @@ export function useConfirmBulkImport() {
 
 // ─── Write hooks (any authenticated user) ────────────────────────────────────
 
-/** Dismiss an urgent announcement for the current user (/inicio banner). */
-export function useDismissUrgentAnnouncement() {
-  const utils = trpc.useUtils();
-  return trpc.announcements.dismissUrgent.useMutation({
-    onSuccess: () => {
-      void utils.announcements.getUrgentBannerAnnouncement.invalidate();
+/**
+ * Dismiss an urgent announcement for the current user (/inicio banner).
+ *
+ * Currently a no-op: the server-side `announcements.dismissUrgent`
+ * procedure was removed because it wrote `String(ctx.user.id)` (a
+ * stringified MySQL int) into `announcement_dismissals.person_id`,
+ * which the RLS policy expects to be `auth.uid()` (a UUID). The banner
+ * still hides for the rest of the session via component state — only
+ * the cross-session persistence is gone. Re-enable after Supabase JWT
+ * auth lands and beneficiarios are provisioned with
+ * `auth.users.id = persons.id`.
+ *
+ * Returns the same `{ mutate }` shape as a real mutation so callers
+ * (`UrgentAnnouncementBanner.tsx`) do not need changes.
+ */
+export function useDismissUrgentAnnouncement(): {
+  mutate: (input: { announcement_id: string }) => void;
+} {
+  return {
+    mutate: () => {
+      /* no-op until JWT auth lands */
     },
-  });
+  };
 }
