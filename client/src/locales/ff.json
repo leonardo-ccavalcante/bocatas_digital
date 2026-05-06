@@ -1,0 +1,66 @@
+{
+  "common": {
+    "home": "Galle",
+    "logout": "Yaltu",
+    "loading": "Nannginoo...",
+    "error": "Juumre",
+    "success": "Semmbe",
+    "welcome": "Tiiɗno, {{name}}",
+    "save": "Waɗtu",
+    "cancel": "Haɗtu",
+    "delete": "Momtu",
+    "edit": "Rewindaago",
+    "search": "Yiytu",
+    "close": "Uddu",
+    "confirm": "Dëgg",
+    "back": "Rutto",
+    "yes": "Eey",
+    "no": "Alaa"
+  },
+  "nav": {
+    "dashboard": "Tablo",
+    "families": "Galle",
+    "persons": "Yimɓe",
+    "deliveries": "Yoɓɓere",
+    "announcements": "Haala",
+    "programs": "Porogaramu",
+    "admin": "Jokkal",
+    "settings": "Tiiɗnude"
+  },
+  "forms": {
+    "submit": "Neldu",
+    "cancel": "Haɗtu",
+    "required": "Tiindii",
+    "invalid": "Juumre",
+    "minLength": "Timmina {{min}} xarfe",
+    "saving": "Waɗtude...",
+    "saved": "Waɗtaama",
+    "error": "Juumre"
+  },
+  "errors": {
+    "notFound": "Alaa",
+    "unauthorized": "Haɗaama",
+    "forbidden": "Haɗaama",
+    "serverError": "Juumre serveur",
+    "unknown": "Juumre"
+  },
+  "families": {
+    "title": "Galle",
+    "add": "Ɗaɓɓitu galle",
+    "search": "Yiytu galle"
+  },
+  "persons": {
+    "title": "Yimɓe",
+    "add": "Ɗaɓɓitu neɗɗo"
+  },
+  "deliveries": {
+    "title": "Yoɓɓere",
+    "add": "Winnditu yoɓɓere"
+  },
+  "checkin": {
+    "title": "Check-in"
+  },
+  "dashboard": {
+    "title": "Tablo"
+  }
+}

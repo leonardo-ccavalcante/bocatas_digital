@@ -1,0 +1,66 @@
+{
+  "common": {
+    "home": "So",
+    "logout": "Bɔ",
+    "loading": "A bɛ sɛgɛn...",
+    "error": "Fili",
+    "success": "Ɲɛ",
+    "welcome": "Aw ni ce, {{name}}",
+    "save": "Mara",
+    "cancel": "Bali",
+    "delete": "Jɔsi",
+    "edit": "Yɛlɛma",
+    "search": "Yɛrɛ",
+    "close": "Datugu",
+    "confirm": "Dëgg",
+    "back": "Segin",
+    "yes": "Ɔwɔ",
+    "no": "Ayi"
+  },
+  "nav": {
+    "dashboard": "Tablo",
+    "families": "Somɔgɔw",
+    "persons": "Mɔgɔw",
+    "deliveries": "Jɔyɔrɔw",
+    "announcements": "Kuma",
+    "programs": "Porogaramu",
+    "admin": "Baara",
+    "settings": "Labɛn"
+  },
+  "forms": {
+    "submit": "Ci",
+    "cancel": "Bali",
+    "required": "Wajibi",
+    "invalid": "Fili",
+    "minLength": "{{min}} sɛbɛn ka kan",
+    "saving": "A bɛ mara...",
+    "saved": "A marala",
+    "error": "Fili"
+  },
+  "errors": {
+    "notFound": "A tɛ yen",
+    "unauthorized": "I tɛ se",
+    "forbidden": "I tɛ se",
+    "serverError": "Serveur fili",
+    "unknown": "Fili"
+  },
+  "families": {
+    "title": "Somɔgɔw",
+    "add": "Somɔgɔ fara",
+    "search": "Somɔgɔ yɛrɛ"
+  },
+  "persons": {
+    "title": "Mɔgɔw",
+    "add": "Mɔgɔ fara"
+  },
+  "deliveries": {
+    "title": "Jɔyɔrɔw",
+    "add": "Jɔyɔrɔ sɛbɛn"
+  },
+  "checkin": {
+    "title": "Check-in"
+  },
+  "dashboard": {
+    "title": "Tablo"
+  }
+}

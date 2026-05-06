@@ -191,6 +191,8 @@ describe('Logger - Professional Logging System', () => {
 
   describe('Error handling', () => {
     it('handles circular references in metadata', () => {
+      // test mock boundary — logger spy
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const circular: any = { name: 'test' };
       circular.self = circular;
 

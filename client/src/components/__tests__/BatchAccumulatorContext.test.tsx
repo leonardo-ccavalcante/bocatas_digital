@@ -6,17 +6,27 @@ import { describe, it, expect } from 'vitest';
 describe('BatchAccumulatorContext - Logic Tests', () => {
   // Mock the context behavior
   class BatchAccumulator {
+    // test mock boundary
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     records: any[] = [];
+    // test mock boundary
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     errors: any[] = [];
 
+    // test mock boundary
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     addRecords(newRecords: any[]) {
       this.records = [...this.records, ...newRecords];
     }
 
+    // test mock boundary
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     addError(error: any) {
       this.errors = [...this.errors, { ...error, timestamp: new Date() }];
     }
 
+    // test mock boundary
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     updateRecord(id: string, updates: any) {
       this.records = this.records.map((record) =>
         record.id === id ? { ...record, ...updates } : record

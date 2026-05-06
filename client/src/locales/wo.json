@@ -1,0 +1,66 @@
+{
+  "common": {
+    "home": "Kër gi",
+    "logout": "Dem ci kanam",
+    "loading": "Yëgël...",
+    "error": "Njuumte",
+    "success": "Dëgg",
+    "welcome": "Dalal, {{name}}",
+    "save": "Dëkk",
+    "cancel": "Bàyyi",
+    "delete": "Fecc",
+    "edit": "Soppi",
+    "search": "Seet",
+    "close": "Tëj",
+    "confirm": "Dëgg",
+    "back": "Dellu",
+    "yes": "Waaw",
+    "no": "Déedéet"
+  },
+  "nav": {
+    "dashboard": "Tableau",
+    "families": "Mbokk yi",
+    "persons": "Nit ñi",
+    "deliveries": "Jënd yi",
+    "announcements": "Xibaar yi",
+    "programs": "Programa yi",
+    "admin": "Gestion",
+    "settings": "Yëgël"
+  },
+  "forms": {
+    "submit": "Yónnee",
+    "cancel": "Bàyyi",
+    "required": "Dafa waajoo",
+    "invalid": "Dafa foofu",
+    "minLength": "Waajoo {{min}} xam-xam",
+    "saving": "Dëkkaat...",
+    "saved": "Dëkk na",
+    "error": "Njuumte"
+  },
+  "errors": {
+    "notFound": "Gis nañu ko",
+    "unauthorized": "Dafa waajoo",
+    "forbidden": "Dafa waajoo",
+    "serverError": "Njuumte ci serveur",
+    "unknown": "Njuumte bu amul xam"
+  },
+  "families": {
+    "title": "Mbokk yi",
+    "add": "Yokk mbokk",
+    "search": "Seet mbokk"
+  },
+  "persons": {
+    "title": "Nit ñi",
+    "add": "Yokk nit"
+  },
+  "deliveries": {
+    "title": "Jënd yi",
+    "add": "Bind jënd"
+  },
+  "checkin": {
+    "title": "Check-in"
+  },
+  "dashboard": {
+    "title": "Tableau de bord"
+  }
+}

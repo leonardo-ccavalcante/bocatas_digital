@@ -9,8 +9,14 @@ describe('Logging Router - Admin Log Viewer', () => {
   beforeEach(() => {
     globalLogger.clear();
     mockContext = {
+      // test mock boundary — tRPC context mock
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       req: {} as any,
+      // test mock boundary — tRPC context mock
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       res: {} as any,
+      // test mock boundary — tRPC context mock
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       user: { id: 'admin-user', role: 'admin' } as any,
       logger: new Logger(),
       correlationId: 'test-corr-123',
@@ -127,6 +133,8 @@ describe('Logging Router - Admin Log Viewer', () => {
       const json = JSON.stringify(errorLogs);
       const parsed = JSON.parse(json);
       expect(parsed).toHaveLength(2);
+      // test mock boundary — tRPC context mock
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       parsed.forEach((log: any) => {
         expect(log.level).toBe('error');
       });

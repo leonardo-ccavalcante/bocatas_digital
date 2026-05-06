@@ -6,7 +6,7 @@
 export interface ValidationResult {
   valid: boolean;
   errors: string[];
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
 }
 
 const VALID_ANNOUNCEMENT_TYPES = ["informativo", "urgente", "evento"];
@@ -16,7 +16,7 @@ const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
  * Validate a single announcement row from CSV
  */
 export function validateAnnouncementRow(
-  row: Record<string, any>
+  row: Record<string, unknown>
 ): ValidationResult {
   const errors: string[] = [];
 
@@ -89,7 +89,7 @@ export function validateAnnouncementRow(
 /**
  * Parse boolean value from CSV string
  */
-function parseBoolean(value: any): boolean {
+function parseBoolean(value: unknown): boolean {
   if (typeof value === "boolean") return value;
   if (typeof value === "number") return value !== 0;
   const str = String(value).toLowerCase().trim();
@@ -100,14 +100,14 @@ function parseBoolean(value: any): boolean {
  * Validate multiple rows and return summary
  */
 export function validateAnnouncementRows(
-  rows: Record<string, any>[]
+  rows: Record<string, unknown>[]
 ): {
   valid: boolean;
   totalRows: number;
   validRows: number;
   invalidRows: number;
   errors: Array<{ rowIndex: number; errors: string[] }>;
-  data?: Record<string, any>[];
+  data?: Record<string, unknown>[];
 } {
   const results = rows.map((row, index) => ({
     index,
@@ -126,6 +126,6 @@ export function validateAnnouncementRows(
       rowIndex: r.index + 1, // 1-indexed for user display
       errors: r.result.errors,
     })),
-    data: validResults.map((r) => r.result.data).filter((d) => d !== undefined) as Record<string, any>[],
+    data: validResults.map((r) => r.result.data).filter((d) => d !== undefined) as Record<string, unknown>[],
   };
 }

@@ -166,6 +166,8 @@ describe('families.getById - miembros array', () => {
       expect(miembros?.length).toBe(0);
     } finally {
       await db.from('families').delete().eq('id', emptyFamilyId);
+      // test mock boundary — Supabase client mock
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await db.from('persons').delete().eq('id', (person2 as any)?.id);
     }
   });

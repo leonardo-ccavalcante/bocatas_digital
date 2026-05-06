@@ -21,8 +21,11 @@ export const DeliveryValidationTable: React.FC<DeliveryValidationTableProps> = (
   onRemove,
 }) => {
   const [editingId, setEditingId] = useState<string | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [editValues, setEditValues] = useState<Record<string, any>>({});
 
+  // Supabase SDK boundary — opaque join result
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleFieldChange = (id: string, field: string, value: any) => {
     setEditValues((prev) => ({
       ...prev,

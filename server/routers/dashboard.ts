@@ -191,7 +191,7 @@ export const dashboardRouter = router({
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `Error al exportar CSV: ${error.message}` });
       }
 
-      const rows = (data ?? []).map((row: any) => {
+      const rows = (data ?? []).map((row) => {
         const hora = new Date(row.created_at).toLocaleTimeString("es-ES", {
           hour: "2-digit",
           minute: "2-digit",
@@ -202,7 +202,7 @@ export const dashboardRouter = router({
           hora,
           persona_uuid: row.person_id ?? "anonimo",
           punto_servicio: row.locations?.nombre ?? "",
-          programa: row.programa,
+          programa: row.programa ?? "",
           metodo: row.metodo,
         };
       });

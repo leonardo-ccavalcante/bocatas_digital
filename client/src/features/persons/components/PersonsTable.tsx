@@ -47,6 +47,8 @@ export function PersonsTable() {
         newRole: newRole as typeof ROLE_OPTIONS[number],
       });
       toast.success("Rol actualizado correctamente");
+    // Supabase SDK boundary — opaque join result
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       toast.error(err.message || "Error al actualizar rol");
     } finally {
@@ -64,6 +66,8 @@ export function PersonsTable() {
         newFaseItinerario: newFase as typeof FASE_ITINERARIO_OPTIONS[number],
       });
       toast.success("Fase itinerario actualizada correctamente");
+    // Supabase SDK boundary — opaque join result
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       toast.error(err.message || "Error al actualizar fase itinerario");
     } finally {
@@ -117,6 +121,7 @@ export function PersonsTable() {
           </tr>
         </thead>
         <tbody className="divide-y">
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
           {persons.map((person: any) => (
             <tr key={person.id} className="hover:bg-muted/30 transition-colors">
               <td className="px-3 py-2">

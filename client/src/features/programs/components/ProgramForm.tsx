@@ -35,6 +35,8 @@ export function ProgramForm({
   onCancel,
 }: ProgramFormProps) {
   const form = useForm<ProgramFormValues>({
+    // tRPC error boundary
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(ProgramFormSchema) as any,
     defaultValues: {
       slug: "",

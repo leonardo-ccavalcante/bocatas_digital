@@ -7,6 +7,7 @@ import {
   superadminProcedure,
 } from "../_core/trpc";
 import type { TrpcContext } from "../_core/context";
+import { Logger } from "../_core/logger";
 import type { User } from "../../drizzle/schema";
 import { Logger } from "../_core/logger";
 

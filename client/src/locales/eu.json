@@ -1,0 +1,66 @@
+{
+  "common": {
+    "home": "Hasiera",
+    "logout": "Saioa itxi",
+    "loading": "Kargatzen...",
+    "error": "Errorea",
+    "success": "Arrakasta",
+    "welcome": "Ongi etorri, {{name}}",
+    "save": "Gorde",
+    "cancel": "Utzi",
+    "delete": "Ezabatu",
+    "edit": "Editatu",
+    "search": "Bilatu",
+    "close": "Itxi",
+    "confirm": "Baieztatu",
+    "back": "Itzuli",
+    "yes": "Bai",
+    "no": "Ez"
+  },
+  "nav": {
+    "dashboard": "Panela",
+    "families": "Familiak",
+    "persons": "Pertsonak",
+    "deliveries": "Entregas",
+    "announcements": "Berriak",
+    "programs": "Programak",
+    "admin": "Administrazioa",
+    "settings": "Ezarpenak"
+  },
+  "forms": {
+    "submit": "Bidali",
+    "cancel": "Utzi",
+    "required": "Beharrezko eremua",
+    "invalid": "Eremu baliogabea",
+    "minLength": "Gutxienez {{min}} karaktere",
+    "saving": "Gordatzen...",
+    "saved": "Gordeta",
+    "error": "Errorea gordetzean"
+  },
+  "errors": {
+    "notFound": "Ez da aurkitu",
+    "unauthorized": "Baimenik gabe",
+    "forbidden": "Sarbidea ukatua",
+    "serverError": "Zerbitzariaren errorea",
+    "unknown": "Ezezaguna errorea"
+  },
+  "families": {
+    "title": "Familiak",
+    "add": "Familia gehitu",
+    "search": "Familia bilatu"
+  },
+  "persons": {
+    "title": "Pertsonak",
+    "add": "Pertsona gehitu"
+  },
+  "deliveries": {
+    "title": "Entregas",
+    "add": "Entrega erregistratu"
+  },
+  "checkin": {
+    "title": "Check-in"
+  },
+  "dashboard": {
+    "title": "Kontrol panela"
+  }
+}

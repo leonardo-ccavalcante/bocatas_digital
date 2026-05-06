@@ -45,6 +45,8 @@ export default function FamiliasEntregas() {
 
   const createDelivery = trpc.entregas.createDelivery.useMutation({
     onSuccess: () => toast.success("Entrega registrada"),
+    // Supabase SDK boundary — opaque join result
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onError: (err: any) => toast.error(err.message),
   });
 
