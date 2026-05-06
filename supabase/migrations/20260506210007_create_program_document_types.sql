@@ -34,7 +34,7 @@ CREATE INDEX program_document_types_active_idx
 ALTER TABLE program_document_types ENABLE ROW LEVEL SECURITY;
 
 -- Read: any authenticated user can read document types.
-CREATE POLICY program_document_types_authenticated_read
+CREATE POLICY program_document_types_authenticated_select
   ON program_document_types FOR SELECT
   TO authenticated
   USING (true);
@@ -66,13 +66,13 @@ BEGIN
 
   INSERT INTO program_document_types (programa_id, slug, nombre, scope, is_required, display_order)
   VALUES
-    (prog_id, 'padron_municipal',         'Padron municipal',          'familia',   true,  10),
-    (prog_id, 'justificante_situacion',   'Justificante de situacion', 'familia',   false, 20),
-    (prog_id, 'informe_social',           'Informe social',            'familia',   true,  30),
-    (prog_id, 'autorizacion_recogida',    'Autorizacion de recogida',  'familia',   false, 40),
-    (prog_id, 'documento_identidad',      'Documento de identidad',    'miembro',   true,  50),
-    (prog_id, 'consent_bocatas',          'Consentimiento Bocatas',    'miembro',   true,  60),
-    (prog_id, 'consent_banco_alimentos',  'Consentimiento BdA',        'miembro',   true,  70)
+    (prog_id, 'padron_municipal',         'Padrón municipal',              'familia',   true,  10),
+    (prog_id, 'justificante_situacion',   'Justificante de situación',     'familia',   false, 20),
+    (prog_id, 'informe_social',           'Informe social',                'familia',   true,  30),
+    (prog_id, 'autorizacion_recogida',    'Autorización de recogida',      'familia',   false, 40),
+    (prog_id, 'documento_identidad',      'Documento de identidad',        'miembro',   true,  50),
+    (prog_id, 'consent_bocatas',          'Consentimiento Bocatas',        'miembro',   true,  60),
+    (prog_id, 'consent_banco_alimentos',  'Consentimiento Banco de Alimentos', 'miembro', true, 70)
   ON CONFLICT (programa_id, slug) DO NOTHING;
 END $$;
 
