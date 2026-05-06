@@ -28,3 +28,17 @@
 - [ ] Actualizar `baseline-browser-mapping` a latest (dev warning, no error)
 - [x] Bug: voluntarios no podían llamar `families.getById` (era `adminProcedure`) — fix: cambiado a `voluntarioProcedure` + `redactHighRiskFields` para redactar PII; test `families-getbyid-voluntario.test.ts` (10 tests GREEN)
 - [x] Bug: MemberManagementModal mostraba "Miembros Actuales (0)" — causa: instancia duplicada en FamiliaDetalle (línea 297) sin prop `miembros`; fix: eliminada la instancia duplicada, la instancia correcta (línea 189) ya tenía `miembros={miembros}`
+
+## PR #37 — bulk import familias from legacy FAMILIAS CSV
+
+- [x] Pull PR #37 (11 commits) desde GitHub al sandbox
+- [x] Migración 1: `20260601000001_add_legacy_provenance_to_families` — columna `legacy_numero` en `families`
+- [x] Migración 2: `20260601000002_create_family_legacy_import_audit` — tabla `family_legacy_import_audit`
+- [x] Migración 3: `20260601000003_confirm_legacy_familias_import_fn` — función RPC `confirm_legacy_familias_import`
+- [x] Migración 4: `20260601000004_revoke_legacy_familias_fns_from_anon` — revocar acceso anon a funciones legacy
+- [x] Migración 5: `20260601000005_sanitize_audit_error_v2_strict_id_masking` — sanitizar errores en audit
+- [x] Migración 6: `20260506000001_fix_enforce_member_counts_trigger` — drop trigger obsoleto que referenciaba `families.miembros` (causa de test failures)
+- [x] `database.types.ts` regenerado con nuevos tipos (`legacy_numero`, `family_legacy_import_audit`, `confirm_legacy_familias_import`)
+- [x] Los 2 casts `as any` en legacy-import.ts ya eliminados en PR #37
+- [x] Verificado: pnpm check → 0 errores, pnpm test → 1544 pasando 0 fallos
+- [x] Checkpoint y push a GitHub
