@@ -1,0 +1,66 @@
+{
+  "common": {
+    "home": "Accueil",
+    "logout": "Déconnexion",
+    "loading": "Chargement...",
+    "error": "Erreur",
+    "success": "Succès",
+    "welcome": "Bienvenue, {{name}}",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "search": "Rechercher",
+    "close": "Fermer",
+    "confirm": "Confirmer",
+    "back": "Retour",
+    "yes": "Oui",
+    "no": "Non"
+  },
+  "nav": {
+    "dashboard": "Tableau de bord",
+    "families": "Familles",
+    "persons": "Personnes",
+    "deliveries": "Livraisons",
+    "announcements": "Actualités",
+    "programs": "Programmes",
+    "admin": "Administration",
+    "settings": "Paramètres"
+  },
+  "forms": {
+    "submit": "Envoyer",
+    "cancel": "Annuler",
+    "required": "Champ obligatoire",
+    "invalid": "Champ invalide",
+    "minLength": "Minimum {{min}} caractères",
+    "saving": "Enregistrement...",
+    "saved": "Enregistré",
+    "error": "Erreur lors de l'enregistrement"
+  },
+  "errors": {
+    "notFound": "Non trouvé",
+    "unauthorized": "Non autorisé",
+    "forbidden": "Accès refusé",
+    "serverError": "Erreur serveur",
+    "unknown": "Erreur inconnue"
+  },
+  "families": {
+    "title": "Familles",
+    "add": "Ajouter une famille",
+    "search": "Rechercher une famille"
+  },
+  "persons": {
+    "title": "Personnes",
+    "add": "Ajouter une personne"
+  },
+  "deliveries": {
+    "title": "Livraisons",
+    "add": "Enregistrer une livraison"
+  },
+  "checkin": {
+    "title": "Check-in"
+  },
+  "dashboard": {
+    "title": "Tableau de bord"
+  }
+}

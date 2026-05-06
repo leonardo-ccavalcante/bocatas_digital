@@ -1,0 +1,66 @@
+{
+  "common": {
+    "home": "الصفحة الرئيسية",
+    "logout": "الخروج",
+    "loading": "كيتحمّل...",
+    "error": "غلطة",
+    "success": "مزيان",
+    "welcome": "مرحبا، {{name}}",
+    "save": "حفظ",
+    "cancel": "إلغاء",
+    "delete": "حذف",
+    "edit": "تعديل",
+    "search": "بحث",
+    "close": "إغلاق",
+    "confirm": "تأكيد",
+    "back": "رجوع",
+    "yes": "إيه",
+    "no": "لا"
+  },
+  "nav": {
+    "dashboard": "لوحة التحكم",
+    "families": "العائلات",
+    "persons": "الناس",
+    "deliveries": "التوزيعات",
+    "announcements": "الأخبار",
+    "programs": "البرامج",
+    "admin": "الإدارة",
+    "settings": "الإعدادات"
+  },
+  "forms": {
+    "submit": "إرسال",
+    "cancel": "إلغاء",
+    "required": "هاد الخانة واجبة",
+    "invalid": "خانة غير صحيحة",
+    "minLength": "الحد الأدنى {{min}} حروف",
+    "saving": "كيتسجل...",
+    "saved": "تسجل",
+    "error": "غلطة في الحفظ"
+  },
+  "errors": {
+    "notFound": "ما كاينش",
+    "unauthorized": "ما عندكش الصلاحية",
+    "forbidden": "الوصول ممنوع",
+    "serverError": "غلطة في السيرفر",
+    "unknown": "غلطة مجهولة"
+  },
+  "families": {
+    "title": "العائلات",
+    "add": "زيد عائلة",
+    "search": "قلب على عائلة"
+  },
+  "persons": {
+    "title": "الناس",
+    "add": "زيد شخص"
+  },
+  "deliveries": {
+    "title": "التوزيعات",
+    "add": "سجل توزيع"
+  },
+  "checkin": {
+    "title": "تسجيل الحضور"
+  },
+  "dashboard": {
+    "title": "لوحة التحكم"
+  }
+}
