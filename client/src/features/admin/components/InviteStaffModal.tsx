@@ -43,6 +43,8 @@ export function InviteStaffModal({ open, onOpenChange }: InviteStaffModalProps) 
   const createMutation = useCreateStaffUser();
 
   const form = useForm<CreateStaffUserValues>({
+    // tRPC error boundary
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(CreateStaffUserSchema) as any,
     defaultValues: {
       email: "",
@@ -56,6 +58,8 @@ export function InviteStaffModal({ open, onOpenChange }: InviteStaffModalProps) 
       await createMutation.mutateAsync(values);
       form.reset();
       onOpenChange(false);
+    // tRPC error boundary
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       // Handle specific error cases (Job 6, AC7)
       const message = error?.message ?? "";

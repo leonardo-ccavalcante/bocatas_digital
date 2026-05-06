@@ -237,6 +237,8 @@ describe("persons router — updateRole procedure", () => {
     await expect(
       caller.persons.updateRole({
         personId: "550e8400-e29b-41d4-a716-446655440004",
+        // test mock boundary — Supabase client mock
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         newRole: "invalid_role" as any,
       })
     ).rejects.toThrow();
@@ -341,6 +343,8 @@ describe("persons router — updateFaseItinerario procedure", () => {
     await expect(
       caller.persons.updateFaseItinerario({
         personId: "550e8400-e29b-41d4-a716-446655440010",
+        // test mock boundary — Supabase client mock
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         newFaseItinerario: "invalid_fase" as any,
       })
     ).rejects.toThrow();

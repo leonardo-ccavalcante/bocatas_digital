@@ -1,0 +1,66 @@
+{
+  "common": {
+    "home": "الرئيسية",
+    "logout": "تسجيل الخروج",
+    "loading": "جار التحميل...",
+    "error": "خطأ",
+    "success": "نجاح",
+    "welcome": "مرحباً، {{name}}",
+    "save": "حفظ",
+    "cancel": "إلغاء",
+    "delete": "حذف",
+    "edit": "تعديل",
+    "search": "بحث",
+    "close": "إغلاق",
+    "confirm": "تأكيد",
+    "back": "رجوع",
+    "yes": "نعم",
+    "no": "لا"
+  },
+  "nav": {
+    "dashboard": "لوحة التحكم",
+    "families": "العائلات",
+    "persons": "الأشخاص",
+    "deliveries": "التوزيعات",
+    "announcements": "الأخبار",
+    "programs": "البرامج",
+    "admin": "الإدارة",
+    "settings": "الإعدادات"
+  },
+  "forms": {
+    "submit": "إرسال",
+    "cancel": "إلغاء",
+    "required": "هذا الحقل مطلوب",
+    "invalid": "حقل غير صالح",
+    "minLength": "الحد الأدنى {{min}} أحرف",
+    "saving": "جار الحفظ...",
+    "saved": "تم الحفظ",
+    "error": "خطأ في الحفظ"
+  },
+  "errors": {
+    "notFound": "غير موجود",
+    "unauthorized": "غير مصرح",
+    "forbidden": "الوصول مرفوض",
+    "serverError": "خطأ في الخادم",
+    "unknown": "خطأ غير معروف"
+  },
+  "families": {
+    "title": "العائلات",
+    "add": "إضافة عائلة",
+    "search": "البحث عن عائلة"
+  },
+  "persons": {
+    "title": "الأشخاص",
+    "add": "إضافة شخص"
+  },
+  "deliveries": {
+    "title": "التوزيعات",
+    "add": "تسجيل توزيع"
+  },
+  "checkin": {
+    "title": "تسجيل الحضور"
+  },
+  "dashboard": {
+    "title": "لوحة التحكم"
+  }
+}

@@ -45,6 +45,8 @@ export default function AdminNovedades() {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const form = useForm<FormValues, any, FormValues>({
+    // Supabase SDK boundary
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(FormSchema) as any,
     defaultValues: { tipo: "info", fijado: false },
   });

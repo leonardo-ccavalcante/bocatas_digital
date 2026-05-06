@@ -1,0 +1,66 @@
+{
+  "common": {
+    "home": "Home",
+    "logout": "Log out",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "welcome": "Welcome, {{name}}",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "search": "Search",
+    "close": "Close",
+    "confirm": "Confirm",
+    "back": "Back",
+    "yes": "Yes",
+    "no": "No"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "families": "Families",
+    "persons": "Persons",
+    "deliveries": "Deliveries",
+    "announcements": "Announcements",
+    "programs": "Programs",
+    "admin": "Administration",
+    "settings": "Settings"
+  },
+  "forms": {
+    "submit": "Submit",
+    "cancel": "Cancel",
+    "required": "Required field",
+    "invalid": "Invalid field",
+    "minLength": "Minimum {{min}} characters",
+    "saving": "Saving...",
+    "saved": "Saved",
+    "error": "Error saving"
+  },
+  "errors": {
+    "notFound": "Not found",
+    "unauthorized": "Unauthorized",
+    "forbidden": "Access denied",
+    "serverError": "Server error",
+    "unknown": "Unknown error"
+  },
+  "families": {
+    "title": "Families",
+    "add": "Add family",
+    "search": "Search family"
+  },
+  "persons": {
+    "title": "Persons",
+    "add": "Add person"
+  },
+  "deliveries": {
+    "title": "Deliveries",
+    "add": "Register delivery"
+  },
+  "checkin": {
+    "title": "Check-in"
+  },
+  "dashboard": {
+    "title": "Dashboard"
+  }
+}

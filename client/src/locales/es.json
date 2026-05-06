@@ -1,0 +1,66 @@
+{
+  "common": {
+    "home": "Inicio",
+    "logout": "Cerrar sesión",
+    "loading": "Cargando...",
+    "error": "Error",
+    "success": "Éxito",
+    "welcome": "Bienvenido, {{name}}",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "search": "Buscar",
+    "close": "Cerrar",
+    "confirm": "Confirmar",
+    "back": "Volver",
+    "yes": "Sí",
+    "no": "No"
+  },
+  "nav": {
+    "dashboard": "Panel",
+    "families": "Familias",
+    "persons": "Personas",
+    "deliveries": "Entregas",
+    "announcements": "Novedades",
+    "programs": "Programas",
+    "admin": "Administración",
+    "settings": "Configuración"
+  },
+  "forms": {
+    "submit": "Enviar",
+    "cancel": "Cancelar",
+    "required": "Campo requerido",
+    "invalid": "Campo inválido",
+    "minLength": "Mínimo {{min}} caracteres",
+    "saving": "Guardando...",
+    "saved": "Guardado",
+    "error": "Error al guardar"
+  },
+  "errors": {
+    "notFound": "No encontrado",
+    "unauthorized": "No autorizado",
+    "forbidden": "Acceso denegado",
+    "serverError": "Error del servidor",
+    "unknown": "Error desconocido"
+  },
+  "families": {
+    "title": "Familias",
+    "add": "Añadir familia",
+    "search": "Buscar familia"
+  },
+  "persons": {
+    "title": "Personas",
+    "add": "Añadir persona"
+  },
+  "deliveries": {
+    "title": "Entregas",
+    "add": "Registrar entrega"
+  },
+  "checkin": {
+    "title": "Check-in"
+  },
+  "dashboard": {
+    "title": "Panel de control"
+  }
+}

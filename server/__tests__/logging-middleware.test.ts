@@ -10,8 +10,14 @@ describe('Logging Middleware - tRPC Integration', () => {
   beforeEach(() => {
     logger = new Logger();
     mockContext = {
+      // test mock boundary — tRPC context mock
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       req: {} as any,
+      // test mock boundary — tRPC context mock
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       res: {} as any,
+      // test mock boundary — tRPC context mock
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       user: { id: 'user-123' } as any,
       logger,
       correlationId: 'test-corr-123',
