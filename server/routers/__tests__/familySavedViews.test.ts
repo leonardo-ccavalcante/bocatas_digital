@@ -3,6 +3,49 @@ import { familySavedViewsRouter } from "../familySavedViews";
 import type { TrpcContext } from "../../_core/context";
 import type { User } from "../../../drizzle/schema";
 
+// Capture insert calls so we can assert they reached Supabase with valid shape.
+const insertCalls: Array<{ table: string; payload: unknown }> = [];
+
+vi.mock("../../../client/src/lib/supabase/server", () => ({
+  createAdminClient: () => ({
+    from: (table: string) => ({
+      insert: (payload: unknown) => ({
+        select: () => ({
+          single: async () => {
+            insertCalls.push({ table, payload });
+            return { data: { id: "test-uuid", ...(payload as object) }, error: null };
+          },
+        }),
+      }),
+      update: () => ({
+        eq: () => ({
+          eq: () => ({
+            select: () => ({
+              maybeSingle: async () => ({ data: null, error: null }),
+            }),
+          }),
+        }),
+      }),
+      delete: () => ({
+        eq: () => ({
+          eq: () => ({
+            select: () => async () => ({ data: [], error: null }),
+          }),
+        }),
+      }),
+      select: () => ({
+        eq: () => ({
+          or: () => ({
+            order: () => ({
+              order: async () => ({ data: [], error: null }),
+            }),
+          }),
+        }),
+      }),
+    }),
+  }),
+}));
+
 function buildUser(role: User["role"], id = 1): User {
   return {
     id,
@@ -28,7 +71,10 @@ function buildCtx(user: User | null): TrpcContext {
 }
 
 describe("familySavedViews router", () => {
-  beforeEach(() => vi.resetAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    insertCalls.length = 0;
+  });
 
   it("rejects voluntario from list", async () => {
     const caller = familySavedViewsRouter.createCaller(buildCtx(buildUser("voluntario")));
@@ -53,23 +99,25 @@ describe("familySavedViews router", () => {
     })).rejects.toThrow();
   });
 
-  it("accepts a valid filters_json shape (Zod-only validation; DB call may fail in test env)", async () => {
+  it("create reaches Supabase with valid filters_json", async () => {
+    insertCalls.length = 0;
     const caller = familySavedViewsRouter.createCaller(buildCtx(buildUser("admin")));
-    // We assert the call doesn't throw a Zod error. A downstream DB error is fine —
-    // we just want to ensure the input shape passes the schema.
-    let zodFailed = false;
-    try {
-      await caller.create({
-        programaId: "00000000-0000-0000-0000-000000000001",
-        nombre: "Activas",
-        filtersJson: { estado: "activa" },
-        isShared: false,
-      });
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      if (/Invalid input|filters_json/i.test(msg)) zodFailed = true;
-    }
-    expect(zodFailed).toBe(false);
+    const validProgramaId = "a1b2c3d4-e5f6-4789-8abc-def012345678";
+    const result = await caller.create({
+      programaId: validProgramaId,
+      nombre: "Activas",
+      filtersJson: { estado: "activa" },
+      isShared: false,
+    });
+    expect(insertCalls.length).toBe(1);
+    expect(insertCalls[0].table).toBe("family_saved_views");
+    const payload = insertCalls[0].payload as Record<string, unknown>;
+    expect(payload.user_id).toBe("1");
+    expect(payload.programa_id).toBe(validProgramaId);
+    expect(payload.nombre).toBe("Activas");
+    expect(payload.filters_json).toEqual({ estado: "activa" });
+    expect(payload.is_shared).toBe(false);
+    expect(result).toMatchObject({ id: "test-uuid", nombre: "Activas" });
   });
 
   it("update requires id; rejects without it", async () => {

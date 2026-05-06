@@ -962,6 +962,45 @@ export type Database = {
           },
         ]
       }
+      family_saved_views: {
+        Row: {
+          id: string
+          user_id: string
+          programa_id: string
+          nombre: string
+          descripcion: string | null
+          filters_json: Json
+          is_shared: boolean
+          display_order: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          programa_id: string
+          nombre: string
+          descripcion?: string | null
+          filters_json: Json
+          is_shared?: boolean
+          display_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          programa_id?: string
+          nombre?: string
+          descripcion?: string | null
+          filters_json?: Json
+          is_shared?: boolean
+          display_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       grants: {
         Row: {
           created_at: string

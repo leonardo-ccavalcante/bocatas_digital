@@ -2,6 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, adminProcedure } from "../_core/trpc";
 import { createAdminClient } from "../../client/src/lib/supabase/server";
+import type { Database } from "../../client/src/lib/database.types";
 
 /**
  * Zod schema for the saved-view filter set. Mirrors the FamiliasFilters shape
@@ -29,6 +30,10 @@ export const familySavedViewsRouter = router({
     .input(z.object({ programaId: uuidLike }))
     .query(async ({ ctx, input }) => {
       const db = createAdminClient();
+      // SAFE: ctx.user.id is a Drizzle MySQL autoincrement int, so String(...) produces
+      // a numeric string with no PostgREST filter delimiters. If the auth model ever
+      // changes to allow user IDs containing commas/parens/colons, this interpolation
+      // must be replaced with separately-chained .or() builders.
       const { data, error } = await db
         .from("family_saved_views")
         .select("*")
@@ -50,7 +55,7 @@ export const familySavedViewsRouter = router({
       z.object({
         programaId: uuidLike,
         nombre: z.string().min(1).max(100),
-        descripcion: z.string().max(500).optional(),
+        descripcion: z.string().min(1).max(500).optional(),
         filtersJson: FamiliasFiltersSpec,
         isShared: z.boolean().default(false),
       })
@@ -86,7 +91,7 @@ export const familySavedViewsRouter = router({
       z.object({
         id: uuidLike,
         nombre: z.string().min(1).max(100).optional(),
-        descripcion: z.string().max(500).optional(),
+        descripcion: z.string().min(1).max(500).optional().nullable(),
         filtersJson: FamiliasFiltersSpec.optional(),
         isShared: z.boolean().optional(),
       })
@@ -94,7 +99,7 @@ export const familySavedViewsRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = createAdminClient();
       const { id, ...rest } = input;
-      const update: Record<string, unknown> = {
+      const update: Database["public"]["Tables"]["family_saved_views"]["Update"] = {
         updated_at: new Date().toISOString(),
       };
       if (rest.nombre !== undefined) update.nombre = rest.nombre;
@@ -107,13 +112,9 @@ export const familySavedViewsRouter = router({
         .eq("id", id)
         .eq("user_id", String(ctx.user.id)) // server-side ownership guard
         .select()
-        .single();
-      if (error) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: error.message,
-        });
-      }
+        .maybeSingle();
+      if (error) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+      if (!data) throw new TRPCError({ code: "NOT_FOUND", message: "Vista no encontrada o sin permiso" });
       return data;
     }),
 
@@ -121,16 +122,15 @@ export const familySavedViewsRouter = router({
     .input(z.object({ id: uuidLike }))
     .mutation(async ({ ctx, input }) => {
       const db = createAdminClient();
-      const { error } = await db
+      const { data, error } = await db
         .from("family_saved_views")
         .delete()
         .eq("id", input.id)
-        .eq("user_id", String(ctx.user.id)); // server-side ownership guard
-      if (error) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: error.message,
-        });
+        .eq("user_id", String(ctx.user.id)) // server-side ownership guard
+        .select("id");
+      if (error) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+      if (!data || data.length === 0) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Vista no encontrada o sin permiso" });
       }
       return { success: true };
     }),
