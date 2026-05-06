@@ -148,7 +148,7 @@ export const bulkImportRouter = router({
     .mutation(async ({ input, ctx }) => {
       const db = createAdminClient();
       const createdBy = String(ctx.user.id);
-      const autorNombre = ctx.user.name ?? null;
+      const autorNombre = ctx.user.name ?? "";
 
       const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
       const { data: preview, error: fetchErr } = await db
