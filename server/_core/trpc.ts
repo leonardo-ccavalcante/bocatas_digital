@@ -45,6 +45,26 @@ export const adminProcedure = t.procedure.use(
   }),
 );
 
+/**
+ * voluntarioProcedure — allows voluntario, admin, and superadmin roles.
+ * Use for read procedures that return redacted data for non-admin callers.
+ */
+export const voluntarioProcedure = t.procedure.use(
+  t.middleware(async opts => {
+    const { ctx, next } = opts;
+    const ALLOWED = new Set(['voluntario', 'admin', 'superadmin']);
+    if (!ctx.user || !ALLOWED.has(ctx.user.role)) {
+      throw new TRPCError({ code: "FORBIDDEN", message: 'Acceso restringido a voluntarios y administradores' });
+    }
+    return next({
+      ctx: {
+        ...ctx,
+        user: ctx.user,
+      },
+    });
+  }),
+);
+
 export const superadminProcedure = t.procedure.use(
   t.middleware(async opts => {
     const { ctx, next } = opts;

@@ -4,7 +4,9 @@ import {
   router,
   adminProcedure,
   superadminProcedure,
+  voluntarioProcedure,
 } from "../../_core/trpc";
+import { redactHighRiskFields } from "../../_core/rlsRedaction";
 import { createAdminClient } from "../../../client/src/lib/supabase/server";
 import { logProcedureAction } from "../../_core/logging-middleware";
 import { isMemberAdult } from "../../families-doc-helpers";
@@ -73,7 +75,7 @@ export const crudRouter = router({
 
   // ─── Job 1: Family Detail ────────────────────────────────────────────────
   /** GET /families/:id */
-  getById: adminProcedure
+  getById: voluntarioProcedure
     .input(z.object({ id: uuidLike }))
     .query(async ({ input, ctx }) => {
       const db = createAdminClient();
@@ -103,8 +105,12 @@ export const crudRouter = router({
         ctx.logger.warn("Failed to fetch members", { familiaId: input.id, error: miembrosError });
       }
 
+      // Apply defense-in-depth PII redaction for non-admin callers (voluntarios).
+      // RLS is the primary guard; this is the application-layer guarantee.
+      const redactedFamily = redactHighRiskFields(ctx.user.role, family as Record<string, unknown>) as typeof family;
+
       return {
-        ...family,
+        ...redactedFamily,
         miembros: miembros || [],
       };
     }),

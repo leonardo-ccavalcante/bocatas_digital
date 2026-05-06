@@ -26,3 +26,4 @@
 - [ ] `MiQR.tsx` funcional (depende de F-002)
 - [ ] Limpiar 86 warnings de `eslint-disable` no usados (baja prioridad — no son errores)
 - [ ] Actualizar `baseline-browser-mapping` a latest (dev warning, no error)
+- [x] Bug: voluntarios no podían llamar `families.getById` (era `adminProcedure`) — fix: cambiado a `voluntarioProcedure` + `redactHighRiskFields` para redactar PII; test `families-getbyid-voluntario.test.ts` (10 tests GREEN)
