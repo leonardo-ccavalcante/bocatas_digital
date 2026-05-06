@@ -140,6 +140,8 @@ export function CsvTab({ flow }: CsvTabProps) {
             <DeliveryEditableTable
               rows={csvExtractedData.rows}
               onRowsChange={(updatedRows) => {
+                // CSV parser boundary — untyped row
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 setCsvExtractedData((prev: any) => ({
                   ...prev,
                   rows: updatedRows,

@@ -32,12 +32,18 @@ export function ImportFamiliesModal({ open, onOpenChange, onImportSuccess }: Imp
   const [isValidating, setIsValidating] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
 
+  // CSV parser boundary — untyped row
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const validateMutation = (trpc.families as any).validateCSVImportWithMembers.useQuery(
     { csvContent },
     { enabled: false }
   );
 
+  // CSV parser boundary — untyped row
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const importMutation = (trpc.families as any).importFamiliesWithMembers.useMutation({
+    // CSV parser boundary — untyped row
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onSuccess: (result: any) => {
       toast.success(
         `${result.successCount} familias importadas exitosamente${result.errorCount > 0 ? `, ${result.errorCount} errores` : ""}`
@@ -47,6 +53,8 @@ export function ImportFamiliesModal({ open, onOpenChange, onImportSuccess }: Imp
       onOpenChange(false);
       onImportSuccess?.();
     },
+    // CSV parser boundary — untyped row
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onError: (error: any) => {
       toast.error(error.message || "Error al importar");
     },

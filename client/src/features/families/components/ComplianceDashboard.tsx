@@ -1,8 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle, CheckCircle, Users, FileText, Shield, Clock } from "lucide-react";
+import { AlertCircle, CheckCircle, Users, FileText, Shield, Clock, MapPin } from "lucide-react";
 import { useComplianceStats, usePendingItems } from "../hooks/useFamilias";
 
 interface StatCardProps {
@@ -50,14 +49,20 @@ export function ComplianceDashboard() {
   if (statsLoading) {
     return (
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        {Array.from({ length: 5 }).map((_, i) => (
+        {Array.from({ length: 6 }).map((_, i) => (
           <Skeleton key={i} className="h-28" />
         ))}
       </div>
     );
   }
 
-  const totalIssues = (stats?.cm1 ?? 0) + (stats?.cm2 ?? 0) + (stats?.cm3 ?? 0) + (stats?.cm4 ?? 0) + (stats?.cm5 ?? 0);
+  const totalIssues =
+    (stats?.cm1 ?? 0) +
+    (stats?.cm2 ?? 0) +
+    (stats?.cm3 ?? 0) +
+    (stats?.cm4 ?? 0) +
+    (stats?.cm5 ?? 0) +
+    (stats?.cm6 ?? 0);
 
   return (
     <div className="space-y-6">
@@ -114,6 +119,13 @@ export function ComplianceDashboard() {
           value={stats?.cm5 ?? 0}
           icon={Users}
           variant={stats?.cm5 ? "warning" : "success"}
+        />
+        <StatCard
+          title="CM-6: Padrón vencido"
+          description="Padrón municipal con más de 180 días"
+          value={stats?.cm6 ?? 0}
+          icon={MapPin}
+          variant={stats?.cm6 ? "warning" : "success"}
         />
       </div>
 
