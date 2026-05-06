@@ -752,37 +752,49 @@ export type Database = {
       }
       familia_miembros: {
         Row: {
+          apellidos: string | null
           created_at: string | null
+          deleted_at: string | null
           documentacion_id: string | null
+          documento: string | null
           estado: string | null
           familia_id: string
           fecha_nacimiento: string | null
           id: string
           nombre: string
+          person_id: string | null
           relacion: string | null
           rol: string
           updated_at: string | null
         }
         Insert: {
+          apellidos?: string | null
           created_at?: string | null
+          deleted_at?: string | null
           documentacion_id?: string | null
+          documento?: string | null
           estado?: string | null
           familia_id: string
           fecha_nacimiento?: string | null
           id?: string
           nombre: string
+          person_id?: string | null
           relacion?: string | null
           rol: string
           updated_at?: string | null
         }
         Update: {
+          apellidos?: string | null
           created_at?: string | null
+          deleted_at?: string | null
           documentacion_id?: string | null
+          documento?: string | null
           estado?: string | null
           familia_id?: string
           fecha_nacimiento?: string | null
           id?: string
           nombre?: string
+          person_id?: string | null
           relacion?: string | null
           rol?: string
           updated_at?: string | null
