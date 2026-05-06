@@ -334,6 +334,36 @@ describe("previewLegacyImport — happy path", () => {
     expect(fam.family_already_imported).toBe(true);
   });
 
+  it("chunks the families idempotency probe when > 500 groups (URL length defense)", async () => {
+    // PostgREST encodes `.in()` filters into the URL. For 10k-row imports
+    // with naive single-call probes the URL exceeds the proxy cap. The
+    // implementation chunks at 500. This test pins the chunking contract:
+    // 600 distinct families → 2 calls to from("families"), 1 to persons,
+    // 1 to bulk_import_previews.
+    const N = 600;
+    fromMock
+      .mockReturnValueOnce(familiesProbeChain([]))
+      .mockReturnValueOnce(familiesProbeChain([]))
+      .mockReturnValueOnce(personsProbeChain([]))
+      .mockReturnValueOnce(stashInsertChain("token-chunked"));
+
+    const rows = Array.from({ length: N }, (_, i) => {
+      // Each unique family number has its own titular row.
+      return `${i + 1},${1000 + i},30/09/2020,Nombre${i},Apellido${i},M,,,x,España,17/03/1983,,,,,,,,Otros/ especificar...`;
+    });
+
+    const handler = procedureSpies.previewLegacyImport.handler;
+    const result = await handler({ input: { csv: csvWith(rows) }, ctx: makeCtx() });
+
+    expect(result.total_families).toBe(N);
+    // 2 chunks for families + 1 for persons + 1 for bulk_import_previews.
+    expect(fromMock).toHaveBeenCalledTimes(4);
+    expect(fromMock).toHaveBeenNthCalledWith(1, "families");
+    expect(fromMock).toHaveBeenNthCalledWith(2, "families");
+    expect(fromMock).toHaveBeenNthCalledWith(3, "persons");
+    expect(fromMock).toHaveBeenNthCalledWith(4, "bulk_import_previews");
+  });
+
   it("surfaces person dedup hits with no document fragment", async () => {
     fromMock
       .mockReturnValueOnce(familiesProbeChain([])) // not a duplicate family

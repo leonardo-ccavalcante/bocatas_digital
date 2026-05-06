@@ -20,6 +20,13 @@ import {
 import { uuidLike } from "./_shared";
 
 const MAX_BULK_ROWS = 10_000;
+const MAX_FILENAME_LENGTH = 255;
+/**
+ * Conservative chunk size for `.in()` filters. PostgREST encodes IN-list
+ * filters into the URL query string (typical ~8KB cap). 500 short tokens
+ * stay well under that cap even when each value is 20+ chars.
+ */
+const PROBE_CHUNK_SIZE = 500;
 
 interface PersonProbeRow {
   id: string;
@@ -48,7 +55,7 @@ export function safeFilename(input: string | undefined): string | null {
   const base = lastSlash >= 0 ? input.slice(lastSlash + 1) : input;
   // Drop any control character that could mangle log output.
   const cleaned = base.replace(/[\x00-\x1f]/g, "").trim();
-  return cleaned.length === 0 ? null : cleaned.slice(0, 255);
+  return cleaned.length === 0 ? null : cleaned.slice(0, MAX_FILENAME_LENGTH);
 }
 
 export const legacyImportRouter = router({
@@ -62,7 +69,7 @@ export const legacyImportRouter = router({
     .input(
       z.object({
         csv: z.string().min(1).max(10_000_000),
-        src_filename: z.string().max(255).optional(),
+        src_filename: z.string().max(MAX_FILENAME_LENGTH).optional(),
       })
     )
     .mutation(async ({ input, ctx }): Promise<PreviewResponse> => {
@@ -152,27 +159,39 @@ export const legacyImportRouter = router({
       const db = createAdminClient();
 
       // 1. Idempotency probe: which legacy_numero already exist?
+      // Chunked: PostgREST encodes `.in()` filters into the URL query
+      // string. For a 10k-row import with 4-char numbers that's ~50KB of
+      // URL — well past the typical 8KB cap on PostgREST. CHUNK is sized
+      // conservatively so even pathological inputs (long legacy numbers)
+      // stay within the cap.
       const numeros = groups.map((g) => g.legacy_numero_familia);
-      const { data: existingFams, error: famsErr } = await db
-        .from("families")
-        .select("legacy_numero")
-        .in("legacy_numero", numeros)
-        .is("deleted_at", null);
-      if (famsErr) {
-        ctx.logger.error("[legacy-import] families idempotency probe failed", {
-          code: famsErr.code,
-          correlationId: ctx.correlationId,
-        });
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Error consultando familias existentes.",
-        });
+      const existingSet = new Set<string>();
+      for (let start = 0; start < numeros.length; start += PROBE_CHUNK_SIZE) {
+        const chunk = numeros.slice(start, start + PROBE_CHUNK_SIZE);
+        const { data: existingFams, error: famsErr } = await db
+          .from("families")
+          .select("legacy_numero")
+          .in("legacy_numero", chunk)
+          .is("deleted_at", null);
+        if (famsErr) {
+          ctx.logger.error("[legacy-import] families idempotency probe failed", {
+            code: famsErr.code,
+            chunkSize: chunk.length,
+            correlationId: ctx.correlationId,
+          });
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Error consultando familias existentes.",
+          });
+        }
+        for (const row of existingFams ?? []) {
+          if (row.legacy_numero !== null) existingSet.add(row.legacy_numero);
+        }
       }
-      const existingSet = new Set(
-        (existingFams ?? [])
-          .map((f) => f.legacy_numero)
-          .filter((v): v is string => v !== null)
-      );
+      // Local mutation of `groups` — these objects were just constructed by
+      // assembleFamilyGroups in this scope and are not shared state.
+      // Rebuilding the array immutably would allocate ~3N objects with no
+      // observable benefit; mutation here is a deliberate trade-off.
       for (const g of groups) {
         if (existingSet.has(g.legacy_numero_familia)) {
           g.family_already_imported = true;
@@ -197,11 +216,8 @@ export const legacyImportRouter = router({
       const probeKeyToRow = new Map<string, PersonProbeRow>();
       if (dobSet.size > 0) {
         const dobList = [...dobSet];
-        // Chunk on the IN clause itself (parameterized) — no character cap to
-        // worry about. 500 is a safe-and-generous chunk size for Supabase.
-        const CHUNK = 500;
-        for (let start = 0; start < dobList.length; start += CHUNK) {
-          const chunk = dobList.slice(start, start + CHUNK);
+        for (let start = 0; start < dobList.length; start += PROBE_CHUNK_SIZE) {
+          const chunk = dobList.slice(start, start + PROBE_CHUNK_SIZE);
           const { data: rows, error: probeErr } = await db
             .from("persons")
             .select("id, nombre, apellidos, fecha_nacimiento, pais_origen")
@@ -319,7 +335,7 @@ export const legacyImportRouter = router({
     .input(
       z.object({
         preview_token: uuidLike,
-        src_filename: z.string().max(255).optional(),
+        src_filename: z.string().max(MAX_FILENAME_LENGTH).optional(),
       })
     )
     .mutation(async ({ input, ctx }): Promise<ConfirmResponse> => {
