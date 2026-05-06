@@ -280,6 +280,9 @@ export const legacyImportRouter = router({
       if (insertErr || !preview) {
         ctx.logger.error("[legacy-import] preview stash failed", {
           code: insertErr?.code,
+          message: insertErr?.message,
+          details: insertErr?.details,
+          hint: insertErr?.hint,
           correlationId: ctx.correlationId,
         });
         throw new TRPCError({
