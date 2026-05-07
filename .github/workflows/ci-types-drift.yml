@@ -24,25 +24,57 @@ jobs:
           version: latest
 
       # The supabase/migrations/EXPORTED/ subdirectory holds the foundational
-      # schema (extensions, enums, base tables, RLS helpers) re-exported from
-      # production on 2026-05-05 — see supabase/migrations/EXPORTED/README.md.
-      # `supabase start` applies migrations non-recursively, so without this
-      # step the early ALTER-TYPE migrations at the top level fail with
-      # "type X does not exist". Copying EXPORTED/*.sql to the migrations
-      # root before start is the project-intended bootstrap path: their
-      # timestamps (20260411*) sort before any top-level migration (20260430*+)
-      # so they apply first. There are no duplicate filenames between the
-      # two layers (verified at PR-time).
+      # schema re-exported from production on 2026-05-05 (see
+      # supabase/migrations/EXPORTED/README.md). It captures the full
+      # cumulative state of prod through migration 20260504184746.
+      #
+      # `supabase start` applies migrations non-recursively, so without
+      # bootstrapping EXPORTED first, ALTER-statements in early top-level
+      # migrations fail (e.g. canal_llegada enum doesn't exist).
+      #
+      # AND because EXPORTED is a snapshot of post-applied state, top-level
+      # migrations with timestamps ≤ 20260504184746 are DUPLICATES of state
+      # already in EXPORTED — applying both layers would conflict on
+      # CREATE INDEX / CREATE POLICY / CREATE TRIGGER (those don't accept
+      # IF NOT EXISTS in PG ≤ 14, and authors didn't fully guard with
+      # DROP IF EXISTS).
+      #
+      # Strategy: copy EXPORTED → top-level, AND remove the pre-snapshot
+      # duplicates from the top level. Net result in CI's working tree:
+      #   - EXPORTED (timestamps ≤ 20260504184746) — source of truth for
+      #     pre-snapshot state.
+      #   - Top-level migrations (timestamps > 20260504184746) — new
+      #     migrations applied on top.
+      # This matches what production actually has applied.
       - name: Bootstrap foundational migrations from EXPORTED/
         run: |
           set -euo pipefail
-          if [ -d supabase/migrations/EXPORTED ]; then
-            count=$(find supabase/migrations/EXPORTED -maxdepth 1 -name '*.sql' -type f | wc -l)
-            echo "Copying ${count} foundational migrations from EXPORTED/ to top level"
-            cp supabase/migrations/EXPORTED/*.sql supabase/migrations/
-          else
+          if [ ! -d supabase/migrations/EXPORTED ]; then
             echo "::warning::supabase/migrations/EXPORTED/ not found — skipping bootstrap"
+            exit 0
           fi
+          count=$(find supabase/migrations/EXPORTED -maxdepth 1 -name '*.sql' -type f | wc -l)
+          echo "Copying ${count} foundational migrations from EXPORTED/ to top level"
+          cp supabase/migrations/EXPORTED/*.sql supabase/migrations/
+
+          # Skip top-level migrations whose timestamp is within the EXPORTED
+          # snapshot window. Latest EXPORTED timestamp = 20260504184746.
+          snapshot_max="20260504184746"
+          echo "Removing top-level migrations with timestamp ≤ ${snapshot_max} (already in EXPORTED snapshot):"
+          for f in supabase/migrations/*.sql; do
+            base=$(basename "$f")
+            # Skip files that came from EXPORTED (they have a 14-digit prefix
+            # too but we already copied them; we identify them by checking
+            # if a same-named file exists in EXPORTED).
+            if [ -f "supabase/migrations/EXPORTED/$base" ]; then
+              continue
+            fi
+            ts="${base%%_*}"
+            if [[ "$ts" =~ ^[0-9]{14}$ ]] && [[ "$ts" < "$snapshot_max" || "$ts" == "$snapshot_max" ]]; then
+              echo "  - removing $base (ts=$ts ≤ snapshot_max)"
+              rm "$f"
+            fi
+          done
 
       - name: Start local Supabase
         run: supabase start
