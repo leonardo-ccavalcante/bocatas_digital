@@ -27,11 +27,15 @@ CREATE TABLE IF NOT EXISTS public.deliveries (
   deleted_at TIMESTAMP WITH TIME ZONE
 );
 
-CREATE INDEX idx_deliveries_family_id ON public.deliveries(family_id) WHERE deleted_at IS NULL;
-CREATE INDEX idx_deliveries_session_id ON public.deliveries(session_id) WHERE deleted_at IS NULL;
-CREATE INDEX idx_deliveries_grant_id ON public.deliveries(grant_id) WHERE deleted_at IS NULL;
-CREATE INDEX idx_deliveries_fecha_entrega ON public.deliveries(fecha_entrega) WHERE deleted_at IS NULL;
-CREATE INDEX idx_deliveries_deleted_at ON public.deliveries(deleted_at);
+-- IF NOT EXISTS guards: the earlier EXPORTED file 20260411081841_create_deliveries.sql
+-- already creates idx_deliveries_family_id, idx_deliveries_grant_id, and
+-- idx_deliveries_fecha_entrega. Without these guards, this re-export
+-- would conflict on a fresh CI DB.
+CREATE INDEX IF NOT EXISTS idx_deliveries_family_id ON public.deliveries(family_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_deliveries_session_id ON public.deliveries(session_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_deliveries_grant_id ON public.deliveries(grant_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_deliveries_fecha_entrega ON public.deliveries(fecha_entrega) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_deliveries_deleted_at ON public.deliveries(deleted_at);
 
 ALTER TABLE public.deliveries ENABLE ROW LEVEL SECURITY;
 

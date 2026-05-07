@@ -19,6 +19,9 @@ DROP POLICY IF EXISTS deliveries_insert_authenticated ON public.deliveries;
 DROP POLICY IF EXISTS deliveries_update_authenticated ON public.deliveries;
 
 -- Admin/superadmin: full CRUD
+-- (DROP guard added so this re-runs cleanly on top of EXPORTED's
+--  20260411082020_create_rls_base.sql which also creates this policy.)
+DROP POLICY IF EXISTS deliveries_admin_all ON public.deliveries;
 CREATE POLICY deliveries_admin_all ON public.deliveries
   FOR ALL TO authenticated
   USING (public.get_user_role() = ANY (ARRAY['superadmin', 'admin']))
@@ -37,6 +40,7 @@ CREATE POLICY deliveries_voluntario_insert ON public.deliveries
 -- delivery-record integrity (Banco de Alimentos audit trail per CLAUDE.md §3 integration constraints).
 
 -- PROGRAM_SESSIONS: minimal admin policy (table is currently empty; future work will add program-scoped policies)
+DROP POLICY IF EXISTS program_sessions_admin_all ON public.program_sessions;
 CREATE POLICY program_sessions_admin_all ON public.program_sessions
   FOR ALL TO authenticated
   USING (public.get_user_role() = ANY (ARRAY['superadmin', 'admin']))
