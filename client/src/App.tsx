@@ -37,6 +37,11 @@ const AdminUsuarios = lazy(() => import("./pages/AdminUsuarios"));
 const AdminNovedades = lazy(() => import("./pages/AdminNovedades"));
 const AdminSoftDeleteRecovery = lazy(() => import("./pages/AdminSoftDeleteRecovery").then(m => ({ default: m.AdminSoftDeleteRecovery })));
 const AdminLogs = lazy(() => import("./pages/admin/LogsPage").then(m => ({ default: m.LogsPage })));
+const ProgramaTiposDocumento = lazy(() =>
+  import("./pages/admin/ProgramaTiposDocumentoPage").then((m) => ({
+    default: m.ProgramaTiposDocumentoPage,
+  }))
+);
 
 // Familias (heavy module)
 const FamiliaRegistro = lazy(() => import("./pages/FamiliaRegistro"));
@@ -127,6 +132,11 @@ function Router() {
         <Route path="/admin/consentimientos">
           <ProtectedRoute requiredRoles={["superadmin"]}>
             <AdminConsentimientos />
+          </ProtectedRoute>
+        </Route>
+        <Route path="/admin/programas/:slug/tipos-documento">
+          <ProtectedRoute requiredRoles={["superadmin"]}>
+            <ProgramaTiposDocumento />
           </ProtectedRoute>
         </Route>
         <Route path="/admin/programas">
