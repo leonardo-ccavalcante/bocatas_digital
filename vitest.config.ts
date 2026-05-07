@@ -23,6 +23,8 @@ export default defineConfig({
     environmentMatchGlobs: [
       ["client/src/**/*.test.tsx", "jsdom"],
       ["client/src/**/*.spec.tsx", "jsdom"],
+      ["client/src/pages/**/__tests__/*.test.tsx", "jsdom"],
+      ["client/src/__tests__/*.test.tsx", "jsdom"],
     ],
     setupFiles: ["client/src/test-setup.ts"],
     include: [
@@ -38,6 +40,14 @@ export default defineConfig({
       "client/src/components/**/__tests__/*.test.tsx",
       "client/src/components/**/__tests__/*.spec.ts",
       "client/src/components/**/__tests__/*.spec.tsx",
+      "client/src/pages/**/__tests__/*.test.ts",
+      "client/src/pages/**/__tests__/*.test.tsx",
+      "client/src/pages/**/__tests__/*.spec.ts",
+      "client/src/pages/**/__tests__/*.spec.tsx",
+      "client/src/__tests__/*.test.ts",
+      "client/src/__tests__/*.test.tsx",
+      "client/src/__tests__/*.spec.ts",
+      "client/src/__tests__/*.spec.tsx",
     ],
     coverage: {
       provider: "v8",
