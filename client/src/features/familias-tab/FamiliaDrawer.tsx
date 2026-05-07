@@ -146,13 +146,13 @@ export function FamiliaDrawer({ familyId, onClose }: FamiliaDrawerProps) {
               <div>
                 <span className="text-muted-foreground">Informe social: </span>
                 {f.informe_social_fecha
-                  ? new Date(f.informe_social_fecha).toLocaleDateString("es-ES")
+                  ? new Date(f.informe_social_fecha + "T00:00:00").toLocaleDateString("es-ES")
                   : "Pendiente"}
               </div>
               <div>
                 <span className="text-muted-foreground">Alta GUF: </span>
                 {f.fecha_alta_guf
-                  ? new Date(f.fecha_alta_guf).toLocaleDateString("es-ES")
+                  ? new Date(f.fecha_alta_guf + "T00:00:00").toLocaleDateString("es-ES")
                   : f.alta_en_guf
                   ? "Sí"
                   : "No"}
