@@ -102,7 +102,12 @@ export function FamiliaDrawer({ familyId, onClose }: FamiliaDrawerProps) {
           </SheetTitle>
           <SheetDescription>
             {isLoading ? (
-              <Skeleton className="h-4 w-48" />
+              // SheetDescription renders as <p>; <div> cannot be a descendant of <p>.
+              // Use an inline-block <span> with the same animate-pulse styles.
+              <span
+                data-slot="skeleton"
+                className="bg-accent animate-pulse rounded-md h-4 w-48 inline-block"
+              />
             ) : titularName ? (
               `Titular: ${titularName}`
             ) : (
