@@ -3,6 +3,7 @@ import {
   parseFamiliasFilters,
   buildFamiliasSearch,
   DEFAULT_FAMILIAS_FILTERS,
+  type FamiliasFilters,
 } from "../useFamiliasFilters";
 
 describe("parseFamiliasFilters", () => {
@@ -91,5 +92,26 @@ describe("buildFamiliasSearch", () => {
     const built = buildFamiliasSearch("", original);
     const parsed = parseFamiliasFilters(built);
     expect(parsed).toEqual(original);
+  });
+});
+
+describe("applyFilters semantics (round-trip)", () => {
+  it("a saved view's filters → buildFamiliasSearch round-trips correctly", () => {
+    const saved = { estado: "all" as FamiliasFilters["estado"], sinGuf: true, sinInformeSocial: false };
+    const merged = { ...DEFAULT_FAMILIAS_FILTERS, ...saved };
+    const url = buildFamiliasSearch("", merged);
+    const parsed = parseFamiliasFilters(url);
+    expect(parsed.estado).toBe("all");
+    expect(parsed.sinGuf).toBe(true);
+    expect(parsed.sinInformeSocial).toBe(false);
+  });
+
+  it("merging a saved view onto defaults clears any unset fields", () => {
+    const saved = { estado: "baja" as FamiliasFilters["estado"] };
+    const merged = { ...DEFAULT_FAMILIAS_FILTERS, ...saved };
+    expect(merged.search).toBeUndefined();
+    expect(merged.sinGuf).toBe(false);
+    expect(merged.sinInformeSocial).toBe(false);
+    expect(merged.estado).toBe("baja");
   });
 });
