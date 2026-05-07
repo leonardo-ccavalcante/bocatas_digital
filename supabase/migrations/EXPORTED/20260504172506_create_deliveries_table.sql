@@ -39,10 +39,18 @@ CREATE INDEX IF NOT EXISTS idx_deliveries_deleted_at ON public.deliveries(delete
 
 ALTER TABLE public.deliveries ENABLE ROW LEVEL SECURITY;
 
--- NOTE: These permissive policies were later replaced by 20260506000005_rewrite_deliveries_and_program_sessions_rls.sql
+-- NOTE: These permissive policies were later replaced by 20260506000005_rewrite_deliveries_and_program_sessions_rls.sql.
+-- DROP guards added so this re-export co-exists with top-level 20260501000010_create_deliveries_table.sql,
+-- which sorts earlier and creates the same `deliveries_select_authenticated` policy name. On a fresh CI DB
+-- both files execute; the second creation would otherwise conflict. On production both have already been
+-- applied, so the DROPs are no-ops the second time around.
+DROP POLICY IF EXISTS "deliveries_select_authenticated" ON public.deliveries;
 CREATE POLICY "deliveries_select_authenticated" ON public.deliveries FOR SELECT TO authenticated USING (deleted_at IS NULL);
+DROP POLICY IF EXISTS "deliveries_insert_authenticated" ON public.deliveries;
 CREATE POLICY "deliveries_insert_authenticated" ON public.deliveries FOR INSERT TO authenticated WITH CHECK (true);
+DROP POLICY IF EXISTS "deliveries_update_authenticated" ON public.deliveries;
 CREATE POLICY "deliveries_update_authenticated" ON public.deliveries FOR UPDATE TO authenticated USING (true);
+DROP POLICY IF EXISTS "deliveries_delete_authenticated" ON public.deliveries;
 CREATE POLICY "deliveries_delete_authenticated" ON public.deliveries FOR DELETE TO authenticated USING (true);
 
 CREATE OR REPLACE FUNCTION public.update_deliveries_updated_at() RETURNS TRIGGER AS $$
@@ -52,5 +60,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS deliveries_update_updated_at ON public.deliveries;
 CREATE TRIGGER deliveries_update_updated_at BEFORE UPDATE ON public.deliveries
   FOR EACH ROW EXECUTE FUNCTION public.update_deliveries_updated_at();
