@@ -35,6 +35,15 @@ export const readsRouter = router({
       const includeInactive = canSeeInactive && (input?.includeInactive ?? false);
 
       // Fetch user's active program enrollments for visibility matching.
+      //
+      // TODO(jwt-migration): `String(ctx.user.id)` is a stringified MySQL int
+      // from the Manus OAuth `users` table; `program_enrollments.person_id`
+      // is `uuid`. The filter never matches today (staff users have no
+      // `persons` row at all, so the empty-result behavior matches the
+      // intended "staff has no program enrollments" semantic). After
+      // Supabase JWT auth lands, replace with the JWT `sub` UUID.
+      // Same pattern in `getById` and `getUrgentBannerAnnouncement`
+      // below — grep `String(ctx.user.id)` in this file for all sites.
       const { data: enrollments } = await db
         .from("program_enrollments")
         .select("program_id")
@@ -135,6 +144,7 @@ export const readsRouter = router({
       }
 
       const audiences = (data.announcement_audiences ?? []) as AudienceRule[];
+      // TODO(jwt-migration): see top-of-file note on String(ctx.user.id) vs uuid.
       const { data: enrollments } = await db
         .from("program_enrollments")
         .select("program_id")
@@ -181,6 +191,12 @@ export const readsRouter = router({
     .query(async ({ ctx }) => {
       const db = createAdminClient();
       const userRole = (ctx.user.role as string) ?? "beneficiario";
+      // TODO(jwt-migration): `userId` is `String(ctx.user.id)` — a stringified
+      // MySQL int filtered against `uuid` columns (`announcement_dismissals.person_id`
+      // and `program_enrollments.person_id`). Both queries silently return []
+      // today because no row matches; this matches the intended behavior for
+      // staff users (no persons row, no enrollments). Replace with the JWT
+      // `sub` UUID once Supabase JWT auth lands. See top-of-file note.
       const userId = String(ctx.user.id);
       const now = new Date().toISOString();
 
