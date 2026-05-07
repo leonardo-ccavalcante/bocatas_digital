@@ -131,8 +131,17 @@ export function FamiliasList({ onRowClick }: FamiliasListProps) {
                 return (
                   <tr
                     key={f.id}
-                    className="border-t hover:bg-muted/40 cursor-pointer"
+                    className="border-t hover:bg-muted/40 cursor-pointer focus:outline-none focus:bg-muted/40"
+                    role="button"
+                    tabIndex={0}
                     onClick={() => onRowClick(f.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onRowClick(f.id);
+                      }
+                    }}
+                    aria-label={`Abrir detalle de familia #${f.familia_numero ?? ""}`}
                   >
                     <td className="p-2 font-mono">{f.familia_numero}</td>
                     <td className="p-2">
