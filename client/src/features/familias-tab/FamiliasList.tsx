@@ -18,12 +18,30 @@ interface FamiliasListProps {
   onRowClick: (familyId: string) => void;
 }
 
+// tRPC infers persons as a union that doesn't include the joined shape, so we
+// widen once here. The cast is intentional and localised — do not re-cast
+// inside the map body.
+interface FamilyRow {
+  id: string;
+  familia_numero?: number | null;
+  estado?: string | null;
+  informe_social?: boolean | null;
+  alta_en_guf?: boolean | null;
+  num_adultos?: number | null;
+  num_menores_18?: number | null;
+  persons?: { nombre?: string | null; apellidos?: string | null } | null;
+}
+
 export function FamiliasList({ onRowClick }: FamiliasListProps) {
   const { filters, setSearch, setEstado, setSinGuf, setSinInformeSocial } =
     useFamiliasFilters();
   const [searchInput, setSearchInput] = useState(filters.search ?? "");
 
-  // Keep the input in sync if filters change externally (e.g. saved-view click).
+  // Keep the input in sync if filters change externally (e.g. saved-view click,
+  // back-button navigation). Trade-off: if the user is mid-typing when a saved
+  // view applies, their un-committed text is overwritten. Acceptable at Phase 1
+  // because saved views are infrequent and explicit. Do not "fix" by adding an
+  // isFocused guard without checking the saved-view UX flow first.
   useEffect(() => {
     setSearchInput(filters.search ?? "");
   }, [filters.search]);
@@ -89,7 +107,7 @@ export function FamiliasList({ onRowClick }: FamiliasListProps) {
         </div>
       ) : (
         <div className="border rounded-lg overflow-hidden">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm" aria-label="Lista de familias">
             <thead className="bg-muted/50">
               <tr>
                 <th className="text-left p-2 font-medium">N&ordm;</th>
@@ -104,15 +122,8 @@ export function FamiliasList({ onRowClick }: FamiliasListProps) {
               </tr>
             </thead>
             <tbody>
-              {(families ?? []).map((f) => {
-                const titular = (
-                  f as {
-                    persons?: {
-                      nombre?: string | null;
-                      apellidos?: string | null;
-                    };
-                  }
-                ).persons;
+              {((families ?? []) as FamilyRow[]).map((f) => {
+                const titular = f.persons;
                 const sinInforme = !f.informe_social;
                 const sinGuf = !f.alta_en_guf;
                 const totalMiembros =
