@@ -5,6 +5,7 @@ import { publicProcedure, router } from "./_core/trpc";
 import { checkinRouter } from "./routers/checkin";
 import { dashboardRouter } from "./routers/dashboard";
 import { personsRouter } from "./routers/persons";
+import { programDocumentTypesRouter } from "./routers/programDocumentTypes";
 import { programsRouter } from "./routers/programs";
 import { adminRouter } from "./routers/admin";
 import { familiesRouter } from "./routers/families";
@@ -31,6 +32,7 @@ export const appRouter = router({
   checkin: checkinRouter,
   dashboard: dashboardRouter,
   programs: programsRouter,
+  programDocumentTypes: programDocumentTypesRouter,
   admin: adminRouter,
   families: familiesRouter,
   familySavedViews: familySavedViewsRouter,
