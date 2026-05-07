@@ -54,6 +54,15 @@ export function useFamiliasFilters() {
     [filters, navigate, search],
   );
 
+  const applyFilters = useCallback(
+    (next: Partial<FamiliasFilters>) => {
+      const merged: FamiliasFilters = { ...DEFAULT_FAMILIAS_FILTERS, ...next };
+      const path = window.location.pathname;
+      navigate(`${path}?${buildFamiliasSearch(search, merged)}`, { replace: false });
+    },
+    [navigate, search],
+  );
+
   return {
     filters,
     setSearch: (s: string) => update({ search: s.trim() || undefined }),
@@ -61,6 +70,8 @@ export function useFamiliasFilters() {
     setSinGuf: (v: boolean) => update({ sinGuf: v }),
     setSinInformeSocial: (v: boolean) => update({ sinInformeSocial: v }),
     setDistrito: (d: string | undefined) => update({ distrito: d }),
+    /** Apply a full or partial filter set, replacing the current state in one navigation. */
+    applyFilters,
     reset: () => {
       const path = window.location.pathname;
       navigate(`${path}?tab=familias`, { replace: false });
