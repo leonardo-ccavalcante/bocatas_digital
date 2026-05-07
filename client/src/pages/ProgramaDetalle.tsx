@@ -343,7 +343,7 @@ export default function ProgramaDetalle() {
               />
             </div>
           )}
-        </div>
+      </div>
     </div>
   );
 }

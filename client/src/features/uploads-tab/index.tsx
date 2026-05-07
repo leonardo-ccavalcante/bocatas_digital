@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Upload, Download } from "lucide-react";
+import { Upload, Download, FileUp, History } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
 import { TiposCatalog } from "./TiposCatalog";
 import { UploadModal } from "./UploadModal";
 import { PendientesGrid } from "./PendientesGrid";
@@ -25,8 +26,8 @@ export default function UploadsTab({ programaId }: UploadsTabProps) {
   }>({ docId: null, currentTipo: null });
 
   return (
-    <div className="space-y-3 p-4">
-      {/* Data tools row */}
+    <div className="space-y-4 p-4">
+      {/* Toolbar: data tools (left) + primary action (right) */}
       <div className="flex flex-wrap gap-2 justify-between items-center">
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={() => setExportOpen(true)}>
@@ -34,12 +35,12 @@ export default function UploadsTab({ programaId }: UploadsTabProps) {
             Exportar CSV
           </Button>
           <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
-            <Upload className="w-4 h-4 mr-2" aria-hidden="true" />
-            Importar CSV interno
+            <FileUp className="w-4 h-4 mr-2" aria-hidden="true" />
+            Importar CSV
           </Button>
           <Button variant="outline" size="sm" onClick={() => setLegacyImportOpen(true)}>
-            <Upload className="w-4 h-4 mr-2" aria-hidden="true" />
-            Importar CSV legacy
+            <History className="w-4 h-4 mr-2" aria-hidden="true" />
+            Importar legacy
           </Button>
         </div>
         <Button onClick={() => setModalOpen(true)}>
@@ -47,6 +48,7 @@ export default function UploadsTab({ programaId }: UploadsTabProps) {
           Subir documento
         </Button>
       </div>
+      <Separator />
 
       <PendientesGrid programaId={programaId} />
       <TiposCatalog programaId={programaId} />
