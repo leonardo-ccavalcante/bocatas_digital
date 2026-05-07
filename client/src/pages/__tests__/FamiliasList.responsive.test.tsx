@@ -14,9 +14,9 @@ describe('FamiliasList - Responsive Layout', () => {
     // The CardContent className should contain: 
     // "flex items-center justify-between flex-wrap gap-2 py-3 px-4"
     
-    const expectedClasses = ['flex', 'items-center', 'justify-between', 'flex-wrap', 'gap'];
+    const expectedClasses = ['flex', 'items-center', 'justify-between', 'flex-wrap', 'gap-2'];
     const actualClasses = 'flex items-center justify-between flex-wrap gap-2 py-3 px-4'.split(' ');
-    
+
     expectedClasses.forEach(cls => {
       expect(actualClasses).toContain(cls);
     });
