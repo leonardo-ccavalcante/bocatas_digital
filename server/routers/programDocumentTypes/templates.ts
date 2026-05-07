@@ -16,7 +16,6 @@ export const programDocumentTypesTemplatesRouter = router({
   signedUrl: protectedProcedure
     .input(z.object({
       path: z.string().min(1),
-      kind: z.enum(["template", "guide"]),
     }))
     .query(async ({ input }) => {
       const db = createAdminClient();

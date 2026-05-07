@@ -231,7 +231,6 @@ describe("programDocumentTypes router", () => {
       const caller = programDocumentTypesRouter.createCaller(buildCtx(buildUser("voluntario")));
       const result = await caller.signedUrl({
         path: "templates/padron_v1.docx",
-        kind: "template",
       });
       expect(signedUrlCalls).toHaveLength(1);
       expect(signedUrlCalls[0].bucket).toBe("program-document-templates");
@@ -242,7 +241,7 @@ describe("programDocumentTypes router", () => {
 
     it("signedUrl rejects unauthenticated callers", async () => {
       const caller = programDocumentTypesRouter.createCaller(buildCtx(null));
-      await expect(caller.signedUrl({ path: "x", kind: "template" })).rejects.toThrow(/UNAUTHORIZED|login|10001/i);
+      await expect(caller.signedUrl({ path: "x" })).rejects.toThrow(/UNAUTHORIZED|login|10001/i);
     });
 
     it("registerUpload rejects non-superadmin (admin)", async () => {
