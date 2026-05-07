@@ -1,13 +1,14 @@
+import { TiposCatalog } from "./TiposCatalog";
+
 interface UploadsTabProps {
   programaId: string;
 }
 
-// Phase 1 Task 11+ fills this in.
 export default function UploadsTab({ programaId }: UploadsTabProps) {
-  void programaId;
   return (
-    <div className="p-8 text-center text-muted-foreground">
-      Uploads — próximamente
+    <div className="space-y-3 p-4">
+      <TiposCatalog programaId={programaId} />
+      {/* UploadModal lands in Task 12, ArchiveExplorer + PendientesGrid in Task 13. */}
     </div>
   );
 }
