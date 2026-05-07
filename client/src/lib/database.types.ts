@@ -863,6 +863,7 @@ export type Database = {
           member_id: string | null
           member_index: number
           member_person_id: string | null
+          tipo_id: string | null
           verified_by: string | null
         }
         Insert: {
@@ -877,6 +878,7 @@ export type Database = {
           member_id?: string | null
           member_index: number
           member_person_id?: string | null
+          tipo_id?: string | null
           verified_by?: string | null
         }
         Update: {
@@ -891,6 +893,7 @@ export type Database = {
           member_id?: string | null
           member_index?: number
           member_person_id?: string | null
+          tipo_id?: string | null
           verified_by?: string | null
         }
         Relationships: [
