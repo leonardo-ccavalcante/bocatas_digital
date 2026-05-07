@@ -17,6 +17,14 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    // Per-file env override via /** @vitest-environment jsdom */ comment lets
+    // component tests opt into a DOM env without forcing every server test to
+    // bear the jsdom startup cost.
+    environmentMatchGlobs: [
+      ["client/src/**/*.test.tsx", "jsdom"],
+      ["client/src/**/*.spec.tsx", "jsdom"],
+    ],
+    setupFiles: ["client/src/test-setup.ts"],
     include: [
       "server/**/*.test.ts",
       "server/**/*.spec.ts",
