@@ -23,6 +23,27 @@ jobs:
         with:
           version: latest
 
+      # The supabase/migrations/EXPORTED/ subdirectory holds the foundational
+      # schema (extensions, enums, base tables, RLS helpers) re-exported from
+      # production on 2026-05-05 — see supabase/migrations/EXPORTED/README.md.
+      # `supabase start` applies migrations non-recursively, so without this
+      # step the early ALTER-TYPE migrations at the top level fail with
+      # "type X does not exist". Copying EXPORTED/*.sql to the migrations
+      # root before start is the project-intended bootstrap path: their
+      # timestamps (20260411*) sort before any top-level migration (20260430*+)
+      # so they apply first. There are no duplicate filenames between the
+      # two layers (verified at PR-time).
+      - name: Bootstrap foundational migrations from EXPORTED/
+        run: |
+          set -euo pipefail
+          if [ -d supabase/migrations/EXPORTED ]; then
+            count=$(find supabase/migrations/EXPORTED -maxdepth 1 -name '*.sql' -type f | wc -l)
+            echo "Copying ${count} foundational migrations from EXPORTED/ to top level"
+            cp supabase/migrations/EXPORTED/*.sql supabase/migrations/
+          else
+            echo "::warning::supabase/migrations/EXPORTED/ not found — skipping bootstrap"
+          fi
+
       - name: Start local Supabase
         run: supabase start
 
