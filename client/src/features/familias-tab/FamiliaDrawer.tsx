@@ -59,6 +59,9 @@ export function FamiliaDrawer({ familyId, onClose }: FamiliaDrawerProps) {
     { enabled: !!familyId },
   );
 
+  // FamiliaSummary mirrors the shape returned by families.getById
+  // (server/routers/families/crud.ts:112). If that query's select
+  // projection changes, update this interface to match.
   const f = rawFamily as FamiliaSummary | undefined;
   const titular = f?.persons ?? null;
   const titularName =

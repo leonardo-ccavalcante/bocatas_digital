@@ -129,6 +129,8 @@ export function FamiliasList({ onRowClick }: FamiliasListProps) {
                 const totalMiembros =
                   (f.num_adultos ?? 0) + (f.num_menores_18 ?? 0);
                 return (
+                  // role="button" on <tr> preserves table semantics. Wrapping each
+                  // <td> in a <button> would break <table>'s accessibility tree.
                   <tr
                     key={f.id}
                     className="border-t hover:bg-muted/40 cursor-pointer focus:outline-none focus:bg-muted/40"
@@ -141,7 +143,7 @@ export function FamiliasList({ onRowClick }: FamiliasListProps) {
                         onRowClick(f.id);
                       }
                     }}
-                    aria-label={`Abrir detalle de familia #${f.familia_numero ?? ""}`}
+                    aria-label={`Abrir detalle de familia${f.familia_numero != null ? ` #${f.familia_numero}` : ""}`}
                   >
                     <td className="p-2 font-mono">{f.familia_numero}</td>
                     <td className="p-2">
