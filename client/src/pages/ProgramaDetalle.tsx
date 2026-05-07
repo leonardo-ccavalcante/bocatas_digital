@@ -237,15 +237,8 @@ export default function ProgramaDetalle() {
         </div>
       </div>
 
-      {/* Content */}
-      {program.slug === "programa_familias" ? (
-        <div className="max-w-5xl mx-auto px-4 py-6">
-          <ProgramTabs
-            program={{ id: program.id, slug: program.slug, nombre: program.name }}
-          />
-        </div>
-      ) : (
-        <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
+      {/* Content — shared standard view for ALL programs */}
+      <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
           {/* Program info */}
           {program.description && (
             <p className="text-muted-foreground">{program.description}</p>
@@ -341,8 +334,16 @@ export default function ProgramaDetalle() {
               volunteerVisibleFields={(program as any).volunteer_visible_fields ?? []}
             />
           </div>
+
+          {/* Deep dive: programa_familias-specific tabs */}
+          {program.slug === "programa_familias" && (
+            <div className="border-t pt-6">
+              <ProgramTabs
+                program={{ id: program.id, slug: program.slug, nombre: program.name }}
+              />
+            </div>
+          )}
         </div>
-      )}
     </div>
   );
 }
