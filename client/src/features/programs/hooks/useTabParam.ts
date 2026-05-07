@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from "react";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 
 export type ProgramTab = "familias" | "mapa" | "reports" | "uploads" | "derivar";
 
@@ -32,15 +32,18 @@ export function buildTabSearch(currentSearch: string, tab: ProgramTab): string {
 
 /** React hook that exposes the current tab + a setter that updates the URL. */
 export function useTabParam(): [ProgramTab, (tab: ProgramTab) => void] {
-  const [location, navigate] = useLocation();
-  const current = useMemo(() => parseTabFromSearch(window.location.search), [location]);
+  const [, navigate] = useLocation();
+  const search = useSearch(); // reactive to ?tab= changes (wouter v3)
+  // useSearch returns the search string WITHOUT the leading "?", so prepend
+  // it for parseTabFromSearch which expects a URL search component.
+  const current = useMemo(() => parseTabFromSearch(`?${search}`), [search]);
   const setTab = useCallback(
     (tab: ProgramTab) => {
       const path = window.location.pathname;
-      const search = buildTabSearch(window.location.search, tab);
-      navigate(`${path}?${search}`, { replace: false });
+      const next = buildTabSearch(`?${search}`, tab);
+      navigate(`${path}?${next}`, { replace: false });
     },
-    [navigate],
+    [navigate, search],
   );
   return [current, setTab];
 }
