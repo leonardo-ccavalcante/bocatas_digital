@@ -1,7 +1,7 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
-import { Route, Switch, useLocation } from "wouter";
+import { Route, Switch, useLocation, Redirect } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { useEffect, lazy, Suspense } from "react";
@@ -37,15 +37,17 @@ const AdminUsuarios = lazy(() => import("./pages/AdminUsuarios"));
 const AdminNovedades = lazy(() => import("./pages/AdminNovedades"));
 const AdminSoftDeleteRecovery = lazy(() => import("./pages/AdminSoftDeleteRecovery").then(m => ({ default: m.AdminSoftDeleteRecovery })));
 const AdminLogs = lazy(() => import("./pages/admin/LogsPage").then(m => ({ default: m.LogsPage })));
+const ProgramaTiposDocumento = lazy(() =>
+  import("./pages/admin/ProgramaTiposDocumentoPage").then((m) => ({
+    default: m.ProgramaTiposDocumentoPage,
+  }))
+);
 
 // Familias (heavy module)
-const FamiliasList = lazy(() => import("./pages/FamiliasList"));
 const FamiliaRegistro = lazy(() => import("./pages/FamiliaRegistro"));
 const FamiliaDetalle = lazy(() => import("./pages/FamiliaDetalle"));
-const FamiliasCompliance = lazy(() => import("./pages/FamiliasCompliance"));
 const FamiliasVerificar = lazy(() => import("./pages/FamiliasVerificar"));
 const FamiliasEntregas = lazy(() => import("./pages/FamiliasEntregas"));
-const FamiliasInformesSociales = lazy(() => import("./pages/FamiliasInformesSociales"));
 
 // Misc
 const Perfil = lazy(() => import("./pages/Perfil"));
@@ -132,6 +134,11 @@ function Router() {
             <AdminConsentimientos />
           </ProtectedRoute>
         </Route>
+        <Route path="/admin/programas/:slug/tipos-documento">
+          <ProtectedRoute requiredRoles={["superadmin"]}>
+            <ProgramaTiposDocumento />
+          </ProtectedRoute>
+        </Route>
         <Route path="/admin/programas">
           <ProtectedRoute requiredRoles={["superadmin"]}>
             <AdminProgramas />
@@ -161,7 +168,7 @@ function Router() {
         </Route>
         <Route path="/familias/cumplimiento">
           <ProtectedRoute requiredRoles={["admin", "superadmin"]}>
-            <FamiliasCompliance />
+            <Redirect to="/programas/programa_familias?tab=familias" />
           </ProtectedRoute>
         </Route>
         <Route path="/familias/verificar">
@@ -176,7 +183,7 @@ function Router() {
         </Route>
         <Route path="/familias/informes-sociales">
           <ProtectedRoute requiredRoles={["admin", "superadmin"]}>
-            <FamiliasInformesSociales />
+            <Redirect to="/programas/programa_familias?tab=reports" />
           </ProtectedRoute>
         </Route>
         <Route path="/familias/:id">
@@ -186,7 +193,7 @@ function Router() {
         </Route>
         <Route path="/familias">
           <ProtectedRoute requiredRoles={["admin", "superadmin"]}>
-            <FamiliasList />
+            <Redirect to="/programas/programa_familias?tab=familias" />
           </ProtectedRoute>
         </Route>
 

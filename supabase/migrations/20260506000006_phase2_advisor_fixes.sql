@@ -20,19 +20,38 @@ BEGIN;
 -- Use 'pg_catalog, public' — this matches Postgres default ordering and preserves
 -- access to built-in types + project schema. Not '' (empty) which would require
 -- fully-qualified references inside function bodies.
+--
+-- Each ALTER is wrapped in an existence check because several of these functions
+-- (enforce_kg_total, enforce_single_default_program, get_person_id, etc.) were
+-- created in production via migrations that were lost from the repo (see
+-- EXPORTED/README.md — only the foundational subset has been re-exported). Until
+-- those gaps are filled, a fresh CI DB doesn't have these functions to ALTER.
 
-ALTER FUNCTION public.announcements_block_author_change()         SET search_path = pg_catalog, public;
-ALTER FUNCTION public.enforce_kg_total()                          SET search_path = pg_catalog, public;
-ALTER FUNCTION public.enforce_member_counts()                     SET search_path = pg_catalog, public;
-ALTER FUNCTION public.enforce_single_default_program()            SET search_path = pg_catalog, public;
-ALTER FUNCTION public.update_announcements_updated_at()           SET search_path = pg_catalog, public;
-ALTER FUNCTION public.update_deliveries_updated_at()              SET search_path = pg_catalog, public;
-ALTER FUNCTION public.update_updated_at_column()                  SET search_path = pg_catalog, public;
-
--- These three are SECURITY DEFINER + missing search_path — pin too:
-ALTER FUNCTION public.get_user_role()                             SET search_path = pg_catalog, public;
-ALTER FUNCTION public.get_person_id()                             SET search_path = pg_catalog, public;
-ALTER FUNCTION public.find_duplicate_persons(text, text, double precision) SET search_path = pg_catalog, public;
+DO $$
+DECLARE
+  fn_signature text;
+  fn_signatures text[] := ARRAY[
+    'public.announcements_block_author_change()',
+    'public.enforce_kg_total()',
+    'public.enforce_member_counts()',
+    'public.enforce_single_default_program()',
+    'public.update_announcements_updated_at()',
+    'public.update_deliveries_updated_at()',
+    'public.update_updated_at_column()',
+    -- SECURITY DEFINER + missing search_path
+    'public.get_user_role()',
+    'public.get_person_id()',
+    'public.find_duplicate_persons(text, text, double precision)'
+  ];
+BEGIN
+  FOREACH fn_signature IN ARRAY fn_signatures LOOP
+    BEGIN
+      EXECUTE format('ALTER FUNCTION %s SET search_path = pg_catalog, public', fn_signature);
+    EXCEPTION WHEN undefined_function THEN
+      RAISE NOTICE 'skip ALTER FUNCTION %: not present in this DB', fn_signature;
+    END;
+  END LOOP;
+END $$;
 
 -- ===== 2. security_definer_view (persons_safe) =====
 -- The view bypasses RLS because it inherits SECURITY DEFINER from the postgres owner.
@@ -68,13 +87,28 @@ FROM public.persons;
 -- Revoke EXECUTE from anon role for SECURITY DEFINER functions that should NOT be
 -- callable without authentication. RLS policies still work because policy
 -- evaluation runs in the policy-owner's context (postgres), not the caller's.
+-- Same existence-tolerant wrapping as section 1 above.
 
-REVOKE EXECUTE ON FUNCTION public.get_user_role()                    FROM anon;
-REVOKE EXECUTE ON FUNCTION public.get_person_id()                    FROM anon;
-REVOKE EXECUTE ON FUNCTION public.find_duplicate_persons(text, text, double precision) FROM anon;
-REVOKE EXECUTE ON FUNCTION public.confirm_bulk_announcement_import(uuid, text, text) FROM anon;
-REVOKE EXECUTE ON FUNCTION public.upload_family_document(uuid, integer, uuid, text, text, text) FROM anon;
-REVOKE EXECUTE ON FUNCTION public.get_programs_with_counts()         FROM anon;
-REVOKE EXECUTE ON FUNCTION public.rls_auto_enable()                  FROM anon;
+DO $$
+DECLARE
+  fn_signature text;
+  fn_signatures text[] := ARRAY[
+    'public.get_user_role()',
+    'public.get_person_id()',
+    'public.find_duplicate_persons(text, text, double precision)',
+    'public.confirm_bulk_announcement_import(uuid, text, text)',
+    'public.upload_family_document(uuid, integer, uuid, text, text, text)',
+    'public.get_programs_with_counts()',
+    'public.rls_auto_enable()'
+  ];
+BEGIN
+  FOREACH fn_signature IN ARRAY fn_signatures LOOP
+    BEGIN
+      EXECUTE format('REVOKE EXECUTE ON FUNCTION %s FROM anon', fn_signature);
+    EXCEPTION WHEN undefined_function THEN
+      RAISE NOTICE 'skip REVOKE on %: not present in this DB', fn_signature;
+    END;
+  END LOOP;
+END $$;
 
 COMMIT;

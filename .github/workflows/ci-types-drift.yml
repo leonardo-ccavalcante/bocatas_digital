@@ -23,6 +23,29 @@ jobs:
         with:
           version: latest
 
+      # The supabase/migrations/EXPORTED/ subdirectory holds the foundational
+      # schema re-exported from production on 2026-05-05 (see
+      # supabase/migrations/EXPORTED/README.md). `supabase start` applies
+      # migrations non-recursively, so we copy EXPORTED files to the top
+      # level here so they get applied first (their timestamps sort earlier).
+      #
+      # The top-level pre-snapshot migrations DO duplicate some objects from
+      # EXPORTED — those have been made idempotent in-place via
+      # IF NOT EXISTS / DROP ... IF EXISTS guards. See the per-file commits
+      # that fixed each conflict. Net result: applying EXPORTED then
+      # top-level on a fresh DB matches the production schema_migrations
+      # history exactly, with no duplicate-creation errors.
+      - name: Bootstrap foundational migrations from EXPORTED/
+        run: |
+          set -euo pipefail
+          if [ ! -d supabase/migrations/EXPORTED ]; then
+            echo "::warning::supabase/migrations/EXPORTED/ not found — skipping bootstrap"
+            exit 0
+          fi
+          count=$(find supabase/migrations/EXPORTED -maxdepth 1 -name '*.sql' -type f | wc -l)
+          echo "Copying ${count} foundational migrations from EXPORTED/ to top level"
+          cp supabase/migrations/EXPORTED/*.sql supabase/migrations/
+
       - name: Start local Supabase
         run: supabase start
 

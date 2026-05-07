@@ -233,4 +233,55 @@ export const documentsRouter = router({
         message: "Document uploaded successfully",
       };
     }),
+
+  /** GET all current documents in the program, with optional filters. */
+  listAllForProgram: adminProcedure
+    .input(
+      z.object({
+        tipoSlug: familyDocTypeSchema.optional(),
+        familyId: z.string().uuid().optional(),
+        limit: z.number().int().min(1).max(500).default(100),
+        offset: z.number().int().min(0).default(0),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = createAdminClient();
+      // Always filter is_current first so conditional filters chain correctly.
+      let q = db
+        .from("family_member_documents")
+        .select(
+          "*, families!inner(id, familia_numero, persons:persons!titular_id(nombre, apellidos))",
+          { count: "exact" }
+        )
+        .eq("is_current", true);
+      if (input.tipoSlug) q = q.eq("documento_tipo", input.tipoSlug);
+      if (input.familyId) q = q.eq("family_id", input.familyId);
+      const { data, error, count } = await q
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false })
+        .range(input.offset, input.offset + input.limit - 1);
+      if (error) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+      return { rows: data ?? [], total: count ?? 0 };
+    }),
+
+  /** PATCH the documento_tipo of an existing row (re-classification). */
+  classifyDocument: adminProcedure
+    .input(
+      z.object({
+        docId: z.string().uuid(),
+        documentoTipo: familyDocTypeSchema,
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = createAdminClient();
+      const { data, error } = await db
+        .from("family_member_documents")
+        .update({ documento_tipo: input.documentoTipo })
+        .eq("id", input.docId)
+        .select()
+        .maybeSingle();
+      if (error) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+      if (!data) throw new TRPCError({ code: "NOT_FOUND", message: "Documento no encontrado" });
+      return data;
+    }),
 });

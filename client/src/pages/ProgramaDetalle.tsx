@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { EnrolledPersonsTable } from "@/features/programs/components/EnrolledPersonsTable";
 import { EnrollPersonModal } from "@/features/programs/components/EnrollPersonModal";
 import { ProgramForm } from "@/features/programs/components/ProgramForm";
+import { ProgramTabs } from "@/features/programs/components/ProgramTabs";
 import type { ProgramFormValues } from "@/features/programs/schemas";
 import { Users, UserCheck, UserMinus, TrendingUp } from "lucide-react";
 
@@ -237,103 +238,111 @@ export default function ProgramaDetalle() {
       </div>
 
       {/* Content */}
-      <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
-        {/* Program info */}
-        {program.description && (
-          <p className="text-muted-foreground">{program.description}</p>
-        )}
-
-        {/* Meta grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          {program.fecha_inicio && (
-            <div className="bg-muted/40 rounded-lg p-3">
-              <p className="text-xs text-muted-foreground uppercase tracking-wide">Inicio</p>
-              <p className="text-sm font-medium mt-0.5">{program.fecha_inicio}</p>
-            </div>
-          )}
-          <div className="bg-muted/40 rounded-lg p-3">
-            <p className="text-xs text-muted-foreground uppercase tracking-wide">Fin</p>
-            <p className="text-sm font-medium mt-0.5">
-              {program.fecha_fin ?? "Sin fecha de fin"}
-            </p>
-          </div>
-          <div className="bg-muted/40 rounded-lg p-3">
-            <p className="text-xs text-muted-foreground uppercase tracking-wide">Acceso voluntarios</p>
-            <p className="text-sm font-medium mt-0.5">
-              {program.volunteer_can_access ? "✅ Sí" : "❌ No"}
-            </p>
-          </div>
-          <div className="bg-muted/40 rounded-lg p-3">
-            <p className="text-xs text-muted-foreground uppercase tracking-wide">Orden</p>
-            <p className="text-sm font-medium mt-0.5">{program.display_order}</p>
-          </div>
-        </div>
-
-        {/* KPI Cards — Job 2, AC2 */}
-        <div>
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-            Estadísticas de inscripción
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <KPICard
-              label="Inscritos activos"
-              value={activeEnrollments?.total}
-              isLoading={loadingActive}
-              icon={<Users className="w-5 h-5" />}
-              accent="text-emerald-600"
-            />
-            <KPICard
-              label="Nuevos este mes"
-              value={newThisMonth}
-              isLoading={loadingAllActive}
-              icon={<TrendingUp className="w-5 h-5" />}
-              accent="text-blue-600"
-            />
-            <KPICard
-              label="Completados / Rechazados"
-              value={inactiveCount}
-              isLoading={loadingCompleted}
-              icon={<UserMinus className="w-5 h-5" />}
-              accent="text-muted-foreground"
-            />
-          </div>
-        </div>
-
-        {/* Enrolled persons section */}
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-semibold text-foreground">Personas inscritas</h2>
-            {isAdmin && (
-              <Dialog open={enrollOpen} onOpenChange={setEnrollOpen}>
-                <DialogTrigger asChild>
-                  <Button size="sm">+ Inscribir persona</Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-lg">
-                  <DialogHeader>
-                    <DialogTitle>Inscribir persona en {program.name}</DialogTitle>
-                  </DialogHeader>
-                  <EnrollPersonModal
-                    programId={program.id}
-                    programName={program.name}
-                    onSuccess={() => {
-                      setEnrollOpen(false);
-                      utils.programs.getEnrollments.invalidate({ programId: program.id });
-                    }}
-                    onCancel={() => setEnrollOpen(false)}
-                  />
-                </DialogContent>
-              </Dialog>
-            )}
-          </div>
-          <EnrolledPersonsTable
-            programId={program.id}
-            isAdmin={isAdmin}
-            // Supabase SDK boundary — opaque join result
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            volunteerVisibleFields={(program as any).volunteer_visible_fields ?? []}
+      {program.slug === "programa_familias" ? (
+        <div className="max-w-5xl mx-auto px-4 py-6">
+          <ProgramTabs
+            program={{ id: program.id, slug: program.slug, nombre: program.name }}
           />
         </div>
-      </div>
+      ) : (
+        <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
+          {/* Program info */}
+          {program.description && (
+            <p className="text-muted-foreground">{program.description}</p>
+          )}
+
+          {/* Meta grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {program.fecha_inicio && (
+              <div className="bg-muted/40 rounded-lg p-3">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">Inicio</p>
+                <p className="text-sm font-medium mt-0.5">{program.fecha_inicio}</p>
+              </div>
+            )}
+            <div className="bg-muted/40 rounded-lg p-3">
+              <p className="text-xs text-muted-foreground uppercase tracking-wide">Fin</p>
+              <p className="text-sm font-medium mt-0.5">
+                {program.fecha_fin ?? "Sin fecha de fin"}
+              </p>
+            </div>
+            <div className="bg-muted/40 rounded-lg p-3">
+              <p className="text-xs text-muted-foreground uppercase tracking-wide">Acceso voluntarios</p>
+              <p className="text-sm font-medium mt-0.5">
+                {program.volunteer_can_access ? "✅ Sí" : "❌ No"}
+              </p>
+            </div>
+            <div className="bg-muted/40 rounded-lg p-3">
+              <p className="text-xs text-muted-foreground uppercase tracking-wide">Orden</p>
+              <p className="text-sm font-medium mt-0.5">{program.display_order}</p>
+            </div>
+          </div>
+
+          {/* KPI Cards — Job 2, AC2 */}
+          <div>
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+              Estadísticas de inscripción
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <KPICard
+                label="Inscritos activos"
+                value={activeEnrollments?.total}
+                isLoading={loadingActive}
+                icon={<Users className="w-5 h-5" />}
+                accent="text-emerald-600"
+              />
+              <KPICard
+                label="Nuevos este mes"
+                value={newThisMonth}
+                isLoading={loadingAllActive}
+                icon={<TrendingUp className="w-5 h-5" />}
+                accent="text-blue-600"
+              />
+              <KPICard
+                label="Completados / Rechazados"
+                value={inactiveCount}
+                isLoading={loadingCompleted}
+                icon={<UserMinus className="w-5 h-5" />}
+                accent="text-muted-foreground"
+              />
+            </div>
+          </div>
+
+          {/* Enrolled persons section */}
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-semibold text-foreground">Personas inscritas</h2>
+              {isAdmin && (
+                <Dialog open={enrollOpen} onOpenChange={setEnrollOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm">+ Inscribir persona</Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-lg">
+                    <DialogHeader>
+                      <DialogTitle>Inscribir persona en {program.name}</DialogTitle>
+                    </DialogHeader>
+                    <EnrollPersonModal
+                      programId={program.id}
+                      programName={program.name}
+                      onSuccess={() => {
+                        setEnrollOpen(false);
+                        utils.programs.getEnrollments.invalidate({ programId: program.id });
+                      }}
+                      onCancel={() => setEnrollOpen(false)}
+                    />
+                  </DialogContent>
+                </Dialog>
+              )}
+            </div>
+            <EnrolledPersonsTable
+              programId={program.id}
+              isAdmin={isAdmin}
+              // Supabase SDK boundary — opaque join result
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              volunteerVisibleFields={(program as any).volunteer_visible_fields ?? []}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
