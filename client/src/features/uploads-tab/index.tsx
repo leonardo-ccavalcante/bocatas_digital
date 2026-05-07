@@ -36,11 +36,11 @@ export default function UploadsTab({ programaId }: UploadsTabProps) {
           </Button>
           <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
             <FileUp className="w-4 h-4 mr-2" aria-hidden="true" />
-            Importar CSV
+            Importar CSV interno
           </Button>
           <Button variant="outline" size="sm" onClick={() => setLegacyImportOpen(true)}>
             <History className="w-4 h-4 mr-2" aria-hidden="true" />
-            Importar legacy
+            Importar CSV legacy
           </Button>
         </div>
         <Button onClick={() => setModalOpen(true)}>
