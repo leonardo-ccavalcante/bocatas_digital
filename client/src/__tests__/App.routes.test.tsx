@@ -119,6 +119,9 @@ vi.mock("@/pages/AdminSoftDeleteRecovery", () => ({
 vi.mock("@/pages/admin/LogsPage", () => ({
   LogsPage: () => <div data-testid="admin-logs-page" />,
 }));
+vi.mock("@/pages/admin/ProgramaTiposDocumentoPage", () => ({
+  ProgramaTiposDocumentoPage: () => <div data-testid="admin-programa-tipos-documento-page" />,
+}));
 vi.mock("@/pages/FamiliaRegistro", () => ({
   default: () => <div data-testid="familia-registro-page" />,
 }));
@@ -277,5 +280,19 @@ describe("App.tsx legacy /familias redirects", () => {
     expect(
       screen.queryByTestId("redirect-mock"),
     ).toBeNull();
+  });
+});
+
+describe("App.tsx /admin/programas/:slug/tipos-documento route", () => {
+  it("/admin/programas/programa_familias/tipos-documento renders ProgramaTiposDocumentoPage for superadmin", async () => {
+    authState.user = { id: "u3", role: "superadmin", name: "Superadmin" };
+
+    renderAtPath("/admin/programas/programa_familias/tipos-documento");
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("admin-programa-tipos-documento-page"),
+      ).toBeInTheDocument();
+    });
   });
 });
