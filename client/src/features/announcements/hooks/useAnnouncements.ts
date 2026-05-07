@@ -146,12 +146,31 @@ export function useConfirmBulkImport() {
 
 // ─── Write hooks (any authenticated user) ────────────────────────────────────
 
-/** Dismiss an urgent announcement for the current user (/inicio banner). */
-export function useDismissUrgentAnnouncement() {
-  const utils = trpc.useUtils();
-  return trpc.announcements.dismissUrgent.useMutation({
-    onSuccess: () => {
-      void utils.announcements.getUrgentBannerAnnouncement.invalidate();
+/**
+ * Dismiss an urgent announcement for the current user (/inicio banner).
+ *
+ * Currently a no-op: the server-side `announcements.dismissUrgent`
+ * procedure was removed because it wrote `String(ctx.user.id)` (a
+ * stringified MySQL int) into `announcement_dismissals.person_id`,
+ * which is a Postgres `uuid` column. Postgres rejects the cast with
+ * error code 22P02, so every dismiss click in production was a 500
+ * silently swallowed by the banner's optimistic `setDismissed(true)`.
+ * Re-enable after Supabase JWT auth lands and beneficiarios are
+ * provisioned with `auth.users.id = persons.id`.
+ *
+ * Returns a deliberately narrow `{ mutate }` shape (NOT a full
+ * `UseMutationResult`) so the only caller (`UrgentAnnouncementBanner`,
+ * which destructures only `mutate`) needs no changes. **Do not expand
+ * this destructure** (no `isPending`, `isError`, `data`, `mutateAsync`,
+ * etc.) until the server-side procedure is re-enabled — TypeScript
+ * will block any such call site against this stub.
+ */
+export function useDismissUrgentAnnouncement(): {
+  mutate: (input: { announcement_id: string }) => void;
+} {
+  return {
+    mutate: (_input) => {
+      /* no-op until JWT auth lands */
     },
-  });
+  };
 }
