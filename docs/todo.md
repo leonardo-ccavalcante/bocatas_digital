@@ -54,3 +54,20 @@
 ## Bug: "Respuesta del RPC con shape inválido" en /familias
 
 - [x] Bug: `families.confirmLegacyImport` falla con "Respuesta del RPC con shape inválido" — causa: migración `20260506000003` reescribió la función SQL con nombres `created/skipped/errors/error_details` pero `ConfirmResponseSchema` esperaba `created_count/skipped_count/error_count/errors`. Fix quirurgico: (1) corregir los 4 nombres en `RETURN jsonb_build_object` de la migración SQL; (2) actualizar `ConfirmResponseSchema.errors` a `error_details`; (3) actualizar mocks en tests. Proceso: systematic-debugging Phase 1 (root cause) → TDD RED (test falla por razón correcta) → GREEN (fix mínimo) → REFACTOR. 1555 tests pasando, 0 errores TS.
+
+## Bug: "Programa 'programa_familias' no encontrado" en /programas/programa_familias?tab=familias
+
+- [ ] Diagnosticar y corregir el error `programs.getBySlug` que retorna NOT_FOUND para slug `programa_familias`
+
+
+## Bug: tablas family_saved_views y program_document_types no encontradas
+
+- [ ] Aplicar migraciones pendientes del PR #41: family_saved_views, program_document_types, tipo_id
+- [ ] Corregir tests FamiliaDrawer que fallan por locale (toLocaleDateString en jsdom)
+
+
+## Feature: Vista estándar de programa en /programas/programa_familias
+- [ ] Mostrar estadísticas de inscripción y personas inscritas en programa_familias (encima de las tabs especiales)
+- [ ] Aplicar migraciones pendientes: family_saved_views, program_document_types, bucket
+- [ ] Corregir tests FamiliaDrawer (locale jsdom)
+
