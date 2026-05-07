@@ -4,11 +4,7 @@ import { router, protectedProcedure, superadminProcedure } from "../../_core/trp
 import { createAdminClient } from "../../../client/src/lib/supabase/server";
 import type { Database } from "../../../client/src/lib/database.types";
 
-// Accepts any 8-4-4-4-12 hex UUID (including nil-adjacent test UUIDs like 00000000-...).
-const uuidLike = z.string().regex(
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-  "Must be a valid UUID",
-);
+const uuidLike = z.string().uuid();
 const BUCKET = "program-document-templates";
 
 export const programDocumentTypesTemplatesRouter = router({
