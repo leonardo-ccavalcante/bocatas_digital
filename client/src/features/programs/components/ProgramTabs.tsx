@@ -66,7 +66,19 @@ export function ProgramTabs({ program }: ProgramTabsProps) {
   };
 
   return (
-    <Tabs value={tab} onValueChange={(v) => setTab(v as ProgramTab)} className="w-full">
+    <Tabs
+      value={tab}
+      onValueChange={(v) => {
+        // Defensive: Radix sends back the exact value strings we provide,
+        // so v should always be a ProgramTab. Guard anyway in case a disabled
+        // trigger somehow fires (it shouldn't), preventing setTab from receiving
+        // a non-ProgramTab string.
+        if (PROGRAM_TABS.includes(v as ProgramTab)) {
+          setTab(v as ProgramTab);
+        }
+      }}
+      className="w-full"
+    >
       <TabsList>
         {PROGRAM_TABS.map(renderTrigger)}
       </TabsList>
