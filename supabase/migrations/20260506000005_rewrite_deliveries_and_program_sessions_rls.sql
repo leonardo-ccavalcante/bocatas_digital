@@ -27,13 +27,17 @@ CREATE POLICY deliveries_admin_all ON public.deliveries
   USING (public.get_user_role() = ANY (ARRAY['superadmin', 'admin']))
   WITH CHECK (public.get_user_role() = ANY (ARRAY['superadmin', 'admin']));
 
--- Voluntario: INSERT only with registrado_por matching their own auth.uid()
--- (canonical user id type is text per migration 20260501131457_fix_autor_id_and_edited_by_uuid_to_text)
+-- Voluntario: INSERT only with registrado_por matching their own auth.uid().
+-- NOTE: deliveries.registrado_por is `uuid REFERENCES auth.users(id)` per
+-- EXPORTED 20260411081841_create_deliveries.sql. Earlier comment incorrectly
+-- claimed it was text — `20260501131457_fix_autor_id_and_edited_by_uuid_to_text`
+-- changed `autor_id` and `edited_by` (announcements/audit), NOT registrado_por.
+-- Compare uuid to uuid directly (CI's stricter PG rejects `uuid = text`).
 CREATE POLICY deliveries_voluntario_insert ON public.deliveries
   FOR INSERT TO authenticated
   WITH CHECK (
     public.get_user_role() = 'voluntario'
-    AND registrado_por = (auth.uid())::text
+    AND registrado_por = auth.uid()
   );
 
 -- Voluntario UPDATE/DELETE intentionally not granted: corrections go through admin to preserve
