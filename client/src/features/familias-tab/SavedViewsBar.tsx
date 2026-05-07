@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -135,6 +136,9 @@ export function SavedViewsBar({ programaId }: SavedViewsBarProps) {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Guardar filtros como vista</DialogTitle>
+            <DialogDescription>
+              Ponle un nombre a los filtros actuales para guardarlos como vista rápida.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div>
