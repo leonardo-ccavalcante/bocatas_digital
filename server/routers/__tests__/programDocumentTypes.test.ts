@@ -8,6 +8,8 @@ const updateCalls: Array<{ table: string; payload: unknown; eqArgs: unknown[] }>
 const signedUrlCalls: Array<{ bucket: string; path: string; expiresIn: number }> = [];
 
 let listProgramId: string | null = null;
+// Track whether the is_active filter was applied during list
+let listIsActiveFilterApplied = false;
 let listSlugLookupReturns: { data: { id: string } | null; error: null | { message: string } } = {
   data: { id: "550e8400-e29b-41d4-a716-446655440001" },
   error: null,
@@ -32,10 +34,15 @@ vi.mock("../../../client/src/lib/supabase/server", () => ({
           select: () => ({
             eq: (col: string, val: unknown) => {
               if (col === "programa_id") listProgramId = String(val);
+              // Track is_active filter
+              if (col === "is_active") listIsActiveFilterApplied = true;
               return {
-                eq: () => ({
-                  order: async () => listResult,
-                }),
+                eq: (col2: string) => {
+                  if (col2 === "is_active") listIsActiveFilterApplied = true;
+                  return {
+                    order: async () => listResult,
+                  };
+                },
                 order: async () => listResult,
               };
             },
@@ -105,6 +112,7 @@ describe("programDocumentTypes router", () => {
     updateCalls.length = 0;
     signedUrlCalls.length = 0;
     listProgramId = null;
+    listIsActiveFilterApplied = false;
     listSlugLookupReturns = { data: { id: "550e8400-e29b-41d4-a716-446655440001" }, error: null };
     listResult = { data: [], error: null };
     vi.clearAllMocks();
@@ -143,6 +151,27 @@ describe("programDocumentTypes router", () => {
       const caller = programDocumentTypesRouter.createCaller(buildCtx(buildUser("admin")));
       // Both programaId and programaSlug are undefined — refine rejects at runtime
       await expect(caller.list({})).rejects.toThrow();
+    });
+
+    it("list defaults to active-only rows when includeInactive is omitted", async () => {
+      const caller = programDocumentTypesRouter.createCaller(buildCtx(buildUser("voluntario")));
+      listResult = { data: [{ id: "t1", slug: "padron", nombre: "Padrón", is_active: true }], error: null };
+      await caller.list({ programaId: "550e8400-e29b-41d4-a716-446655440001" });
+      expect(listIsActiveFilterApplied).toBe(true);
+    });
+
+    it("list returns inactive rows when includeInactive=true", async () => {
+      const caller = programDocumentTypesRouter.createCaller(buildCtx(buildUser("voluntario")));
+      listResult = {
+        data: [
+          { id: "t1", slug: "padron", nombre: "Padrón", is_active: true },
+          { id: "t2", slug: "informe", nombre: "Informe", is_active: false },
+        ],
+        error: null,
+      };
+      const rows = await caller.list({ programaId: "550e8400-e29b-41d4-a716-446655440001", includeInactive: true });
+      expect(listIsActiveFilterApplied).toBe(false);
+      expect(rows).toHaveLength(2);
     });
 
     it("create rejects non-superadmin (admin)", async () => {

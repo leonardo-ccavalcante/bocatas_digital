@@ -30,6 +30,7 @@ const ListInputSchema = z
   .object({
     programaId: uuidLike.optional(),
     programaSlug: z.string().optional(),
+    includeInactive: z.boolean().default(false),
   })
   .refine((d) => !!(d.programaId || d.programaSlug), {
     message: "programaId or programaSlug required",
@@ -52,12 +53,12 @@ export const programDocumentTypesCrudRouter = router({
         }
         programaId = data.id;
       }
-      const { data, error } = await db
+      const query = db
         .from("program_document_types")
         .select("*")
-        .eq("programa_id", programaId!)
-        .eq("is_active", true)
-        .order("display_order", { ascending: true });
+        .eq("programa_id", programaId!);
+      const scoped = input.includeInactive ? query : query.eq("is_active", true);
+      const { data, error } = await scoped.order("display_order", { ascending: true });
       if (error) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
       return data ?? [];
     }),
