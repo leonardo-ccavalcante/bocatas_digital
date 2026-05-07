@@ -35,7 +35,10 @@ CREATE TABLE IF NOT EXISTS announcements (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
--- Convert tipo column from text to tipo_announcement enum if not already
+-- Convert tipo column from text to tipo_announcement enum if not already.
+-- Postgres can't auto-cast a `text` default to an enum type, so drop the
+-- default first, convert the type, then re-apply the default explicitly
+-- as the enum value (re-applied below at the unconditional ALTER step).
 DO $$ BEGIN
   IF EXISTS (
     SELECT 1 FROM information_schema.columns
@@ -43,6 +46,7 @@ DO $$ BEGIN
     AND column_name = 'tipo'
     AND data_type = 'text'
   ) THEN
+    ALTER TABLE announcements ALTER COLUMN tipo DROP DEFAULT;
     ALTER TABLE announcements
       ALTER COLUMN tipo TYPE tipo_announcement
       USING tipo::tipo_announcement;
