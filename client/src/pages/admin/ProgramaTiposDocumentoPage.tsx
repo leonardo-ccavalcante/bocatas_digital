@@ -11,14 +11,9 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
+
+import { EditDialog, type EditState } from "./_TiposDocumentoEditDialog";
+import { UploadDialog, type UploadState } from "./_TiposDocumentoUploadDialog";
 
 const SlugRegex = /^[a-z0-9_]+$/;
 
@@ -40,22 +35,6 @@ type DocType = {
   guide_version: string | null;
   created_at: string;
   updated_at: string;
-};
-
-type EditState = {
-  id: string;
-  nombre: string;
-  descripcion: string;
-  isRequired: boolean;
-  displayOrder: number;
-};
-
-type UploadState = {
-  docTypeId: string;
-  docTypeName: string;
-  programSlug: string;
-  typeSlug: string;
-  kind: "template" | "guide";
 };
 
 function ScopeLabel({ scope }: { scope: string }) {
@@ -127,164 +106,6 @@ function TypeRow({
         </Button>
       </div>
     </div>
-  );
-}
-
-function EditDialog({
-  state,
-  open,
-  onClose,
-  onSave,
-}: {
-  state: EditState;
-  open: boolean;
-  onClose: () => void;
-  onSave: (values: EditState) => void;
-}) {
-  // Keyed by state.id from parent so form initialises fresh on each open
-  const [form, setForm] = useState<EditState>(state);
-
-  const handleOpenChange = (isOpen: boolean) => {
-    if (!isOpen) onClose();
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Editar tipo de documento</DialogTitle>
-          <DialogDescription>
-            Modifica los campos editables. El slug y el ámbito no son editables.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4 py-2">
-          <div>
-            <Label htmlFor="edit-nombre">Nombre</Label>
-            <Input
-              id="edit-nombre"
-              value={form.nombre}
-              onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))}
-            />
-          </div>
-          <div>
-            <Label htmlFor="edit-descripcion">Descripción</Label>
-            <Input
-              id="edit-descripcion"
-              value={form.descripcion}
-              onChange={(e) => setForm((f) => ({ ...f, descripcion: e.target.value }))}
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <Switch
-              id="edit-required"
-              checked={form.isRequired}
-              onCheckedChange={(val) => setForm((f) => ({ ...f, isRequired: val }))}
-            />
-            <Label htmlFor="edit-required">Obligatorio</Label>
-          </div>
-          <div>
-            <Label htmlFor="edit-order">Orden de visualización</Label>
-            <Input
-              id="edit-order"
-              type="number"
-              value={form.displayOrder}
-              onChange={(e) => setForm((f) => ({ ...f, displayOrder: Number(e.target.value) }))}
-            />
-          </div>
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} aria-label="Cancelar">
-            Cancelar
-          </Button>
-          <Button onClick={() => onSave(form)} aria-label="Guardar">
-            Guardar
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function UploadDialog({
-  state,
-  open,
-  onClose,
-  onSave,
-}: {
-  state: UploadState;
-  open: boolean;
-  onClose: () => void;
-  onSave: (file: File, version: string) => Promise<void>;
-}) {
-  const [file, setFile] = useState<File | null>(null);
-  const [version, setVersion] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
-
-  const handleOpenChange = (isOpen: boolean) => {
-    if (!isOpen) {
-      setFile(null);
-      setVersion("");
-      onClose();
-    }
-  };
-
-  const handleSave = async () => {
-    if (!file || !version) return;
-    setIsSaving(true);
-    try {
-      await onSave(file, version);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const isDisabled = !file || !version.trim() || isSaving;
-  const kindLabel = state.kind === "template" ? "plantilla" : "guía";
-
-  return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Subir {kindLabel}</DialogTitle>
-          <DialogDescription>
-            Sube un archivo de {kindLabel} para el tipo "{state.docTypeName}".
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4 py-2">
-          <div>
-            <Label htmlFor="upload-file">Archivo</Label>
-            <input
-              id="upload-file"
-              data-testid="upload-file-input"
-              type="file"
-              className="block w-full text-sm mt-1"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            />
-          </div>
-          <div>
-            <Label htmlFor="upload-version">Versión</Label>
-            <Input
-              id="upload-version"
-              placeholder="versión (p.ej. v1)"
-              value={version}
-              onChange={(e) => setVersion(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} aria-label="Cancelar">
-            Cancelar
-          </Button>
-          <Button onClick={handleSave} disabled={isDisabled} aria-label="Guardar">
-            Guardar
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }
 
