@@ -1,0 +1,329 @@
+import { useState } from "react";
+import { useParams, Link } from "wouter";
+import { trpc } from "@/lib/trpc";
+import { createClient } from "@/lib/supabase/client";
+import { toast } from "sonner";
+
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Skeleton } from "@/components/ui/skeleton";
+
+import { EditDialog, type EditState } from "./_TiposDocumentoEditDialog";
+import { UploadDialog, type UploadState } from "./_TiposDocumentoUploadDialog";
+import { TypeRow } from "./_TiposDocumentoRow";
+import type { DocType } from "./_TiposDocumentoTypes";
+
+const SlugRegex = /^[a-z0-9_]+$/;
+
+export function ProgramaTiposDocumentoPage() {
+  const { slug } = useParams<{ slug: string }>();
+
+  const { data: program, isLoading: programLoading, error: programError } =
+    trpc.programs.getBySlug.useQuery({ slug: slug ?? "" }, { enabled: !!slug });
+
+  const { data: tipos, isLoading: tiposLoading } =
+    trpc.programDocumentTypes.list.useQuery(
+      { programaId: program?.id ?? "", includeInactive: true },
+      { enabled: !!program?.id },
+    );
+
+  const utils = trpc.useUtils();
+
+  const updateMutation = trpc.programDocumentTypes.update.useMutation();
+  const createMutation = trpc.programDocumentTypes.create.useMutation();
+  const registerUploadMutation = trpc.programDocumentTypes.registerUpload.useMutation();
+
+  // ── Add-type form state
+  const [newSlug, setNewSlug] = useState("");
+  const [newNombre, setNewNombre] = useState("");
+  const [newScope, setNewScope] = useState<"familia" | "miembro">("familia");
+  const [newRequired, setNewRequired] = useState(false);
+  const [newOrder, setNewOrder] = useState(0);
+
+  // ── Edit dialog state
+  const [editOpen, setEditOpen] = useState(false);
+  const [editState, setEditState] = useState<EditState>({
+    id: "",
+    nombre: "",
+    descripcion: "",
+    isRequired: false,
+    displayOrder: 0,
+  });
+
+  // ── Upload dialog state
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [uploadState, setUploadState] = useState<UploadState>({
+    docTypeId: "",
+    docTypeName: "",
+    programSlug: "",
+    typeSlug: "",
+    kind: "template",
+  });
+
+  // Slug validation
+  const slugValid = SlugRegex.test(newSlug);
+  const canCreate = newSlug.length > 0 && newNombre.length > 0 && slugValid;
+
+  async function handleToggleActive(id: string, newValue: boolean) {
+    try {
+      await updateMutation.mutateAsync({ id, isActive: newValue });
+      await utils.programDocumentTypes.list.invalidate();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al actualizar");
+    }
+  }
+
+  function handleOpenEdit(tipo: DocType) {
+    setEditState({
+      id: tipo.id,
+      nombre: tipo.nombre,
+      descripcion: tipo.descripcion ?? "",
+      isRequired: tipo.is_required,
+      displayOrder: tipo.display_order,
+    });
+    setEditOpen(true);
+  }
+
+  async function handleSaveEdit(values: EditState) {
+    try {
+      await updateMutation.mutateAsync({
+        id: values.id,
+        nombre: values.nombre,
+        descripcion: values.descripcion || null,
+        isRequired: values.isRequired,
+        displayOrder: values.displayOrder,
+      });
+      await utils.programDocumentTypes.list.invalidate();
+      setEditOpen(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al guardar");
+    }
+  }
+
+  function handleOpenUpload(tipo: DocType, kind: "template" | "guide") {
+    setUploadState({
+      docTypeId: tipo.id,
+      docTypeName: tipo.nombre,
+      programSlug: program?.slug ?? slug ?? "",
+      typeSlug: tipo.slug,
+      kind,
+    });
+    setUploadOpen(true);
+  }
+
+  async function handleSaveUpload(file: File, version: string) {
+    const supabase = createClient();
+    const path = `${uploadState.programSlug}/${uploadState.typeSlug}/${uploadState.kind}/${Date.now()}-${file.name}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("program-document-templates")
+      .upload(path, file, { upsert: false });
+
+    if (uploadError) {
+      toast.error(uploadError.message ?? "Error al subir el archivo");
+      return;
+    }
+
+    try {
+      await registerUploadMutation.mutateAsync({
+        docTypeId: uploadState.docTypeId,
+        kind: uploadState.kind,
+        path,
+        filename: file.name,
+        version,
+      });
+      await utils.programDocumentTypes.list.invalidate();
+      toast.success("Archivo subido correctamente");
+      setUploadOpen(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al registrar el archivo");
+    }
+  }
+
+  async function handleCreate() {
+    if (!program || !canCreate) return;
+    try {
+      await createMutation.mutateAsync({
+        programaId: program.id,
+        slug: newSlug,
+        nombre: newNombre,
+        scope: newScope,
+        isRequired: newRequired,
+        displayOrder: newOrder,
+      });
+      await utils.programDocumentTypes.list.invalidate();
+      setNewSlug("");
+      setNewNombre("");
+      setNewScope("familia");
+      setNewRequired(false);
+      setNewOrder(0);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al crear el tipo");
+    }
+  }
+
+  // ── Render: loading state
+  if (programLoading) {
+    return (
+      <div className="container mx-auto p-6 space-y-6">
+        <Skeleton className="h-8 w-72" />
+        <Skeleton className="h-4 w-32" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
+  }
+
+  // ── Render: error state
+  if (programError || !program) {
+    return (
+      <div className="container mx-auto p-6 space-y-4">
+        <p className="text-destructive">Programa no encontrado</p>
+        <Link href={`/programas/${slug}`}>
+          <Button variant="outline">Volver</Button>
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto p-6 space-y-6">
+      <div className="flex items-center gap-4">
+        <Link href={`/programas/${program.slug}`}>
+          <Button variant="ghost" size="sm">Volver</Button>
+        </Link>
+      </div>
+
+      <h1 className="text-2xl font-bold">Tipos de documento — {program.name}</h1>
+
+      {/* Existing types card */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Tipos existentes</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {tiposLoading ? (
+            <div className="space-y-2">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          ) : !tipos || tipos.length === 0 ? (
+            <p className="text-muted-foreground text-sm">No hay tipos configurados.</p>
+          ) : (
+            <div>
+              {tipos.map((tipo) => (
+                <TypeRow
+                  key={tipo.id}
+                  tipo={tipo as DocType}
+                  onToggleActive={handleToggleActive}
+                  onEdit={handleOpenEdit}
+                  onUpload={handleOpenUpload}
+                />
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Add type card */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Añadir tipo</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="new-slug">Slug</Label>
+                <Input
+                  id="new-slug"
+                  placeholder="slug (p.ej. padron_municipal)"
+                  value={newSlug}
+                  onChange={(e) => setNewSlug(e.target.value)}
+                />
+                {newSlug && !slugValid && (
+                  <p className="text-xs text-destructive mt-1">
+                    El slug solo puede contener letras minúsculas, números y guión bajo.
+                  </p>
+                )}
+              </div>
+              <div>
+                <Label htmlFor="new-nombre">Nombre</Label>
+                <Input
+                  id="new-nombre"
+                  placeholder="nombre del tipo"
+                  value={newNombre}
+                  onChange={(e) => setNewNombre(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4 flex-wrap">
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={newScope === "familia" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setNewScope("familia")}
+                >
+                  Familia
+                </Button>
+                <Button
+                  type="button"
+                  variant={newScope === "miembro" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setNewScope("miembro")}
+                >
+                  Miembro
+                </Button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="new-required"
+                  checked={newRequired}
+                  onCheckedChange={setNewRequired}
+                />
+                <Label htmlFor="new-required">Obligatorio</Label>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Label htmlFor="new-order">Orden</Label>
+                <Input
+                  id="new-order"
+                  type="number"
+                  value={newOrder}
+                  onChange={(e) => setNewOrder(Number(e.target.value))}
+                  className="w-20"
+                />
+              </div>
+            </div>
+
+            <Button onClick={handleCreate} disabled={!canCreate}>
+              Crear
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Edit dialog — key by id so the form resets when a different type is edited */}
+      <EditDialog
+        key={editState.id}
+        state={editState}
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        onSave={handleSaveEdit}
+      />
+
+      {/* Upload dialog */}
+      <UploadDialog
+        state={uploadState}
+        open={uploadOpen}
+        onClose={() => setUploadOpen(false)}
+        onSave={handleSaveUpload}
+      />
+    </div>
+  );
+}
