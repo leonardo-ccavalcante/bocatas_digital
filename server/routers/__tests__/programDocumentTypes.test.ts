@@ -9,7 +9,7 @@ const signedUrlCalls: Array<{ bucket: string; path: string; expiresIn: number }>
 
 let listProgramId: string | null = null;
 let listSlugLookupReturns: { data: { id: string } | null; error: null | { message: string } } = {
-  data: { id: "00000000-0000-0000-0000-000000000099" },
+  data: { id: "550e8400-e29b-41d4-a716-446655440001" },
   error: null,
 };
 let listResult: { data: unknown[]; error: null | { message: string } } = { data: [], error: null };
@@ -44,7 +44,7 @@ vi.mock("../../../client/src/lib/supabase/server", () => ({
             select: () => ({
               single: async () => {
                 insertCalls.push({ table, payload });
-                return { data: { id: "00000000-0000-0000-0000-000000000001", ...(payload as object) }, error: null };
+                return { data: { id: "a1b2c3d4-e5f6-4789-8abc-def012345678", ...(payload as object) }, error: null };
               },
             }),
           }),
@@ -105,7 +105,7 @@ describe("programDocumentTypes router", () => {
     updateCalls.length = 0;
     signedUrlCalls.length = 0;
     listProgramId = null;
-    listSlugLookupReturns = { data: { id: "00000000-0000-0000-0000-000000000099" }, error: null };
+    listSlugLookupReturns = { data: { id: "550e8400-e29b-41d4-a716-446655440001" }, error: null };
     listResult = { data: [], error: null };
     vi.clearAllMocks();
   });
@@ -114,18 +114,18 @@ describe("programDocumentTypes router", () => {
     it("list (with programaId) reaches DB scoped to active rows ordered by display_order", async () => {
       const caller = programDocumentTypesRouter.createCaller(buildCtx(buildUser("voluntario")));
       listResult = { data: [{ id: "t1", slug: "padron_municipal", nombre: "Padrón municipal" }], error: null };
-      const rows = await caller.list({ programaId: "00000000-0000-0000-0000-000000000099" });
+      const rows = await caller.list({ programaId: "550e8400-e29b-41d4-a716-446655440001" });
       expect(rows).toHaveLength(1);
-      expect(listProgramId).toBe("00000000-0000-0000-0000-000000000099");
+      expect(listProgramId).toBe("550e8400-e29b-41d4-a716-446655440001");
     });
 
     it("list (with programaSlug) resolves the program first, then returns rows", async () => {
       const caller = programDocumentTypesRouter.createCaller(buildCtx(buildUser("voluntario")));
-      listSlugLookupReturns = { data: { id: "00000000-0000-0000-0000-000000000099" }, error: null };
+      listSlugLookupReturns = { data: { id: "550e8400-e29b-41d4-a716-446655440001" }, error: null };
       listResult = { data: [{ id: "t1" }], error: null };
       const rows = await caller.list({ programaSlug: "programa_familias" });
       expect(rows).toHaveLength(1);
-      expect(listProgramId).toBe("00000000-0000-0000-0000-000000000099");
+      expect(listProgramId).toBe("550e8400-e29b-41d4-a716-446655440001");
     });
 
     it("list throws NOT_FOUND when programaSlug is unknown", async () => {
@@ -148,7 +148,7 @@ describe("programDocumentTypes router", () => {
     it("create rejects non-superadmin (admin)", async () => {
       const caller = programDocumentTypesRouter.createCaller(buildCtx(buildUser("admin")));
       await expect(caller.create({
-        programaId: "00000000-0000-0000-0000-000000000099",
+        programaId: "550e8400-e29b-41d4-a716-446655440001",
         slug: "test_type",
         nombre: "Test type",
         scope: "familia",
@@ -158,7 +158,7 @@ describe("programDocumentTypes router", () => {
     it("create succeeds for superadmin and reaches DB with sanitized payload", async () => {
       const caller = programDocumentTypesRouter.createCaller(buildCtx(buildUser("superadmin")));
       const result = await caller.create({
-        programaId: "00000000-0000-0000-0000-000000000099",
+        programaId: "550e8400-e29b-41d4-a716-446655440001",
         slug: "renovacion_padron",
         nombre: "Renovación de padrón",
         descripcion: "Documento solicitado anualmente",
@@ -168,20 +168,20 @@ describe("programDocumentTypes router", () => {
       });
       expect(insertCalls).toHaveLength(1);
       const payload = insertCalls[0].payload as Record<string, unknown>;
-      expect(payload.programa_id).toBe("00000000-0000-0000-0000-000000000099");
+      expect(payload.programa_id).toBe("550e8400-e29b-41d4-a716-446655440001");
       expect(payload.slug).toBe("renovacion_padron");
       expect(payload.nombre).toBe("Renovación de padrón");
       expect(payload.descripcion).toBe("Documento solicitado anualmente");
       expect(payload.scope).toBe("familia");
       expect(payload.is_required).toBe(true);
       expect(payload.display_order).toBe(80);
-      expect(result).toMatchObject({ id: "00000000-0000-0000-0000-000000000001", slug: "renovacion_padron" });
+      expect(result).toMatchObject({ id: "a1b2c3d4-e5f6-4789-8abc-def012345678", slug: "renovacion_padron" });
     });
 
     it("create rejects invalid slug (non snake_case)", async () => {
       const caller = programDocumentTypesRouter.createCaller(buildCtx(buildUser("superadmin")));
       await expect(caller.create({
-        programaId: "00000000-0000-0000-0000-000000000099",
+        programaId: "550e8400-e29b-41d4-a716-446655440001",
         slug: "Bad Slug!",
         nombre: "X",
         scope: "familia",
@@ -191,7 +191,7 @@ describe("programDocumentTypes router", () => {
     it("create rejects invalid scope", async () => {
       const caller = programDocumentTypesRouter.createCaller(buildCtx(buildUser("superadmin")));
       await expect(caller.create({
-        programaId: "00000000-0000-0000-0000-000000000099",
+        programaId: "550e8400-e29b-41d4-a716-446655440001",
         slug: "x",
         nombre: "X",
         // @ts-expect-error - invalid scope
@@ -202,7 +202,7 @@ describe("programDocumentTypes router", () => {
     it("update rejects non-superadmin (admin)", async () => {
       const caller = programDocumentTypesRouter.createCaller(buildCtx(buildUser("admin")));
       await expect(caller.update({
-        id: "00000000-0000-0000-0000-000000000001",
+        id: "a1b2c3d4-e5f6-4789-8abc-def012345678",
         nombre: "Renamed",
       })).rejects.toThrow(/FORBIDDEN|UNAUTHORIZED|permission|10002|Superadmin/i);
     });
@@ -210,7 +210,7 @@ describe("programDocumentTypes router", () => {
     it("update succeeds for superadmin and only sets defined fields", async () => {
       const caller = programDocumentTypesRouter.createCaller(buildCtx(buildUser("superadmin")));
       await caller.update({
-        id: "00000000-0000-0000-0000-000000000001",
+        id: "a1b2c3d4-e5f6-4789-8abc-def012345678",
         nombre: "Renamed",
         isActive: false,
       });
@@ -247,7 +247,7 @@ describe("programDocumentTypes router", () => {
     it("registerUpload rejects non-superadmin (admin)", async () => {
       const caller = programDocumentTypesRouter.createCaller(buildCtx(buildUser("admin")));
       await expect(caller.registerUpload({
-        docTypeId: "00000000-0000-0000-0000-000000000001",
+        docTypeId: "a1b2c3d4-e5f6-4789-8abc-def012345678",
         kind: "template",
         path: "templates/x.docx",
         filename: "x.docx",
@@ -258,7 +258,7 @@ describe("programDocumentTypes router", () => {
     it("registerUpload (template kind) updates the right columns and reaches DB", async () => {
       const caller = programDocumentTypesRouter.createCaller(buildCtx(buildUser("superadmin")));
       await caller.registerUpload({
-        docTypeId: "00000000-0000-0000-0000-000000000001",
+        docTypeId: "a1b2c3d4-e5f6-4789-8abc-def012345678",
         kind: "template",
         path: "templates/padron_v3.docx",
         filename: "padron_v3.docx",
@@ -275,7 +275,7 @@ describe("programDocumentTypes router", () => {
     it("registerUpload (guide kind) updates the right columns", async () => {
       const caller = programDocumentTypesRouter.createCaller(buildCtx(buildUser("superadmin")));
       await caller.registerUpload({
-        docTypeId: "00000000-0000-0000-0000-000000000001",
+        docTypeId: "a1b2c3d4-e5f6-4789-8abc-def012345678",
         kind: "guide",
         path: "guides/padron.pdf",
         filename: "padron.pdf",
