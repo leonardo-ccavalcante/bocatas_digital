@@ -57,44 +57,35 @@ CREATE POLICY "deliveries_select_authenticated" ON public.deliveries
   TO authenticated
   USING (deleted_at IS NULL);
 
--- Allow admins to insert deliveries
+-- Allow admins to insert deliveries.
+-- Originally written as `EXISTS (SELECT 1 FROM public.users …)` which referenced
+-- the Manus MySQL Drizzle table — does not exist in Supabase Postgres. The
+-- policy was effectively dead in production (service-role bypasses RLS, so
+-- nobody hit it) but blocks `supabase start` in CI which validates references
+-- at CREATE time. Rewriting to use the project's standard public.get_user_role()
+-- function is semantically equivalent (admin/superadmin only) and consistent
+-- with every other RLS policy in the project. Superseded for runtime by
+-- 20260506000005_rewrite_deliveries_and_program_sessions_rls.sql which adds
+-- deliveries_admin_all covering all CRUD.
 DROP POLICY IF EXISTS "deliveries_insert_admin" ON public.deliveries;
 CREATE POLICY "deliveries_insert_admin" ON public.deliveries
   FOR INSERT
   TO authenticated
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM public.users
-      WHERE users.id = auth.uid()::text
-      AND users.role IN ('admin', 'superadmin')
-    )
-  );
+  WITH CHECK (public.get_user_role() IN ('superadmin', 'admin'));
 
 -- Allow admins to update deliveries
 DROP POLICY IF EXISTS "deliveries_update_admin" ON public.deliveries;
 CREATE POLICY "deliveries_update_admin" ON public.deliveries
   FOR UPDATE
   TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.users
-      WHERE users.id = auth.uid()::text
-      AND users.role IN ('admin', 'superadmin')
-    )
-  );
+  USING (public.get_user_role() IN ('superadmin', 'admin'));
 
 -- Allow admins to soft-delete deliveries
 DROP POLICY IF EXISTS "deliveries_delete_admin" ON public.deliveries;
 CREATE POLICY "deliveries_delete_admin" ON public.deliveries
   FOR DELETE
   TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.users
-      WHERE users.id = auth.uid()::text
-      AND users.role IN ('admin', 'superadmin')
-    )
-  );
+  USING (public.get_user_role() IN ('superadmin', 'admin'));
 
 -- Create trigger to update updated_at timestamp
 CREATE OR REPLACE FUNCTION public.update_deliveries_updated_at()
