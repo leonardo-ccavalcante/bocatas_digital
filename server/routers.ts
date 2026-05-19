@@ -14,6 +14,7 @@ import { ocrRouter } from "./routers/ocr";
 import { entregasRouter } from "./routers/entregas";
 import { familySavedViewsRouter } from "./routers/familySavedViews";
 import { loggingRouter } from "./routers/logging";
+import { mapaRouter } from "./routers/mapa";
 
 export const appRouter = router({
   // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -40,6 +41,7 @@ export const appRouter = router({
   ocr: ocrRouter,
   entregas: entregasRouter,
   logging: loggingRouter,
+  mapa: mapaRouter,
 });
 
 export type AppRouter = typeof appRouter;
