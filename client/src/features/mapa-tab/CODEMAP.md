@@ -7,11 +7,24 @@
 - **Visual reference:** `Design/bocatas-v4/project/familias.jsx` (Mapa subview, lines ~98+) — adapt per `PORT_MAP.md`
 - **Server rendezvous:** `server/routers/mapa.ts` must be merged first (see [server-mapa CODEMAP](../../../../server/routers/mapa.CODEMAP.md))
 
-## File tree (planned)
+## File tree
+
+### Current (Stage S2 thin slice — landed)
 
 ```
 client/src/features/mapa-tab/
 ├── CODEMAP.md                          (this file — already committed)
+├── index.tsx                           ≤ 80 LOC  — composes MapaChoropleth, handles loading/error
+└── MapaChoropleth.tsx                  ≤ 80 LOC  — text-list render of distritoStats rows
+                                                   (NO react-leaflet yet — S3 swaps this for the
+                                                    GeoJSON+leaflet implementation, same prop contract)
+```
+
+### Planned (Stage S3 client-mapa fan-out)
+
+```
+client/src/features/mapa-tab/
+├── CODEMAP.md
 ├── index.tsx                           ≤ 80 LOC  — composes Choropleth + LayerToggle + DistritoPanel
 ├── MapaChoropleth.tsx                  ≤ 220 LOC — react-leaflet integration, GeoJSON polygons
 ├── LayerToggle.tsx                     ≤ 60 LOC  — shadcn ToggleGroup: Densidad / Compliance

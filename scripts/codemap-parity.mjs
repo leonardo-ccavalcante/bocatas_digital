@@ -33,10 +33,16 @@ const REQUIRED_CODEMAP_DIRS = [
 const SOURCE_EXTENSIONS = [".ts", ".tsx"];
 const IGNORED_BASENAMES = new Set(["CODEMAP.md", "index.ts", "index.tsx"]);
 
-/** Recursively list TS/TSX source files under `dir`. */
+/** Recursively list TS/TSX source files under `dir`, skipping test layers. */
 function listSourceFiles(dir) {
   const out = [];
   for (const entry of readdirSync(dir)) {
+    // Tests live in a parallel layer; the codemap describes the production
+    // structure, not test coverage. Skip __tests__/ subdirs entirely.
+    if (entry === "__tests__" || entry === "__fixtures__") continue;
+    if (entry.endsWith(".test.ts") || entry.endsWith(".test.tsx")) continue;
+    if (entry.endsWith(".spec.ts") || entry.endsWith(".spec.tsx")) continue;
+
     const full = join(dir, entry);
     const stat = statSync(full);
     if (stat.isDirectory()) {
