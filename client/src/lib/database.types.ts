@@ -1094,9 +1094,14 @@ export type Database = {
           apellidos: string | null
           barrio_zona: string | null
           canal_llegada: Database["public"]["Enums"]["canal_llegada"] | null
+          // codigo_postal + distrito: added manually pending `supabase gen
+          // types typescript --local` regen after M2 migration applies.
+          // Drop these manual lines + regen on next Supabase reset.
+          codigo_postal: string | null
           created_at: string
           deleted_at: string | null
           direccion: string | null
+          distrito: string | null
           email: string | null
           empadronado: boolean | null
           empresa_empleo: string | null
@@ -1145,9 +1150,11 @@ export type Database = {
           apellidos?: string | null
           barrio_zona?: string | null
           canal_llegada?: Database["public"]["Enums"]["canal_llegada"] | null
+          codigo_postal?: string | null
           created_at?: string
           deleted_at?: string | null
           direccion?: string | null
+          distrito?: string | null
           email?: string | null
           empadronado?: boolean | null
           empresa_empleo?: string | null
@@ -1196,9 +1203,11 @@ export type Database = {
           apellidos?: string | null
           barrio_zona?: string | null
           canal_llegada?: Database["public"]["Enums"]["canal_llegada"] | null
+          codigo_postal?: string | null
           created_at?: string
           deleted_at?: string | null
           direccion?: string | null
+          distrito?: string | null
           email?: string | null
           empadronado?: boolean | null
           empresa_empleo?: string | null
