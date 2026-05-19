@@ -7,10 +7,30 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.5"
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
@@ -1094,9 +1114,6 @@ export type Database = {
           apellidos: string | null
           barrio_zona: string | null
           canal_llegada: Database["public"]["Enums"]["canal_llegada"] | null
-          // codigo_postal + distrito: added manually pending `supabase gen
-          // types typescript --local` regen after M2 migration applies.
-          // Drop these manual lines + regen on next Supabase reset.
           codigo_postal: string | null
           created_at: string
           deleted_at: string | null
@@ -1969,6 +1986,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       canal_llegada: [
