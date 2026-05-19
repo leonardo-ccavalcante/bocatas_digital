@@ -11,15 +11,40 @@
 --
 -- Result: clears anon_security_definer_function_executable + authenticated_security_definer_function_executable
 -- advisors for all 7 functions.
+--
+-- Existence-tolerant per the same pattern as 20260506000006: some of these
+-- functions (e.g. get_programs_with_counts) were created in production via
+-- Dashboard edits that were never captured in repo migrations (see
+-- supabase/migrations/EXPORTED/README.md). Bare top-level REVOKE statements
+-- abort the whole transaction on a fresh CI DB. The DO block below skips
+-- each missing function with NOTICE so this migration applies cleanly
+-- whether or not the production-only functions have been re-exported.
 
 BEGIN;
 
-REVOKE EXECUTE ON FUNCTION public.get_user_role() FROM PUBLIC, authenticated;
-REVOKE EXECUTE ON FUNCTION public.get_person_id() FROM PUBLIC, authenticated;
-REVOKE EXECUTE ON FUNCTION public.find_duplicate_persons(text, text, double precision) FROM PUBLIC, authenticated;
-REVOKE EXECUTE ON FUNCTION public.confirm_bulk_announcement_import(uuid, text, text) FROM PUBLIC, authenticated;
-REVOKE EXECUTE ON FUNCTION public.upload_family_document(uuid, integer, uuid, text, text, text) FROM PUBLIC, authenticated;
-REVOKE EXECUTE ON FUNCTION public.get_programs_with_counts() FROM PUBLIC, authenticated;
-REVOKE EXECUTE ON FUNCTION public.rls_auto_enable() FROM PUBLIC, authenticated;
+DO $$
+DECLARE
+  fn_signature text;
+  fn_signatures text[] := ARRAY[
+    'public.get_user_role()',
+    'public.get_person_id()',
+    'public.find_duplicate_persons(text, text, double precision)',
+    'public.confirm_bulk_announcement_import(uuid, text, text)',
+    'public.upload_family_document(uuid, integer, uuid, text, text, text)',
+    'public.get_programs_with_counts()',
+    'public.rls_auto_enable()'
+  ];
+BEGIN
+  FOREACH fn_signature IN ARRAY fn_signatures LOOP
+    BEGIN
+      EXECUTE format(
+        'REVOKE EXECUTE ON FUNCTION %s FROM PUBLIC, authenticated',
+        fn_signature
+      );
+    EXCEPTION WHEN undefined_function THEN
+      RAISE NOTICE 'skip REVOKE on %: not present in this DB', fn_signature;
+    END;
+  END LOOP;
+END $$;
 
 COMMIT;
