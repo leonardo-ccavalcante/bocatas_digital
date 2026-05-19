@@ -47,55 +47,80 @@
 -- ============================================================================
 
 -- Step 1 — Persons table: revoke column-level SELECT from `authenticated`.
--- `authenticated` is a Supabase-managed role and always exists; no wrapping needed.
+-- `authenticated` is a Supabase-managed role and always exists; persons has
+-- these columns by construction. No wrapping needed.
 REVOKE SELECT (situacion_legal, recorrido_migratorio, foto_documento_url)
   ON public.persons FROM authenticated;
 
 -- Step 2 — Persons + Families: grant column-level SELECT to elevated roles.
 --
--- `admin_role` and `superadmin_role` were created in production but their
--- CREATE ROLE statements were never re-exported to the repo (see
--- supabase/migrations/EXPORTED/README.md — "~30 missing migrations"). On a
--- fresh CI DB the roles don't exist, so the bare GRANT statements fail
--- with `role "admin_role" does not exist` (SQLSTATE 42704 = undefined_object)
--- and abort the migration.
+-- Two independent existence concerns:
+--   • `admin_role` / `superadmin_role` may not exist on a fresh CI DB.
+--     The stub migration 20260508000000_create_high_risk_roles_stub.sql
+--     normally creates them, but defense-in-depth catches undefined_object
+--     (SQLSTATE 42704) if it didn't run.
+--   • `families` does NOT have the high-risk columns in this schema.
+--     The migration header's "historical denormalized copies" comment was
+--     speculative — pg_dump from prod confirms families has none of these
+--     columns. On a DB without the denormalization, the families GRANT
+--     fails with undefined_column (SQLSTATE 42703). The persons GRANT in
+--     the same iteration would have rolled back too.
 --
--- Same existence-tolerant pattern as 20260506000006 / 20260506000007:
--- iterate over role × table tuples, catch undefined_object per role, skip
--- with NOTICE. Production retains the GRANT (roles exist there); local + CI
--- get the column REVOKE from authenticated (Step 1) but no fallback grant.
--- That's safe because the app reads via service_role (CLAUDE.md §3 and
--- server/lib/supabase/server.ts createAdminClient), and service_role is
--- unaffected by column REVOKEs against `authenticated`.
+-- Restructured as a nested loop (role × table) so:
+--   (a) per-iteration BEGIN/EXCEPTION isolates each GRANT — persons-side
+--       success isn't rolled back when families-side fails.
+--   (b) EXCEPTION catches all three "missing-object" SQLSTATEs uniformly
+--       (undefined_object 42704, undefined_column 42703, undefined_table
+--       42P01) so the migration is robust against the systemic
+--       prod-vs-repo gap documented in EXPORTED/README.md.
 --
--- TODO drop this wrapping once admin_role + superadmin_role are captured
--- as proper CREATE ROLE migrations from production (pg_dump path; tracks
--- task #11's broader prod-objects-not-in-repo gap).
+-- TODO drop this wrapping once (a) admin_role + superadmin_role are
+-- captured as proper CREATE ROLE migrations AND (b) the question of
+-- whether families should carry denormalized high-risk columns is
+-- resolved (it currently doesn't, per pg_dump verification). Tracks
+-- task #11's broader prod-objects-not-in-repo gap.
 
 DO $$
 DECLARE
   role_name text;
+  table_name text;
   role_names text[] := ARRAY['admin_role', 'superadmin_role'];
+  table_names text[] := ARRAY['persons', 'families'];
 BEGIN
   FOREACH role_name IN ARRAY role_names LOOP
-    BEGIN
-      EXECUTE format(
-        'GRANT SELECT (situacion_legal, recorrido_migratorio, foto_documento_url) ON public.persons TO %I',
-        role_name
-      );
-      EXECUTE format(
-        'GRANT SELECT (situacion_legal, recorrido_migratorio, foto_documento_url) ON public.families TO %I',
-        role_name
-      );
-    EXCEPTION WHEN undefined_object THEN
-      RAISE NOTICE 'skip GRANT to %: role not present in this DB', role_name;
-    END;
+    FOREACH table_name IN ARRAY table_names LOOP
+      BEGIN
+        EXECUTE format(
+          'GRANT SELECT (situacion_legal, recorrido_migratorio, foto_documento_url) ON public.%I TO %I',
+          table_name, role_name
+        );
+      EXCEPTION
+        WHEN undefined_object THEN
+          RAISE NOTICE 'skip GRANT on %.{high_risk_fields} to %: role not present in this DB',
+            table_name, role_name;
+        WHEN undefined_column THEN
+          RAISE NOTICE 'skip GRANT on %.{high_risk_fields} to %: column(s) not present on this table',
+            table_name, role_name;
+        WHEN undefined_table THEN
+          RAISE NOTICE 'skip GRANT on %.{high_risk_fields} to %: table not present in this DB',
+            table_name, role_name;
+      END;
+    END LOOP;
   END LOOP;
 END $$;
 
--- Step 3 — Families: revoke column-level SELECT from `authenticated`.
-REVOKE SELECT (situacion_legal, recorrido_migratorio, foto_documento_url)
-  ON public.families FROM authenticated;
+-- Step 3 — Families: revoke column-level SELECT from `authenticated`, but
+-- only if the columns exist on this table (they don't in the canonical
+-- schema; the comment in Step 2 explains). Same defensive catch as Step 2.
+DO $$
+BEGIN
+  EXECUTE 'REVOKE SELECT (situacion_legal, recorrido_migratorio, foto_documento_url) ON public.families FROM authenticated';
+EXCEPTION
+  WHEN undefined_column THEN
+    RAISE NOTICE 'skip REVOKE on families.{high_risk_fields}: column(s) not present on this table';
+  WHEN undefined_table THEN
+    RAISE NOTICE 'skip REVOKE on families.{high_risk_fields}: table not present in this DB';
+END $$;
 
 -- Step 4 — Force PostgREST to reload its schema cache so the new
 -- column privileges take effect for the REST API immediately.
