@@ -55,6 +55,58 @@ export default [
       "no-console": ["warn", { allow: ["warn", "error"] }],
       "prefer-const": "error",
       "no-var": "error",
+
+      // File-size budget per D4 of the Phase 2+3 parallel plan
+      // (read-the-file-users-familiagirardicavalc-cheerful-meerkat.md).
+      // 300-line cap on TS/TSX files keeps modules small enough to be
+      // codemap-navigable and Feature-Agent-scoped. Skip blank lines and
+      // comments so JSDoc / banner comments don't inflate the count.
+      "max-lines": [
+        "error",
+        { max: 300, skipBlankLines: true, skipComments: true },
+      ],
+    },
+  },
+  // Test files are exempt from max-lines — they grow naturally with test
+  // scenarios and don't represent the same maintainability concern as
+  // production modules.
+  {
+    files: [
+      "**/*.test.ts",
+      "**/*.test.tsx",
+      "**/*.spec.ts",
+      "**/*.spec.tsx",
+      "**/__tests__/**/*.{ts,tsx}",
+    ],
+    rules: {
+      "max-lines": "off",
+    },
+  },
+  // Legacy production files already exceeding 300 LOC as of micro-PR #0.
+  // Downgraded to warn so existing tech debt is visible but doesn't block
+  // CI. Phase 2 / Phase 3 NEW code stays under the hard 300 cap. Each
+  // entry here should be split (or have its over-line portion extracted)
+  // when the file is next touched.
+  {
+    files: [
+      "client/src/components/BulkImportFamiliasLegacyModal.tsx",
+      "client/src/components/BulkImportNovedadesModal.tsx",
+      "client/src/components/MemberManagementModal.tsx",
+      "client/src/components/layout/AppShell.tsx",
+      "client/src/features/persons/components/RegistrationWizard/index.tsx",
+      "client/src/features/programs/components/ProgramForm.tsx",
+      "client/src/pages/ProgramaDetalle.tsx",
+      "client/src/pages/admin/LogsPage.tsx",
+      "server/csvLegacyFamiliasMapper.ts",
+      "server/routers/families/compliance.ts",
+      "server/routers/families/legacy-import.ts",
+      "server/routers/programs.ts",
+    ],
+    rules: {
+      "max-lines": [
+        "warn",
+        { max: 300, skipBlankLines: true, skipComments: true },
+      ],
     },
   },
 ];
