@@ -51,6 +51,7 @@ export function FamiliasList({ onRowClick }: FamiliasListProps) {
     estado: filters.estado,
     sin_alta_guf: filters.sinGuf || undefined,
     sin_informe_social: filters.sinInformeSocial || undefined,
+    distrito: filters.distrito,
   });
 
   return (
