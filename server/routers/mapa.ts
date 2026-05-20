@@ -22,6 +22,8 @@
  * voluntario-facing operational data (per Phase 2 plan §3 Compliance).
  */
 
+import { randomUUID } from "crypto";
+
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
@@ -125,9 +127,15 @@ export const mapaRouter = router({
         .returns<FamiliesRow[]>();
 
       if (error) {
+        // C-05: never echo the raw Supabase message to the client (can contain
+        // PII / schema internals). Log server-side; return a generic message.
+        const correlationId = randomUUID();
+        console.error(
+          `[mapa.distritoStats] DB error ${correlationId}: ${error.code ?? "?"} ${error.message}`,
+        );
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: error.message,
+          message: `Error interno del servidor (${correlationId}). Inténtalo de nuevo.`,
         });
       }
 

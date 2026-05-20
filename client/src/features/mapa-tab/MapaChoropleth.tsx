@@ -5,12 +5,17 @@
  * - Two layers: "densidad" (family count) and "compliance" (ratio 0-1)
  * - K-anonymity floor: null count → neutral gray + accessible tooltip
  * - EmptyState when GeoJSON has no features (placeholder asset case — T3)
- * - Keyboard-accessible polygons via aria-label on each region
  * - No PII in tooltips — only counts and distrito names
  *
+ * Accessibility (WCAG 2.1 AA, TECH_DEBT C-06): the leaflet SVG map encodes
+ * values by fill COLOR only and its polygons are NOT keyboard/screen-reader
+ * reachable. The map is therefore a visual enhancement; the accessible source
+ * of truth is the always-rendered <DistritoDataTable> below it (values as
+ * text, keyboard-actionable per distrito, plus a legend).
+ *
  * The geoJson prop is optional; when absent (or empty features), the
- * EmptyState renders instead of the map. This makes the component safe to
- * use while the canonical GeoJSON asset is a follow-up deliverable.
+ * EmptyState renders instead of the map — but the data table always renders,
+ * so the tab is fully usable while the canonical GeoJSON asset is a follow-up.
  *
  * Lazy-chunked at the TabsContent level — this file does NOT eagerly import
  * react-leaflet at the parent module level. The dynamic import happens when
@@ -26,6 +31,7 @@ import type { Feature, FeatureCollection } from "geojson";
 import type { DistritoSlug } from "@shared/madrid/distritos";
 
 import type { DistritoStatRow } from "../../../../server/routers/mapa";
+import { DistritoDataTable } from "./DistritoDataTable";
 
 // Madrid city centre coordinates
 const MADRID_CENTER: [number, number] = [40.4168, -3.7038];
@@ -202,6 +208,8 @@ export function MapaChoropleth({
       aria-label="Distritos de Madrid con número de familias atendidas"
       className="space-y-2"
     >
+      {/* Visual enhancement: the leaflet map (when the GeoJSON asset is present)
+          or a placeholder. The accessible representation is the data table below. */}
       {!hasFeatures ? (
         <MapaEmptyState />
       ) : (
@@ -209,7 +217,6 @@ export function MapaChoropleth({
           center={MADRID_CENTER}
           zoom={MADRID_ZOOM}
           className="h-[520px] w-full rounded-lg overflow-hidden border border-border"
-          aria-label="Mapa choropleth de familias por distrito de Madrid"
         >
           <TileLayer
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -225,6 +232,14 @@ export function MapaChoropleth({
           />
         </MapContainer>
       )}
+
+      {/* Accessible source of truth — always rendered (C-06). */}
+      <DistritoDataTable
+        rows={rows}
+        kAnonymityFloor={kAnonymityFloor}
+        layer={layer}
+        onDistritoClick={onDistritoClick}
+      />
     </section>
   );
 }

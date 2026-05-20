@@ -10,6 +10,7 @@ import {
   escapeCsvCell,
   buildCsvString,
   redactRow,
+  flattenRow,
 } from "../utils/exportCsv";
 
 describe("escapeCsvCell", () => {
@@ -41,6 +42,42 @@ describe("escapeCsvCell", () => {
 
   it("converts undefined to empty string", () => {
     expect(escapeCsvCell(undefined)).toBe("");
+  });
+
+  // C-03: CSV/formula injection — neutralize leading formula triggers on STRINGS.
+  it("neutralizes a leading '=' formula trigger (string)", () => {
+    expect(escapeCsvCell("=SUM(A1:A2)")).toBe("'=SUM(A1:A2)");
+  });
+
+  it("neutralizes leading + - @ triggers (string)", () => {
+    expect(escapeCsvCell("+34600000000")).toBe("'+34600000000");
+    expect(escapeCsvCell("-cmd")).toBe("'-cmd");
+    expect(escapeCsvCell("@foo")).toBe("'@foo");
+  });
+
+  it("neutralizes then quotes when the formula cell also contains a comma", () => {
+    expect(escapeCsvCell("=cmd,evil")).toBe('"\'=cmd,evil"');
+  });
+
+  it("does NOT prefix negative NUMBERS (only strings are formula-risky)", () => {
+    expect(escapeCsvCell(-5)).toBe("-5");
+    expect(escapeCsvCell(-5.5)).toBe("-5.5");
+  });
+});
+
+describe("flattenRow (C-04)", () => {
+  it("flattens a nested object into dotted keys", () => {
+    const row = { id: "f1", persons: { nombre: "Ana", telefono: "600" } };
+    expect(flattenRow(row)).toEqual({
+      id: "f1",
+      "persons.nombre": "Ana",
+      "persons.telefono": "600",
+    });
+  });
+
+  it("leaves primitives, null, and arrays as leaf values", () => {
+    const row = { a: 1, b: null, c: ["x", "y"] };
+    expect(flattenRow(row)).toEqual({ a: 1, b: null, c: ["x", "y"] });
   });
 });
 
@@ -127,5 +164,27 @@ describe("buildCsvString", () => {
     const rows = [{ situacion_legal: "regular" }];
     const csv = buildCsvString(rows);
     expect(csv).toContain("regular");
+  });
+
+  // C-04: nested objects must flatten (no "[object Object]") and redaction
+  // must reach nested leaf keys.
+  it("flattens nested persons object into real columns (no [object Object])", () => {
+    const rows = [{ id: "f1", persons: { nombre: "Ana", apellidos: "García" } }];
+    const csv = buildCsvString(rows);
+    expect(csv).not.toContain("[object Object]");
+    const [header] = csv.split("\r\n");
+    expect(header).toBe("id,persons.nombre,persons.apellidos");
+    expect(csv).toContain("Ana");
+    expect(csv).toContain("García");
+  });
+
+  it("redacts a high-risk field even when nested under persons", () => {
+    const rows = [
+      { id: "f1", persons: { situacion_legal: "irregular", nombre: "Ana" } },
+    ];
+    const csv = buildCsvString(rows, ["situacion_legal"]);
+    expect(csv).not.toContain("irregular");
+    expect(csv).toContain("[REDACTED]");
+    expect(csv).toContain("Ana");
   });
 });
