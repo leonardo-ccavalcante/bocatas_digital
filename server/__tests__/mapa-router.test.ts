@@ -255,11 +255,34 @@ describe("mapa.distritoStats — real aggregation (densidad layer)", () => {
     expect(result.rows.find((r) => r.distrito === "centro")?.count).toBe(3);
   });
 
-  it("returns an empty rows array when there are no families", async () => {
+  it("returns all 21 distritos with null counts when there are no families (P2-2)", async () => {
     fromMock.mockReturnValueOnce(mockSelectChain([]));
     const caller = mapaRouter.createCaller(ctxWithRole("admin"));
     const result = await caller.distritoStats({ layer: "densidad" });
-    expect(result.rows).toEqual([]);
+    // P2-2: always emit all 21 distritos so a 0-family distrito is
+    // indistinguishable from a suppressed one — no presence-vs-absence leak.
+    expect(result.rows).toHaveLength(21);
+    expect(result.rows.every((r) => r.count === null)).toBe(true);
+  });
+
+  it("always includes all 21 distritos so a 0-family distrito looks like a suppressed one (P2-2)", async () => {
+    // Only centro has families (≥3). The other 20 distritos have 0.
+    fromMock.mockReturnValueOnce(
+      mockSelectChain([
+        f({ distrito: "centro" }),
+        f({ distrito: "centro" }),
+        f({ distrito: "centro" }),
+      ]),
+    );
+    const caller = mapaRouter.createCaller(ctxWithRole("admin"));
+    const result = await caller.distritoStats({ layer: "densidad" });
+    expect(result.rows).toHaveLength(21);
+    // centro (3) surfaces; vicalvaro (0 families) is present with null —
+    // an observer cannot distinguish "0 families" from "1-2 suppressed".
+    expect(result.rows.find((r) => r.distrito === "centro")?.count).toBe(3);
+    const vicalvaro = result.rows.find((r) => r.distrito === "vicalvaro");
+    expect(vicalvaro).toBeDefined();
+    expect(vicalvaro?.count).toBeNull();
   });
 
   it("does not include compliance ratio on densidad rows", async () => {

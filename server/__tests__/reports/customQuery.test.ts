@@ -285,6 +285,76 @@ describe("customQuery.execute — column projection is allowlist-only (no PII le
   });
 });
 
+// ─── 5b. k-anonymity toggle on aggregate (SAT P2-1) ──────────────────────
+// kAnonymize default false = no suppression (internal admin analysis).
+// kAnonymize true = groups with bucket size < K_ANONYMITY_FLOOR (3) are
+// dropped entirely from the aggregate output (external-export safe).
+
+describe("customQuery.execute — k-anonymity toggle on grouped aggregate", () => {
+  // 3× centro, 2× salamanca, 1× retiro → only centro survives a floor of 3.
+  const groupedRows = [
+    { distrito: "centro", id: "a" },
+    { distrito: "centro", id: "b" },
+    { distrito: "centro", id: "c" },
+    { distrito: "salamanca", id: "d" },
+    { distrito: "salamanca", id: "e" },
+    { distrito: "retiro", id: "f" },
+  ];
+
+  it("keeps all groups when kAnonymize is false (default)", async () => {
+    fromMock.mockReturnValueOnce(
+      mockSelectChain({ data: groupedRows, error: null, count: 6 }),
+    );
+    const caller = customQueryRouter.createCaller(ctxWithRole("admin"));
+    const result = await caller.execute({
+      entity: "families",
+      filters: [],
+      groupBy: "distrito",
+      aggregate: { op: "count", field: "id" },
+      limit: 1000,
+    });
+    const groups = (result.rows as { group: string; value: number }[]).map((r) => r.group);
+    expect(groups.sort()).toEqual(["centro", "retiro", "salamanca"]);
+  });
+
+  it("drops groups below the k-anonymity floor when kAnonymize is true", async () => {
+    fromMock.mockReturnValueOnce(
+      mockSelectChain({ data: groupedRows, error: null, count: 6 }),
+    );
+    const caller = customQueryRouter.createCaller(ctxWithRole("admin"));
+    const result = await caller.execute({
+      entity: "families",
+      filters: [],
+      groupBy: "distrito",
+      aggregate: { op: "count", field: "id" },
+      limit: 1000,
+      kAnonymize: true,
+    });
+    const rows = result.rows as { group: string; value: number }[];
+    // Only centro (bucket size 3) survives; salamanca (2) and retiro (1) dropped.
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ group: "centro", value: 3 });
+  });
+
+  it("never leaks a small group's label under k-anonymity", async () => {
+    fromMock.mockReturnValueOnce(
+      mockSelectChain({ data: groupedRows, error: null, count: 6 }),
+    );
+    const caller = customQueryRouter.createCaller(ctxWithRole("admin"));
+    const result = await caller.execute({
+      entity: "families",
+      filters: [],
+      groupBy: "distrito",
+      aggregate: { op: "count", field: "id" },
+      limit: 1000,
+      kAnonymize: true,
+    });
+    const groups = (result.rows as { group: string }[]).map((r) => r.group);
+    expect(groups).not.toContain("retiro");
+    expect(groups).not.toContain("salamanca");
+  });
+});
+
 // ─── 4. Saved-query CRUD (list + save + delete) ───────────────────────────
 
 describe("savedQueries — role guard", () => {

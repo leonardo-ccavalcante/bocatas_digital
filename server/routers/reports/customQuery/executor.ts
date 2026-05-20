@@ -13,6 +13,8 @@
 
 import { router, adminProcedure } from "../../../_core/trpc";
 import { createAdminClient } from "../../../../client/src/lib/supabase/server";
+import { logAudit } from "../../../_core/logging-middleware";
+import { K_ANONYMITY_FLOOR } from "../../../_core/mapaAggregation";
 import { withSoftDeleteFilter, wrapDbError } from "../_shared";
 import { SavedQuerySpecSchema, type ParsedFilterRow } from "./allowlist";
 import { ENTITY_FIELDS, ENTITY_TO_TABLE, type ReportEntity } from "./allowlist";
@@ -86,6 +88,12 @@ function applyGroupByAggregate(
   rows: Record<string, unknown>[],
   groupBy: string,
   aggregate: { op: "count" | "sum" | "avg" | "min" | "max"; field: string },
+  // SAT P2-1: when set, groups whose bucket size is below this floor are
+  // dropped entirely (not just suppressed) so no small group is even
+  // disclosed by its label. Suppression keys off bucket SIZE, not the
+  // aggregate value — avg/sum over a single record is just as re-identifying
+  // as count=1.
+  kAnonFloor?: number,
 ): GroupAggRow[] {
   const groups = new Map<string, Record<string, unknown>[]>();
 
@@ -99,6 +107,10 @@ function applyGroupByAggregate(
   const out: GroupAggRow[] = [];
 
   for (const [group, bucket] of groups) {
+    if (kAnonFloor !== undefined && bucket.length < kAnonFloor) {
+      continue; // suppress small groups entirely
+    }
+
     const { op, field } = aggregate;
 
     if (op === "count") {
@@ -144,7 +156,7 @@ export const customQueryRouter = router({
    */
   execute: adminProcedure
     .input(SavedQuerySpecSchema)
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       const db = createAdminClient();
       const table = ENTITY_TO_TABLE[input.entity];
       const projection = projectionFor(input.entity);
@@ -184,10 +196,25 @@ export const customQueryRouter = router({
 
       const rawRows = data ?? [];
 
+      // Audit log (SAT P2-5): IDs + counts only, never PII values
+      // (logAudit enforces actorId; we add entity + filter count + row count).
+      logAudit(ctx, "reports.customQuery.execute", {
+        entity: input.entity,
+        filterCount: input.filters.length,
+        rowCount: rawRows.length,
+        grouped: Boolean(input.groupBy && input.aggregate),
+        kAnonymize: input.kAnonymize,
+      });
+
       // Group + aggregate in JS (plan §10 explicit comment: SQL aggregation is
       // a future TODO; JS-side is fine for limit-capped row sets).
       if (input.groupBy && input.aggregate) {
-        const grouped = applyGroupByAggregate(rawRows, input.groupBy, input.aggregate);
+        const grouped = applyGroupByAggregate(
+          rawRows,
+          input.groupBy,
+          input.aggregate,
+          input.kAnonymize ? K_ANONYMITY_FLOOR : undefined,
+        );
         return { rows: grouped as unknown[], total: grouped.length };
       }
 

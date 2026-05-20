@@ -99,6 +99,15 @@ export const SavedQuerySpecSchema = z
       })
       .optional(),
     limit: z.number().int().min(1).max(10000).default(1000),
+    /**
+     * k-anonymity toggle (SAT P2-1). Default false = internal admin analysis,
+     * no suppression. Set true when the result will be exported for external
+     * consumption (funders, partner NGOs): groups whose bucket size is below
+     * the k-anonymity floor (3) are dropped from the aggregate output, so no
+     * single- or double-record group can be re-identified. Only affects
+     * groupBy + aggregate queries; a no-op on raw row lists.
+     */
+    kAnonymize: z.boolean().default(false),
   })
   .superRefine((spec, ctx) => {
     const fields = ENTITY_FIELDS[spec.entity];
