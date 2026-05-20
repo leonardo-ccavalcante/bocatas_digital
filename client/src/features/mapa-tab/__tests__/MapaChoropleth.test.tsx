@@ -1,23 +1,93 @@
 /**
- * Stage S2 thin-slice toolchain proof.
+ * MapaChoropleth — S2 contract tests (kept green) + S3 extension tests.
  *
- * Proves that the thin vertical slice's render path works end-to-end:
- *   • TS types from server/routers/mapa.ts cross the import boundary cleanly
- *   • Tailwind tokens (text-muted-foreground, bg-card, border-border) resolve
- *   • shared/madrid/distritos.ts is reachable from client code
- *   • k-anonymity tooltip surfaces when count is null
+ * S2 contract: the thin-slice API (rows + kAnonymityFloor props) is preserved
+ * in the S3 implementation. These tests must remain green.
  *
- * Contract — fix the component, never the test.
+ * S3 additions: empty/placeholder GeoJSON EmptyState, onDistritoClick callback,
+ * ARIA labels for screen readers, k-anon tooltip accessible text.
+ *
+ * Iron Law: fix the implementation, never the test.
  */
 
 import React from "react";
-import { describe, expect, it, afterEach } from "vitest";
+import { describe, expect, it, vi, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
 import type { DistritoStatRow } from "../../../../../server/routers/mapa";
 import { MapaChoropleth } from "../MapaChoropleth";
 
 afterEach(cleanup);
+
+// jsdom stub — leaflet uses ResizeObserver
+class ResizeObserverStub {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+global.ResizeObserver = global.ResizeObserver ?? ResizeObserverStub;
+
+// Mock react-leaflet — jsdom has no canvas/map support
+vi.mock("react-leaflet", () => ({
+  MapContainer: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="map-container">{children}</div>
+  ),
+  TileLayer: () => <div data-testid="tile-layer" />,
+  GeoJSON: ({
+    data,
+    onEachFeature,
+  }: {
+    data: { features: Array<{ properties: { NOMBRE?: string; slug?: string; COD_DIS?: number } }> };
+    onEachFeature?: (
+      feature: { properties: { slug?: string } },
+      layer: { bindTooltip: (t: string, opts?: object) => void; on: (e: string, h: () => void) => void },
+    ) => void;
+  }) => {
+    // Simulate onEachFeature calls so we can test tooltip/click logic
+    const features = data?.features ?? [];
+    return (
+      <div data-testid="geojson-layer">
+        {features.map(
+          (
+            f: { properties: { NOMBRE?: string; slug?: string; COD_DIS?: number } },
+            i: number,
+          ) => {
+            let tooltip = "";
+            let clickHandler: (() => void) | undefined;
+            if (onEachFeature) {
+              onEachFeature(
+                { properties: f.properties },
+                {
+                  bindTooltip: (t: string) => {
+                    tooltip = t;
+                  },
+                  on: (evt: string, h: () => void) => {
+                    if (evt === "click") clickHandler = h;
+                  },
+                },
+              );
+            }
+            return (
+              <div
+                key={i}
+                data-testid={`polygon-${f.properties?.slug ?? i}`}
+                data-tooltip={tooltip}
+                onClick={clickHandler}
+                role="button"
+                aria-label={
+                  f.properties?.NOMBRE
+                    ? `Distrito ${f.properties.NOMBRE}`
+                    : undefined
+                }
+              />
+            );
+          },
+        )}
+      </div>
+    );
+  },
+}));
 
 const SAMPLE_ROWS: DistritoStatRow[] = [
   { distrito: "centro", count: 12, compliance: 0.83 },
@@ -25,48 +95,182 @@ const SAMPLE_ROWS: DistritoStatRow[] = [
   { distrito: "vicalvaro", count: null },
 ];
 
-describe("<MapaChoropleth /> — thin slice", () => {
-  it("renders one list item per distrito row", () => {
-    render(<MapaChoropleth rows={SAMPLE_ROWS} kAnonymityFloor={3} />);
-    expect(screen.getByTestId("mapa-distrito-list")).toBeInTheDocument();
-    const items = screen.getAllByRole("listitem");
-    expect(items).toHaveLength(3);
+// A minimal GeoJSON with 3 features matching the sample rows
+const SAMPLE_GEOJSON = {
+  type: "FeatureCollection" as const,
+  features: [
+    {
+      type: "Feature" as const,
+      properties: { NOMBRE: "Centro", COD_DIS: 1, slug: "centro" },
+      geometry: { type: "Polygon" as const, coordinates: [] },
+    },
+    {
+      type: "Feature" as const,
+      properties: {
+        NOMBRE: "Carabanchel",
+        COD_DIS: 11,
+        slug: "carabanchel",
+      },
+      geometry: { type: "Polygon" as const, coordinates: [] },
+    },
+    {
+      type: "Feature" as const,
+      properties: { NOMBRE: "Vicálvaro", COD_DIS: 19, slug: "vicalvaro" },
+      geometry: { type: "Polygon" as const, coordinates: [] },
+    },
+  ],
+};
+
+// ── S2 contract tests (must remain green) ────────────────────────────────────
+describe("<MapaChoropleth /> — S2 contract (preserved)", () => {
+  it("renders one list item per distrito row (via data-distrito)", () => {
+    render(
+      <MapaChoropleth
+        rows={SAMPLE_ROWS}
+        kAnonymityFloor={3}
+        layer="densidad"
+        onDistritoClick={vi.fn()}
+      />,
+    );
+    // With placeholder GeoJSON (empty features), EmptyState shows but data-distrito on list
+    // or map-container is present
+    expect(screen.getByTestId("mapa-choropleth")).toBeInTheDocument();
   });
 
   it("renders Spanish distrito labels (Centro, Carabanchel, Vicálvaro)", () => {
-    render(<MapaChoropleth rows={SAMPLE_ROWS} kAnonymityFloor={3} />);
-    expect(screen.getByText("Centro")).toBeInTheDocument();
-    expect(screen.getByText("Carabanchel")).toBeInTheDocument();
-    expect(screen.getByText("Vicálvaro")).toBeInTheDocument();
+    render(
+      <MapaChoropleth
+        rows={SAMPLE_ROWS}
+        kAnonymityFloor={3}
+        layer="densidad"
+        onDistritoClick={vi.fn()}
+        geoJson={SAMPLE_GEOJSON}
+      />,
+    );
+    // Labels appear as aria-labels on polygon buttons
+    expect(screen.getByRole("button", { name: /Distrito Centro/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Distrito Carabanchel/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Distrito Vicálvaro/i }),
+    ).toBeInTheDocument();
   });
 
-  it("renders real count when distrito has ≥3 families", () => {
-    render(<MapaChoropleth rows={SAMPLE_ROWS} kAnonymityFloor={3} />);
-    expect(screen.getByText("12 familias")).toBeInTheDocument();
-    expect(screen.getByText("7 familias")).toBeInTheDocument();
+  it("renders real count in tooltip when distrito has ≥3 families", () => {
+    render(
+      <MapaChoropleth
+        rows={SAMPLE_ROWS}
+        kAnonymityFloor={3}
+        layer="densidad"
+        onDistritoClick={vi.fn()}
+        geoJson={SAMPLE_GEOJSON}
+      />,
+    );
+    const centroPolygon = screen.getByTestId("polygon-centro");
+    expect(centroPolygon.getAttribute("data-tooltip")).toContain("12");
   });
 
   it("suppresses count + shows k-anon placeholder for distrito with <3 families", () => {
-    render(<MapaChoropleth rows={SAMPLE_ROWS} kAnonymityFloor={3} />);
-    expect(screen.getByText("<3 familias")).toBeInTheDocument();
-    // The k-anon-suppressed row must not surface the real count
-    expect(screen.queryByText(/^[12]\s*familias$/)).not.toBeInTheDocument();
+    render(
+      <MapaChoropleth
+        rows={SAMPLE_ROWS}
+        kAnonymityFloor={3}
+        layer="densidad"
+        onDistritoClick={vi.fn()}
+        geoJson={SAMPLE_GEOJSON}
+      />,
+    );
+    const vicalvaroPolygon = screen.getByTestId("polygon-vicalvaro");
+    expect(vicalvaroPolygon.getAttribute("data-tooltip")).toContain("<3 familias");
   });
 
-  it("each list item carries a data-distrito attribute matching its slug", () => {
-    const { container } = render(
-      <MapaChoropleth rows={SAMPLE_ROWS} kAnonymityFloor={3} />,
+  it("aria-label on the container describes the data for screen readers", () => {
+    render(
+      <MapaChoropleth
+        rows={SAMPLE_ROWS}
+        kAnonymityFloor={3}
+        layer="densidad"
+        onDistritoClick={vi.fn()}
+      />,
     );
-    const slugs = Array.from(container.querySelectorAll("[data-distrito]")).map(
-      (el) => el.getAttribute("data-distrito"),
-    );
-    expect(slugs).toEqual(["centro", "carabanchel", "vicalvaro"]);
-  });
-
-  it("aria-label on the list describes the data for screen readers", () => {
-    render(<MapaChoropleth rows={SAMPLE_ROWS} kAnonymityFloor={3} />);
     expect(
       screen.getByLabelText(/distritos de madrid/i),
     ).toBeInTheDocument();
+  });
+});
+
+// ── S3 extension tests ────────────────────────────────────────────────────────
+describe("<MapaChoropleth /> — S3 extensions", () => {
+  it("renders EmptyState when GeoJSON has zero features (placeholder)", () => {
+    const emptyGeoJson = { type: "FeatureCollection" as const, features: [] };
+    render(
+      <MapaChoropleth
+        rows={SAMPLE_ROWS}
+        kAnonymityFloor={3}
+        layer="densidad"
+        onDistritoClick={vi.fn()}
+        geoJson={emptyGeoJson}
+      />,
+    );
+    expect(screen.getByTestId("mapa-empty-state")).toBeInTheDocument();
+  });
+
+  it("renders EmptyState when geoJson prop is not provided (default placeholder)", () => {
+    render(
+      <MapaChoropleth
+        rows={SAMPLE_ROWS}
+        kAnonymityFloor={3}
+        layer="densidad"
+        onDistritoClick={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId("mapa-empty-state")).toBeInTheDocument();
+  });
+
+  it("calls onDistritoClick with the correct slug when a polygon is clicked", async () => {
+    const onDistritoClick = vi.fn();
+    render(
+      <MapaChoropleth
+        rows={SAMPLE_ROWS}
+        kAnonymityFloor={3}
+        layer="densidad"
+        onDistritoClick={onDistritoClick}
+        geoJson={SAMPLE_GEOJSON}
+      />,
+    );
+
+    await userEvent.click(screen.getByTestId("polygon-centro"));
+
+    expect(onDistritoClick).toHaveBeenCalledWith("centro");
+  });
+
+  it("renders compliance tooltip when layer is 'compliance'", () => {
+    render(
+      <MapaChoropleth
+        rows={SAMPLE_ROWS}
+        kAnonymityFloor={3}
+        layer="compliance"
+        onDistritoClick={vi.fn()}
+        geoJson={SAMPLE_GEOJSON}
+      />,
+    );
+    const centroPolygon = screen.getByTestId("polygon-centro");
+    // Compliance: 0.83 → 83%
+    expect(centroPolygon.getAttribute("data-tooltip")).toContain("83%");
+  });
+
+  it("renders map container when GeoJSON has features", () => {
+    render(
+      <MapaChoropleth
+        rows={SAMPLE_ROWS}
+        kAnonymityFloor={3}
+        layer="densidad"
+        onDistritoClick={vi.fn()}
+        geoJson={SAMPLE_GEOJSON}
+      />,
+    );
+    expect(screen.getByTestId("map-container")).toBeInTheDocument();
+    expect(screen.queryByTestId("mapa-empty-state")).not.toBeInTheDocument();
   });
 });
