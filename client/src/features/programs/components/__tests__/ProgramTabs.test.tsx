@@ -35,12 +35,33 @@ const UploadsTabMock = vi.fn((_props: { programaId: string }) => (
   <div data-testid="uploads-tab-mock" />
 ));
 
+const MapaTabMock = vi.fn(() => <div data-testid="mapa-tab-mock" />);
+
+const ReportsTabMock = vi.fn(
+  (_props: { currentUserId: string; programaId?: string }) => (
+    <div data-testid="reports-tab-mock" />
+  ),
+);
+
 vi.mock("@/features/familias-tab", () => ({
   default: FamiliasTabMock,
 }));
 
 vi.mock("@/features/uploads-tab", () => ({
   default: UploadsTabMock,
+}));
+
+vi.mock("@/features/mapa-tab", () => ({
+  default: MapaTabMock,
+}));
+
+vi.mock("@/features/reports-tab", () => ({
+  default: ReportsTabMock,
+}));
+
+// ProgramTabs reads the current user (for ReportsTab's currentUserId).
+vi.mock("@/_core/hooks/useAuth", () => ({
+  useAuth: () => ({ user: { id: 1, role: "admin" } }),
 }));
 
 // Import AFTER mocks are registered.
@@ -103,48 +124,41 @@ describe("ProgramTabs contract", () => {
   });
 
   // 3 ──────────────────────────────────────────────────────────────────────────
-  it("enables Familias and Uploads; disables Mapa, Reports, Derivar in Phase 1", () => {
+  it("enables Familias, Uploads, Mapa, Reports; disables Derivar (Phase 2)", () => {
     renderWithRouter(<ProgramTabs program={makeProgram("programa_familias")} />);
 
     const allTabs = screen.getAllByRole("tab");
     // Index order matches spec: Familias(0), Mapa(1), Reports(2), Uploads(3), Derivar(4)
     const [familias, mapa, reports, uploads, derivar] = allTabs;
 
-    // Enabled tabs must NOT carry a disabled indicator
     function isDisabledTab(el: HTMLElement): boolean {
       return (
         el.hasAttribute("disabled") ||
         el.getAttribute("aria-disabled") === "true"
       );
     }
+    // Phase 2 enables Mapa + Reports alongside Familias + Uploads.
     expect(isDisabledTab(familias)).toBe(false);
     expect(isDisabledTab(uploads)).toBe(false);
+    expect(isDisabledTab(mapa)).toBe(false);
+    expect(isDisabledTab(reports)).toBe(false);
 
-    // Disabled tabs must carry either the disabled attribute or aria-disabled
-    expect(isDisabledTab(mapa)).toBe(true);
-    expect(isDisabledTab(reports)).toBe(true);
+    // Derivar stays disabled until Phase 3.
     expect(isDisabledTab(derivar)).toBe(true);
   });
 
   // 4 ──────────────────────────────────────────────────────────────────────────
-  it("disabled tabs surface a 'Próximamente' tooltip on focus/hover", async () => {
+  it("the still-disabled Derivar tab surfaces a 'Próximamente' tooltip on hover", async () => {
     const user = userEvent.setup();
     renderWithRouter(<ProgramTabs program={makeProgram("programa_familias")} />);
 
-    // Mapa is index 1 per spec order.
-    // The tab trigger is wrapped in a <span tabIndex={0}> that is the actual
-    // TooltipTrigger (asChild). We hover the span wrapper so the Radix tooltip
-    // fires its pointerenter handler — hovering the inner disabled button alone
-    // may not bubble correctly with disabled elements.
+    // Derivar is index 4 per spec order — the only tab still disabled in Phase 2.
     const allTabs = screen.getAllByRole("tab");
-    const mapaTab = allTabs[1];
-    // parentElement is the <span tabIndex={0}> TooltipTrigger wrapper
-    const tooltipTriggerSpan = mapaTab.parentElement!;
+    const derivarTab = allTabs[4];
+    // parentElement is the <span tabIndex={0}> TooltipTrigger wrapper.
+    const tooltipTriggerSpan = derivarTab.parentElement!;
     await user.hover(tooltipTriggerSpan);
 
-    // Radix renders a <span role="tooltip"> that is the accessible tooltip.
-    // Using findByRole ensures we test the semantic tooltip, not just any element
-    // that contains the word.
     const tooltip = await screen.findByRole("tooltip");
     expect(tooltip).toHaveTextContent("Próximamente");
   });
