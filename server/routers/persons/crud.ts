@@ -71,6 +71,9 @@ export const crudRouter = router({
         telefono: str(personData.telefono),
         email: str(personData.email),
         direccion: str(personData.direccion),
+        // codigo_postal drives persons.distrito automatically via the
+        // trg_persons_set_distrito trigger (M2); we never set distrito directly.
+        codigo_postal: str(personData.codigo_postal),
         municipio: str(personData.municipio),
         barrio_zona: str(personData.barrio_zona),
         tipo_documento: personData.tipo_documento ?? null,

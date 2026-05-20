@@ -42,6 +42,8 @@ export const PersonCreateInput = z.object({
   telefono: z.string().max(30).optional().nullable(),
   email: z.string().email().max(254).optional().nullable().or(z.literal("")),
   direccion: z.string().max(300).optional().nullable(),
+  // 5-digit Spanish postal code; drives persons.distrito via M2 trigger.
+  codigo_postal: z.string().regex(/^\d{5}$/).optional().nullable().or(z.literal("")),
   municipio: z.string().max(100).optional().nullable(),
   barrio_zona: z.string().max(100).optional().nullable(),
   tipo_vivienda: TipoViviendaEnum.optional().nullable(),
