@@ -214,7 +214,7 @@ export default function Home() {
                     href={tile.href}
                     aria-label={tile.label}
                     className={cn(
-                      "group flex flex-col h-full rounded-2xl bg-background border border-border",
+                      "group flex flex-col h-full rounded-2xl bg-card border border-border",
                       "overflow-hidden transition-all duration-300",
                       "hover:-translate-y-0.5 hover:shadow-[0_12px_28px_-12px_rgba(0,0,0,0.14)]",
                       "active:scale-[0.99]",

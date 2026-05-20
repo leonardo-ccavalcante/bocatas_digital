@@ -211,15 +211,21 @@ function FamiliaRowGroup({
         </td>
         <td className="px-2 py-3 tabular-stat">{totalMiembros}</td>
         <td className="px-2 py-3">
-          <Badge variant={estado === "activa" ? "default" : "outline"}>
-            {estado === "activa" ? "Activa" : "En baja"}
-          </Badge>
+          {estado === "activa" ? (
+            <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700">
+              Activa
+            </Badge>
+          ) : (
+            <Badge variant="outline">En baja</Badge>
+          )}
         </td>
         <td className="px-2 py-3">
           {sinInforme ? (
             <Badge variant="destructive">Pendiente</Badge>
           ) : (
-            <Badge>Al día</Badge>
+            <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700">
+              Al día
+            </Badge>
           )}
         </td>
         <td className="px-2 py-3 text-center">
