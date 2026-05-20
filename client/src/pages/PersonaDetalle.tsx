@@ -1,11 +1,22 @@
+import { useState } from "react";
 import { Link, useParams } from "wouter";
+import { Loader2, AlertCircle, Users, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Loader2, AlertCircle, Users } from "lucide-react";
-import { PersonCard } from "@/features/persons/components/PersonCard";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CheckinHistoryTable } from "@/features/persons/components/CheckinHistoryTable";
-import { EnrollmentPanel } from "@/features/programs/components/EnrollmentPanel";
+import { ConsentModal } from "@/features/persons/components/ConsentModal";
+import {
+  PersonaHeader,
+  ResumenTab,
+  DocumentosTab,
+  NotasTab,
+  DetailEmptyState,
+} from "@/features/persons/components/detail";
+import { useConsentTemplates } from "@/features/persons/hooks/useConsentTemplates";
 import { usePersonById } from "@/features/persons/hooks/usePersonById";
+import { EnrollmentPanel } from "@/features/programs/components/EnrollmentPanel";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { trpc } from "@/lib/trpc";
 import type { Database } from "@/lib/database.types";
 
 type PersonRow = Database["public"]["Tables"]["persons"]["Row"];
@@ -14,93 +25,136 @@ export default function PersonaDetalle() {
   const { id } = useParams<{ id: string }>();
   const { data: person, isLoading, isError, refetch } = usePersonById(id ?? "");
   const { user } = useAuth();
+  const [showConsent, setShowConsent] = useState(false);
 
-  // Only admins and superadmins see the check-in history section
-  const isAdmin = user?.role === "admin";
+  // Only admins and superadmins see check-in data + the Familia CTA + the
+  // high-risk fields gated inside the tabs.
+  const isAdmin = user?.role === "admin" || user?.role === "superadmin";
+
+  // Real check-in total for the KPI strip — admin-only (preserves the gating
+  // that already restricts all check-in data to admins). No fabricated count.
+  const checkinCount = trpc.persons.getCheckinHistory.useQuery(
+    { personId: id ?? "", limit: 1, offset: 0 },
+    { enabled: !!id && isAdmin, staleTime: 60_000 },
+  );
+  const visitas = isAdmin ? checkinCount.data?.total : undefined;
+
+  // Consent templates for the modal (triggered from the header).
+  const { data: templates = [] } = useConsentTemplates(
+    (person?.idioma_principal as "es" | "ar" | "fr" | "bm") ?? "es",
+  );
+
+  if (isLoading) {
+    return (
+      <div className="flex h-64 items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (isError || !person) {
+    return (
+      <div className="flex h-64 flex-col items-center justify-center gap-3 bg-background text-muted-foreground">
+        <AlertCircle className="h-8 w-8" />
+        <p className="text-body-sm">No se pudo cargar la ficha de esta persona.</p>
+        <Button variant="outline" size="sm" onClick={() => void refetch()}>
+          Reintentar
+        </Button>
+      </div>
+    );
+  }
+
+  const personRow = person as PersonRow;
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur">
-        <div className="flex h-14 items-center gap-3 px-4">
-          <Link href="/personas">
-            <Button variant="ghost" size="sm" aria-label="Volver a personas">
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-          </Link>
-          <h1 className="text-sm font-semibold">Ficha de persona</h1>
-        </div>
-      </div>
+    <div className="flex min-h-screen flex-col bg-background">
+      <PersonaHeader
+        person={personRow}
+        visitas={visitas}
+        onConsent={() => setShowConsent(true)}
+      />
 
-      {/* Loading state */}
-      {isLoading && (
-        <div className="flex h-64 items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
-      )}
+      <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-8">
+        <Tabs defaultValue="resumen">
+          <TabsList className="w-full justify-start overflow-x-auto">
+            <TabsTrigger value="resumen">Resumen</TabsTrigger>
+            <TabsTrigger value="programas">Programas</TabsTrigger>
+            <TabsTrigger value="documentos">Documentos</TabsTrigger>
+            <TabsTrigger value="asistencias">Asistencias</TabsTrigger>
+            <TabsTrigger value="notas">Notas</TabsTrigger>
+          </TabsList>
 
-      {/* Error state */}
-      {isError && (
-        <div className="flex h-64 flex-col items-center justify-center gap-3 text-muted-foreground">
-          <AlertCircle className="h-8 w-8" />
-          <p className="text-sm">No se pudo cargar la ficha de esta persona.</p>
-          <Button variant="outline" size="sm" onClick={() => void refetch()}>
-            Reintentar
-          </Button>
-        </div>
-      )}
+          {/* Resumen — restyled summary of real person fields */}
+          <TabsContent value="resumen" className="mt-5">
+            <ResumenTab person={personRow} isAdmin={isAdmin} />
+          </TabsContent>
 
-      {/* Person profile */}
-      {person && (
-        <PersonCard
-          person={person as PersonRow}
-          onRefresh={() => void refetch()}
-        />
-      )}
+          {/* Programas — existing EnrollmentPanel, same props as before */}
+          <TabsContent value="programas" className="mt-5">
+            {id && <EnrollmentPanel personId={id} isAdmin={isAdmin} />}
 
-      {/* Program enrollments — visible to all authenticated users */}
-      {person && id && (
-        <div className="max-w-2xl mx-auto px-4 pb-4">
-          <div className="border-t border-border pt-6">
-            <EnrollmentPanel personId={id} isAdmin={isAdmin} />
-          </div>
-        </div>
-      )}
-
-      {/* Familia program — admin only */}
-      {person && isAdmin && id && (
-        <div className="max-w-2xl mx-auto px-4 pb-4">
-          <div className="border-t border-border pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                  <Users className="h-4 w-4" /> Programa de Familias
-                </h2>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Registra a esta persona como titular de una unidad familiar
-                </p>
+            {isAdmin && id && (
+              <div className="bocatas-card mt-5 px-5 py-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-h3 flex items-center gap-2 text-foreground">
+                      <Users className="h-4 w-4" aria-hidden="true" /> Programa de
+                      Familias
+                    </h2>
+                    <p className="mt-1 text-body-sm text-muted-foreground">
+                      Registra a esta persona como titular de una unidad familiar
+                    </p>
+                  </div>
+                  <Link href={`/familias/nueva?titular_id=${id}`}>
+                    <Button variant="outline" size="sm">
+                      Registrar familia
+                    </Button>
+                  </Link>
+                </div>
               </div>
-              <Link href={`/familias/nueva?titular_id=${id}`}>
-                <Button variant="outline" size="sm">
-                  Registrar familia
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </div>
-      )}
+            )}
+          </TabsContent>
 
-      {/* Check-in history — admin only */}
-      {person && isAdmin && id && (
-        <div className="max-w-2xl mx-auto px-4 pb-8">
-          <div className="border-t border-border pt-6">
-            <h2 className="text-sm font-semibold text-foreground mb-4">
-              Historial de asistencia
-            </h2>
-            <CheckinHistoryTable personId={id} />
-          </div>
-        </div>
-      )}
+          {/* Documentos — no endpoint yet: honest empty state (see component) */}
+          <TabsContent value="documentos" className="mt-5">
+            <DocumentosTab person={personRow} isAdmin={isAdmin} />
+          </TabsContent>
+
+          {/* Asistencias — admin only, existing CheckinHistoryTable */}
+          <TabsContent value="asistencias" className="mt-5">
+            {isAdmin && id ? (
+              <div className="bocatas-card px-5 py-4">
+                <h2 className="text-h3 mb-4 text-foreground">
+                  Historial de asistencia
+                </h2>
+                <CheckinHistoryTable personId={id} />
+              </div>
+            ) : (
+              <DetailEmptyState
+                icon={Lock}
+                title="Acceso restringido"
+                description="El historial de asistencia solo está disponible para el equipo responsable."
+              />
+            )}
+          </TabsContent>
+
+          {/* Notas — real observaciones + admin-only notas_privadas (no thread) */}
+          <TabsContent value="notas" className="mt-5">
+            <NotasTab person={personRow} isAdmin={isAdmin} />
+          </TabsContent>
+        </Tabs>
+      </main>
+
+      <ConsentModal
+        open={showConsent}
+        personId={personRow.id}
+        templates={templates}
+        onClose={() => setShowConsent(false)}
+        onSaved={() => {
+          setShowConsent(false);
+          void refetch();
+        }}
+      />
     </div>
   );
 }
