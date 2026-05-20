@@ -1,10 +1,14 @@
 import { lazy, Suspense } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { useTabParam, PROGRAM_TABS, ENABLED_TABS, type ProgramTab } from "../hooks/useTabParam";
 
 const FamiliasTab = lazy(() => import("@/features/familias-tab"));
 const UploadsTab = lazy(() => import("@/features/uploads-tab"));
+// Phase 2 — lazy-chunked so react-leaflet (~150KB) never enters the LCP-critical bundle.
+const MapaTab = lazy(() => import("@/features/mapa-tab"));
+const ReportsTab = lazy(() => import("@/features/reports-tab"));
 
 interface Program {
   id: string;
@@ -37,6 +41,8 @@ const TabFallback = () => (
  */
 export function ProgramTabs({ program }: ProgramTabsProps) {
   const [tab, setTab] = useTabParam();
+  const { user } = useAuth();
+  const currentUserId = String(user?.id ?? "");
 
   if (program.slug !== "programa_familias") {
     return null;
@@ -95,9 +101,21 @@ export function ProgramTabs({ program }: ProgramTabsProps) {
         </Suspense>
       </TabsContent>
 
-      {/* Mapa, Reports, Derivar TabsContent intentionally absent in Phase 1.
-          Disabled triggers prevent navigation, so empty content panes are unreachable.
-          Phase 2 + 3 add their TabsContent at the same time as enabling them. */}
+      <TabsContent value="mapa">
+        <Suspense fallback={<TabFallback />}>
+          {ENABLED_TABS.includes("mapa") && <MapaTab />}
+        </Suspense>
+      </TabsContent>
+
+      <TabsContent value="reports">
+        <Suspense fallback={<TabFallback />}>
+          {ENABLED_TABS.includes("reports") && (
+            <ReportsTab currentUserId={currentUserId} programaId={program.id} />
+          )}
+        </Suspense>
+      </TabsContent>
+
+      {/* Derivar TabsContent intentionally absent until Phase 3 enables it. */}
     </Tabs>
   );
 }
