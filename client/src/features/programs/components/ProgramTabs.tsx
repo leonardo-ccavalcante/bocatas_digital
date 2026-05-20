@@ -5,6 +5,7 @@ import { useTabParam, PROGRAM_TABS, ENABLED_TABS, type ProgramTab } from "../hoo
 
 const FamiliasTab = lazy(() => import("@/features/familias-tab"));
 const UploadsTab = lazy(() => import("@/features/uploads-tab"));
+const DerivarTab = lazy(() => import("@/features/derivar"));
 
 interface Program {
   id: string;
@@ -95,9 +96,15 @@ export function ProgramTabs({ program }: ProgramTabsProps) {
         </Suspense>
       </TabsContent>
 
-      {/* Mapa, Reports, Derivar TabsContent intentionally absent in Phase 1.
-          Disabled triggers prevent navigation, so empty content panes are unreachable.
-          Phase 2 + 3 add their TabsContent at the same time as enabling them. */}
+      <TabsContent value="derivar">
+        <Suspense fallback={<TabFallback />}>
+          {ENABLED_TABS.includes("derivar") && <DerivarTab programaId={program.id} />}
+        </Suspense>
+      </TabsContent>
+
+      {/* Mapa + Reports TabsContent are added when those tabs are enabled (Phase 2).
+          Derivar (Phase 3) is wired above; it renders only when "derivar" is in
+          ENABLED_TABS (Leo-gated flip). */}
     </Tabs>
   );
 }
