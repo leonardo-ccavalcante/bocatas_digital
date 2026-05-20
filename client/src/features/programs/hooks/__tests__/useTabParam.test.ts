@@ -50,8 +50,8 @@ describe("PROGRAM_TABS / ENABLED_TABS", () => {
     expect(PROGRAM_TABS).toEqual(["familias", "mapa", "reports", "uploads", "derivar"]);
   });
 
-  it("ENABLED_TABS in Phase 1 is exactly familias + uploads", () => {
-    expect(ENABLED_TABS).toEqual(["familias", "uploads"]);
+  it("ENABLED_TABS in Phase 2 includes familias, uploads, mapa, reports", () => {
+    expect(ENABLED_TABS).toEqual(["familias", "uploads", "mapa", "reports"]);
   });
 
   it("every ENABLED_TAB is also a PROGRAM_TAB", () => {
