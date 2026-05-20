@@ -15,7 +15,8 @@
 client/src/features/mapa-tab/
 ├── CODEMAP.md
 ├── index.tsx                           ≤ 80 LOC  — composes Choropleth + LayerToggle + DistritoPanel
-├── MapaChoropleth.tsx                  ≤ 220 LOC — react-leaflet integration, GeoJSON polygons
+├── MapaChoropleth.tsx                  ≤ 260 LOC — react-leaflet map (visual) + DistritoDataTable (a11y)
+├── DistritoDataTable.tsx               ≤ 130 LOC — accessible table + legend (WCAG, C-06 source of truth)
 ├── LayerToggle.tsx                     ≤ 60 LOC  — shadcn ToggleGroup: Densidad / Compliance
 ├── DistritoPanel.tsx                   ≤ 180 LOC — side drawer on distrito click, "Ver familias" CTA
 ├── hooks/

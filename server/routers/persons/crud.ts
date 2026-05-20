@@ -3,7 +3,18 @@ import { z } from "zod";
 import { createAdminClient } from "../../../client/src/lib/supabase/server";
 import { protectedProcedure, router } from "../../_core/trpc";
 import { logProcedureAction, logProcedureError } from "../../_core/logging-middleware";
+import { redactHighRiskFields } from "../../_core/rlsRedaction";
 import { PersonCreateInput } from "./_shared";
+
+const ELEVATED_ROLES = new Set(["admin", "superadmin"]);
+
+/**
+ * `notas_privadas` (social-worker notes) is restricted — it is excluded from
+ * the `persons_safe` view and must not reach non-elevated callers. It is not
+ * in HIGH_RISK_FIELDS pending EIPD classification (see docs/TECH_DEBT.md S-05),
+ * so getById gates it explicitly alongside redactHighRiskFields.
+ */
+const PERSONS_RESTRICTED_EXTRA_FIELDS = ["notas_privadas"] as const;
 
 /**
  * Phase 6 QA-1C — RLS-equivalent column-list gate for `persons.getAll`.
@@ -138,7 +149,7 @@ export const crudRouter = router({
    */
   getById: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       const supabase = createAdminClient();
 
       const { data, error } = await supabase
@@ -152,13 +163,27 @@ export const crudRouter = router({
         if (error.code === "PGRST116") {
           throw new TRPCError({ code: "NOT_FOUND", message: "Persona no encontrada" });
         }
+        // C-05: never echo the raw Supabase message (can contain PII / schema
+        // internals) to the client. Log it server-side; return a generic message.
+        logProcedureError(ctx, "persons.getById failed", error, { personId: input.id });
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: `Error al obtener persona: ${error.message}`,
+          message: "No se pudo obtener la persona. Inténtalo de nuevo.",
         });
       }
 
-      return data;
+      // C-01: getById uses the service-role client (bypasses RLS) and returns
+      // the full profile. High-risk PII is admin/superadmin-only (CLAUDE.md §3),
+      // so redact at the boundary for non-elevated callers — mirrors
+      // families.getById.
+      const redacted = redactHighRiskFields(ctx.user.role, data);
+      if (redacted && !ELEVATED_ROLES.has(ctx.user.role)) {
+        const row = redacted as Record<string, unknown>;
+        for (const field of PERSONS_RESTRICTED_EXTRA_FIELDS) {
+          delete row[field];
+        }
+      }
+      return redacted;
     }),
 
   /**

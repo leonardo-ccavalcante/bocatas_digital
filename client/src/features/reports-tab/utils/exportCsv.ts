@@ -21,13 +21,24 @@ export interface ExportCsvOptions {
   redactFields?: string[];
 }
 
+// Leading characters that trigger formula evaluation in Excel/Sheets/LibreOffice.
+const FORMULA_TRIGGERS = /^[=+\-@\t\r]/;
+
 /**
- * Escape a single CSV cell per RFC 4180.
- * - If the value contains a comma, double-quote, or newline: wrap in double-quotes.
- * - Internal double-quotes are doubled.
+ * Escape a single CSV cell per RFC 4180, with CSV/formula-injection defense.
+ * - C-03: a STRING value starting with a formula trigger (`= + - @` / tab / CR)
+ *   is prefixed with `'` so spreadsheets treat it as text, not a formula.
+ *   Non-string values (numbers, booleans) are never prefixed — so legitimate
+ *   negative numbers like -5 are preserved.
+ * - RFC 4180: if the (possibly prefixed) value contains a comma, double-quote,
+ *   or newline, wrap in double-quotes; internal double-quotes are doubled.
  */
 export function escapeCsvCell(value: unknown): string {
-  const s = value === null || value === undefined ? "" : String(value);
+  if (value === null || value === undefined) return "";
+  let s = String(value);
+  if (typeof value === "string" && FORMULA_TRIGGERS.test(s)) {
+    s = `'${s}`;
+  }
   if (s.includes(",") || s.includes('"') || s.includes("\n") || s.includes("\r")) {
     return `"${s.replace(/"/g, '""')}"`;
   }
@@ -35,7 +46,37 @@ export function escapeCsvCell(value: unknown): string {
 }
 
 /**
- * Redact high-risk PII field names from a row object.
+ * Flatten a row's nested plain objects into dotted keys
+ * (`{persons:{nombre}}` → `{"persons.nombre"}`). C-04: without this, nested
+ * objects serialize to "[object Object]" in CSV AND escape PII redaction
+ * (which keys off field names). Arrays, Dates, null, and primitives stay as
+ * leaf values.
+ */
+export function flattenRow(
+  row: Record<string, unknown>,
+  prefix = "",
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(row)) {
+    const key = prefix ? `${prefix}.${k}` : k;
+    if (
+      v !== null &&
+      typeof v === "object" &&
+      !Array.isArray(v) &&
+      !(v instanceof Date)
+    ) {
+      Object.assign(out, flattenRow(v as Record<string, unknown>, key));
+    } else {
+      out[key] = v;
+    }
+  }
+  return out;
+}
+
+/**
+ * Redact PII field names from a (possibly flattened) row. Matches on either the
+ * full key OR its leaf segment after the last dot, so a high-risk field is
+ * redacted at any nesting depth (`persons.situacion_legal` ≡ `situacion_legal`).
  * Returns a new object; the original is not mutated.
  */
 export function redactRow(
@@ -43,16 +84,20 @@ export function redactRow(
   redactFields: string[],
 ): Record<string, unknown> {
   if (redactFields.length === 0) return row;
+  const banned = new Set(redactFields);
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(row)) {
-    out[k] = redactFields.includes(k) ? "[REDACTED]" : v;
+    const leaf = k.includes(".") ? k.slice(k.lastIndexOf(".") + 1) : k;
+    out[k] = banned.has(k) || banned.has(leaf) ? "[REDACTED]" : v;
   }
   return out;
 }
 
 /**
- * Build a CSV string from an array of plain objects.
- * Column order is determined by the keys of the first row.
+ * Build a CSV string from an array of plain objects. Nested objects are
+ * flattened first; columns are the union of all flattened keys (so ragged
+ * rows don't silently drop columns). Redaction is applied to the flattened
+ * leaf keys.
  */
 export function buildCsvString(
   rows: Record<string, unknown>[],
@@ -60,11 +105,11 @@ export function buildCsvString(
 ): string {
   if (rows.length === 0) return "";
 
-  const redacted = rows.map((r) => redactRow(r, redactFields));
-  const headers = Object.keys(redacted[0]);
+  const processed = rows.map((r) => redactRow(flattenRow(r), redactFields));
+  const headers = [...new Set(processed.flatMap((r) => Object.keys(r)))];
 
   const headerLine = headers.map(escapeCsvCell).join(",");
-  const dataLines = redacted.map((row) =>
+  const dataLines = processed.map((row) =>
     headers.map((h) => escapeCsvCell(row[h])).join(","),
   );
 
