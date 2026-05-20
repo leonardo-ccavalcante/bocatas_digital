@@ -32,6 +32,7 @@ export const crudRouter = router({
           estado: z.enum(["activa", "baja", "all"]).default("activa"),
           sin_alta_guf: z.boolean().optional(),
           sin_informe_social: z.boolean().optional(),
+          distrito: z.string().optional(),
         })
         .optional()
     )
@@ -56,6 +57,9 @@ export const crudRouter = router({
       }
       if (input?.sin_informe_social) {
         query = query.eq("informe_social", false);
+      }
+      if (input?.distrito) {
+        query = query.eq("distrito", input.distrito);
       }
       if (input?.search) {
         const searchNum = parseInt(input.search);
