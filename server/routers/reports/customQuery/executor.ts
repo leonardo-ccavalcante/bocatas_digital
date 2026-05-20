@@ -11,7 +11,6 @@
  * Role guard: adminProcedure — voluntarios receive FORBIDDEN.
  */
 
-import { TRPCError } from "@trpc/server";
 import { router, adminProcedure } from "../../../_core/trpc";
 import { createAdminClient } from "../../../../client/src/lib/supabase/server";
 import { withSoftDeleteFilter, wrapDbError } from "../_shared";
@@ -134,9 +133,8 @@ export const customQueryRouter = router({
       const table = ENTITY_TO_TABLE[input.entity];
 
       // Build the base query through withSoftDeleteFilter (soft-delete guard).
-      // Cast to `never` here because ENTITY_TO_TABLE values are validated by
-      // SavedQuerySpecSchema upstream — the runtime string is always a valid table name.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // The runtime string from ENTITY_TO_TABLE is always a valid table name
+      // because the input was validated by SavedQuerySpecSchema upstream.
       let q = withSoftDeleteFilter(
         (db.from as (t: string) => ReturnType<typeof db.from>)(table).select("*", { count: "exact" }),
       );
