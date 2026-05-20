@@ -43,6 +43,11 @@ The procedure guard controls **who** can call. It does not control **which colum
 Rule for any procedure that returns persons/families-shaped rows:
 - **Project explicitly.** Never `.select("*")` on a PII-bearing table. List the columns, or for the reports surface use the `ENTITY_FIELDS` allowlist (`shared/reports/entities.ts`) as the single source of truth for what may leave — see `server/routers/reports/customQuery/executor.ts` (`projectionFor`).
 - For curated reads that legitimately need names, use `redactHighRiskFields` (`server/_core/rlsRedaction.ts`) at the procedure boundary so non-elevated roles never receive the high-risk set.
+- **Enforced by a guard test:** `server/__tests__/persons-high-risk-readpath-guard.test.ts` fails CI if any server router reads `persons` via `.select("*")` without `redactHighRiskFields`. (`redactHighRiskFields` is a no-op for admin/superadmin, so it is always safe to add — even on admin-only reads.)
+
+## The column-grant migration is NOT a live wall
+
+`supabase/migrations/20260508000001_high_risk_fields_rls.sql` REVOKEs/GRANTs column-level SELECT on the high-risk fields. **It is documented defense-in-depth, deliberately NOT applied** (see its header's 4 staging preconditions), and — critically — **even if applied it would not protect the app's read path**, because the service role bypasses column grants just like it bypasses RLS. So it is a *future* hardening for the user-JWT path, **not** the boundary today. The real, present boundary for high-risk PII is: **explicit projection / `redactHighRiskFields` at the procedure, locked by the guard test above.** (Tracked: TECH_DEBT C-02.)
 
 ## High-risk PII fields (CLAUDE.md §3, restated)
 
