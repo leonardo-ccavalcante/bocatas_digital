@@ -42,6 +42,11 @@ const ProgramaTiposDocumento = lazy(() =>
     default: m.ProgramaTiposDocumentoPage,
   }))
 );
+const InstitucionesPage = lazy(() =>
+  import("./pages/admin/InstitucionesPage").then((m) => ({
+    default: m.InstitucionesPage,
+  }))
+);
 
 // Familias (heavy module)
 const FamiliaRegistro = lazy(() => import("./pages/FamiliaRegistro"));
@@ -137,6 +142,11 @@ function Router() {
         <Route path="/admin/programas/:slug/tipos-documento">
           <ProtectedRoute requiredRoles={["superadmin"]}>
             <ProgramaTiposDocumento />
+          </ProtectedRoute>
+        </Route>
+        <Route path="/admin/instituciones">
+          <ProtectedRoute requiredRoles={["admin", "superadmin"]}>
+            <InstitucionesPage />
           </ProtectedRoute>
         </Route>
         <Route path="/admin/programas">
