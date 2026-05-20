@@ -9,18 +9,7 @@
 
 ## File tree
 
-### Current (Stage S2 thin slice — landed)
-
-```
-client/src/features/mapa-tab/
-├── CODEMAP.md                          (this file — already committed)
-├── index.tsx                           ≤ 80 LOC  — composes MapaChoropleth, handles loading/error
-└── MapaChoropleth.tsx                  ≤ 80 LOC  — text-list render of distritoStats rows
-                                                   (NO react-leaflet yet — S3 swaps this for the
-                                                    GeoJSON+leaflet implementation, same prop contract)
-```
-
-### Planned (Stage S3 client-mapa fan-out)
+### Current (Stage S3 — landed)
 
 ```
 client/src/features/mapa-tab/
