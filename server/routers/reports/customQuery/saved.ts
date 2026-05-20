@@ -34,7 +34,7 @@ export const savedQueriesRouter = router({
       let q = db
         .from("report_saved_queries")
         .select("*")
-        .or(`user_id.eq.${ctx.user.id},is_shared.eq.true`)
+        .or(`user_id.eq.${String(ctx.user.id)},is_shared.eq.true`)
         .order("created_at", { ascending: false });
 
       if (input?.programaId) {

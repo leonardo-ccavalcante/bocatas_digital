@@ -33,10 +33,39 @@ import {
   aggregateDensidad,
   applyKAnonymityToCompliance,
   applyKAnonymityToDensidad,
+  type AggregationDistrito,
   type ComplianceFlags,
   type FamilyForAggregation,
 } from "../_core/mapaAggregation";
 import { adminProcedure, router } from "../_core/trpc";
+
+/**
+ * Seed all 21 Madrid distritos into a densidad count map (SAT P2-2).
+ * Distritos absent from the data get 0 — so after k-anonymity a 0-family
+ * distrito is indistinguishable from a 1-or-2-family (suppressed) one,
+ * removing the presence-vs-absence info leak. "sin_asignar" is intentionally
+ * NOT seeded — it is not one of the 21 Madrid distritos.
+ */
+function seedDensidad(
+  counts: ReadonlyMap<AggregationDistrito, number>,
+): Map<AggregationDistrito, number> {
+  const seeded = new Map<AggregationDistrito, number>();
+  for (const slug of DISTRITO_SLUGS) {
+    seeded.set(slug, counts.get(slug) ?? 0);
+  }
+  return seeded;
+}
+
+/** Compliance analogue of seedDensidad (SAT P2-2). */
+function seedCompliance(
+  counts: ReadonlyMap<AggregationDistrito, { total: number; conRiesgo: number }>,
+): Map<AggregationDistrito, { total: number; conRiesgo: number }> {
+  const seeded = new Map<AggregationDistrito, { total: number; conRiesgo: number }>();
+  for (const slug of DISTRITO_SLUGS) {
+    seeded.set(slug, counts.get(slug) ?? { total: 0, conRiesgo: 0 });
+  }
+  return seeded;
+}
 
 const layerSchema = z.enum(["densidad", "compliance"]).default("densidad");
 
@@ -112,16 +141,17 @@ export const mapaRouter = router({
         docs_identidad: row.docs_identidad,
       }));
 
+      // Seed all 21 distritos (P2-2) then apply k-anonymity. The output
+      // always contains exactly the 21 Madrid distritos; "sin_asignar"
+      // (families with NULL distrito) is excluded by seeding only
+      // DISTRITO_SLUGS — it is an operational signal for the families/ops
+      // view, not the funder-facing map.
       const aggregated =
         layer === "compliance"
-          ? applyKAnonymityToCompliance(aggregateCompliance(families))
-          : applyKAnonymityToDensidad(aggregateDensidad(families));
+          ? applyKAnonymityToCompliance(seedCompliance(aggregateCompliance(families)))
+          : applyKAnonymityToDensidad(seedDensidad(aggregateDensidad(families)));
 
-      // Public output is keyed to the 21 Madrid distritos only — the
-      // "sin_asignar" bucket (families with NULL distrito) is an operational
-      // signal that belongs to the families/ops view, not to the funder-
-      // facing map. The aggregation helpers still bucket it internally for
-      // correctness; we drop it at the boundary.
+      // Type narrowing only — seeding guarantees no "sin_asignar" at runtime.
       const rows: DistritoStatRow[] = aggregated.filter(
         (row): row is DistritoStatRow => row.distrito !== "sin_asignar",
       );

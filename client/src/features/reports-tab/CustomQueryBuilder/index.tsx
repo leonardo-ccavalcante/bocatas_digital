@@ -64,6 +64,9 @@ export function CustomQueryBuilder({ initialSpec }: CustomQueryBuilderProps) {
         : [],
       groupBy: groupBy ?? undefined,
       limit,
+      // Internal admin analysis: no k-anonymity suppression. The export-safe
+      // toggle (SAT P2-1) is an opt-in surfaced when exporting for funders.
+      kAnonymize: false,
     };
     const parsed = SavedQuerySpecSchema.safeParse(specInput);
     if (!parsed.success) return;
