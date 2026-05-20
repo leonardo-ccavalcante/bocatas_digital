@@ -7,10 +7,30 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.5"
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
@@ -460,7 +480,7 @@ export type Database = {
         Row: {
           created_at: string
           deleted_at: string | null
-          es_autorizado: boolean | null
+          es_autorizado: boolean
           family_id: string
           fecha_entrega: string
           firma_url: string | null
@@ -483,9 +503,9 @@ export type Database = {
         Insert: {
           created_at?: string
           deleted_at?: string | null
-          es_autorizado?: boolean | null
+          es_autorizado?: boolean
           family_id: string
-          fecha_entrega: string
+          fecha_entrega?: string
           firma_url?: string | null
           grant_id?: string | null
           id?: string
@@ -506,7 +526,7 @@ export type Database = {
         Update: {
           created_at?: string
           deleted_at?: string | null
-          es_autorizado?: boolean | null
+          es_autorizado?: boolean
           family_id?: string
           fecha_entrega?: string
           firma_url?: string | null
@@ -602,11 +622,11 @@ export type Database = {
       familia_miembros: {
         Row: {
           apellidos: string | null
-          created_at: string | null
+          created_at: string
           deleted_at: string | null
           documentacion_id: string | null
           documento: string | null
-          estado: string | null
+          estado: string
           familia_id: string
           fecha_nacimiento: string | null
           id: string
@@ -614,31 +634,31 @@ export type Database = {
           person_id: string | null
           relacion: string | null
           rol: string
-          updated_at: string | null
+          updated_at: string
         }
         Insert: {
           apellidos?: string | null
-          created_at?: string | null
+          created_at?: string
           deleted_at?: string | null
           documentacion_id?: string | null
           documento?: string | null
-          estado?: string | null
+          estado?: string
           familia_id: string
           fecha_nacimiento?: string | null
           id?: string
           nombre: string
           person_id?: string | null
           relacion?: string | null
-          rol: string
-          updated_at?: string | null
+          rol?: string
+          updated_at?: string
         }
         Update: {
           apellidos?: string | null
-          created_at?: string | null
+          created_at?: string
           deleted_at?: string | null
           documentacion_id?: string | null
           documento?: string | null
-          estado?: string | null
+          estado?: string
           familia_id?: string
           fecha_nacimiento?: string | null
           id?: string
@@ -646,7 +666,7 @@ export type Database = {
           person_id?: string | null
           relacion?: string | null
           rol?: string
-          updated_at?: string | null
+          updated_at?: string
         }
         Relationships: [
           {
@@ -684,10 +704,12 @@ export type Database = {
           alta_en_guf: boolean | null
           autorizado: boolean | null
           autorizado_documento_url: string | null
+          codigo_postal: string | null
           consent_banco_alimentos: boolean | null
           consent_bocatas: boolean | null
           created_at: string
           deleted_at: string | null
+          distrito: string | null
           docs_identidad: boolean | null
           estado: string
           familia_numero: number
@@ -719,10 +741,12 @@ export type Database = {
           alta_en_guf?: boolean | null
           autorizado?: boolean | null
           autorizado_documento_url?: string | null
+          codigo_postal?: string | null
           consent_banco_alimentos?: boolean | null
           consent_bocatas?: boolean | null
           created_at?: string
           deleted_at?: string | null
+          distrito?: string | null
           docs_identidad?: boolean | null
           estado?: string
           familia_numero?: number
@@ -756,10 +780,12 @@ export type Database = {
           alta_en_guf?: boolean | null
           autorizado?: boolean | null
           autorizado_documento_url?: string | null
+          codigo_postal?: string | null
           consent_banco_alimentos?: boolean | null
           consent_bocatas?: boolean | null
           created_at?: string
           deleted_at?: string | null
+          distrito?: string | null
           docs_identidad?: boolean | null
           estado?: string
           familia_numero?: number
@@ -925,6 +951,60 @@ export type Database = {
             referencedRelation: "persons_safe"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "family_member_documents_tipo_id_fkey"
+            columns: ["tipo_id"]
+            isOneToOne: false
+            referencedRelation: "program_document_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      family_saved_views: {
+        Row: {
+          created_at: string
+          descripcion: string | null
+          display_order: number
+          filters_json: Json
+          id: string
+          is_shared: boolean
+          nombre: string
+          programa_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          descripcion?: string | null
+          display_order?: number
+          filters_json: Json
+          id?: string
+          is_shared?: boolean
+          nombre: string
+          programa_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          descripcion?: string | null
+          display_order?: number
+          filters_json?: Json
+          id?: string
+          is_shared?: boolean
+          nombre?: string
+          programa_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "family_saved_views_programa_id_fkey"
+            columns: ["programa_id"]
+            isOneToOne: false
+            referencedRelation: "programs"
+            referencedColumns: ["id"]
+          },
         ]
       }
       family_webhook_log: {
@@ -964,45 +1044,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      family_saved_views: {
-        Row: {
-          id: string
-          user_id: string
-          programa_id: string
-          nombre: string
-          descripcion: string | null
-          filters_json: Json
-          is_shared: boolean
-          display_order: number
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          programa_id: string
-          nombre: string
-          descripcion?: string | null
-          filters_json: Json
-          is_shared?: boolean
-          display_order?: number
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          programa_id?: string
-          nombre?: string
-          descripcion?: string | null
-          filters_json?: Json
-          is_shared?: boolean
-          display_order?: number
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: []
       }
       grants: {
         Row: {
@@ -1094,9 +1135,11 @@ export type Database = {
           apellidos: string | null
           barrio_zona: string | null
           canal_llegada: Database["public"]["Enums"]["canal_llegada"] | null
+          codigo_postal: string | null
           created_at: string
           deleted_at: string | null
           direccion: string | null
+          distrito: string | null
           email: string | null
           empadronado: boolean | null
           empresa_empleo: string | null
@@ -1145,9 +1188,11 @@ export type Database = {
           apellidos?: string | null
           barrio_zona?: string | null
           canal_llegada?: Database["public"]["Enums"]["canal_llegada"] | null
+          codigo_postal?: string | null
           created_at?: string
           deleted_at?: string | null
           direccion?: string | null
+          distrito?: string | null
           email?: string | null
           empadronado?: boolean | null
           empresa_empleo?: string | null
@@ -1196,9 +1241,11 @@ export type Database = {
           apellidos?: string | null
           barrio_zona?: string | null
           canal_llegada?: Database["public"]["Enums"]["canal_llegada"] | null
+          codigo_postal?: string | null
           created_at?: string
           deleted_at?: string | null
           direccion?: string | null
+          distrito?: string | null
           email?: string | null
           empadronado?: boolean | null
           empresa_empleo?: string | null
@@ -1243,6 +1290,74 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      program_document_types: {
+        Row: {
+          created_at: string
+          descripcion: string | null
+          display_order: number
+          guide_filename: string | null
+          guide_url: string | null
+          guide_version: string | null
+          id: string
+          is_active: boolean
+          is_required: boolean
+          nombre: string
+          programa_id: string
+          scope: string
+          slug: string
+          template_filename: string | null
+          template_url: string | null
+          template_version: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          descripcion?: string | null
+          display_order?: number
+          guide_filename?: string | null
+          guide_url?: string | null
+          guide_version?: string | null
+          id?: string
+          is_active?: boolean
+          is_required?: boolean
+          nombre: string
+          programa_id: string
+          scope: string
+          slug: string
+          template_filename?: string | null
+          template_url?: string | null
+          template_version?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          descripcion?: string | null
+          display_order?: number
+          guide_filename?: string | null
+          guide_url?: string | null
+          guide_version?: string | null
+          id?: string
+          is_active?: boolean
+          is_required?: boolean
+          nombre?: string
+          programa_id?: string
+          scope?: string
+          slug?: string
+          template_filename?: string | null
+          template_url?: string | null
+          template_version?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "program_document_types_programa_id_fkey"
+            columns: ["programa_id"]
+            isOneToOne: false
+            referencedRelation: "programs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       program_enrollments: {
         Row: {
@@ -1444,65 +1559,52 @@ export type Database = {
         }
         Relationships: []
       }
-      program_document_types: {
+      report_saved_queries: {
         Row: {
-          id: string
-          programa_id: string
-          slug: string
-          nombre: string
-          descripcion: string | null
-          scope: string
-          template_url: string | null
-          template_version: string | null
-          template_filename: string | null
-          guide_url: string | null
-          guide_version: string | null
-          guide_filename: string | null
-          is_required: boolean
-          is_active: boolean
-          display_order: number
           created_at: string
+          descripcion: string | null
+          display_order: number
+          id: string
+          is_shared: boolean
+          nombre: string
+          programa_id: string
+          spec_json: Json
           updated_at: string
+          user_id: string
         }
         Insert: {
-          id?: string
-          programa_id: string
-          slug: string
-          nombre: string
-          descripcion?: string | null
-          scope: string
-          template_url?: string | null
-          template_version?: string | null
-          template_filename?: string | null
-          guide_url?: string | null
-          guide_version?: string | null
-          guide_filename?: string | null
-          is_required?: boolean
-          is_active?: boolean
-          display_order?: number
           created_at?: string
+          descripcion?: string | null
+          display_order?: number
+          id?: string
+          is_shared?: boolean
+          nombre: string
+          programa_id: string
+          spec_json: Json
           updated_at?: string
+          user_id: string
         }
         Update: {
-          id?: string
-          programa_id?: string
-          slug?: string
-          nombre?: string
-          descripcion?: string | null
-          scope?: string
-          template_url?: string | null
-          template_version?: string | null
-          template_filename?: string | null
-          guide_url?: string | null
-          guide_version?: string | null
-          guide_filename?: string | null
-          is_required?: boolean
-          is_active?: boolean
-          display_order?: number
           created_at?: string
+          descripcion?: string | null
+          display_order?: number
+          id?: string
+          is_shared?: boolean
+          nombre?: string
+          programa_id?: string
+          spec_json?: Json
           updated_at?: string
+          user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "report_saved_queries_programa_id_fkey"
+            columns: ["programa_id"]
+            isOneToOne: false
+            referencedRelation: "programs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -1650,14 +1752,6 @@ export type Database = {
       }
     }
     Functions: {
-      check_soft_delete_schema: {
-        Args: { table_names: string[] }
-        Returns: {
-          has_deleted_at: boolean
-          has_index: boolean
-          table_name: string
-        }[]
-      }
       confirm_bulk_announcement_import: {
         Args: { p_autor_id: string; p_autor_nombre: string; p_token: string }
         Returns: Json
@@ -1702,6 +1796,7 @@ export type Database = {
         }[]
       }
       get_user_role: { Args: never; Returns: string }
+      madrid_distrito_for: { Args: { postal_code: string }; Returns: string }
       sanitize_audit_error: { Args: { p_msg: string }; Returns: string }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
@@ -1726,6 +1821,7 @@ export type Database = {
           member_id: string | null
           member_index: number
           member_person_id: string | null
+          tipo_id: string | null
           verified_by: string | null
         }
         SetofOptions: {
@@ -1960,6 +2056,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       canal_llegada: [
@@ -2074,3 +2173,4 @@ export const Constants = {
     },
   },
 } as const
+

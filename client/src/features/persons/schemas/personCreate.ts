@@ -62,6 +62,14 @@ export const PersonCreateSchema = z.object({
   telefono: z.string().max(30).optional().nullable(),
   email: z.string().email("Email inválido").max(254).optional().nullable().or(z.literal("")),
   direccion: z.string().max(300).optional().nullable(),
+  // 5-digit Spanish postal code (28xxx for Madrid). Drives persons.distrito
+  // server-side via the trg_persons_set_distrito trigger from M2.
+  codigo_postal: z
+    .string()
+    .regex(/^\d{5}$/, "Debe tener 5 dígitos")
+    .optional()
+    .nullable()
+    .or(z.literal("")),
   municipio: z.string().max(100).optional().nullable(),
   barrio_zona: z.string().max(100).optional().nullable(),
 
@@ -130,6 +138,7 @@ export const Section3Schema = PersonCreateSchema.pick({
   telefono: true,
   email: true,
   direccion: true,
+  codigo_postal: true,
   municipio: true,
   barrio_zona: true,
 });
