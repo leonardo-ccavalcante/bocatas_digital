@@ -1,0 +1,178 @@
+/**
+ * customQuery/executor.ts — Custom-query executor with typed operator dispatch.
+ *
+ * Critical compliance rules (T4 eng-review):
+ *   - NO `f.value as never` — uses a typed discriminated union per operator.
+ *   - Input is validated by SavedQuerySpecSchema BEFORE reaching the executor.
+ *   - All DB errors go through wrapDbError (DX-T2).
+ *   - All DB queries go through withSoftDeleteFilter (soft-delete leak prevention).
+ *   - groupBy + aggregate is executed in JS over limit-capped rows (plan §10 explicit).
+ *
+ * Role guard: adminProcedure — voluntarios receive FORBIDDEN.
+ */
+
+import { TRPCError } from "@trpc/server";
+import { router, adminProcedure } from "../../../_core/trpc";
+import { createAdminClient } from "../../../../client/src/lib/supabase/server";
+import { withSoftDeleteFilter, wrapDbError } from "../_shared";
+import { SavedQuerySpecSchema, type ParsedFilterRow } from "./allowlist";
+import { ENTITY_TO_TABLE } from "./allowlist";
+
+// ─── Typed operator dispatch ────────────────────────────────────────────────
+
+/**
+ * Apply a single parsed filter row to a Supabase query builder.
+ *
+ * The discriminated union on ParsedFilterRow["operator"] allows TypeScript to
+ * narrow the value type for each branch. No `as never` casts required.
+ */
+function applyFilter<
+  Q extends {
+    eq: (col: string, val: string | number | boolean) => Q;
+    neq: (col: string, val: string | number | boolean) => Q;
+    gt: (col: string, val: string | number | boolean) => Q;
+    gte: (col: string, val: string | number | boolean) => Q;
+    lt: (col: string, val: string | number | boolean) => Q;
+    lte: (col: string, val: string | number | boolean) => Q;
+    in: (col: string, vals: (string | number)[]) => Q;
+    ilike: (col: string, pattern: string) => Q;
+    is: (col: string, val: null) => Q;
+  },
+>(q: Q, f: ParsedFilterRow): Q {
+  switch (f.operator) {
+    case "eq":
+      return q.eq(f.field, f.value);
+    case "neq":
+      return q.neq(f.field, f.value);
+    case "gt":
+      return q.gt(f.field, f.value);
+    case "gte":
+      return q.gte(f.field, f.value);
+    case "lt":
+      return q.lt(f.field, f.value);
+    case "lte":
+      return q.lte(f.field, f.value);
+    case "in":
+      return q.in(f.field, f.value);
+    case "contains":
+      return q.ilike(f.field, `%${f.value}%`);
+    case "is_null":
+      return q.is(f.field, null);
+    case "between":
+      return q.gte(f.field, f.value).lte(f.field, f.value2);
+  }
+}
+
+// ─── Group + aggregate in JS (plan §10) ─────────────────────────────────────
+
+type GroupAggRow = { group: string; value: number };
+
+function applyGroupByAggregate(
+  rows: Record<string, unknown>[],
+  groupBy: string,
+  aggregate: { op: "count" | "sum" | "avg" | "min" | "max"; field: string },
+): GroupAggRow[] {
+  const groups = new Map<string, Record<string, unknown>[]>();
+
+  for (const row of rows) {
+    const key = String(row[groupBy] ?? "—");
+    const bucket = groups.get(key) ?? [];
+    bucket.push(row);
+    groups.set(key, bucket);
+  }
+
+  const out: GroupAggRow[] = [];
+
+  for (const [group, bucket] of groups) {
+    const { op, field } = aggregate;
+
+    if (op === "count") {
+      out.push({ group, value: bucket.length });
+      continue;
+    }
+
+    const nums = bucket
+      .map((r) => Number(r[field]))
+      .filter((n) => !isNaN(n));
+
+    switch (op) {
+      case "sum":
+        out.push({ group, value: nums.reduce((a, b) => a + b, 0) });
+        break;
+      case "avg":
+        out.push({
+          group,
+          value: nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : 0,
+        });
+        break;
+      case "min":
+        out.push({ group, value: nums.length ? Math.min(...nums) : 0 });
+        break;
+      case "max":
+        out.push({ group, value: nums.length ? Math.max(...nums) : 0 });
+        break;
+    }
+  }
+
+  return out;
+}
+
+// ─── Router ──────────────────────────────────────────────────────────────────
+
+export const customQueryRouter = router({
+  /**
+   * Execute a custom query spec against the DB.
+   *
+   * Input is validated by SavedQuerySpecSchema (allowlist enforcement happens
+   * in Zod superRefine — the executor trusts a parsed spec to be safe).
+   * Output: { rows: unknown[], total: number }.
+   */
+  execute: adminProcedure
+    .input(SavedQuerySpecSchema)
+    .query(async ({ input }) => {
+      const db = createAdminClient();
+      const table = ENTITY_TO_TABLE[input.entity];
+
+      // Build the base query through withSoftDeleteFilter (soft-delete guard).
+      // Cast to `never` here because ENTITY_TO_TABLE values are validated by
+      // SavedQuerySpecSchema upstream — the runtime string is always a valid table name.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let q = withSoftDeleteFilter(
+        (db.from as (t: string) => ReturnType<typeof db.from>)(table).select("*", { count: "exact" }),
+      );
+
+      // Apply filters via the typed discriminated-union dispatcher.
+      for (const f of input.filters) {
+        q = applyFilter(q, f as ParsedFilterRow);
+      }
+
+      // Apply orderBy if present.
+      if (input.orderBy) {
+        q = q.order(input.orderBy.field, {
+          ascending: input.orderBy.direction === "asc",
+        });
+      }
+
+      // Apply row cap.
+      q = q.limit(input.limit);
+
+      const { data, error, count } = await q;
+
+      if (error) {
+        throw wrapDbError("reports.customQuery.execute", error);
+      }
+
+      const rawRows = (data ?? []) as Record<string, unknown>[];
+
+      // Group + aggregate in JS (plan §10 explicit comment: SQL aggregation is
+      // a future TODO; JS-side is fine for limit-capped row sets).
+      if (input.groupBy && input.aggregate) {
+        const grouped = applyGroupByAggregate(rawRows, input.groupBy, input.aggregate);
+        return { rows: grouped as unknown[], total: grouped.length };
+      }
+
+      return { rows: rawRows as unknown[], total: count ?? rawRows.length };
+    }),
+});
+
+export type CustomQueryRouter = typeof customQueryRouter;
