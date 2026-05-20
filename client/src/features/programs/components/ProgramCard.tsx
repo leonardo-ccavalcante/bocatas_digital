@@ -1,68 +1,125 @@
 import { Link } from "wouter";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { ProgramGlyph } from "./ProgramGlyph";
 import type { ProgramWithCounts } from "../schemas";
 
 interface ProgramCardProps {
   program: ProgramWithCounts;
   isAdmin?: boolean;
+  /** 1-based display index for the editorial N°XX rail. */
+  index?: number;
 }
 
-export function ProgramCard({ program, isAdmin }: ProgramCardProps) {
+function fmt(n: number | null | undefined): string {
+  if (n == null) return "—";
+  return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}
+
+interface KPIStripCellProps {
+  label: string;
+  value: string;
+  valueClassName?: string;
+  border?: boolean;
+}
+
+function KPIStripCell({ label, value, valueClassName, border }: KPIStripCellProps) {
+  return (
+    <div
+      className={"px-4 py-3.5" + (border ? " border-l border-border" : "")}
+    >
+      <p className="text-eyebrow text-muted-foreground">{label}</p>
+      <p
+        className={`tabular-stat mt-1.5 text-[18px] sm:text-[20px] leading-none font-semibold${valueClassName ? ` ${valueClassName}` : ""}`}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
+export function ProgramCard({ program, isAdmin, index }: ProgramCardProps) {
+  const newVal =
+    program.new_this_month > 0 ? `+${program.new_this_month}` : "—";
+  const newIsPositive = program.new_this_month > 0;
+
   return (
     <Link href={`/programas/${program.slug}`}>
-      <Card className="group cursor-pointer border border-border/60 hover:border-primary/40 hover:shadow-md transition-all duration-200 h-full">
-        <CardHeader className="pb-3">
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex items-center gap-3">
-              <span className="text-2xl" role="img" aria-label={program.name}>
-                {program.icon ?? "🏠"}
-              </span>
-              <div>
-                <h3 className="font-semibold text-sm leading-tight text-foreground group-hover:text-primary transition-colors">
-                  {program.name}
-                </h3>
-                <p className="text-xs text-muted-foreground font-mono mt-0.5">{program.slug}</p>
-              </div>
-            </div>
-            <div className="flex flex-col items-end gap-1 shrink-0">
-              {!program.is_active && (
-                <Badge variant="secondary" className="text-xs">Inactivo</Badge>
-              )}
-              {program.is_default && (
-                <Badge variant="outline" className="text-xs border-primary/40 text-primary">
-                  Por defecto
-                </Badge>
-              )}
-            </div>
+      <div
+        className="group bocatas-card text-left h-full transition-all duration-300 active:scale-[0.99] hover:-translate-y-0.5 relative overflow-hidden flex flex-col cursor-pointer"
+      >
+        {/* Top rail: index + glyph */}
+        <div className="px-6 pt-5 flex items-start justify-between gap-3">
+          {index != null && (
+            <span className="text-[10px] font-mono tracking-[0.18em] text-muted-foreground">
+              N°&nbsp;{String(index).padStart(2, "0")}
+            </span>
+          )}
+          <div className="text-accent-foreground ml-auto">
+            <ProgramGlyph slug={program.slug} className="h-6 w-6" />
           </div>
-        </CardHeader>
+        </div>
 
+        {/* Title + description */}
+        <div className="px-6 pt-4 pb-5">
+          <div className="flex items-start gap-2 flex-wrap">
+            <h3
+              lang="es"
+              className="text-[20px] sm:text-[22px] leading-[1.15] font-semibold text-foreground tracking-[-0.01em] text-wrap-balance"
+            >
+              {program.name}
+            </h3>
+            {!program.is_active && (
+              <Badge variant="secondary" className="text-[9px] tracking-widest uppercase shrink-0 self-start mt-1">
+                Archivado
+              </Badge>
+            )}
+            {program.is_default && (
+              <Badge variant="outline" className="text-[9px] tracking-widest uppercase shrink-0 self-start mt-1 border-accent-foreground/20 text-accent-foreground">
+                Por defecto
+              </Badge>
+            )}
+          </div>
+          {program.description && (
+            <p className="text-body-sm text-muted-foreground mt-2.5 line-clamp-2">
+              {program.description}
+            </p>
+          )}
+        </div>
+
+        {/* KPI strip — only for admins who have count data */}
         {isAdmin && (
-          <CardContent className="pt-0">
-            <div className="grid grid-cols-3 gap-2 border-t border-border/40 pt-3">
-              <div className="text-center">
-                <p className="text-lg font-bold text-foreground tabular-nums">
-                  {program.active_enrollments}
-                </p>
-                <p className="text-xs text-muted-foreground">Activos</p>
-              </div>
-              <div className="text-center">
-                <p className="text-lg font-bold text-foreground tabular-nums">
-                  {program.total_enrollments}
-                </p>
-                <p className="text-xs text-muted-foreground">Total</p>
-              </div>
-              <div className="text-center">
-                <p className="text-lg font-bold text-emerald-600 tabular-nums">
-                  +{program.new_this_month}
-                </p>
-                <p className="text-xs text-muted-foreground">Este mes</p>
-              </div>
-            </div>
-          </CardContent>
+          <div className="mt-auto grid grid-cols-3 border-t border-border">
+            <KPIStripCell label="Activos" value={fmt(program.active_enrollments)} />
+            <KPIStripCell label="Histórico" value={fmt(program.total_enrollments)} border />
+            <KPIStripCell
+              label="Mes"
+              value={newVal}
+              valueClassName={newIsPositive ? "text-emerald-600" : undefined}
+              border
+            />
+          </div>
         )}
-      </Card>
+
+        {/* Footer */}
+        <div className="px-6 py-3 flex items-center justify-between border-t border-border bg-background">
+          <span className="text-body-sm text-muted-foreground truncate">
+            {program.slug}
+          </span>
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-foreground transition-all duration-300 group-hover:gap-2 shrink-0">
+            Abrir
+            <svg
+              viewBox="0 0 24 24"
+              className="h-3.5 w-3.5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              aria-hidden="true"
+            >
+              <path d="M5 12h14M13 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </span>
+        </div>
+      </div>
     </Link>
   );
 }
