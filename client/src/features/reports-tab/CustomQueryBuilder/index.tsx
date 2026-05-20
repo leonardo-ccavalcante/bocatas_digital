@@ -18,12 +18,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { trpc } from "@/lib/trpc";
 import { REPORT_ENTITIES, ENTITY_FIELDS, type ReportEntity } from "@shared/reports/entities";
 import { SavedQuerySpecSchema, type SavedQuerySpec } from "@shared/reports/savedQuerySpec";
 import { FieldPicker } from "./FieldPicker";
 import { OperatorPicker } from "./OperatorPicker";
 import { GroupByPicker } from "./GroupByPicker";
+import { AggregatePicker, type AggregateValue } from "./AggregatePicker";
 import { PreviewPane } from "./PreviewPane";
 
 const ENTITY_LABELS: Record<ReportEntity, string> = {
@@ -46,8 +48,19 @@ export function CustomQueryBuilder({ initialSpec }: CustomQueryBuilderProps) {
   const [filterOp, setFilterOp] = useState<string>("eq");
   const [filterValue, setFilterValue] = useState<string>("");
   const [groupBy, setGroupBy] = useState<string | undefined>(initialSpec?.groupBy);
+  const [aggregate, setAggregate] = useState<AggregateValue | undefined>(
+    initialSpec?.aggregate,
+  );
+  const [kAnonymize, setKAnonymize] = useState<boolean>(
+    initialSpec?.kAnonymize ?? false,
+  );
   const [limit, setLimit] = useState<number>(initialSpec?.limit ?? 1000);
   const [runSpec, setRunSpec] = useState<SavedQuerySpec | null>(null);
+
+  // k-anonymity only affects grouped aggregates (the server suppresses small
+  // buckets). Enabling it on a raw query would be misleading, so the toggle is
+  // gated on a complete grouped aggregate being configured.
+  const canKAnonymize = Boolean(groupBy && aggregate);
 
   const executeQuery = trpc.reports.execute.useQuery(
     runSpec as SavedQuerySpec,
@@ -63,10 +76,12 @@ export function CustomQueryBuilder({ initialSpec }: CustomQueryBuilderProps) {
         ? [{ field: filterField, operator: filterOp as "eq", value: filterValue }]
         : [],
       groupBy: groupBy ?? undefined,
+      aggregate: aggregate ?? undefined,
       limit,
-      // Internal admin analysis: no k-anonymity suppression. The export-safe
-      // toggle (SAT P2-1) is an opt-in surfaced when exporting for funders.
-      kAnonymize: false,
+      // k-anonymity suppression is only meaningful for grouped aggregates;
+      // canKAnonymize gates the toggle, so this is false unless a grouped
+      // aggregate is configured AND the operator opted in.
+      kAnonymize: canKAnonymize && kAnonymize,
     };
     const parsed = SavedQuerySpecSchema.safeParse(specInput);
     if (!parsed.success) return;
@@ -79,6 +94,8 @@ export function CustomQueryBuilder({ initialSpec }: CustomQueryBuilderProps) {
     setFilterOp("eq");
     setFilterValue("");
     setGroupBy(undefined);
+    setAggregate(undefined);
+    setKAnonymize(false);
     setRunSpec(null);
   }
 
@@ -129,13 +146,28 @@ export function CustomQueryBuilder({ initialSpec }: CustomQueryBuilderProps) {
         )}
       </div>
 
-      {/* GroupBy + limit */}
+      {/* GroupBy + aggregate */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         <GroupByPicker
           entity={entity}
           value={groupBy ?? ""}
-          onChange={setGroupBy}
+          onChange={(v) => {
+            setGroupBy(v);
+            if (!v) setKAnonymize(false);
+          }}
         />
+        <AggregatePicker
+          entity={entity}
+          value={aggregate ? `${aggregate.op}:${aggregate.field}` : ""}
+          onChange={(a) => {
+            setAggregate(a);
+            if (!a) setKAnonymize(false);
+          }}
+        />
+      </div>
+
+      {/* Limit + k-anonymity export toggle */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         <div className="space-y-1">
           <Label htmlFor="limit-input" className="text-xs">
             Límite de filas
@@ -149,6 +181,22 @@ export function CustomQueryBuilder({ initialSpec }: CustomQueryBuilderProps) {
             onChange={(e) => setLimit(Number(e.target.value))}
             aria-label="Límite de filas"
           />
+        </div>
+        <div className="flex items-center gap-2 pt-5">
+          <Switch
+            id="kanon-switch"
+            checked={kAnonymize}
+            disabled={!canKAnonymize}
+            onCheckedChange={setKAnonymize}
+            aria-label="Anonimizar para exportación externa"
+          />
+          <Label
+            htmlFor="kanon-switch"
+            className={`text-xs ${canKAnonymize ? "" : "text-muted-foreground"}`}
+          >
+            Anonimizar para exportación externa
+            {!canKAnonymize && " (requiere agrupar + agregar)"}
+          </Label>
         </div>
       </div>
 
