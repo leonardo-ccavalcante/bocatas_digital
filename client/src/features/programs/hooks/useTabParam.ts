@@ -14,7 +14,7 @@ export const PROGRAM_TABS: readonly ProgramTab[] = [
 const DEFAULT_TAB: ProgramTab = "familias";
 
 /** Single source of truth for which tabs are live in this phase. */
-export const ENABLED_TABS: readonly ProgramTab[] = ["familias", "uploads"];
+export const ENABLED_TABS: readonly ProgramTab[] = ["familias", "uploads", "mapa", "reports"];
 
 /** Pure: parse the `tab` query param from a URL search string. */
 export function parseTabFromSearch(search: string): ProgramTab {
