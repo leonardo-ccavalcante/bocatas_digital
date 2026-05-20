@@ -13,7 +13,25 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import { FieldPicker } from "../CustomQueryBuilder/FieldPicker";
 import { GroupByPicker } from "../CustomQueryBuilder/GroupByPicker";
+import { AggregatePicker, aggregateOptions } from "../CustomQueryBuilder/AggregatePicker";
 import { ENTITY_FIELDS } from "@shared/reports/entities";
+
+// Mock trpc so the full CustomQueryBuilder can render without a provider.
+const { mockExecuteUseQuery } = vi.hoisted(() => ({
+  mockExecuteUseQuery: vi.fn(() => ({
+    data: undefined,
+    isLoading: false,
+    error: null,
+  })),
+}));
+
+vi.mock("@/lib/trpc", () => ({
+  trpc: {
+    reports: {
+      execute: { useQuery: mockExecuteUseQuery },
+    },
+  },
+}));
 
 // ResizeObserver stub for Radix UI
 class ResizeObserverStub {
@@ -95,5 +113,55 @@ describe("GroupByPicker", () => {
     for (const f of nonGroupable) {
       expect(screen.queryByText(f.label)).not.toBeInTheDocument();
     }
+  });
+});
+
+describe("AggregatePicker", () => {
+  // Radix renders dropdown options only when the select opens, so we test the
+  // pure option-generation logic directly (matches the codebase's picker-test
+  // philosophy of not driving Radix portals in jsdom).
+  it("renders a select trigger", () => {
+    render(<AggregatePicker entity="families" value="" onChange={vi.fn()} />);
+    expect(screen.getByLabelText("Función de agregación")).toBeInTheDocument();
+  });
+
+  it("aggregateOptions offers count-of-id for families (id is aggregable: ['count'])", () => {
+    const opts = aggregateOptions("families");
+    expect(opts).toContainEqual({ value: "count:id", label: "Conteo de ID" });
+  });
+
+  it("aggregateOptions offers sum/avg/min/max of an aggregable number field (num_adultos)", () => {
+    const opts = aggregateOptions("families");
+    const labels = opts.map((o) => o.label);
+    expect(labels).toContain("Suma de Núm. adultos");
+    expect(labels).toContain("Promedio de Núm. adultos");
+    expect(labels).toContain("Mínimo de Núm. adultos");
+    expect(labels).toContain("Máximo de Núm. adultos");
+  });
+
+  it("aggregateOptions does NOT include a non-aggregable field (estado has aggregable:false)", () => {
+    const opts = aggregateOptions("families");
+    expect(opts.some((o) => o.value.endsWith(":estado"))).toBe(false);
+  });
+
+  it("aggregateOptions values are well-formed `${op}:${field}` pairs", () => {
+    const opts = aggregateOptions("deliveries");
+    for (const o of opts) {
+      expect(o.value).toMatch(/^(count|sum|avg|min|max):[a-z_]+$/);
+    }
+  });
+});
+
+describe("CustomQueryBuilder — kAnonymize toggle gating", () => {
+  it("renders the k-anonymity export toggle, disabled until a grouped aggregate is configured", async () => {
+    const { CustomQueryBuilder } = await import("../CustomQueryBuilder");
+    render(<CustomQueryBuilder />);
+    const toggle = screen.getByRole("switch", {
+      name: /anonimizar para exportación/i,
+    });
+    expect(toggle).toBeInTheDocument();
+    // No groupBy + aggregate yet → toggle is disabled (k-anon only applies to
+    // grouped aggregates; enabling it on a raw query would be misleading).
+    expect(toggle).toBeDisabled();
   });
 });
