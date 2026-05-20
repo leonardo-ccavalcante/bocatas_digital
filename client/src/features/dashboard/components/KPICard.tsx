@@ -1,6 +1,7 @@
 /**
- * KPICard — McKinsey/Colenusbaumer style KPI card.
- * Large number, clean label, skeleton on loading, error state with retry.
+ * KPICard — v4 restyle: matches prototype layout.
+ * highlight=true renders solid primary background (today KPI).
+ * Includes trend text + delta badge from prototype design.
  */
 import { Button } from "@/components/ui/button";
 import { AlertCircle, RefreshCw } from "lucide-react";
@@ -9,16 +10,20 @@ interface KPICardProps {
   label: string;
   sublabel: string;
   count: number;
+  trend?: string;
+  deltaPct?: number;
   isLoading?: boolean;
   isError?: boolean;
   onRetry?: () => void;
-  highlight?: boolean; // primary accent for "today"
+  highlight?: boolean;
 }
 
 export function KPICard({
   label,
   sublabel,
   count,
+  trend,
+  deltaPct,
   isLoading = false,
   isError = false,
   onRetry,
@@ -26,17 +31,17 @@ export function KPICard({
 }: KPICardProps) {
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-lg border border-border bg-card p-3 min-h-[88px] gap-1 animate-pulse">
-        <div className="h-7 w-14 rounded bg-muted" />
-        <div className="h-3 w-12 rounded bg-muted mt-1" />
-        <div className="h-3 w-10 rounded bg-muted" />
+      <div className="bocatas-card flex flex-col p-3 sm:p-4 min-h-[100px] gap-1 animate-pulse">
+        <div className="h-3 w-12 rounded bg-muted" />
+        <div className="h-8 w-14 rounded bg-muted mt-1" />
+        <div className="h-2 w-10 rounded bg-muted" />
       </div>
     );
   }
 
   if (isError) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-lg border border-destructive/30 bg-destructive/5 p-3 min-h-[88px] gap-1">
+      <div className="bocatas-card border-destructive/30 bg-destructive/5 flex flex-col items-center justify-center p-3 min-h-[100px] gap-1">
         <AlertCircle className="h-4 w-4 text-destructive" />
         <span className="text-[10px] text-destructive text-center leading-tight">Error al cargar</span>
         {onRetry && (
@@ -54,28 +59,65 @@ export function KPICard({
     );
   }
 
+  if (highlight) {
+    return (
+      <div className="rounded-2xl p-3 sm:p-4 border bg-primary border-primary text-primary-foreground">
+        <div className="flex items-center justify-between">
+          <p className="text-eyebrow text-primary-foreground/70">{label}</p>
+          {typeof deltaPct === "number" && (
+            <span
+              className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-white/20 text-primary-foreground"
+              aria-label={`Variación: ${deltaPct >= 0 ? "+" : ""}${deltaPct}%`}
+            >
+              {deltaPct >= 0 ? "▲" : "▼"} {deltaPct >= 0 ? "+" : ""}{deltaPct}%
+            </span>
+          )}
+        </div>
+        <p className="tabular-stat text-2xl sm:text-3xl md:text-4xl font-bold leading-none mt-2 text-primary-foreground">
+          {count.toLocaleString("es-ES")}
+        </p>
+        <p className="text-[11px] mt-1 text-primary-foreground/70">{sublabel}</p>
+        {trend && (
+          <p className="text-[10px] mt-2 font-medium text-primary-foreground/80">{trend}</p>
+        )}
+      </div>
+    );
+  }
+
   return (
-    <div
-      className={`flex flex-col items-center justify-center rounded-lg border p-3 min-h-[88px] gap-0.5 transition-colors ${
-        highlight
-          ? "border-primary/40 bg-primary/5"
-          : "border-border bg-card"
-      }`}
-    >
-      {/* McKinsey style: label small caps above number */}
-      <span className="text-[10px] font-semibold tracking-widest uppercase text-muted-foreground leading-none">
-        {label}
-      </span>
-      {/* Large number — primary metric */}
-      <span
-        className={`text-2xl font-bold tabular-nums leading-tight ${
-          highlight ? "text-primary" : "text-foreground"
-        }`}
-      >
+    <div className="bocatas-card p-3 sm:p-4 min-h-[100px]">
+      <div className="flex items-center justify-between">
+        <p className="text-eyebrow text-muted-foreground">{label}</p>
+        {typeof deltaPct === "number" && (
+          <span
+            className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full border ${
+              deltaPct >= 0
+                ? "bg-green-50 text-emerald-600 border-green-200"
+                : "bg-red-50 text-red-600 border-red-200"
+            }`}
+            aria-label={`Variación: ${deltaPct >= 0 ? "+" : ""}${deltaPct}%`}
+          >
+            {deltaPct >= 0 ? "▲" : "▼"} {deltaPct >= 0 ? "+" : ""}{deltaPct}%
+          </span>
+        )}
+      </div>
+      <p className="tabular-stat text-2xl sm:text-3xl font-bold leading-none mt-2 text-foreground">
         {count.toLocaleString("es-ES")}
-      </span>
-      {/* Sublabel */}
-      <span className="text-[10px] text-muted-foreground leading-none">{sublabel}</span>
+      </p>
+      <p className="text-[11px] mt-1 text-muted-foreground">{sublabel}</p>
+      {trend && (
+        <p
+          className={`text-[10px] mt-2 font-medium ${
+            typeof deltaPct === "number"
+              ? deltaPct >= 0
+                ? "text-emerald-600"
+                : "text-red-600"
+              : "text-muted-foreground"
+          }`}
+        >
+          {trend}
+        </p>
+      )}
     </div>
   );
 }

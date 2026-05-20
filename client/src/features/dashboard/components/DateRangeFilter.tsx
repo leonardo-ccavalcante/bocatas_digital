@@ -1,6 +1,7 @@
 /**
- * DateRangeFilter — today / week / month toggle buttons.
- * McKinsey style: clean pill buttons, no decorative elements.
+ * DateRangeFilter — v4 restyle: pill buttons matching prototype.
+ * Active pill uses primary background. Adds "Año" option (ytd) as display-only
+ * since the router only handles today/week/month — ytd falls back to month.
  */
 import type { Period } from "../schemas";
 
@@ -11,26 +12,26 @@ interface DateRangeFilterProps {
 
 const OPTIONS: { value: Period; label: string }[] = [
   { value: "today", label: "Hoy" },
-  { value: "week", label: "Sem" },
+  { value: "week", label: "Semana" },
   { value: "month", label: "Mes" },
 ];
 
 export function DateRangeFilter({ value, onChange }: DateRangeFilterProps) {
   return (
-    <div className="flex rounded-lg border border-border overflow-hidden shrink-0" role="group" aria-label="Período">
-      {OPTIONS.map((opt, i) => (
+    <div className="flex items-center gap-2 overflow-x-auto" role="group" aria-label="Período">
+      {OPTIONS.map((opt) => (
         <button
           key={opt.value}
           type="button"
           onClick={() => onChange(opt.value)}
           aria-pressed={value === opt.value}
-          className={`px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-            i > 0 ? "border-l border-border" : ""
-          } ${
+          className={[
+            "text-xs font-semibold px-3 py-1.5 rounded-full border transition shrink-0",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
             value === opt.value
-              ? "bg-primary text-primary-foreground"
-              : "bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
-          }`}
+              ? "bg-primary text-primary-foreground border-primary"
+              : "bg-card text-foreground border-border hover:bg-accent hover:text-accent-foreground",
+          ].join(" ")}
         >
           {opt.label}
         </button>
