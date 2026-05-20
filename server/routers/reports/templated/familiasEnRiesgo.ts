@@ -14,7 +14,7 @@
 import { z } from "zod";
 import { router, adminProcedure } from "../../../_core/trpc";
 import { createAdminClient } from "../../../../client/src/lib/supabase/server";
-import { withSoftDeleteFilter, wrapDbError } from "../_shared";
+import { wrapDbError } from "../_shared";
 import { hasComplianceRedFlag, type ComplianceFlags } from "../../../_core/mapaAggregation";
 
 const InputSchema = z
@@ -54,13 +54,15 @@ export const familiasEnRiesgoRouter = router({
         q = q.eq("estado", "activa");
       }
 
-      const { data, error } = await q.order("familia_numero", { ascending: true });
+      const { data, error } = await q
+        .order("familia_numero", { ascending: true })
+        .returns<FamilyRow[]>();
 
       if (error) {
         throw wrapDbError("reports.familiasEnRiesgo", error);
       }
 
-      const rows = (data as unknown as FamilyRow[]) ?? [];
+      const rows = data ?? [];
       const redFlagRows = rows.filter((r) => hasComplianceRedFlag(r));
 
       return {

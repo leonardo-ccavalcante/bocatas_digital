@@ -118,7 +118,6 @@ client/public/__manus__/version.json
 # Playwright artifacts (specs in e2e/ are tracked; outputs are not)
 playwright-report/
 test-results/
-reports/
 playwright/.cache/
 
 # Supabase CLI temporary files
