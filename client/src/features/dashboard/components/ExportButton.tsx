@@ -1,9 +1,9 @@
 /**
- * ExportButton — triggers CSV export respecting active filters.
- * Toast on error. Filename: bocatas_asistencias_YYYY-MM.csv
+ * ExportButton — v4 restyle: bocatas-btn-outline style.
+ * Triggers CSV export respecting active filters. Toast on error.
+ * Filename: bocatas_asistencias_YYYY-MM.csv
  */
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
 import { Download, Loader2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { downloadCSV } from "../utils/exportCSV";
@@ -57,7 +57,7 @@ export function ExportButton({ locationId, currentPeriod, programa = "all" }: Ex
       }
 
       downloadCSV(result.rows, result.dateFrom);
-    } catch (err) {
+    } catch {
       setErrorMsg("Error al exportar. Inténtalo de nuevo.");
     } finally {
       setIsExporting(false);
@@ -66,22 +66,24 @@ export function ExportButton({ locationId, currentPeriod, programa = "all" }: Ex
 
   return (
     <div className="flex flex-col gap-1">
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={handleExport}
+      <button
+        type="button"
+        onClick={() => void handleExport()}
         disabled={isExporting}
-        className="w-full gap-2 text-sm font-medium"
+        className="bocatas-btn-outline w-full"
+        aria-label="Exportar datos como CSV"
       >
         {isExporting ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
         ) : (
-          <Download className="h-4 w-4" />
+          <Download className="h-4 w-4" aria-hidden="true" />
         )}
         {isExporting ? "Exportando..." : "Exportar CSV"}
-      </Button>
+      </button>
       {errorMsg && (
-        <p className="text-xs text-destructive text-center">{errorMsg}</p>
+        <p className="text-[11px] text-destructive text-center" role="alert">
+          {errorMsg}
+        </p>
       )}
     </div>
   );
