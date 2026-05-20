@@ -214,6 +214,11 @@
     @apply inline-flex items-center justify-center rounded-full px-6 py-3 min-h-[48px] text-base font-semibold text-white bg-gradient-to-r from-[#C41230] to-[#e51538] shadow-md hover:from-[#a30e26] hover:to-[#C41230] transition-all;
   }
 
+  /* Bocatas button outline / secondary */
+  .bocatas-btn-outline {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 min-h-[48px] text-sm font-semibold border border-border bg-card text-foreground hover:bg-accent hover:text-accent-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
   /* ─── v4 Type Scale ──────────────────────────────────────────────────────── */
   /* Sizes in rem (16px root) so they respect user/browser text scaling — WCAG 1.4.4.
      Renders identically to the prototype's px values at default root size. */
