@@ -84,7 +84,7 @@ export function PersonsFilterBar({
         <div className="flex items-end justify-between gap-3 mb-4">
           <div className="min-w-0">
             <p className="text-eyebrow text-muted-foreground">Directorio</p>
-            <h1 className="text-h2 mt-1 text-foreground">Personas</h1>
+            <h1 className="text-display-2 mt-1 text-foreground">Personas</h1>
           </div>
           {showNewButton && (
             <Link href="/personas/nueva">
