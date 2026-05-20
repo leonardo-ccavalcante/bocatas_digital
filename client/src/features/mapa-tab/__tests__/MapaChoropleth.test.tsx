@@ -274,3 +274,88 @@ describe("<MapaChoropleth /> — S3 extensions", () => {
     expect(screen.queryByTestId("mapa-empty-state")).not.toBeInTheDocument();
   });
 });
+
+// ── C-06: accessible data-table mirror + legend (WCAG 2.1 AA) ────────────────
+// The leaflet SVG map is a visual enhancement only — keyboard/screen-reader
+// users get the data from an accessible <table> that is ALWAYS rendered
+// (even without GeoJSON), with counts as TEXT (not color-only) and a
+// keyboard-actionable control per distrito.
+describe("<MapaChoropleth /> — accessible data table (C-06)", () => {
+  it("renders an accessible table even when no GeoJSON is provided", () => {
+    render(
+      <MapaChoropleth
+        rows={SAMPLE_ROWS}
+        kAnonymityFloor={3}
+        layer="densidad"
+        onDistritoClick={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("table")).toBeInTheDocument();
+  });
+
+  it("shows each distrito count as TEXT (not color-only)", () => {
+    render(
+      <MapaChoropleth
+        rows={SAMPLE_ROWS}
+        kAnonymityFloor={3}
+        layer="densidad"
+        onDistritoClick={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("12 familias")).toBeInTheDocument();
+    expect(screen.getByText("7 familias")).toBeInTheDocument();
+  });
+
+  it("shows a TEXT k-anonymity marker for suppressed distritos (not just neutral color)", () => {
+    render(
+      <MapaChoropleth
+        rows={SAMPLE_ROWS}
+        kAnonymityFloor={3}
+        layer="densidad"
+        onDistritoClick={vi.fn()}
+      />,
+    );
+    // Exact string targets the row cell (the legend adds "(dato protegido)").
+    expect(screen.getByText("Menos de 3 familias")).toBeInTheDocument();
+  });
+
+  it("each distrito has a keyboard-actionable control that calls onDistritoClick", async () => {
+    const onDistritoClick = vi.fn();
+    render(
+      <MapaChoropleth
+        rows={SAMPLE_ROWS}
+        kAnonymityFloor={3}
+        layer="densidad"
+        onDistritoClick={onDistritoClick}
+      />,
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: /Ver detalle de Centro/i }),
+    );
+    expect(onDistritoClick).toHaveBeenCalledWith("centro");
+  });
+
+  it("shows compliance as a percentage in the table on the compliance layer", () => {
+    render(
+      <MapaChoropleth
+        rows={SAMPLE_ROWS}
+        kAnonymityFloor={3}
+        layer="compliance"
+        onDistritoClick={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/83\s*%/)).toBeInTheDocument();
+  });
+
+  it("renders a legend describing the scale", () => {
+    render(
+      <MapaChoropleth
+        rows={SAMPLE_ROWS}
+        kAnonymityFloor={3}
+        layer="densidad"
+        onDistritoClick={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId("mapa-legend")).toBeInTheDocument();
+  });
+});
