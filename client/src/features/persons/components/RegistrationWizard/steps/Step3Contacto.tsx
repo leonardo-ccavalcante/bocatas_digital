@@ -27,7 +27,22 @@ export function Step3Contacto({ register, errors }: Step3ContactoProps) {
         <Label htmlFor="direccion">Dirección</Label>
         <Input id="direccion" {...register("direccion")} placeholder="Calle Mayor 1, 2ºA" />
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-3 gap-3">
+        <div className="space-y-1">
+          <Label htmlFor="codigo_postal">Código postal</Label>
+          <Input
+            id="codigo_postal"
+            inputMode="numeric"
+            maxLength={5}
+            {...register("codigo_postal")}
+            placeholder="28012"
+            aria-describedby="codigo_postal_help"
+          />
+          <p id="codigo_postal_help" className="text-body-sm text-muted-foreground">
+            5 dígitos. Determina el distrito automáticamente.
+          </p>
+          <FieldError message={errors.codigo_postal?.message} />
+        </div>
         <div className="space-y-1">
           <Label htmlFor="municipio">Municipio</Label>
           <Input id="municipio" {...register("municipio")} placeholder="Madrid" />

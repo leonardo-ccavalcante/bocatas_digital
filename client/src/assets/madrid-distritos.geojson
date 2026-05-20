@@ -1,0 +1,9 @@
+{
+  "type": "FeatureCollection",
+  "metadata": {
+    "_TODO": "Replace with canonical Madrid distritos GeoJSON from datos.madrid.es. Expected: 21 Polygon/MultiPolygon features with `properties.NOMBRE` (e.g. 'Centro') and `properties.COD_DIS` (1-21). The MapaChoropleth component normalizes `NOMBRE` to a DistritoSlug at load time. Approximate file size: ~50KB. Source URL: https://datos.madrid.es (search 'distritos administrativos shapefile geojson').",
+    "_status": "placeholder",
+    "_required_before": "Stage S3 client-mapa Feature Agent merges"
+  },
+  "features": []
+}
