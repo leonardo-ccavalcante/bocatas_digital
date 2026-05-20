@@ -74,6 +74,8 @@ function mockSelectChain(result: ChainResult) {
     or: vi.fn().mockReturnThis(),
     insert: vi.fn().mockReturnThis(),
     delete: vi.fn().mockReturnThis(),
+    // .returns<T>() is a TS-only modifier; at runtime it returns the builder.
+    returns: vi.fn().mockReturnThis(),
     single: vi.fn().mockResolvedValue(result),
     then: (
       resolve: (v: ChainResult) => unknown,
@@ -230,6 +232,56 @@ describe("customQuery.execute — output shape", () => {
     });
     expect(result.rows).toEqual([]);
     expect(result.total).toBe(0);
+  });
+});
+
+// ─── 5. SECURITY (SAT P1): server-side column projection by allowlist ─────
+// The executor MUST NEVER select("*") — that returns every column including
+// high-risk PII (situacion_legal, foto_documento_url, recorrido_migratorio)
+// because createAdminClient() bypasses RLS via the service role. Projecting
+// only allowlisted columns makes the PII exclusion unconditional, not
+// dependent on the client passing redactFields to the CSV exporter.
+
+describe("customQuery.execute — column projection is allowlist-only (no PII leak)", () => {
+  function captureSelectChain(result: ChainResult) {
+    const chain = mockSelectChain(result);
+    return chain;
+  }
+
+  it("never passes '*' to .select() for the persons entity", async () => {
+    const chain = captureSelectChain({ data: [], error: null, count: 0 });
+    fromMock.mockReturnValueOnce(chain);
+    const caller = customQueryRouter.createCaller(ctxWithRole("admin"));
+    await caller.execute({ entity: "persons", filters: [], limit: 10 });
+
+    const projection = chain.select.mock.calls[0]?.[0] as string;
+    expect(projection).toBeDefined();
+    expect(projection).not.toBe("*");
+    expect(projection).not.toContain("*");
+  });
+
+  it("excludes high-risk PII columns from the persons projection", async () => {
+    const chain = captureSelectChain({ data: [], error: null, count: 0 });
+    fromMock.mockReturnValueOnce(chain);
+    const caller = customQueryRouter.createCaller(ctxWithRole("admin"));
+    await caller.execute({ entity: "persons", filters: [], limit: 10 });
+
+    const projection = chain.select.mock.calls[0]?.[0] as string;
+    expect(projection).not.toContain("situacion_legal");
+    expect(projection).not.toContain("foto_documento_url");
+    expect(projection).not.toContain("recorrido_migratorio");
+  });
+
+  it("includes the allowlisted demographic columns for persons", async () => {
+    const chain = captureSelectChain({ data: [], error: null, count: 0 });
+    fromMock.mockReturnValueOnce(chain);
+    const caller = customQueryRouter.createCaller(ctxWithRole("admin"));
+    await caller.execute({ entity: "persons", filters: [], limit: 10 });
+
+    const projection = chain.select.mock.calls[0]?.[0] as string;
+    expect(projection).toContain("idioma_principal");
+    expect(projection).toContain("pais_origen");
+    expect(projection).toContain("id");
   });
 });
 

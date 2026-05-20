@@ -15,7 +15,23 @@ import { router, adminProcedure } from "../../../_core/trpc";
 import { createAdminClient } from "../../../../client/src/lib/supabase/server";
 import { withSoftDeleteFilter, wrapDbError } from "../_shared";
 import { SavedQuerySpecSchema, type ParsedFilterRow } from "./allowlist";
-import { ENTITY_TO_TABLE } from "./allowlist";
+import { ENTITY_FIELDS, ENTITY_TO_TABLE, type ReportEntity } from "./allowlist";
+
+/**
+ * Build the SELECT projection for an entity from its allowlist.
+ *
+ * SECURITY (SAT Devil's Advocacy P1): the executor must NEVER `select("*")`.
+ * `*` returns every column of the table — including high-risk PII
+ * (situacion_legal, foto_documento_url, recorrido_migratorio on persons)
+ * because createAdminClient() uses the service role and bypasses RLS.
+ * Projecting only allowlisted columns makes the allowlist the single source
+ * of truth for what can leave via customQuery — both INPUT (filters) and
+ * OUTPUT (columns). Defense does not depend on every client remembering to
+ * pass redactFields to the CSV exporter.
+ */
+function projectionFor(entity: ReportEntity): string {
+  return ENTITY_FIELDS[entity].map((f) => f.name).join(", ");
+}
 
 // ─── Typed operator dispatch ────────────────────────────────────────────────
 
@@ -131,12 +147,16 @@ export const customQueryRouter = router({
     .query(async ({ input }) => {
       const db = createAdminClient();
       const table = ENTITY_TO_TABLE[input.entity];
+      const projection = projectionFor(input.entity);
 
       // Build the base query through withSoftDeleteFilter (soft-delete guard).
       // The runtime string from ENTITY_TO_TABLE is always a valid table name
       // because the input was validated by SavedQuerySpecSchema upstream.
+      // Projection is allowlist-only — never "*" (see projectionFor above).
       let q = withSoftDeleteFilter(
-        (db.from as (t: string) => ReturnType<typeof db.from>)(table).select("*", { count: "exact" }),
+        (db.from as (t: string) => ReturnType<typeof db.from>)(table).select(projection, {
+          count: "exact",
+        }),
       );
 
       // Apply filters via the typed discriminated-union dispatcher.
@@ -154,13 +174,15 @@ export const customQueryRouter = router({
       // Apply row cap.
       q = q.limit(input.limit);
 
-      const { data, error, count } = await q;
+      // .returns<T>() is a TS-only modifier — the dynamic projection string
+      // makes supabase-js fall back to GenericStringError[]; narrow it here.
+      const { data, error, count } = await q.returns<Record<string, unknown>[]>();
 
       if (error) {
         throw wrapDbError("reports.customQuery.execute", error);
       }
 
-      const rawRows = (data ?? []) as Record<string, unknown>[];
+      const rawRows = data ?? [];
 
       // Group + aggregate in JS (plan §10 explicit comment: SQL aggregation is
       // a future TODO; JS-side is fine for limit-capped row sets).
