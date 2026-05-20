@@ -20,20 +20,20 @@ client/src/features/reports-tab/
 │   ├── FieldPicker.tsx                     ≤ 120 LOC
 │   ├── OperatorPicker.tsx                  ≤ 100 LOC
 │   ├── GroupByPicker.tsx                   ≤ 100 LOC
+│   ├── AggregatePicker.tsx                 ≤ 110 LOC — (op,field) flat select; makes groupBy functional
 │   └── PreviewPane.tsx                     ≤ 150 LOC
 ├── templates/                                       — 9 templated report modals
-│   ├── FamiliasAtendidas.tsx               ≤ 150 LOC
-│   ├── FamiliasEnRiesgo.tsx                ≤ 150 LOC
-│   ├── ComplianceSnapshot.tsx              ≤ 200 LOC — reuses ComplianceDashboard
-│   ├── PadronPorVencer.tsx                 ≤ 150 LOC
-│   ├── InformesPorRenovar.tsx              ≤ 150 LOC — reuses SocialReportPanel
-│   ├── DocumentosFaltantes.tsx             ≤ 150 LOC
-│   ├── ResumenTrimestral.tsx               ≤ 200 LOC
-│   ├── DistribucionPorDistrito.tsx         ≤ 200 LOC
-│   └── EvolucionHistorica.tsx              ≤ 200 LOC
+│   ├── FamiliasAtendidasModal.tsx          ≤ 150 LOC
+│   ├── FamiliasEnRiesgoModal.tsx           ≤ 150 LOC
+│   ├── ComplianceSnapshotModal.tsx         ≤ 200 LOC — reuses ComplianceDashboard
+│   ├── PadronPorVencerModal.tsx            ≤ 150 LOC
+│   ├── InformesPorRenovarModal.tsx         ≤ 150 LOC — reuses SocialReportPanel
+│   ├── DocumentosFaltantesModal.tsx        ≤ 150 LOC
+│   ├── ResumenTrimestralModal.tsx          ≤ 200 LOC
+│   ├── DistribucionPorDistritoModal.tsx    ≤ 200 LOC
+│   └── EvolucionHistoricaModal.tsx         ≤ 200 LOC
 ├── hooks/
-│   ├── useSavedQueries.ts                  ≤ 80 LOC
-│   └── useTemplateQuery.ts                 ≤ 60 LOC
+│   └── useTemplatedReports.ts              ≤ 80 LOC — per-template tRPC query wrappers
 └── utils/
     └── exportCsv.ts                        ≤ 100 LOC — role-based redaction
 ```
@@ -55,6 +55,7 @@ client/src/features/reports-tab/
         │             ├─► FieldPicker      │
         │             ├─► OperatorPicker   │
         │             ├─► GroupByPicker    │
+        │             ├─► AggregatePicker  │
         │             └─► PreviewPane      │
         │                                  │
         ▼                                  ▼

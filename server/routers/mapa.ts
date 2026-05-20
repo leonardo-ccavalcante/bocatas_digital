@@ -1,41 +1,74 @@
 /**
- * Mapa router — Stage S2 thin vertical slice (Karpathy step 2 of the
- * parallel-implementation plan).
+ * Mapa router — Stage S3 server-mapa Feature Agent (Karpathy canary).
  *
- * INTENTIONALLY MINIMAL. The full router (Stage S3 server-mapa Feature
- * Agent) will:
- *   • aggregate families + persons by distrito using M1+M2 columns
- *   • enforce k-anonymity floor 3 (rows with <3 active families return null)
- *   • support layer toggle (densidad | compliance) via input.layer
- *   • reuse getComplianceStats from families/compliance.ts
- *   • redact via redactHighRiskFields (none should surface here, but
- *     defense in depth)
+ * Expands the S2 thin slice into real aggregation against the families
+ * table (M1+M2 distrito column). Pure aggregation + k-anonymity
+ * enforcement live in server/_core/mapaAggregation.ts and are covered
+ * by server/__tests__/mapa-aggregation.test.ts. This file is the thin
+ * DB layer + tRPC contract.
  *
- * This thin slice exists to PROVE THE TOOLCHAIN: tRPC v11 wiring, Zod
- * input validation, TanStack Query consumption, lazy chunking, Vite
- * bundle, ESLint 300-LOC rule, all working end-to-end with the
- * post-M1/M2/M3 schema in place. Once this slice merges, 4 server +
- * 5 client Feature Agents can fan out without each re-discovering
- * toolchain bugs.
+ * Output contract:
+ *   distritoStats({ layer })
+ *     → { rows: DistritoStatRow[], layer, kAnonymityFloor: 3 }
+ *
+ *   Each row is { distrito, count, compliance? } where:
+ *     • distrito is one of the 21 Madrid slugs OR "sin_asignar"
+ *     • count is the family count, or null when below the k-anonymity
+ *       floor (EIPD principle for public-facing aggregates)
+ *     • compliance is only set on the compliance layer (ratio in [0, 1])
+ *       and is also suppressed when count < floor
+ *
+ * Role: adminProcedure — Mapa is funder-facing strategic data, not
+ * voluntario-facing operational data (per Phase 2 plan §3 Compliance).
  */
 
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import type { DistritoSlug } from "../../shared/madrid/distritos";
+import { createAdminClient } from "../../client/src/lib/supabase/server";
 import { DISTRITO_SLUGS } from "../../shared/madrid/distritos";
-import { protectedProcedure, router } from "../_core/trpc";
+import {
+  K_ANONYMITY_FLOOR,
+  aggregateCompliance,
+  aggregateDensidad,
+  applyKAnonymityToCompliance,
+  applyKAnonymityToDensidad,
+  type AggregationDistrito,
+  type ComplianceFlags,
+  type FamilyForAggregation,
+} from "../_core/mapaAggregation";
+import { adminProcedure, router } from "../_core/trpc";
 
 /**
- * Layer toggle — Stage S3 server-mapa expands this to drive aggregation
- * strategy. In the thin slice we accept either value but ignore it.
+ * Seed all 21 Madrid distritos into a densidad count map (SAT P2-2).
+ * Distritos absent from the data get 0 — so after k-anonymity a 0-family
+ * distrito is indistinguishable from a 1-or-2-family (suppressed) one,
+ * removing the presence-vs-absence info leak. "sin_asignar" is intentionally
+ * NOT seeded — it is not one of the 21 Madrid distritos.
  */
+function seedDensidad(
+  counts: ReadonlyMap<AggregationDistrito, number>,
+): Map<AggregationDistrito, number> {
+  const seeded = new Map<AggregationDistrito, number>();
+  for (const slug of DISTRITO_SLUGS) {
+    seeded.set(slug, counts.get(slug) ?? 0);
+  }
+  return seeded;
+}
+
+/** Compliance analogue of seedDensidad (SAT P2-2). */
+function seedCompliance(
+  counts: ReadonlyMap<AggregationDistrito, { total: number; conRiesgo: number }>,
+): Map<AggregationDistrito, { total: number; conRiesgo: number }> {
+  const seeded = new Map<AggregationDistrito, { total: number; conRiesgo: number }>();
+  for (const slug of DISTRITO_SLUGS) {
+    seeded.set(slug, counts.get(slug) ?? { total: 0, conRiesgo: 0 });
+  }
+  return seeded;
+}
+
 const layerSchema = z.enum(["densidad", "compliance"]).default("densidad");
 
-/**
- * Output shape per distrito. `count` is null when k-anonymity floor (<3
- * active families) suppresses the real number. The thin-slice stub returns
- * deterministic hardcoded data; S3 replaces with real Supabase aggregation.
- */
 export const distritoStatRowSchema = z.object({
   distrito: z.enum(DISTRITO_SLUGS),
   count: z.number().int().nullable(),
@@ -47,39 +80,86 @@ export type DistritoStatRow = z.infer<typeof distritoStatRowSchema>;
 const distritoStatsOutputSchema = z.object({
   rows: z.array(distritoStatRowSchema),
   layer: layerSchema,
-  // K-anonymity floor used (read by the client to render the "<N familias"
-  // tooltip on suppressed cells).
   kAnonymityFloor: z.number().int().positive(),
 });
 
+/**
+ * Columns selected from the families table for aggregation. Keep this
+ * narrow — defense-in-depth + bandwidth control. No PII fields cross
+ * the wire (we only count).
+ */
+const FAMILIES_SELECT =
+  "distrito, alta_en_guf, padron_recibido, informe_social, " +
+  "consent_bocatas, consent_banco_alimentos, docs_identidad";
+
+interface FamiliesRow extends ComplianceFlags {
+  distrito: string | null;
+}
+
 export const mapaRouter = router({
   /**
-   * Stub procedure — returns a deterministic 3-distrito sample. S3 replaces
-   * with real aggregation that hits the families + persons distrito columns
-   * (from M1 + M2).
+   * Aggregate active families per Madrid distrito with k-anonymity floor.
+   *
+   * Densidad layer: row.count (or null when <floor).
+   * Compliance layer: row.count + row.compliance ratio (both suppressed
+   * when total <floor — ratio alone is re-identifying on small N).
    */
-  distritoStats: protectedProcedure
+  distritoStats: adminProcedure
     .input(
-      z.object({
-        layer: layerSchema.optional(),
-      }).optional(),
+      z
+        .object({
+          layer: layerSchema.optional(),
+        })
+        .optional(),
     )
     .output(distritoStatsOutputSchema)
-    .query(({ input }) => {
+    .query(async ({ input }) => {
       const layer = input?.layer ?? "densidad";
+      const db = createAdminClient();
 
-      // Hardcoded 3-distrito sample. The first two are real counts, the
-      // third is k-anon-suppressed (null) to exercise the tooltip path.
-      const sampleRows: DistritoStatRow[] = [
-        { distrito: "centro" satisfies DistritoSlug, count: 12, compliance: 0.83 },
-        { distrito: "carabanchel" satisfies DistritoSlug, count: 7, compliance: 0.71 },
-        { distrito: "vicalvaro" satisfies DistritoSlug, count: null }, // <3, suppressed
-      ];
+      const { data, error } = await db
+        .from("families")
+        .select(FAMILIES_SELECT)
+        .eq("estado", "activa")
+        .is("deleted_at", null)
+        .returns<FamiliesRow[]>();
+
+      if (error) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: error.message,
+        });
+      }
+
+      const families: FamilyForAggregation[] = (data ?? []).map((row) => ({
+        distrito: row.distrito,
+        alta_en_guf: row.alta_en_guf,
+        padron_recibido: row.padron_recibido,
+        informe_social: row.informe_social,
+        consent_bocatas: row.consent_bocatas,
+        consent_banco_alimentos: row.consent_banco_alimentos,
+        docs_identidad: row.docs_identidad,
+      }));
+
+      // Seed all 21 distritos (P2-2) then apply k-anonymity. The output
+      // always contains exactly the 21 Madrid distritos; "sin_asignar"
+      // (families with NULL distrito) is excluded by seeding only
+      // DISTRITO_SLUGS — it is an operational signal for the families/ops
+      // view, not the funder-facing map.
+      const aggregated =
+        layer === "compliance"
+          ? applyKAnonymityToCompliance(seedCompliance(aggregateCompliance(families)))
+          : applyKAnonymityToDensidad(seedDensidad(aggregateDensidad(families)));
+
+      // Type narrowing only — seeding guarantees no "sin_asignar" at runtime.
+      const rows: DistritoStatRow[] = aggregated.filter(
+        (row): row is DistritoStatRow => row.distrito !== "sin_asignar",
+      );
 
       return {
-        rows: sampleRows,
+        rows,
         layer,
-        kAnonymityFloor: 3,
+        kAnonymityFloor: K_ANONYMITY_FLOOR,
       };
     }),
 });
