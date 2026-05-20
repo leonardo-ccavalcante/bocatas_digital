@@ -1,10 +1,15 @@
 import { lazy, Suspense } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { useTabParam, PROGRAM_TABS, ENABLED_TABS, type ProgramTab } from "../hooks/useTabParam";
 
 const FamiliasTab = lazy(() => import("@/features/familias-tab"));
 const UploadsTab = lazy(() => import("@/features/uploads-tab"));
+// Phase 2 — lazy-chunked so react-leaflet (~150KB) never enters the LCP-critical bundle.
+const MapaTab = lazy(() => import("@/features/mapa-tab"));
+const ReportsTab = lazy(() => import("@/features/reports-tab"));
+// Phase 3
 const DerivarTab = lazy(() => import("@/features/derivar"));
 
 interface Program {
@@ -38,6 +43,8 @@ const TabFallback = () => (
  */
 export function ProgramTabs({ program }: ProgramTabsProps) {
   const [tab, setTab] = useTabParam();
+  const { user } = useAuth();
+  const currentUserId = String(user?.id ?? "");
 
   if (program.slug !== "programa_familias") {
     return null;
@@ -96,15 +103,25 @@ export function ProgramTabs({ program }: ProgramTabsProps) {
         </Suspense>
       </TabsContent>
 
+      <TabsContent value="mapa">
+        <Suspense fallback={<TabFallback />}>
+          {ENABLED_TABS.includes("mapa") && <MapaTab />}
+        </Suspense>
+      </TabsContent>
+
+      <TabsContent value="reports">
+        <Suspense fallback={<TabFallback />}>
+          {ENABLED_TABS.includes("reports") && (
+            <ReportsTab currentUserId={currentUserId} programaId={program.id} />
+          )}
+        </Suspense>
+      </TabsContent>
+
       <TabsContent value="derivar">
         <Suspense fallback={<TabFallback />}>
           {ENABLED_TABS.includes("derivar") && <DerivarTab programaId={program.id} />}
         </Suspense>
       </TabsContent>
-
-      {/* Mapa + Reports TabsContent are added when those tabs are enabled (Phase 2).
-          Derivar (Phase 3) is wired above; it renders only when "derivar" is in
-          ENABLED_TABS (Leo-gated flip). */}
     </Tabs>
   );
 }
