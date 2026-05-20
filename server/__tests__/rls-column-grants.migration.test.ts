@@ -60,32 +60,39 @@ describe("high-risk fields RLS migration — REVOKE statements", () => {
 });
 
 describe("high-risk fields RLS migration — GRANT statements", () => {
-  it("grants SELECT on persons high-risk columns to admin_role", () => {
+  // The GRANTs are emitted via a defensive `DO $$ ... EXECUTE format(...) $$`
+  // role×table loop (so a missing role/column on a fresh-or-prod-drifted DB
+  // RAISE NOTICEs instead of aborting the whole migration). The assertions
+  // therefore validate the parameterized template + the role/table arrays
+  // it iterates, not literal per-(role,table) GRANT statements (TECH_DEBT
+  // T-02 — these regexes previously expected literals the loop never emits).
+
+  it("grants the three high-risk columns via a parameterized GRANT template", () => {
     const sql = readMigration();
     expect(sql).toMatch(
-      /GRANT\s+SELECT\s*\([^)]*\)\s+ON\s+public\.persons\s+TO\s+admin_role/i,
+      /GRANT\s+SELECT\s*\([^)]*situacion_legal[^)]*recorrido_migratorio[^)]*foto_documento_url[^)]*\)\s+ON\s+public\.%I\s+TO\s+%I/i,
     );
   });
 
-  it("grants SELECT on persons high-risk columns to superadmin_role", () => {
+  it("iterates both elevated roles (admin_role + superadmin_role)", () => {
     const sql = readMigration();
-    expect(sql).toMatch(
-      /GRANT\s+SELECT\s*\([^)]*\)\s+ON\s+public\.persons\s+TO\s+superadmin_role/i,
-    );
+    expect(sql).toMatch(/role_names\s+text\[\]\s*:=\s*ARRAY\[[^\]]*'admin_role'[^\]]*\]/i);
+    expect(sql).toMatch(/role_names\s+text\[\]\s*:=\s*ARRAY\[[^\]]*'superadmin_role'[^\]]*\]/i);
   });
 
-  it("grants SELECT on families high-risk columns to admin_role", () => {
+  it("iterates both target tables (persons + families)", () => {
     const sql = readMigration();
-    expect(sql).toMatch(
-      /GRANT\s+SELECT\s*\([^)]*\)\s+ON\s+public\.families\s+TO\s+admin_role/i,
-    );
+    expect(sql).toMatch(/table_names\s+text\[\]\s*:=\s*ARRAY\[[^\]]*'persons'[^\]]*\]/i);
+    expect(sql).toMatch(/table_names\s+text\[\]\s*:=\s*ARRAY\[[^\]]*'families'[^\]]*\]/i);
   });
 
-  it("grants SELECT on families high-risk columns to superadmin_role", () => {
+  it("tolerates missing roles/columns/tables (defensive EXCEPTION catch)", () => {
     const sql = readMigration();
-    expect(sql).toMatch(
-      /GRANT\s+SELECT\s*\([^)]*\)\s+ON\s+public\.families\s+TO\s+superadmin_role/i,
-    );
+    // All three missing-object SQLSTATEs are caught so prod-vs-repo drift
+    // can't abort the migration.
+    expect(sql).toMatch(/WHEN\s+undefined_object\s+THEN/i);
+    expect(sql).toMatch(/WHEN\s+undefined_column\s+THEN/i);
+    expect(sql).toMatch(/WHEN\s+undefined_table\s+THEN/i);
   });
 });
 
