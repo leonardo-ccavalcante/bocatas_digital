@@ -399,12 +399,12 @@ describe("FamiliasList contract", () => {
       sin_alta_guf: true,
       sin_informe_social: true,
     });
-    // distrito must NOT be present
-    expect(lastCallArgs).not.toHaveProperty("distrito");
+    // No distrito in the URL → forwarded as undefined (no filter applied).
+    expect(lastCallArgs.distrito).toBeUndefined();
   });
 
   // 17 ─────────────────────────────────────────────────────────────────────────
-  it("distrito URL param is parsed but NOT passed to the query", () => {
+  it("distrito URL param is parsed AND passed to the query (Mapa deep-link)", () => {
     mockUseQuery.mockReturnValue({ data: [], isLoading: false });
 
     renderWithMemory(<FamiliasList onRowClick={noop} />, {
@@ -414,6 +414,7 @@ describe("FamiliasList contract", () => {
     const calls = mockUseQuery.mock.calls;
     const lastCallArgs = calls[calls.length - 1][0];
 
-    expect(lastCallArgs).not.toHaveProperty("distrito");
+    // The Mapa "Ver familias →" deep-link relies on this filter reaching the server.
+    expect(lastCallArgs.distrito).toBe("carabanchel");
   });
 });
