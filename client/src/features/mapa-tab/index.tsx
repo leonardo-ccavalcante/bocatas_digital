@@ -40,7 +40,7 @@ export default function MapaTab() {
   return (
     <section aria-labelledby="mapa-tab-heading" className="space-y-4 p-1">
       <div className="flex items-center justify-between gap-3">
-        <h2 id="mapa-tab-heading" className="text-h2 font-display">
+        <h2 id="mapa-tab-heading" className="text-h2 font-sans">
           Familias por distrito
         </h2>
         <LayerToggle layer={layer} onChange={setLayer} />
