@@ -53,9 +53,14 @@ export function wrapDbError(
   error: { message: string; code?: string },
 ): TRPCError {
   const correlationId = randomUUID();
+  // Raw Supabase messages can echo column VALUES (PII) and schema internals,
+  // so they NEVER reach the client. Log the raw detail server-side, keyed by
+  // correlationId; return a generic client message carrying only that id.
+  console.error(
+    `[${procedureName}] DB error ${correlationId}: ${error.code ?? "?"} ${error.message}`,
+  );
   return new TRPCError({
     code: "INTERNAL_SERVER_ERROR",
-    // message visible to caller; code is for internal diagnosis via logs.
-    message: `[${procedureName}] DB error (${correlationId}): ${error.message}`,
+    message: `Error interno del servidor (${correlationId}). Inténtalo de nuevo.`,
   });
 }
