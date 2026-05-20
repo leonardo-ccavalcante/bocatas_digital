@@ -18,22 +18,32 @@ export default function MobileFooterNav() {
   const [location] = useLocation();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden bg-white border-t border-black/10 shadow-lg">
+    <nav
+      className="fixed bottom-0 left-0 right-0 z-40 md:hidden bg-background border-t border-border shadow-lg"
+      aria-label="Navegación principal"
+    >
       <div className="flex items-center justify-around h-16">
         {FOOTER_NAV_ITEMS.map((item) => {
-          const active = location === item.href || (item.href !== "/" && location.startsWith(item.href));
+          const active =
+            location === item.href ||
+            (item.href !== "/" && location.startsWith(item.href));
           return (
             <Link key={item.href} href={item.href}>
               <div
                 className={cn(
-                  "flex flex-col items-center justify-center w-full h-16 cursor-pointer transition-colors",
+                  "flex flex-col items-center justify-center gap-0.5 min-w-[64px] h-16 px-2 cursor-pointer transition-colors",
                   active
-                    ? "text-[#C41230] bg-[#C41230]/5"
-                    : "text-[#5E5E5E] hover:bg-black/5"
+                    ? "text-primary"
+                    : "text-muted-foreground hover:text-foreground"
                 )}
                 title={item.label}
+                aria-current={active ? "page" : undefined}
               >
-                {item.icon}
+                <span className="shrink-0">{item.icon}</span>
+                <span className="text-[10px] font-medium leading-none">{item.label}</span>
+                {active && (
+                  <span className="w-1 h-1 rounded-full bg-primary mt-0.5" aria-hidden="true" />
+                )}
               </div>
             </Link>
           );
