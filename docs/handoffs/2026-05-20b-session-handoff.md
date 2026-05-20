@@ -33,13 +33,13 @@
 `/sat` (KAC + ACH + Devil's Advocacy + What If?) on the pre-push diff. Full report: `docs/superpowers/findings/2026-05-20-S3-sat-qa.md`.
 
 - **P1 FIXED (`cbcf879`):** customQuery executor did `.select("*")`, returning high-risk PII (`situacion_legal`, `foto_documento_url`, `recorrido_migratorio`) past the input allowlist because `createAdminClient()` bypasses RLS. Now projects only `ENTITY_FIELDS[entity]` columns. The allowlist is the single source of truth for both input AND output.
-- **6 P2 follow-ups (not blocking, pick up when convenient):**
-  1. k-anon-on-count toggle for customQuery aggregate (admin-internal vs external-export distinction)
-  2. Mapa presence-vs-absence info leak (suppressed distrito still appears in rows)
-  3. Document the RLS-bypass posture (service role is authoritative; RLS is the safety net) in CLAUDE.md/SECURITY.md
-  4. Rate-limit `reports.execute`
-  5. Audit log for `reports.*` PII access
-  6. `String(ctx.user.id)` consistency in `savedQueries.list` `.or()` filter
+- **All 6 P2 follow-ups CLEARED (`8f4b861`, 2026-05-20b):**
+  1. ✅ k-anon-on-count: opt-in `kAnonymize` flag on SavedQuerySpec (default false; drops sub-floor groups by bucket size)
+  2. ✅ Mapa presence-vs-absence: server seeds all 21 distritos (0-count ≡ suppressed)
+  3. ✅ RLS-bypass posture: `docs/superpowers/security-model.md`
+  4. ✅ Rate-limit: resolved as already-covered by the global HTTP limiter (200/15min); per-procedure tRPC limiter not justified for a P2 admin-only surface
+  5. ✅ Audit log: `logAudit` on `reports.customQuery.execute` (IDs + counts only)
+  6. ✅ `String(ctx.user.id)` in `savedQueries.list`
 
 ---
 
@@ -64,7 +64,8 @@ Do NOT start Phase 3 code until S4 `/canary` is green. Phase 3 = Derivar + Insti
 ### Non-blocking follow-ups carried forward
 - Canonical `client/src/assets/madrid-distritos.geojson` (currently placeholder — client-mapa renders EmptyState until it lands)
 - Postal-code backfill for existing families rows (Sole, operational)
-- The 6 P2 SAT items above
+- ~~The 6 P2 SAT items~~ — all cleared in `8f4b861` (2026-05-20b)
+- (optional UI) surface the `kAnonymize` export-safe toggle in CustomQueryBuilder when adding the "export for funders" flow — server support already shipped, client currently hardcodes `false`
 
 ---
 
