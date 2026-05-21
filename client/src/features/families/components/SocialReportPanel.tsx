@@ -10,6 +10,8 @@ import { FileText, AlertCircle, CheckCircle, Clock, Upload } from "lucide-react"
 import { trpc } from "@/lib/trpc";
 import { DocumentUploadModal } from "@/components/DocumentUploadModal";
 import { useFamilyLevelDocuments } from "@/features/families/hooks/useFamilias";
+import { FollowUpsPanel } from "./FollowUpsPanel";
+import { GenerateDocumentButton } from "./GenerateDocumentButton";
 
 interface SocialReportPanelProps {
   familyId: string;
@@ -35,6 +37,21 @@ export function SocialReportPanel({ familyId, informeSocial, informeSocialFecha 
   const utils = trpc.useUtils();
 
   const { data: familyDocs = [] } = useFamilyLevelDocuments(familyId);
+
+  const { data: latest } = trpc.families.getLatestFollowUp.useQuery(
+    { family_id: familyId },
+    { enabled: !!familyId },
+  );
+
+  const blockingError: string | null = (() => {
+    if (latest == null) {
+      return "Sin seguimientos registrados. Añade un seguimiento para habilitar la generación.";
+    }
+    if ((Date.now() - new Date(latest.fecha).getTime()) / 86400000 > 365) {
+      return `El informe social está vencido (último seguimiento: ${latest.fecha}). Registra un seguimiento reciente.`;
+    }
+    return null;
+  })();
 
   const informeRow = familyDocs.find(
     (d) => d.documento_tipo === "informe_social" && d.documento_url
@@ -134,8 +151,19 @@ export function SocialReportPanel({ familyId, informeSocial, informeSocialFecha 
               </div>
             </div>
           )}
+
+          <div className="pt-2">
+            <GenerateDocumentButton
+              familyId={familyId}
+              slug="informe_social"
+              label="Generar informe social"
+              blockingError={blockingError}
+            />
+          </div>
         </CardContent>
       </Card>
+
+      <FollowUpsPanel familyId={familyId} />
 
       <DocumentUploadModal
         familyId={familyId}
