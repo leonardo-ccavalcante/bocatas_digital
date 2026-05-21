@@ -10,6 +10,7 @@ import Docxtemplater from "docxtemplater";
 import type { FamilyDocumentContext } from "./documentService.types";
 import { fetchStorageBuffer } from "../storage";
 import { createAdminClient } from "../../client/src/lib/supabase/server";
+import { isInformeStale } from "@shared/informeFreshness";
 
 export class DocumentValidationError extends Error {
   readonly code: "MISSING_PLACEHOLDER" | "STALE_INFORME" | "TEMPLATE_NOT_FOUND" | "RENDER_FAILED";
@@ -33,8 +34,6 @@ type MinimalTemplate = {
   placeholders: string[];
   static_blocks: Record<string, string>;
 };
-
-const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
 /** Resolve a dot-path like "titular.nombre" against a nested object. */
 function resolvePath(obj: Record<string, unknown>, path: string): unknown {
@@ -83,8 +82,7 @@ export function validateContext(
         { missing: ["informe.fecha_seguimiento"] }
       );
     }
-    const ageDays = (Date.now() - new Date(fechaSeguimiento).getTime()) / MS_PER_DAY;
-    if (ageDays > 365) {
+    if (isInformeStale(fechaSeguimiento)) {
       throw new DocumentValidationError(
         "STALE_INFORME",
         `El informe social está vencido (último seguimiento: ${fechaSeguimiento}). Registra un seguimiento reciente antes de generar.`,
@@ -207,12 +205,16 @@ export async function renderDocument(
     });
     doc.render(flattenContext(enrichedContext));
     out = doc.getZip().generate({ type: "nodebuffer" }) as Buffer;
-  } catch (e) {
+  } catch {
+    // Never forward the raw docxtemplater message to the client (or logs): it
+    // can embed rendered VALUES, which here are beneficiary PII (documento,
+    // teléfono, nombre). Log by family UUID only and return a fixed message.
+    console.error(
+      `[documentService.renderDocument] docxtemplater render failed for family ${opts.familyId}`
+    );
     throw new DocumentValidationError(
       "RENDER_FAILED",
-      e instanceof Error
-        ? e.message
-        : "Error al generar el documento. Revisa los datos de la familia."
+      "Error al generar el documento. Revisa los datos de la familia."
     );
   }
 
