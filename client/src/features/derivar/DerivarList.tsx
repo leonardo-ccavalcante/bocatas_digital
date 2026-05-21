@@ -21,7 +21,7 @@ interface RawHoja {
   persona?: { nombre?: string; apellidos?: string } | null;
   familia?: {
     familia_numero?: number | null;
-    persons?: { nombre?: string; apellidos?: string } | null;
+    titular?: { nombre?: string; apellidos?: string } | null;
   } | null;
 }
 
@@ -37,7 +37,7 @@ function resolvePersonaName(hoja: RawHoja): string {
   if (hoja.scope === "persona") {
     return `${hoja.persona?.nombre ?? ""} ${hoja.persona?.apellidos ?? ""}`.trim();
   }
-  const titular = hoja.familia?.persons;
+  const titular = hoja.familia?.titular;
   if (titular) {
     return `${titular.nombre ?? ""} ${titular.apellidos ?? ""}`.trim();
   }
