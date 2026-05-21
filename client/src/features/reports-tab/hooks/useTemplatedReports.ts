@@ -86,3 +86,12 @@ export function useEvolucionHistorica(
 ) {
   return trpc.reports.evolucionHistorica.useQuery(input, { enabled });
 }
+
+// ── IRPF Demográfico ──────────────────────────────────────────────────────────
+
+export function useIrpfDemografico(
+  input: { year: number },
+  enabled: boolean,
+) {
+  return trpc.reports.informeIrpfDemografico.useQuery(input, { enabled });
+}
