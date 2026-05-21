@@ -1,12 +1,15 @@
 // documentService — the single entry point for all Programa de Familia document
 // generation (E1) and derivación rendering (E4).
 //
-// This file currently contains the validation layer (DocumentValidationError +
-// validateContext).  renderDocument() + auditRender() are added in E1 Task 5
-// once the document_templates / document_render_log tables exist in the
-// generated database types.
+// This file contains the validation layer (DocumentValidationError +
+// validateContext) and the rendering layer (renderDocument + auditRender).
+
+import PizZip from "pizzip";
+import Docxtemplater from "docxtemplater";
 
 import type { FamilyDocumentContext } from "./documentService.types";
+import { fetchStorageBuffer } from "../storage";
+import { createAdminClient } from "../../client/src/lib/supabase/server";
 
 export class DocumentValidationError extends Error {
   readonly code: "MISSING_PLACEHOLDER" | "STALE_INFORME" | "TEMPLATE_NOT_FOUND" | "RENDER_FAILED";
@@ -89,4 +92,133 @@ export function validateContext(
       );
     }
   }
+}
+
+// ─── Rendering layer ────────────────────────────────────────────────────────
+
+type DocumentSlug = "informe_social" | "nota_entrega" | "derivacion";
+
+const SLUG_MAP: Record<DocumentSlug, string> = {
+  informe_social: "informe-social",
+  nota_entrega: "nota-entrega",
+  derivacion: "derivacion",
+};
+
+/** Build a deterministic output file name. */
+function buildFileName(slug: DocumentSlug, familiaNumero: string, date: Date): string {
+  const yyyy = date.getUTCFullYear();
+  const mm = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(date.getUTCDate()).padStart(2, "0");
+  return `${SLUG_MAP[slug]}-F${familiaNumero}-${yyyy}-${mm}-${dd}.docx`;
+}
+
+/** Cast context to the plain object shape docxtemplater expects. */
+function flattenContext(ctx: FamilyDocumentContext): Record<string, unknown> {
+  return ctx as unknown as Record<string, unknown>;
+}
+
+/**
+ * auditRender — NON-FATAL audit log insert.
+ * On failure, logs to console but does NOT rethrow.
+ * No PII in the log line — only family UUID + ids.
+ */
+async function auditRender(
+  familyId: string,
+  templateSlug: string,
+  templateId: string | null,
+  actorId: string,
+  fileName: string
+): Promise<void> {
+  try {
+    const db = createAdminClient();
+    await db.from("document_render_log").insert({
+      family_id: familyId,
+      template_slug: templateSlug,
+      template_id: templateId,
+      actor_id: actorId,
+      file_name: fileName,
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error(
+      `[documentService.auditRender] Failed to write render log for family ${familyId}: ${msg}`
+    );
+  }
+}
+
+/**
+ * renderDocument — single entry point for all document generation.
+ * Used by E1 (informe_social, nota_entrega) and E4 (derivacion).
+ */
+export async function renderDocument(
+  slug: DocumentSlug,
+  dataContext: FamilyDocumentContext,
+  opts: { actorId: string; familyId: string }
+): Promise<{ buffer: Buffer; fileName: string; mime: string }> {
+  const db = createAdminClient();
+
+  const { data: template, error } = await db
+    .from("document_templates")
+    .select("id, slug, mime, storage_path, logos, static_blocks, placeholders")
+    .eq("slug", slug)
+    .eq("is_active", true)
+    .single();
+
+  if (error || !template) {
+    throw new DocumentValidationError(
+      "TEMPLATE_NOT_FOUND",
+      `Plantilla no disponible para tipo de documento '${slug}'. Contacta al administrador.`
+    );
+  }
+
+  const enrichedContext: FamilyDocumentContext = {
+    ...dataContext,
+    logos: template.logos ?? [],
+    static_blocks: { ...(template.static_blocks as Record<string, string>) },
+  };
+
+  validateContext(
+    {
+      id: template.id,
+      slug: template.slug,
+      placeholders: template.placeholders,
+      static_blocks: template.static_blocks as Record<string, string>,
+    },
+    enrichedContext
+  );
+
+  let baseBuffer: Buffer;
+  try {
+    baseBuffer = await fetchStorageBuffer("document-templates", template.storage_path);
+  } catch {
+    throw new DocumentValidationError(
+      "RENDER_FAILED",
+      "Error al cargar la plantilla. Inténtalo de nuevo."
+    );
+  }
+
+  let out: Buffer;
+  try {
+    const zip = new PizZip(baseBuffer);
+    const doc = new Docxtemplater(zip, {
+      paragraphLoop: true,
+      linebreaks: true,
+      nullGetter: () => "",
+    });
+    doc.render(flattenContext(enrichedContext));
+    out = doc.getZip().generate({ type: "nodebuffer" }) as Buffer;
+  } catch (e) {
+    throw new DocumentValidationError(
+      "RENDER_FAILED",
+      e instanceof Error
+        ? e.message
+        : "Error al generar el documento. Revisa los datos de la familia."
+    );
+  }
+
+  const fileName = buildFileName(slug, enrichedContext.familia.numero, new Date());
+
+  await auditRender(opts.familyId, slug, template.id, opts.actorId, fileName);
+
+  return { buffer: out, fileName, mime: template.mime };
 }

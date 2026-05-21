@@ -1,6 +1,65 @@
-import { describe, it, expect } from "vitest";
-import { DocumentValidationError, validateContext } from "../documentService";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+
 import type { FamilyDocumentContext } from "../documentService.types";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// ── Fixture ──────────────────────────────────────────────────────────────────
+
+const FIXTURE_PATH = path.resolve(__dirname, "../__fixtures__/minimal-informe.docx");
+const fixtureBuffer = fs.readFileSync(FIXTURE_PATH);
+
+// ── Mock createAdminClient (hoisted) ─────────────────────────────────────────
+
+const mockTemplateRow = {
+  id: "tmpl-uuid-001",
+  slug: "informe_social",
+  mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  storage_path: "templates/informe-social.docx",
+  logos: [],
+  static_blocks: {},
+  placeholders: ["titular.nombre", "familia.numero"],
+};
+
+// Controls what the DB mock returns for document_templates queries.
+let dbTemplateResult: { data: typeof mockTemplateRow | null; error: { message: string } | null } =
+  { data: mockTemplateRow, error: null };
+
+vi.mock("../../../client/src/lib/supabase/server", () => ({
+  createAdminClient: () => ({
+    from: (table: string) => {
+      if (table === "document_templates") {
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: () => ({
+                single: () => Promise.resolve(dbTemplateResult),
+              }),
+            }),
+          }),
+        };
+      }
+      if (table === "document_render_log") {
+        return { insert: () => Promise.resolve({ error: null }) };
+      }
+      throw new Error(`Unexpected table: ${table}`);
+    },
+  }),
+}));
+
+vi.mock("../../storage", () => ({
+  fetchStorageBuffer: vi.fn(),
+}));
+
+// ── Import after mocks are set up ────────────────────────────────────────────
+
+import { DocumentValidationError, validateContext, renderDocument } from "../documentService";
+import * as storageModule from "../../storage";
+
+// ── Shared contexts ──────────────────────────────────────────────────────────
 
 const MINIMAL_TEMPLATE = {
   id: "t1",
@@ -31,6 +90,8 @@ const VALID_CONTEXT: FamilyDocumentContext = {
   generated_at: new Date().toISOString(),
   generated_by_name: "Voluntario",
 };
+
+// ── validateContext tests ────────────────────────────────────────────────────
 
 describe("validateContext", () => {
   it("passes for valid informe_social context", () => {
@@ -67,5 +128,52 @@ describe("validateContext", () => {
     expect(() => validateContext(MINIMAL_TEMPLATE, ctx as never)).toThrowError(
       DocumentValidationError
     );
+  });
+});
+
+// ── renderDocument tests ─────────────────────────────────────────────────────
+
+describe("renderDocument", () => {
+  beforeEach(() => {
+    dbTemplateResult = { data: mockTemplateRow, error: null };
+    vi.mocked(storageModule.fetchStorageBuffer).mockResolvedValue(fixtureBuffer);
+  });
+
+  it("returns a non-empty Buffer, correct mime, and correct fileName pattern", async () => {
+    const result = await renderDocument("informe_social", VALID_CONTEXT, {
+      actorId: "actor-uuid-001",
+      familyId: "family-uuid-001",
+    });
+
+    expect(Buffer.isBuffer(result.buffer)).toBe(true);
+    expect(result.buffer.length).toBeGreaterThan(0);
+    expect(result.mime).toBe(
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    );
+    expect(result.fileName).toMatch(/^informe-social-F0042-\d{4}-\d{2}-\d{2}\.docx$/);
+  });
+
+  it("throws TEMPLATE_NOT_FOUND when no active template exists", async () => {
+    dbTemplateResult = { data: null, error: { message: "not found" } };
+
+    await expect(
+      renderDocument("informe_social", VALID_CONTEXT, {
+        actorId: "actor-uuid-001",
+        familyId: "family-uuid-001",
+      })
+    ).rejects.toMatchObject({ code: "TEMPLATE_NOT_FOUND" });
+  });
+
+  it("throws RENDER_FAILED when storage download fails", async () => {
+    vi.mocked(storageModule.fetchStorageBuffer).mockRejectedValue(
+      new Error("Storage unavailable")
+    );
+
+    await expect(
+      renderDocument("informe_social", VALID_CONTEXT, {
+        actorId: "actor-uuid-001",
+        familyId: "family-uuid-001",
+      })
+    ).rejects.toMatchObject({ code: "RENDER_FAILED" });
   });
 });
