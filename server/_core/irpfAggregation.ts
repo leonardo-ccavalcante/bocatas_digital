@@ -16,32 +16,23 @@ export const AGE_BRACKETS = [
 ] as const;
 export type AgeBracket = (typeof AGE_BRACKETS)[number];
 
-export type GenderKey =
-  | "masculino" | "femenino" | "no_binario" | "prefiere_no_decir" | "no_indicado";
-
-export type EstudiosKey =
-  | "sin_estudios" | "primaria" | "secundaria" | "bachillerato"
-  | "formacion_profesional" | "universitario" | "postgrado" | "no_indicado";
-
-export type LaboralKey =
-  | "desempleado" | "economia_informal" | "empleo_temporal" | "empleo_indefinido"
-  | "autonomo" | "en_formacion" | "jubilado" | "incapacidad_permanente"
-  | "sin_permiso_trabajo" | "no_indicado";
-
-const GENDER_ORDER: GenderKey[] = [
+export const GENDER_ORDER = [
   "masculino", "femenino", "no_binario", "prefiere_no_decir", "no_indicado",
-];
+] as const;
+export type GenderKey = (typeof GENDER_ORDER)[number];
 
-const ESTUDIOS_ORDER: EstudiosKey[] = [
+export const ESTUDIOS_ORDER = [
   "sin_estudios", "primaria", "secundaria", "bachillerato",
   "formacion_profesional", "universitario", "postgrado", "no_indicado",
-];
+] as const;
+export type EstudiosKey = (typeof ESTUDIOS_ORDER)[number];
 
-const LABORAL_ORDER: LaboralKey[] = [
+export const LABORAL_ORDER = [
   "desempleado", "economia_informal", "empleo_temporal", "empleo_indefinido",
   "autonomo", "en_formacion", "jubilado", "incapacidad_permanente",
   "sin_permiso_trabajo", "no_indicado",
-];
+] as const;
+export type LaboralKey = (typeof LABORAL_ORDER)[number];
 
 /** Input row after DB fetch + person-field flatten (done by the router). */
 export interface NormalizedMiembroRow {
@@ -80,29 +71,26 @@ export interface IrpfMarginals {
 export interface CrossTabResult { buckets: IrpfBucket[]; totalSuppressed: number; }
 export interface MarginalsResult { marginals: IrpfMarginals; totalSuppressedMarginal: number; }
 
+// ─── Module-scope membership sets (derived from order arrays — stay DRY) ────
+
+const VALID_GENDER = new Set<string>(GENDER_ORDER.filter((k) => k !== "no_indicado"));
+const VALID_ESTUDIOS = new Set<string>(ESTUDIOS_ORDER.filter((k) => k !== "no_indicado"));
+const VALID_LABORAL = new Set<string>(LABORAL_ORDER.filter((k) => k !== "no_indicado"));
+
 // ─── Internal normalizers ────────────────────────────────────────────────────
 
 function normalizeGender(raw: string | null): GenderKey {
-  const valid: Set<string> = new Set(["masculino", "femenino", "no_binario", "prefiere_no_decir"]);
-  if (raw === null || !valid.has(raw)) return "no_indicado";
+  if (raw === null || !VALID_GENDER.has(raw)) return "no_indicado";
   return raw as GenderKey;
 }
 
 function normalizeEstudios(raw: string | null): EstudiosKey {
-  const valid: Set<string> = new Set([
-    "sin_estudios", "primaria", "secundaria", "bachillerato",
-    "formacion_profesional", "universitario", "postgrado",
-  ]);
-  if (raw === null || !valid.has(raw)) return "no_indicado";
+  if (raw === null || !VALID_ESTUDIOS.has(raw)) return "no_indicado";
   return raw as EstudiosKey;
 }
 
 function normalizeLaboral(raw: string | null): LaboralKey {
-  const valid: Set<string> = new Set([
-    "desempleado", "economia_informal", "empleo_temporal", "empleo_indefinido",
-    "autonomo", "en_formacion", "jubilado", "incapacidad_permanente", "sin_permiso_trabajo",
-  ]);
-  if (raw === null || !valid.has(raw)) return "no_indicado";
+  if (raw === null || !VALID_LABORAL.has(raw)) return "no_indicado";
   return raw as LaboralKey;
 }
 
