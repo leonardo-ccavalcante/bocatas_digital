@@ -20,6 +20,7 @@ import { crudRouter } from "./crud";
 import { sessionsRouter } from "./sessions";
 import { csvRouter } from "./csv";
 import { photoRouter } from "./photo";
+import { signatureRouter } from "./signature";
 
 export type { Entrega } from "./_shared";
 
@@ -36,4 +37,5 @@ export const entregasRouter = router({
   getBatchDetails: sessionsRouter.getBatchDetails,
   downloadTemplate: csvRouter.downloadTemplate,
   uploadPhotoToStorage: photoRouter.uploadPhotoToStorage,
+  recordSignature: signatureRouter.recordSignature,
 });
