@@ -1,31 +1,30 @@
 /**
- * firma.audit.test.ts — Phase B.4.1 RED test (audit binding contract).
+ * firma.audit.test.ts — mock-SHAPE + Zod-input contract guards.
  *
- * After a delivery is recorded with a `firma_url`, a `delivery_signature_audit`
- * row MUST exist with (delivery_id, signer_person_id, signed_at,
- * client_ip_hash). This test mocks the future supabase shape and asserts
- * the contract that the production write path must satisfy.
+ * SCOPE (read this before trusting these tests): every test below except the
+ * final Zod `safeParse` assertion runs against the local `makeMockSupabase`
+ * helper and exercises ZERO lines of the production `recordSignature`
+ * procedure. They lock the EXPECTED audit-row shape (field names, no
+ * client-supplied `signed_at`) and the Zod input contract — NOT the real
+ * procedure's runtime behavior.
  *
- * STATE: it.todo — flips to live `it()` once migration
- * `20260509000001_delivery_signature_audit.sql` is applied AND the
- * deliveries router is wired to write the audit row inside the same
- * transaction as the delivery insert. Until then the production write
- * path does NOT touch `delivery_signature_audit`, so a live test would
- * be a false positive.
+ * The REAL procedure behavior (auth → guards → IP hash → upload → patch →
+ * audit insert, plus the upload/patch/FK failure branches) is covered by
+ * `server/__tests__/entregas.recordSignature.test.ts`, which invokes the
+ * actual procedure via `appRouter.createCaller(ctx)`.
  *
- * Why mocks here: the table doesn't exist yet on any reachable Postgres
- * — local supabase has not applied the migration (it's PENDING REVIEW).
- * Mocking the future shape locks the contract so the GREEN implementation
- * is unambiguous.
+ * Why mocks here: these are shape/input guards so a future implementer
+ * cannot silently rename an audit field or accept a client-supplied
+ * `signed_at` without breaking a test.
  */
 import { describe, it, expect, vi } from "vitest";
 import { createHash } from "node:crypto";
 import { RecordSignatureInputSchema } from "../../client/src/features/families/schemas/signatureCapture";
 
-// ─── Future shape contract ──────────────────────────────────────────────────
-// This is what the wired createDelivery procedure MUST do once the
-// migration lands and the router is updated. Captured here as an
-// executable spec.
+// ─── Expected row-shape guard ────────────────────────────────────────────────
+// Locks the EXPECTED audit-row field shape against the local mock below.
+// This does NOT exercise the production procedure — it only guards the shape
+// so a field rename is caught. Real behavior: entregas.recordSignature.test.ts.
 
 interface DeliverySignatureAuditRow {
   delivery_id: string;

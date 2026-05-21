@@ -137,6 +137,10 @@ export const signatureRouter = router({
 
       if (auditErr) {
         if (auditErr.code === "23505") {
+          // No storage cleanup here by design: a true concurrent double-write
+          // is self-protecting — the same dated storagePath + upsert:false means
+          // the losing writer's upload (step 3) already failed before reaching
+          // this insert, so there is no orphaned object to remove.
           throw new TRPCError({
             code: "CONFLICT",
             message: "Ya existe una firma para esta entrega",
