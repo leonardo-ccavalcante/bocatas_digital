@@ -1,5 +1,5 @@
 /**
- * templated-shape.test.ts — Contract tests for the 9 templated report procedures.
+ * templated-shape.test.ts — Contract tests for the 10 templated report procedures.
  *
  * Each test asserts:
  *   1. adminProcedure role guard — voluntario gets FORBIDDEN.
@@ -45,6 +45,7 @@ import { documentosFaltantesRouter } from "../../routers/reports/templated/docum
 import { resumenTrimestralRouter } from "../../routers/reports/templated/resumenTrimestral";
 import { distribucionPorDistritoRouter } from "../../routers/reports/templated/distribucionPorDistrito";
 import { evolucionHistoricaRouter } from "../../routers/reports/templated/evolucionHistorica";
+import { informeIrpfDemograficoRouter } from "../../routers/reports/templated/informeIrpfDemografico";
 
 // ─── helpers ─────────────────────────────────────────────────────────────
 
@@ -283,5 +284,51 @@ describe("reports.evolucionHistorica", () => {
     const caller = evolucionHistoricaRouter.createCaller(ctxWithRole("admin"));
     const result = await caller.evolucionHistorica({});
     expect(Array.isArray(result.months)).toBe(true);
+  });
+});
+
+// ─── 10. informeIrpfDemografico ──────────────────────────────────────────
+
+describe("reports.informeIrpfDemografico", () => {
+  it("rejects voluntario with FORBIDDEN", async () => {
+    const caller = informeIrpfDemograficoRouter.createCaller(ctxWithRole("voluntario"));
+    await expect(
+      caller.informeIrpfDemografico({ year: 2025 }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(fromMock).not.toHaveBeenCalled();
+  });
+
+  it("returns correct shape for admin + 0 rows", async () => {
+    fromMock.mockReturnValueOnce(emptyChain());
+    const caller = informeIrpfDemograficoRouter.createCaller(ctxWithRole("admin"));
+    const result = await caller.informeIrpfDemografico({ year: 2025 });
+    expect(result.year).toBe(2025);
+    expect(result.totalMiembros).toBe(0);
+    expect(result.totalSuppressed).toBe(0);
+    expect(result.totalSuppressedMarginal).toBe(0);
+    expect(Array.isArray(result.crossTab)).toBe(true);
+    expect(result.crossTab).toHaveLength(0);
+    expect(result.marginals).toHaveProperty("age");
+    expect(result.marginals).toHaveProperty("genero");
+    expect(result.marginals).toHaveProperty("estudios");
+    expect(result.marginals).toHaveProperty("laboral");
+    expect(result.marginals).toHaveProperty("pais");
+    expect(Array.isArray(result.marginals.age)).toBe(true);
+    expect(Array.isArray(result.marginals.genero)).toBe(true);
+    expect(Array.isArray(result.marginals.estudios)).toBe(true);
+    expect(Array.isArray(result.marginals.laboral)).toBe(true);
+    expect(Array.isArray(result.marginals.pais)).toBe(true);
+  });
+
+  it("throws INTERNAL_SERVER_ERROR on DB error", async () => {
+    const errorChain = {
+      ...emptyChain(),
+      returns: vi.fn().mockResolvedValue({ data: null, error: { message: "db failure", code: "42P01" } }),
+    };
+    fromMock.mockReturnValueOnce(errorChain);
+    const caller = informeIrpfDemograficoRouter.createCaller(ctxWithRole("admin"));
+    await expect(
+      caller.informeIrpfDemografico({ year: 2025 }),
+    ).rejects.toMatchObject({ code: "INTERNAL_SERVER_ERROR" });
   });
 });
