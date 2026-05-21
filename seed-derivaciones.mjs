@@ -175,14 +175,43 @@ async function seed() {
       console.log('⚠️  No hay personas. Saltando persona-scoped hoja.\n');
     }
 
-    // 5. Crear hojas de derivación
+    // 5. Crear hojas de derivación (get-or-create — idempotente)
     console.log('📄 Creando hojas de derivación...');
     const hojas = [];
 
-    if (familiaId1) {
-      const { data: familiaHoja, error: hojaError } = await supabase
+    async function getOrCreateHoja(insertData, label) {
+      // Buscar hoja activa existente para esta entidad + programa
+      const filter = insertData.scope === 'familia'
+        ? { familia_id: insertData.familia_id, programa_id: insertData.programa_id }
+        : { persona_id: insertData.persona_id, programa_id: insertData.programa_id };
+
+      const { data: existing } = await supabase
         .from('derivacion_hojas')
-        .insert({
+        .select('id')
+        .match({ ...filter, estado: 'activa' })
+        .limit(1);
+
+      if (existing && existing.length > 0) {
+        console.log(`♻️  Hoja ${label} ya existe: ${existing[0].id}`);
+        return existing[0].id;
+      }
+
+      const { data: created, error } = await supabase
+        .from('derivacion_hojas')
+        .insert(insertData)
+        .select('id');
+
+      if (error) {
+        console.warn(`⚠️  Error creating ${label} hoja: ${error.message}`);
+        return null;
+      }
+      console.log(`✅ Hoja ${label} creada: ${created[0].id}`);
+      return created[0].id;
+    }
+
+    if (familiaId1) {
+      const id = await getOrCreateHoja(
+        {
           scope: 'familia',
           familia_id: familiaId1,
           programa_id: programId,
@@ -190,25 +219,15 @@ async function seed() {
           profesional_nombre: 'María García López',
           fecha_apertura: new Date().toISOString().split('T')[0],
           estado: 'activa',
-        })
-        .select('id');
-
-      if (hojaError) {
-        console.warn(`⚠️  Error creating familia hoja: ${hojaError.message}`);
-      } else {
-        hojas.push({
-          id: familiaHoja[0].id,
-          scope: 'familia',
-          entity: `familia ${familiaId1}`,
-        });
-        console.log(`✅ Hoja familia creada: ${familiaHoja[0].id}`);
-      }
+        },
+        'familia'
+      );
+      if (id) hojas.push({ id, scope: 'familia', entity: `familia ${familiaId1}` });
     }
 
     if (personaId) {
-      const { data: personaHoja, error: hojaError } = await supabase
-        .from('derivacion_hojas')
-        .insert({
+      const id = await getOrCreateHoja(
+        {
           scope: 'persona',
           persona_id: personaId,
           programa_id: programId,
@@ -216,19 +235,10 @@ async function seed() {
           profesional_nombre: 'Juan Martínez Ruiz',
           fecha_apertura: new Date().toISOString().split('T')[0],
           estado: 'activa',
-        })
-        .select('id');
-
-      if (hojaError) {
-        console.warn(`⚠️  Error creating persona hoja: ${hojaError.message}`);
-      } else {
-        hojas.push({
-          id: personaHoja[0].id,
-          scope: 'persona',
-          entity: `persona ${personaId}`,
-        });
-        console.log(`✅ Hoja persona creada: ${personaHoja[0].id}\n`);
-      }
+        },
+        'persona'
+      );
+      if (id) hojas.push({ id, scope: 'persona', entity: `persona ${personaId}` });
     }
 
     if (hojas.length === 0) {
