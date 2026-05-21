@@ -10,6 +10,13 @@ export const IdiomaSchema = z.enum([
   "es", "ar", "fr", "bm", "en", "ro", "zh", "wo", "other"
 ]);
 
+// consent_language DB enum — the languages a consent template can exist in.
+// Subset of IdiomaSchema. Single source for the verbal-translation fallback
+// rule: an idioma_principal outside this set has no template → show Spanish +
+// verbal-translation banner. Mirrored by ConsentTemplateSchema.idioma.
+export const ConsentLanguageSchema = z.enum(["es", "ar", "fr", "bm"]);
+export type ConsentLanguage = z.infer<typeof ConsentLanguageSchema>;
+
 // DB enum values (exact match required for Supabase insert)
 export const TipoDocumentoSchema = z.enum([
   "DNI", "NIE", "Pasaporte", "Documento_Extranjero", "Sin_Documentacion"

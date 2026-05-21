@@ -3,6 +3,7 @@ import { Link } from "wouter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   Table,
   TableBody,
@@ -34,23 +35,48 @@ interface EnrolledPersonsTableProps {
   volunteerVisibleFields?: string[];
 }
 
-const ESTADO_BADGE: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-  activo: { label: "Activo", variant: "default" },
-  completado: { label: "Completado", variant: "secondary" },
-  rechazado: { label: "Rechazado", variant: "destructive" },
-  pausado: { label: "Pausado", variant: "outline" },
+export const ESTADO_LABEL: Record<string, string> = {
+  activo: "Activos",
+  completado: "Completados",
+  rechazado: "Rechazados",
+};
+
+export function buildCountLabel(
+  total: number,
+  estadoFilter: EnrollmentEstado | undefined
+): string {
+  const plural = total !== 1;
+  return (
+    `${total} persona${plural ? "s" : ""} inscrita${plural ? "s" : ""}` +
+    (estadoFilter ? ` (${ESTADO_LABEL[estadoFilter]?.toLowerCase()})` : "")
+  );
+}
+
+const ESTADO_BADGE_VARIANT: Record<
+  string,
+  "default" | "secondary" | "destructive" | "outline"
+> = {
+  activo: "default",
+  completado: "secondary",
+  rechazado: "destructive",
 };
 
 const ALL_COLUMNS = ["foto", "nombre", "estado", "fecha_inscripcion", "notas"] as const;
-type ColumnKey = typeof ALL_COLUMNS[number];
+type ColumnKey = (typeof ALL_COLUMNS)[number];
 
 function getInitials(nombre: string | null, apellidos: string | null): string {
-  const n = (nombre ?? '').charAt(0);
-  const a = (apellidos ?? '').charAt(0);
-  return `${n}${a}`.toUpperCase() || '?';
+  const n = (nombre ?? "").charAt(0);
+  const a = (apellidos ?? "").charAt(0);
+  return `${n}${a}`.toUpperCase() || "?";
 }
 
-export function EnrolledPersonsTable({ programId, isAdmin, volunteerVisibleFields = [] }: EnrolledPersonsTableProps) {
+const FILTER_STATES: EnrollmentEstado[] = ["activo", "completado", "rechazado"];
+
+export function EnrolledPersonsTable({
+  programId,
+  isAdmin,
+  volunteerVisibleFields = [],
+}: EnrolledPersonsTableProps) {
   const [search, setSearch] = useState("");
   const [estadoFilter, setEstadoFilter] = useState<EnrollmentEstado | undefined>("activo");
 
@@ -68,6 +94,15 @@ export function EnrolledPersonsTable({ programId, isAdmin, volunteerVisibleField
 
   const colCount = visibleCols.size + (isAdmin ? 1 : 0);
 
+  function handleFilterChange(value: string) {
+    // ToggleGroup `type="single"` returns empty string when deselected
+    if (!value) {
+      setEstadoFilter(undefined);
+    } else {
+      setEstadoFilter(value as EnrollmentEstado);
+    }
+  }
+
   return (
     <div className="space-y-4">
       {/* Filters */}
@@ -77,26 +112,31 @@ export function EnrolledPersonsTable({ programId, isAdmin, volunteerVisibleField
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="sm:max-w-xs"
+          aria-label="Buscar persona inscrita"
         />
-        <div className="flex gap-2">
-          {(["activo", "completado", "rechazado"] as EnrollmentEstado[]).map((estado) => (
-            <Button
+        <ToggleGroup
+          type="single"
+          value={estadoFilter ?? ""}
+          onValueChange={handleFilterChange}
+          aria-label="Filtrar por estado de inscripción"
+          className="flex-wrap gap-1"
+        >
+          {FILTER_STATES.map((estado) => (
+            <ToggleGroupItem
               key={estado}
-              variant={estadoFilter === estado ? "default" : "outline"}
-              size="sm"
-              onClick={() => setEstadoFilter(estadoFilter === estado ? undefined : estado)}
-              className="capitalize"
+              value={estado}
+              aria-label={ESTADO_LABEL[estado]}
+              className="text-xs font-semibold px-3 py-1.5 rounded-full border h-auto data-[state=on]:bg-foreground data-[state=on]:text-background data-[state=on]:border-foreground"
             >
-              {ESTADO_BADGE[estado].label}
-            </Button>
+              {ESTADO_LABEL[estado]}
+            </ToggleGroupItem>
           ))}
-        </div>
+        </ToggleGroup>
       </div>
 
       {/* Count */}
       <p className="text-sm text-muted-foreground">
-        {total} persona{total !== 1 ? "s" : ""} inscrita{total !== 1 ? "s" : ""}
-        {estadoFilter ? ` (${ESTADO_BADGE[estadoFilter].label.toLowerCase()})` : ""}
+        {buildCountLabel(total, estadoFilter)}
       </p>
 
       {/* Table */}
@@ -106,22 +146,34 @@ export function EnrolledPersonsTable({ programId, isAdmin, volunteerVisibleField
             <TableRow>
               {visibleCols.has("foto") && <TableHead className="w-12"></TableHead>}
               {visibleCols.has("nombre") && <TableHead>Persona</TableHead>}
-              {visibleCols.has("estado") && <TableHead className="hidden sm:table-cell">Estado</TableHead>}
-              {visibleCols.has("fecha_inscripcion") && <TableHead className="hidden md:table-cell">Inscripción</TableHead>}
-              {visibleCols.has("notas") && <TableHead className="hidden lg:table-cell">Notas</TableHead>}
+              {visibleCols.has("estado") && (
+                <TableHead className="hidden sm:table-cell">Estado</TableHead>
+              )}
+              {visibleCols.has("fecha_inscripcion") && (
+                <TableHead className="hidden md:table-cell">Inscripción</TableHead>
+              )}
+              {visibleCols.has("notas") && (
+                <TableHead className="hidden lg:table-cell">Notas</TableHead>
+              )}
               {isAdmin && <TableHead className="text-right">Acciones</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={colCount} className="text-center py-8 text-muted-foreground">
+                <TableCell
+                  colSpan={colCount}
+                  className="text-center py-8 text-muted-foreground"
+                >
                   Cargando...
                 </TableCell>
               </TableRow>
             ) : enrollments.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={colCount} className="text-center py-8 text-muted-foreground">
+                <TableCell
+                  colSpan={colCount}
+                  className="text-center py-8 text-muted-foreground"
+                >
                   No hay personas inscritas
                 </TableCell>
               </TableRow>
@@ -136,8 +188,11 @@ export function EnrolledPersonsTable({ programId, isAdmin, volunteerVisibleField
                           src={enrollment.persons.foto_perfil_url ?? undefined}
                           alt={`${enrollment.persons.nombre} ${enrollment.persons.apellidos}`}
                         />
-                        <AvatarFallback className="text-xs bg-muted">
-                          {getInitials(enrollment.persons.nombre ?? '', enrollment.persons.apellidos ?? '')}
+                        <AvatarFallback className="text-xs bg-accent text-accent-foreground">
+                          {getInitials(
+                            enrollment.persons.nombre ?? "",
+                            enrollment.persons.apellidos ?? ""
+                          )}
                         </AvatarFallback>
                       </Avatar>
                     </TableCell>
@@ -163,8 +218,11 @@ export function EnrolledPersonsTable({ programId, isAdmin, volunteerVisibleField
                   {/* Estado */}
                   {visibleCols.has("estado") && (
                     <TableCell className="hidden sm:table-cell">
-                      <Badge variant={ESTADO_BADGE[enrollment.estado].variant} className="text-xs">
-                        {ESTADO_BADGE[enrollment.estado].label}
+                      <Badge
+                        variant={ESTADO_BADGE_VARIANT[enrollment.estado]}
+                        className="text-xs"
+                      >
+                        {ESTADO_LABEL[enrollment.estado] ?? enrollment.estado}
                       </Badge>
                     </TableCell>
                   )}
@@ -191,7 +249,11 @@ export function EnrolledPersonsTable({ programId, isAdmin, volunteerVisibleField
                       {enrollment.estado === "activo" && (
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-muted-foreground hover:text-destructive"
+                            >
                               Dar de baja
                             </Button>
                           </AlertDialogTrigger>
