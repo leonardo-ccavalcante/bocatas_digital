@@ -233,7 +233,57 @@ export default function ProgramaDetalle() {
 
       {/* Content */}
       {program.slug === "programa_familias" ? (
-        <div className="max-w-5xl mx-auto px-4 py-6">
+        <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
+          {/* Standard view — same as other programs */}
+          <ProgramInfoBox
+            activeCount={activeCount}
+            newCount={newThisMonth}
+            completedCount={inactiveCount}
+            enrollmentsCount={activeCount + inactiveCount}
+          >
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {program.fecha_inicio && (
+                <MetaCell label="Inicio" value={program.fecha_inicio} />
+              )}
+              <MetaCell label="Fin" value={program.fecha_fin ?? "Sin fecha de fin"} />
+              <MetaCell
+                label="Acceso voluntarios"
+                value={program.volunteer_can_access ? "Sí" : "No"}
+              />
+              <MetaCell label="Orden" value={String(program.display_order)} />
+            </div>
+          </ProgramInfoBox>
+
+          <div>
+            <h2 className="text-eyebrow text-muted-foreground mb-3">
+              Estadísticas de inscripción
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <KPICard
+                label="Inscritos activos"
+                value={activeEnrollments?.total}
+                isLoading={loadingActive}
+                icon={<Users className="w-5 h-5" aria-hidden="true" />}
+                accentClass="text-emerald-600"
+              />
+              <KPICard
+                label="Nuevos este mes"
+                value={newThisMonth}
+                isLoading={loadingAllActive}
+                icon={<TrendingUp className="w-5 h-5" aria-hidden="true" />}
+                accentClass="text-blue-600"
+              />
+              <KPICard
+                label="Completados / Rechazados"
+                value={inactiveCount}
+                isLoading={loadingCompleted}
+                icon={<UserMinus className="w-5 h-5" aria-hidden="true" />}
+                accentClass="text-muted-foreground"
+              />
+            </div>
+          </div>
+
+          {/* Programa Familias tabs */}
           <ProgramTabs
             program={{ id: program.id, slug: program.slug, nombre: program.name }}
           />

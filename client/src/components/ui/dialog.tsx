@@ -89,6 +89,31 @@ function DialogOverlay({
 
 DialogOverlay.displayName = "DialogOverlay";
 
+/** Returns true if the React children tree contains a DialogTitle element. */
+function childrenHaveDialogTitle(children: React.ReactNode): boolean {
+  let found = false;
+  React.Children.forEach(children, (child) => {
+    if (found) return;
+    if (!React.isValidElement(child)) return;
+    // Check if this element is a DialogTitle (by Radix primitive, displayName, or function name)
+    const type = child.type as React.FC & { displayName?: string };
+    if (
+      type === DialogPrimitive.Title ||
+      type.displayName === "DialogTitle" ||
+      (typeof type === "function" && type.name === "DialogTitle")
+    ) {
+      found = true;
+      return;
+    }
+    // Recurse into DialogHeader and other wrappers
+    const childProps = child.props as { children?: React.ReactNode };
+    if (childProps.children) {
+      found = childrenHaveDialogTitle(childProps.children);
+    }
+  });
+  return found;
+}
+
 function DialogContent({
   className,
   children,
@@ -118,6 +143,11 @@ function DialogContent({
     [isComposing, onEscapeKeyDown]
   );
 
+  // Only render the sr-only fallback title when children do NOT already contain
+  // a DialogTitle. This prevents Radix from using the empty title as aria-labelledby
+  // when a real visible title is present (which would break getByRole("dialog", {name}))
+  const hasTitleInChildren = childrenHaveDialogTitle(children);
+
   return (
     <DialogPortal data-slot="dialog-portal">
       <DialogOverlay />
@@ -130,10 +160,11 @@ function DialogContent({
         onEscapeKeyDown={handleEscapeKeyDown}
         {...props}
       >
-        {/* sr-only fallback: Radix verifies document.getElementById(titleId) on mount.
-            If children render DialogTitle conditionally, this guarantees the element
-            always exists in the DOM. Visible DialogTitle in children takes precedence. */}
-        <DialogPrimitive.Title className="sr-only" />
+        {/* sr-only fallback: only rendered when no DialogTitle exists in children.
+            Radix verifies document.getElementById(titleId) on mount — this prevents
+            the console warning. When a real DialogTitle is present, it takes over
+            aria-labelledby and this fallback is omitted. */}
+        {!hasTitleInChildren && <DialogPrimitive.Title className="sr-only" />}
         {children}
         {showCloseButton && (
           <DialogPrimitive.Close
