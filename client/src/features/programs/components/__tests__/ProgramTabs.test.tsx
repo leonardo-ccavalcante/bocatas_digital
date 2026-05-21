@@ -124,7 +124,7 @@ describe("ProgramTabs contract", () => {
   });
 
   // 3 ──────────────────────────────────────────────────────────────────────────
-  it("enables Familias, Uploads, Mapa, Reports; disables Derivar (Phase 2)", () => {
+  it("enables all five tabs including Derivar (Phase 3 active)", () => {
     renderWithRouter(<ProgramTabs program={makeProgram("programa_familias")} />);
 
     const allTabs = screen.getAllByRole("tab");
@@ -137,33 +137,15 @@ describe("ProgramTabs contract", () => {
         el.getAttribute("aria-disabled") === "true"
       );
     }
-    // Phase 2 enables Mapa + Reports alongside Familias + Uploads.
+    // All tabs are live now that Derivar (Phase 3) is enabled.
     expect(isDisabledTab(familias)).toBe(false);
     expect(isDisabledTab(uploads)).toBe(false);
     expect(isDisabledTab(mapa)).toBe(false);
     expect(isDisabledTab(reports)).toBe(false);
-
-    // Derivar stays disabled until Phase 3.
-    expect(isDisabledTab(derivar)).toBe(true);
+    expect(isDisabledTab(derivar)).toBe(false);
   });
 
   // 4 ──────────────────────────────────────────────────────────────────────────
-  it("the still-disabled Derivar tab surfaces a 'Próximamente' tooltip on hover", async () => {
-    const user = userEvent.setup();
-    renderWithRouter(<ProgramTabs program={makeProgram("programa_familias")} />);
-
-    // Derivar is index 4 per spec order — the only tab still disabled in Phase 2.
-    const allTabs = screen.getAllByRole("tab");
-    const derivarTab = allTabs[4];
-    // parentElement is the <span tabIndex={0}> TooltipTrigger wrapper.
-    const tooltipTriggerSpan = derivarTab.parentElement!;
-    await user.hover(tooltipTriggerSpan);
-
-    const tooltip = await screen.findByRole("tooltip");
-    expect(tooltip).toHaveTextContent("Próximamente");
-  });
-
-  // 5 ──────────────────────────────────────────────────────────────────────────
   it("mounts FamiliasTab pane when tab=familias (default, no ?tab= in URL)", async () => {
     renderWithRouter(<ProgramTabs program={makeProgram("programa_familias")} />);
     // Default tab is familias — content pane should be present
