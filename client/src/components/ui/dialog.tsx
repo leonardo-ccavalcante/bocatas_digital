@@ -148,8 +148,13 @@ function DialogContent({
         {/* Radix requires a Title for the dialog's accessible name. Render an
             sr-only fallback ONLY when children don't already supply a DialogTitle —
             rendering both collides on Radix's shared titleId and leaves the dialog
-            with an EMPTY accessible name (WCAG break). */}
-        {!hasDialogTitle(children) && <DialogPrimitive.Title className="sr-only" />}
+            with an EMPTY accessible name (WCAG break).
+            IMPORTANT: The fallback title text is intentionally generic. All
+            DialogContent consumers SHOULD provide a real <DialogTitle> with
+            descriptive text. The fallback exists only as a safety net. */}
+        {!hasDialogTitle(children) && (
+          <DialogPrimitive.Title className="sr-only">Diálogo</DialogPrimitive.Title>
+        )}
         {children}
         {showCloseButton && (
           <DialogPrimitive.Close
