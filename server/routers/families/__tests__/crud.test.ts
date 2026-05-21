@@ -70,6 +70,75 @@ beforeEach(() => {
   fromMock.mockReset();
 });
 
+// getById calls: from("families").select(sel).eq().is().single() then
+// from("familia_miembros").select().eq().is().order(). We capture the select
+// string passed to the families query so we can assert which titular PII
+// columns are requested per role.
+function mockGetByIdChains(family: Record<string, unknown>) {
+  const selectArgs: string[] = [];
+  const familiesChain = {
+    select: vi.fn((sel: string) => {
+      selectArgs.push(sel);
+      return familiesChain;
+    }),
+    eq: vi.fn().mockReturnThis(),
+    is: vi.fn().mockReturnThis(),
+    single: vi.fn(() => Promise.resolve({ data: family, error: null })),
+  };
+  const miembrosChain = {
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    is: vi.fn().mockReturnThis(),
+    order: vi.fn(() => Promise.resolve({ data: [], error: null })),
+  };
+  fromMock.mockImplementation((table: string) =>
+    table === "families" ? familiesChain : miembrosChain
+  );
+  return { selectArgs };
+}
+
+describe("families.getById — titular PII minimisation", () => {
+  const family = {
+    id: "f1",
+    familia_numero: 1,
+    persons: { id: "p1", nombre: "Ana", apellidos: "García", telefono: "600", email: "a@b.es" },
+  };
+
+  it("does NOT request titular telefono/email for voluntario callers", async () => {
+    const { selectArgs } = mockGetByIdChains(family);
+
+    const caller = crudRouter.createCaller(ctxWithRole("voluntario"));
+    await caller.getById({ id: "11111111-1111-1111-1111-111111111111" });
+
+    const familiesSelect = selectArgs[0];
+    expect(familiesSelect).not.toMatch(/telefono/);
+    expect(familiesSelect).not.toMatch(/email/);
+    expect(familiesSelect).not.toMatch(/numero_documento/);
+    // The non-PII identity fields are still requested.
+    expect(familiesSelect).toMatch(/nombre/);
+    expect(familiesSelect).toMatch(/apellidos/);
+  });
+
+  it("requests titular telefono/email for admin callers", async () => {
+    const { selectArgs } = mockGetByIdChains(family);
+
+    const caller = crudRouter.createCaller(ctxWithRole("admin"));
+    await caller.getById({ id: "11111111-1111-1111-1111-111111111111" });
+
+    const familiesSelect = selectArgs[0];
+    expect(familiesSelect).toMatch(/telefono/);
+    expect(familiesSelect).toMatch(/email/);
+  });
+
+  it("rejects beneficiario callers (below voluntario)", async () => {
+    mockGetByIdChains(family);
+    const caller = crudRouter.createCaller(ctxWithRole("beneficiario"));
+    await expect(
+      caller.getById({ id: "11111111-1111-1111-1111-111111111111" })
+    ).rejects.toThrow();
+  });
+});
+
 describe("families.getAll — distrito filter", () => {
   it("applies a distrito equality constraint when distrito is provided", async () => {
     const { chain, eq } = mockGetAllChain();

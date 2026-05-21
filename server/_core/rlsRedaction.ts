@@ -26,7 +26,13 @@ const HIGH_RISK_FIELDS = [
 
 const ELEVATED_ROLES = new Set(["admin", "superadmin"]);
 
-function isElevatedRole(role: string | undefined | null): boolean {
+/**
+ * True when the caller's role may receive contact PII (telefono, email,
+ * numero_documento) and high-risk fields. Single source of truth for the
+ * elevated-role test, shared by `redactHighRiskFields` and by routers that
+ * narrow their `select` columns per role (e.g. families.getById titular).
+ */
+export function isElevatedRole(role: string | undefined | null): boolean {
   return role !== undefined && role !== null && ELEVATED_ROLES.has(role);
 }
 
