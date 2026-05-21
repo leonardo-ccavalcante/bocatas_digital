@@ -50,6 +50,9 @@ export async function renderDerivarHojaDocx(
   const doc = new Docxtemplater(zip, {
     paragraphLoop: true,
     linebreaks: true,
+    // Render missing placeholders as "" instead of throwing (matches E1's
+    // documentService); a stale template tag must not 500 the whole render.
+    nullGetter: () => "",
   });
   doc.render(data);
   return doc.toBuffer();
