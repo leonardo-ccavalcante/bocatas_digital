@@ -7,6 +7,18 @@ import {
   TEMPLATE_FILENAME_DOCX,
 } from "../../shared/derivar/templatePlaceholders";
 
+/**
+ * Thrown when the Derivar .docx template cannot be loaded from Storage
+ * (not yet uploaded by an admin). Callers map this to a friendly,
+ * PII-free client message instead of a raw 500.
+ */
+export class DerivarTemplateError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "DerivarTemplateError";
+  }
+}
+
 export interface DerivarHojaTemplateData {
   nombre: string;
   numUnidadFamiliar: string;
@@ -41,7 +53,7 @@ export async function renderDerivarHojaDocx(
     .from(TEMPLATE_BUCKET)
     .download(TEMPLATE_FILENAME_DOCX);
   if (error || !file) {
-    throw new Error(
+    throw new DerivarTemplateError(
       `Could not load Derivar template: ${error?.message ?? "no file"}`,
     );
   }
