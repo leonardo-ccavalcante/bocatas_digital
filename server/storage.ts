@@ -2,6 +2,7 @@
 // Uses the Biz-provided storage proxy (Authorization: Bearer <token>)
 
 import { ENV } from './_core/env';
+import { createAdminClient } from "../client/src/lib/supabase/server";
 
 type StorageConfig = { baseUrl: string; apiKey: string };
 
@@ -48,6 +49,21 @@ function toFormData(
 
 function buildAuthHeaders(apiKey: string): HeadersInit {
   return { Authorization: `Bearer ${apiKey}` };
+}
+
+/**
+ * Download a file from Supabase Storage and return it as a Buffer.
+ * Throws a plain Error if the download fails or returns no data.
+ */
+export async function fetchStorageBuffer(bucket: string, path: string): Promise<Buffer> {
+  const db = createAdminClient();
+  const { data, error } = await db.storage.from(bucket).download(path);
+  if (error || !data) {
+    throw new Error(
+      `Failed to download storage object '${path}' from bucket '${bucket}': ${error?.message ?? "no data returned"}`
+    );
+  }
+  return Buffer.from(await data.arrayBuffer());
 }
 
 export async function storagePut(
