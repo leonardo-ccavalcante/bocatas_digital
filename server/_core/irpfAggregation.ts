@@ -145,7 +145,9 @@ export function computeAgeBracket(
 
 /**
  * null/undefined/empty/whitespace → "no_indicado"; else trim + lowercase.
- * No alias mapping.
+ * No alias mapping. The function is intentionally generic (operates on any
+ * string); in production, real inputs are uppercase ISO-3166-1 alpha-2 codes
+ * (e.g. "ES", "MA", "SN") as stored in `persons.pais_origen`.
  */
 export function normalizeCountryKey(raw: string | null | undefined): string {
   if (raw === null || raw === undefined) return "no_indicado";

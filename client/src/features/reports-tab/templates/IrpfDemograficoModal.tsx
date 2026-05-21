@@ -14,6 +14,7 @@ import { useState } from "react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -32,6 +33,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Download } from "lucide-react";
 import { HIGH_RISK_PII_FIELDS } from "@shared/reports/entities";
 import { exportRowsAsCsv } from "../utils/exportCsv";
+import { paisLabel } from "../utils/paisLabel";
 import { useIrpfDemografico } from "../hooks/useTemplatedReports";
 
 // ── Types derived from hook — NO server import (F-B) ─────────────────────────
@@ -51,9 +53,10 @@ const REDACT = [...HIGH_RISK_PII_FIELDS];
 interface MarginalTableProps {
   title: string;
   rows: MarginalRow[];
+  labelFn?: (key: string) => string;
 }
 
-function MarginalTable({ title, rows }: MarginalTableProps) {
+function MarginalTable({ title, rows, labelFn }: MarginalTableProps) {
   return (
     <div className="space-y-1">
       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
@@ -74,7 +77,9 @@ function MarginalTable({ title, rows }: MarginalTableProps) {
           <TableBody>
             {rows.map((r) => (
               <TableRow key={r.key}>
-                <TableCell className="text-xs py-1">{r.key}</TableCell>
+                <TableCell className="text-xs py-1">
+                  {labelFn !== undefined ? labelFn(r.key) : r.key}
+                </TableCell>
                 <TableCell className="text-xs py-1 text-right">
                   {r.count === null ? "—" : r.count}
                 </TableCell>
@@ -111,7 +116,11 @@ export function IrpfDemograficoModal({ open, onClose }: Props) {
     const rows = dims.flatMap(({ title, key }) =>
       data.marginals[key]
         .filter(isVisible)
-        .map((r) => ({ dimension: title, valor: r.key, n: r.count })),
+        .map((r) => ({
+          dimension: title,
+          valor: key === "pais" ? paisLabel(r.key) : r.key,
+          n: r.count,
+        })),
     );
     exportRowsAsCsv(rows, {
       filename: `irpf_marginales_${year}.csv`,
@@ -128,7 +137,7 @@ export function IrpfDemograficoModal({ open, onClose }: Props) {
         genero: r.genero,
         estudios: r.nivel_estudios,
         empleo: r.situacion_laboral,
-        pais: r.pais_origen,
+        pais: paisLabel(r.pais_origen),
         n: r.count,
       }));
     exportRowsAsCsv(rows, {
@@ -148,6 +157,9 @@ export function IrpfDemograficoModal({ open, onClose }: Props) {
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto" aria-labelledby="irpf-demo-title">
         <DialogHeader>
           <DialogTitle id="irpf-demo-title">IRPF Demográfico</DialogTitle>
+          <DialogDescription className="sr-only">
+            Informe demográfico anual para justificación de subvenciones IRPF.
+          </DialogDescription>
         </DialogHeader>
 
         {/* Year control */}
@@ -228,7 +240,7 @@ export function IrpfDemograficoModal({ open, onClose }: Props) {
             <MarginalTable title="Género" rows={data.marginals.genero} />
             <MarginalTable title="Estudios" rows={data.marginals.estudios} />
             <MarginalTable title="Empleo" rows={data.marginals.laboral} />
-            <MarginalTable title="Nacionalidad" rows={data.marginals.pais} />
+            <MarginalTable title="Nacionalidad" rows={data.marginals.pais} labelFn={paisLabel} />
           </div>
         )}
 
@@ -251,13 +263,13 @@ export function IrpfDemograficoModal({ open, onClose }: Props) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {data.crossTab.map((r, i) => (
-                    <TableRow key={i}>
+                  {data.crossTab.map((r) => (
+                    <TableRow key={`${r.age_bracket}|${r.genero}|${r.nivel_estudios}|${r.situacion_laboral}|${r.pais_origen}`}>
                       <TableCell className="text-xs">{r.age_bracket}</TableCell>
                       <TableCell className="text-xs">{r.genero}</TableCell>
                       <TableCell className="text-xs">{r.nivel_estudios}</TableCell>
                       <TableCell className="text-xs">{r.situacion_laboral}</TableCell>
-                      <TableCell className="text-xs">{r.pais_origen}</TableCell>
+                      <TableCell className="text-xs">{paisLabel(r.pais_origen)}</TableCell>
                       <TableCell className="text-xs text-right">
                         {r.count === null ? "—" : r.count}
                       </TableCell>

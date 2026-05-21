@@ -59,10 +59,11 @@ const marginalsWithSuppressed = {
     { key: "18-30", count: 5 },
     { key: "31-45", count: null }, // suppressed
   ],
-  genero: [{ key: "Mujer", count: 8 }],
-  estudios: [{ key: "Primarios", count: 3 }],
-  laboral: [{ key: "Desempleado", count: 7 }],
-  pais: [{ key: "Marruecos", count: 4 }],
+  genero: [{ key: "masculino", count: 8 }],
+  estudios: [{ key: "primaria", count: 3 }],
+  laboral: [{ key: "desempleado", count: 7 }],
+  // ISO-2 codes as produced by normalizeCountryKey (lowercase)
+  pais: [{ key: "ma", count: 4 }],
 };
 
 const sampleData = {
@@ -72,10 +73,10 @@ const sampleData = {
   crossTab: [
     {
       age_bracket: "18-30",
-      genero: "Mujer",
-      nivel_estudios: "Primarios",
-      situacion_laboral: "Desempleado",
-      pais_origen: "Marruecos",
+      genero: "masculino",
+      nivel_estudios: "primaria",
+      situacion_laboral: "desempleado",
+      pais_origen: "ma", // ISO-2 code (lowercase) as normalised by server
       count: 3,
     },
   ],
@@ -174,18 +175,18 @@ describe("IrpfDemograficoModal", () => {
       crossTab: [
         {
           age_bracket: "18-30",
-          genero: "Mujer",
-          nivel_estudios: "Primarios",
-          situacion_laboral: "Desempleado",
-          pais_origen: "Marruecos",
+          genero: "masculino",
+          nivel_estudios: "primaria",
+          situacion_laboral: "desempleado",
+          pais_origen: "ma", // ISO-2 code (lowercase)
           count: 4, // visible
         },
         {
           age_bracket: "31-45",
-          genero: "Hombre",
-          nivel_estudios: "Secundarios",
-          situacion_laboral: "Empleado",
-          pais_origen: "Senegal",
+          genero: "femenino",
+          nivel_estudios: "secundaria",
+          situacion_laboral: "desempleado",
+          pais_origen: "sn", // ISO-2 code (lowercase)
           count: null, // suppressed
         },
       ],
