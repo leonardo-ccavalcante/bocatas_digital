@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { FileText, AlertCircle, CheckCircle, Clock, Upload } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import { isInformeStale } from "@shared/informeFreshness";
 import { DocumentUploadModal } from "@/components/DocumentUploadModal";
 import { useFamilyLevelDocuments } from "@/features/families/hooks/useFamilias";
 import { FollowUpsPanel } from "./FollowUpsPanel";
@@ -47,7 +48,7 @@ export function SocialReportPanel({ familyId, informeSocial, informeSocialFecha 
     if (latest == null) {
       return "Sin seguimientos registrados. Añade un seguimiento para habilitar la generación.";
     }
-    if ((Date.now() - new Date(latest.fecha).getTime()) / 86400000 > 365) {
+    if (isInformeStale(latest.fecha)) {
       return `El informe social está vencido (último seguimiento: ${latest.fecha}). Registra un seguimiento reciente.`;
     }
     return null;

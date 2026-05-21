@@ -239,6 +239,34 @@ describe("families.publishTemplate — superadmin publish flow", () => {
       code: "INTERNAL_SERVER_ERROR",
     });
   });
+
+  it("maps a unique-violation (23505) to CONFLICT (plan §F)", async () => {
+    const maybeSingleChain = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      order: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn(() => Promise.resolve({ data: null, error: null })),
+    };
+
+    const insertChain = {
+      insert: vi.fn().mockReturnThis(),
+      select: vi.fn().mockReturnThis(),
+      single: vi.fn(() =>
+        Promise.resolve({
+          data: null,
+          error: { code: "23505", message: "duplicate key value violates unique constraint" },
+        })
+      ),
+    };
+
+    fromMock.mockReturnValueOnce(maybeSingleChain).mockReturnValueOnce(insertChain);
+
+    const caller = templateEditorRouter.createCaller(ctxWithRole("superadmin"));
+    await expect(caller.publishTemplate(VALID_INPUT)).rejects.toMatchObject({
+      code: "CONFLICT",
+    });
+  });
 });
 
 // ─── listTemplateVersions (superadmin) ────────────────────────────────────

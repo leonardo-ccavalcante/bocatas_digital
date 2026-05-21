@@ -24,7 +24,7 @@ export function DocumentPreviewDialog({
   fileName,
   mime,
 }: DocumentPreviewDialogProps) {
-  // Decode base64 → Blob → object URL for preview and download.
+  // Decode base64 → Blob → object URL for the download link.
   // The URL is stable across renders (only changes when bufferBase64/mime change).
   const blobUrl = useMemo(() => {
     const binaryStr = atob(bufferBase64);
@@ -36,48 +36,30 @@ export function DocumentPreviewDialog({
     return URL.createObjectURL(blob);
   }, [bufferBase64, mime]);
 
-  // KNOWN LIMITATION (E1 plan §H assumption #3):
-  // The Office Online viewer (view.officeapps.live.com) requires a publicly-reachable URL.
-  // A `blob:` URL produced from a local base64 buffer is only resolvable within this browser
-  // origin and will NOT be accessible to the Office viewer's external servers.
-  // As a result, the iframe will render an error or remain blank when running against localhost
-  // or any non-public URL. The download fallback below is the reliable path until this component
-  // is wired up to a Supabase Storage signed URL that is publicly reachable.
-  // TODO (post-E1): replace blobUrl with a short-lived signed Storage URL before using the iframe in production.
-  const officeViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(blobUrl)}`;
-
+  // RGPD GUARD — do NOT add an Office Online viewer iframe
+  // (view.officeapps.live.com) here. The generated document contains beneficiary
+  // PII (nombre, número de documento, teléfono); embedding it in that iframe
+  // would transmit the file to a Microsoft endpoint that is NOT a sub-processor
+  // covered by the EIPD. Any in-app preview must render SAME-ORIGIN
+  // (e.g. docx-preview / mammoth) so the buffer never leaves this origin.
+  // Until that lands, the document is viewed by downloading it.
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl w-full">
+      <DialogContent className="max-w-md w-full">
         <DialogHeader>
           <DialogTitle>{fileName}</DialogTitle>
           <DialogDescription>
-            Vista previa del documento generado
+            Descarga el documento para visualizarlo.
           </DialogDescription>
         </DialogHeader>
 
-        {/* Download fallback — always visible, not behind any interaction */}
-        <div className="flex justify-end pb-2">
-          <Button variant="outline" size="sm" asChild>
-            <a
-              href={blobUrl}
-              download={fileName}
-              aria-label={`Descargar ${fileName}`}
-            >
+        <div className="flex justify-end pt-2">
+          <Button asChild>
+            <a href={blobUrl} download={fileName} aria-label={`Descargar ${fileName}`}>
               <Download className="h-4 w-4" aria-hidden="true" />
               Descargar
             </a>
           </Button>
-        </div>
-
-        {/* Office Online viewer — will not render for localhost blob URLs; see KNOWN LIMITATION above */}
-        <div className="w-full" style={{ height: "80vh" }}>
-          <iframe
-            src={officeViewerUrl}
-            title={`Vista previa: ${fileName}`}
-            className="w-full h-full rounded border"
-            allow="fullscreen"
-          />
         </div>
       </DialogContent>
     </Dialog>
