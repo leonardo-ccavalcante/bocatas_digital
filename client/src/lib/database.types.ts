@@ -619,6 +619,141 @@ export type Database = {
           },
         ]
       }
+      derivacion_hojas: {
+        Row: {
+          created_at: string
+          estado: string
+          familia_id: string | null
+          fecha_apertura: string
+          id: string
+          persona_id: string | null
+          profesional_id: string
+          profesional_nombre: string
+          programa_id: string
+          scope: string
+        }
+        Insert: {
+          created_at?: string
+          estado?: string
+          familia_id?: string | null
+          fecha_apertura?: string
+          id?: string
+          persona_id?: string | null
+          profesional_id: string
+          profesional_nombre: string
+          programa_id: string
+          scope: string
+        }
+        Update: {
+          created_at?: string
+          estado?: string
+          familia_id?: string | null
+          fecha_apertura?: string
+          id?: string
+          persona_id?: string | null
+          profesional_id?: string
+          profesional_nombre?: string
+          programa_id?: string
+          scope?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "derivacion_hojas_familia_id_fkey"
+            columns: ["familia_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "derivacion_hojas_persona_id_fkey"
+            columns: ["persona_id"]
+            isOneToOne: false
+            referencedRelation: "persons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "derivacion_hojas_persona_id_fkey"
+            columns: ["persona_id"]
+            isOneToOne: false
+            referencedRelation: "persons_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "derivacion_hojas_programa_id_fkey"
+            columns: ["programa_id"]
+            isOneToOne: false
+            referencedRelation: "programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      derivacion_intervenciones: {
+        Row: {
+          created_at: string
+          created_by: string
+          descripcion: string
+          fecha: string
+          firmado_at: string | null
+          firmado_url: string | null
+          hoja_id: string
+          id: string
+          institucion_id: string | null
+          institucion_snapshot: Json | null
+          observaciones: string | null
+          tipo_slug: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          descripcion: string
+          fecha: string
+          firmado_at?: string | null
+          firmado_url?: string | null
+          hoja_id: string
+          id?: string
+          institucion_id?: string | null
+          institucion_snapshot?: Json | null
+          observaciones?: string | null
+          tipo_slug: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          descripcion?: string
+          fecha?: string
+          firmado_at?: string | null
+          firmado_url?: string | null
+          hoja_id?: string
+          id?: string
+          institucion_id?: string | null
+          institucion_snapshot?: Json | null
+          observaciones?: string | null
+          tipo_slug?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "derivacion_intervenciones_hoja_id_fkey"
+            columns: ["hoja_id"]
+            isOneToOne: false
+            referencedRelation: "derivacion_hojas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "derivacion_intervenciones_institucion_id_fkey"
+            columns: ["institucion_id"]
+            isOneToOne: false
+            referencedRelation: "instituciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "derivacion_intervenciones_tipo_slug_fkey"
+            columns: ["tipo_slug"]
+            isOneToOne: false
+            referencedRelation: "tipos_intervencion"
+            referencedColumns: ["slug"]
+          },
+        ]
+      }
       document_render_log: {
         Row: {
           actor_id: string
@@ -795,141 +930,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "persons_safe"
             referencedColumns: ["id"]
-          },
-        ]
-      }
-      derivacion_hojas: {
-        Row: {
-          created_at: string
-          estado: string
-          familia_id: string | null
-          fecha_apertura: string
-          id: string
-          persona_id: string | null
-          profesional_id: string
-          profesional_nombre: string
-          programa_id: string
-          scope: string
-        }
-        Insert: {
-          created_at?: string
-          estado?: string
-          familia_id?: string | null
-          fecha_apertura?: string
-          id?: string
-          persona_id?: string | null
-          profesional_id: string
-          profesional_nombre: string
-          programa_id: string
-          scope: string
-        }
-        Update: {
-          created_at?: string
-          estado?: string
-          familia_id?: string | null
-          fecha_apertura?: string
-          id?: string
-          persona_id?: string | null
-          profesional_id?: string
-          profesional_nombre?: string
-          programa_id?: string
-          scope?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "derivacion_hojas_familia_id_fkey"
-            columns: ["familia_id"]
-            isOneToOne: false
-            referencedRelation: "families"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "derivacion_hojas_persona_id_fkey"
-            columns: ["persona_id"]
-            isOneToOne: false
-            referencedRelation: "persons"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "derivacion_hojas_persona_id_fkey"
-            columns: ["persona_id"]
-            isOneToOne: false
-            referencedRelation: "persons_safe"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "derivacion_hojas_programa_id_fkey"
-            columns: ["programa_id"]
-            isOneToOne: false
-            referencedRelation: "programs"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      derivacion_intervenciones: {
-        Row: {
-          created_at: string
-          created_by: string
-          descripcion: string
-          fecha: string
-          firmado_at: string | null
-          firmado_url: string | null
-          hoja_id: string
-          id: string
-          institucion_id: string | null
-          institucion_snapshot: Json | null
-          observaciones: string | null
-          tipo_slug: string
-        }
-        Insert: {
-          created_at?: string
-          created_by: string
-          descripcion: string
-          fecha: string
-          firmado_at?: string | null
-          firmado_url?: string | null
-          hoja_id: string
-          id?: string
-          institucion_id?: string | null
-          institucion_snapshot?: Json | null
-          observaciones?: string | null
-          tipo_slug: string
-        }
-        Update: {
-          created_at?: string
-          created_by?: string
-          descripcion?: string
-          fecha?: string
-          firmado_at?: string | null
-          firmado_url?: string | null
-          hoja_id?: string
-          id?: string
-          institucion_id?: string | null
-          institucion_snapshot?: Json | null
-          observaciones?: string | null
-          tipo_slug?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "derivacion_intervenciones_hoja_id_fkey"
-            columns: ["hoja_id"]
-            isOneToOne: false
-            referencedRelation: "derivacion_hojas"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "derivacion_intervenciones_institucion_id_fkey"
-            columns: ["institucion_id"]
-            isOneToOne: false
-            referencedRelation: "instituciones"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "derivacion_intervenciones_tipo_slug_fkey"
-            columns: ["tipo_slug"]
-            isOneToOne: false
-            referencedRelation: "tipos_intervencion"
-            referencedColumns: ["slug"]
           },
         ]
       }
