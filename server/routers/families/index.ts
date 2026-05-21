@@ -8,6 +8,7 @@ import { sessionsRouter } from "./sessions";
 import { csvExportRouter } from "./csv-export";
 import { csvImportRouter } from "./csv-import";
 import { legacyImportRouter } from "./legacy-import";
+import { followUpsRouter } from "./follow-ups";
 
 // Re-export helpers used by other routers (server/routers/persons.ts imports
 // insertFamilyRow + mirrorMembersToTable from "./families"). Preserves the
@@ -36,4 +37,5 @@ export const familiesRouter = mergeRouters(
   csvExportRouter,
   csvImportRouter,
   legacyImportRouter,
+  followUpsRouter,
 );
