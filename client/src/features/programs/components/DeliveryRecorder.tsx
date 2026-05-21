@@ -10,9 +10,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Package, Users, ChevronDown, ChevronUp } from "lucide-react";
+import { SignaturePad } from "@/features/families/components/SignaturePad";
 
 export interface FamilyContext {
   /** Number of adults in the family */
@@ -39,6 +39,16 @@ interface DeliveryRecorderProps {
   onSave: (record: DeliveryRecord) => void | Promise<void>;
   isSaving?: boolean;
   className?: string;
+  /** Signature capture — optional. If provided (with savedDeliveryId + signerPersonId), shows SignaturePad after save. */
+  onSignatureCapture?: (
+    deliveryId: string,
+    dataUrl: string,
+    signerPersonId: string
+  ) => void | Promise<void>;
+  /** UUID of the beneficiary who will sign. Required for the signature step to appear. */
+  signerPersonId?: string;
+  /** Set by the parent after onSave resolves; the delivery must exist before a signature can be recorded. */
+  savedDeliveryId?: string;
 }
 
 export function DeliveryRecorder({
@@ -46,9 +56,13 @@ export function DeliveryRecorder({
   onSave,
   isSaving = false,
   className,
+  onSignatureCapture,
+  signerPersonId,
+  savedDeliveryId,
 }: DeliveryRecorderProps) {
   const today = new Date().toISOString().split("T")[0];
   const [expanded, setExpanded] = useState(true);
+  const [signatureCaptured, setSignatureCaptured] = useState(false);
   const [record, setRecord] = useState<DeliveryRecord>({
     fecha: today,
     recogido_por: familyContext?.persona_recoge ?? "",
@@ -225,6 +239,20 @@ export function DeliveryRecorder({
           >
             {isSaving ? "Guardando..." : "Registrar entrega"}
           </Button>
+
+          {onSignatureCapture && savedDeliveryId && signerPersonId && !signatureCaptured && (
+            <div className="border-t pt-4 space-y-2 mt-4">
+              <p className="text-xs text-muted-foreground">
+                Firma de recepción (opcional)
+              </p>
+              <SignaturePad
+                onCapture={async (dataUrl) => {
+                  await onSignatureCapture(savedDeliveryId, dataUrl, signerPersonId);
+                  setSignatureCaptured(true);
+                }}
+              />
+            </div>
+          )}
         </form>
       )}
     </div>

@@ -1,7 +1,6 @@
 /**
- * ProgramFilter — Dropdown to filter dashboard by program.
+ * ProgramFilter — v4 restyle: rounded-full pill select matching prototype.
  * Loads programs from tRPC dashboard.getPrograms.
- * McKinsey style: clean select, no decorative elements.
  */
 import { trpc } from "@/lib/trpc";
 import {
@@ -11,7 +10,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
 
 interface ProgramFilterProps {
   value: string;
@@ -24,14 +22,13 @@ export function ProgramFilter({ value, onChange, className }: ProgramFilterProps
     staleTime: 5 * 60 * 1000,
   });
 
-  if (isLoading) {
-    return <Skeleton className={`h-9 w-40 ${className ?? ""}`} />;
-  }
-
   return (
-    <Select value={value} onValueChange={onChange}>
+    <Select value={value} onValueChange={onChange} disabled={isLoading}>
       <SelectTrigger
-        className={`h-9 text-sm ${className ?? ""}`}
+        className={[
+          "text-xs font-medium h-8 rounded-full border-border bg-card shrink-0 px-3 min-w-[160px]",
+          className ?? "",
+        ].join(" ")}
         aria-label="Filtrar por programa"
       >
         <SelectValue placeholder="Todos los programas" />
