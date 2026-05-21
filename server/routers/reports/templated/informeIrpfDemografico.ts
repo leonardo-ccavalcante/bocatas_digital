@@ -67,6 +67,16 @@ function flattenPersonFields(raw: RawMiembroRow): NormalizedMiembroRow {
 
 // ─── Input schema ─────────────────────────────────────────────────────────────
 
+/**
+ * Temporal semantics of `year`:
+ *   - The report counts ALL current `estado='activo'` familia_miembros — it is
+ *     NOT filtered by when members joined. `year` affects ONLY age-bracket
+ *     classification (age computed as of Dec 31 of `year`, AEAT convention).
+ *   - Historical fiscal-year membership scoping (e.g. a `created_at`/period
+ *     filter to include only members active during that year) is a deliberate
+ *     FUTURE decision to confirm with Familia stakeholders (Espe/Nacho) before
+ *     implementing. Do NOT add a `created_at` filter here without that sign-off.
+ */
 const InputSchema = z.object({
   year: z.number().int().min(2020).max(2099),
 });
@@ -80,6 +90,10 @@ export const informeIrpfDemograficoRouter = router({
       const { year } = input;
       const db = createAdminClient();
 
+      // F-D note: `withSoftDeleteFilter` applies `familia_miembros.deleted_at IS NULL` only.
+      // The joined `persons` table is intentionally NOT filtered on `persons.deleted_at` —
+      // this is consistent with sibling reports. Because output is aggregate-only (k-anon),
+      // the residual statistical contribution of a soft-deleted person is an accepted EIPD posture.
       const { data, error } = await withSoftDeleteFilter(
         db
           .from("familia_miembros")
