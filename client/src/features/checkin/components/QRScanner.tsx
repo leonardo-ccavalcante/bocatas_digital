@@ -152,13 +152,26 @@ export function QRScanner({ onDecoded, onCancel, isDemoMode = false }: QRScanner
   return (
     <div className="flex flex-col items-center gap-4 w-full">
       {/* ── Viewfinder ── */}
+      {/*
+        Prototype reference: checkin.jsx ScannerView (lines 150–179).
+        Square dark viewport with brand-red L-shaped corner brackets and an
+        animated scan-line. The @keyframes scanline lives in index.css.
+        Camera <video>/canvas/stream logic below is entirely unchanged.
+      */}
       <div
-        className="relative w-full rounded-xl overflow-hidden border-2 border-primary/30 bg-black max-h-[50vh] sm:max-h-[55vh] md:max-h-[65vh]"
+        className="relative w-full max-w-sm aspect-square rounded-3xl overflow-hidden bg-[#1A1A1A]"
+        style={{ boxShadow: "0 20px 50px -12px rgba(0,0,0,0.4)" }}
+        aria-label="Visor de escaneo QR"
+        role="img"
       >
         {/* Demo mode overlay */}
         {isDemoMode ? (
-          <div className="absolute inset-0 flex items-center justify-center bg-amber-950/20">
-            <div className="text-center p-6">
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div
+              className="absolute inset-0"
+              style={{ background: "radial-gradient(circle at 30% 30%, #2a2a2a, #0a0a0a)" }}
+            />
+            <div className="relative text-center p-6">
               <Camera className="w-12 h-12 text-amber-400 mx-auto mb-3 animate-pulse" />
               <p className="text-amber-300 font-medium">Modo Demo</p>
               <p className="text-amber-400/70 text-sm mt-1">Simulando escaneo de QR...</p>
@@ -197,18 +210,61 @@ export function QRScanner({ onDecoded, onCancel, isDemoMode = false }: QRScanner
                 </div>
               </div>
             )}
-
-            {/* Scanning crosshair */}
-            {status === "scanning" && (
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div className="w-48 h-48 border-2 border-white/70 rounded-lg shadow-lg" />
-              </div>
-            )}
           </>
         )}
+
+        {/* ── Corner brackets (prototype L-shape, brand red) ── */}
+        {/* top-left */}
+        <div
+          className="absolute pointer-events-none"
+          style={{ top: 24, left: 24, width: 36, height: 36,
+            borderTop: "3px solid var(--primary)", borderLeft: "3px solid var(--primary)",
+            borderRadius: 8 }}
+          aria-hidden="true"
+        />
+        {/* top-right */}
+        <div
+          className="absolute pointer-events-none"
+          style={{ top: 24, right: 24, width: 36, height: 36,
+            borderTop: "3px solid var(--primary)", borderRight: "3px solid var(--primary)",
+            borderRadius: 8 }}
+          aria-hidden="true"
+        />
+        {/* bottom-left */}
+        <div
+          className="absolute pointer-events-none"
+          style={{ bottom: 24, left: 24, width: 36, height: 36,
+            borderBottom: "3px solid var(--primary)", borderLeft: "3px solid var(--primary)",
+            borderRadius: 8 }}
+          aria-hidden="true"
+        />
+        {/* bottom-right */}
+        <div
+          className="absolute pointer-events-none"
+          style={{ bottom: 24, right: 24, width: 36, height: 36,
+            borderBottom: "3px solid var(--primary)", borderRight: "3px solid var(--primary)",
+            borderRadius: 8 }}
+          aria-hidden="true"
+        />
+
+        {/* ── Animated scan-line ── */}
+        <div
+          className="absolute left-8 right-8 h-[2px] pointer-events-none"
+          style={{
+            background: "linear-gradient(90deg, transparent, var(--primary), transparent)",
+            animation: "scanline 1.6s ease-in-out infinite alternate",
+            top: "50%",
+          }}
+          aria-hidden="true"
+        />
+
+        {/* Hint label at bottom of viewport */}
+        <p className="absolute bottom-3 left-0 right-0 text-center text-white/60 text-xs pointer-events-none">
+          Apunta al QR
+        </p>
       </div>
 
-      {/* ── Hint ── */}
+      {/* ── Hint (below viewport) ── */}
       {status !== "error" && (
         <p className="text-sm text-muted-foreground text-center">
           Apunta la cámara al código QR de la tarjeta del beneficiario

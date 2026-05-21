@@ -81,7 +81,7 @@ export function PersonaHeader({ person, visitas, onConsent }: PersonaHeaderProps
             {person.foto_perfil_url && (
               <AvatarImage src={person.foto_perfil_url} alt={fullName} />
             )}
-            <AvatarFallback className="bg-accent text-lg font-semibold text-accent-foreground">
+            <AvatarFallback className="bg-[#E8E0D2] text-[#4F5742] text-lg font-semibold">
               {initials}
             </AvatarFallback>
           </Avatar>

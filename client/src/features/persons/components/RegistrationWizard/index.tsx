@@ -21,6 +21,7 @@
  * enrollPerson + saveConsents + createFamily (see _useSubmit.ts).
  */
 import { useState, useCallback, useMemo, useRef } from "react";
+import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
@@ -85,6 +86,7 @@ const PHOTO_QUALITY = 0.85;
 export function RegistrationWizard() {
   const [phase, setPhase] = useState(1);
   const [duplicateDismissed, setDuplicateDismissed] = useState(false);
+  const [, navigate] = useLocation();
 
   // ── OCR shared state ──────────────────────────────────────────────────────
   const [ocrUsed, setOcrUsed] = useState(false);
@@ -355,15 +357,21 @@ export function RegistrationWizard() {
 
           {/* Editorial footer */}
           <div className="flex items-center justify-between gap-3 border-t border-border bg-background px-5 py-4 sm:px-8">
-            <Button type="button" variant="outline" onClick={goBack} disabled={phase === 1}>
-              Atrás
-            </Button>
+            {phase === 1 ? (
+              <Button type="button" variant="outline" onClick={() => navigate("/personas")}>
+                Cancelar
+              </Button>
+            ) : (
+              <Button type="button" variant="outline" onClick={goBack}>
+                Atrás
+              </Button>
+            )}
             <span className="text-eyebrow text-muted-foreground">
               Paso {phase}/{TOTAL_PHASES}
             </span>
             {!isResumen ? (
               <Button type="button" onClick={goNext} disabled={showDuplicateWarning}>
-                Continuar
+                Continuar →
               </Button>
             ) : (
               <Button

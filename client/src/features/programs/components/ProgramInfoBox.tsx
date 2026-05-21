@@ -7,6 +7,8 @@ export interface ProgramInfoBoxProps {
   activeCount: number;
   newCount: number;
   completedCount: number;
+  /** Total persons ever enrolled (active + completed/rejected). Shown in the toggle subline. */
+  enrollmentsCount?: number;
   children: React.ReactNode;
 }
 
@@ -14,6 +16,7 @@ export function ProgramInfoBox({
   activeCount,
   newCount,
   completedCount,
+  enrollmentsCount,
   children,
 }: ProgramInfoBoxProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -36,6 +39,11 @@ export function ProgramInfoBox({
             <p className="text-body font-semibold text-foreground truncate">
               Información del programa
             </p>
+            {enrollmentsCount != null && (
+              <p className="text-body-sm text-muted-foreground truncate tabular-stat">
+                {enrollmentsCount} personas inscritas en total
+              </p>
+            )}
           </div>
         </div>
 

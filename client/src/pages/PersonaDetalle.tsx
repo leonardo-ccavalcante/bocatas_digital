@@ -74,23 +74,48 @@ export default function PersonaDetalle() {
         onConsent={() => setShowConsent(true)}
       />
 
-      <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-8">
-        <Tabs defaultValue="resumen">
-          <TabsList className="w-full justify-start overflow-x-auto">
-            <TabsTrigger value="resumen">Resumen</TabsTrigger>
-            <TabsTrigger value="programas">Programas</TabsTrigger>
-            <TabsTrigger value="documentos">Documentos</TabsTrigger>
-            <TabsTrigger value="asistencias">Asistencias</TabsTrigger>
-            <TabsTrigger value="notas">Notas</TabsTrigger>
-          </TabsList>
+      <Tabs defaultValue="resumen" className="flex flex-1 flex-col">
+        {/* Underline tab strip — flush with the header's border-b.
+            -mt-px pulls the strip up so active border-b-2 overlaps the
+            header border, creating a seamless connected underline. */}
+        <div className="sticky top-0 z-[9] -mt-px border-b border-border bg-background/95 backdrop-blur">
+          <div className="mx-auto max-w-6xl px-4 sm:px-8">
+            <TabsList className="h-auto w-full justify-start gap-0 rounded-none bg-transparent p-0 overflow-x-auto">
+              {(
+                [
+                  { value: "resumen", label: "Resumen" },
+                  { value: "programas", label: "Programas" },
+                  { value: "documentos", label: "Documentos" },
+                  { value: "asistencias", label: "Asistencias" },
+                  { value: "notas", label: "Notas" },
+                ] as const
+              ).map((tab) => (
+                <TabsTrigger
+                  key={tab.value}
+                  value={tab.value}
+                  className="
+                    shrink-0 rounded-none border-b-2 border-transparent bg-transparent
+                    px-3 py-2.5 text-[13px] font-medium text-muted-foreground shadow-none
+                    transition-colors hover:text-foreground
+                    data-[state=active]:border-primary data-[state=active]:text-foreground
+                    data-[state=active]:bg-transparent data-[state=active]:shadow-none
+                  "
+                >
+                  {tab.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
+        </div>
 
+        <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-8">
           {/* Resumen — restyled summary of real person fields */}
-          <TabsContent value="resumen" className="mt-5">
+          <TabsContent value="resumen" className="mt-0">
             <ResumenTab person={personRow} isAdmin={isAdmin} />
           </TabsContent>
 
           {/* Programas — existing EnrollmentPanel, same props as before */}
-          <TabsContent value="programas" className="mt-5">
+          <TabsContent value="programas" className="mt-0">
             {id && <EnrollmentPanel personId={id} isAdmin={isAdmin} />}
 
             {isAdmin && id && (
@@ -116,12 +141,12 @@ export default function PersonaDetalle() {
           </TabsContent>
 
           {/* Documentos — no endpoint yet: honest empty state (see component) */}
-          <TabsContent value="documentos" className="mt-5">
+          <TabsContent value="documentos" className="mt-0">
             <DocumentosTab person={personRow} isAdmin={isAdmin} />
           </TabsContent>
 
           {/* Asistencias — admin only, existing CheckinHistoryTable */}
-          <TabsContent value="asistencias" className="mt-5">
+          <TabsContent value="asistencias" className="mt-0">
             {isAdmin && id ? (
               <div className="bocatas-card px-5 py-4">
                 <h2 className="text-h3 mb-4 text-foreground">
@@ -139,11 +164,11 @@ export default function PersonaDetalle() {
           </TabsContent>
 
           {/* Notas — real observaciones + admin-only notas_privadas (no thread) */}
-          <TabsContent value="notas" className="mt-5">
+          <TabsContent value="notas" className="mt-0">
             <NotasTab person={personRow} isAdmin={isAdmin} />
           </TabsContent>
-        </Tabs>
-      </main>
+        </main>
+      </Tabs>
 
       <ConsentModal
         open={showConsent}

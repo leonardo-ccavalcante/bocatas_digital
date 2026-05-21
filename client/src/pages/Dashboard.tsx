@@ -138,15 +138,23 @@ export default function Dashboard() {
           <div className="bocatas-card p-4 sm:p-5">
             <p className="text-eyebrow text-muted-foreground">Mix por programa</p>
             <p className="text-[12px] text-muted-foreground mt-0.5 mb-4">% personas atendidas</p>
-            <div
-              className="flex items-center justify-center h-28 rounded-xl border border-dashed border-border"
-              aria-live="polite"
-            >
-              <p className="text-body-sm text-muted-foreground text-center px-4">
-                Pendiente de implementación
-                {/* TODO(frontend-v4): needs dashboard.getProgramMix endpoint */}
-              </p>
-            </div>
+            <ul className="space-y-3" aria-hidden="true">
+              {/* TODO(frontend-v4): needs dashboard.getProgramMix endpoint */}
+              {[64, 48, 32, 20].map((w, i) => (
+                <li key={i} className="flex items-center gap-3">
+                  <div className="h-3 w-20 rounded bg-muted animate-pulse" />
+                  <div className="flex-1 h-2.5 rounded-full bg-muted/50">
+                    <div
+                      className="h-full rounded-full bg-muted animate-pulse"
+                      style={{ width: `${w}%` }}
+                    />
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <p className="text-[11px] text-muted-foreground mt-3" aria-live="polite">
+              Pendiente · sin datos
+            </p>
           </div>
         </div>
 
