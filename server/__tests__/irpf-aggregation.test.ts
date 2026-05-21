@@ -42,7 +42,7 @@ function row(overrides: Partial<NormalizedMiembroRow> = {}): NormalizedMiembroRo
     genero: "masculino",
     nivel_estudios: "primaria",
     situacion_laboral: "desempleado",
-    pais_origen: "España",
+    pais_origen: "ES", // realistic ISO-3166-1 alpha-2 code (uppercase from DB)
     ...overrides,
   };
 }
@@ -241,45 +241,47 @@ describe("applyKAnonymityToIrpf — count < floor → null; buckets retained", (
 
 describe("computeMarginals — five 1-D breakdowns with k-anon + ordering", () => {
   /**
-   * Dataset (7 rows) designed so we can hand-compute every tally:
+   * Dataset (7 rows) designed so we can hand-compute every tally.
+   * pais_origen values are realistic ISO-3166-1 alpha-2 codes (uppercase,
+   * as stored in the DB). normalizeCountryKey lowercases them for bucketing.
    *
    *  Row | fecha_nacimiento (age on Dec31/2025) | genero    | estudios       | laboral        | pais
-   *   A  | 1985-06-15 (40 yo) → "31-45"        | masculino | primaria       | desempleado    | España
-   *   B  | 1985-06-15 (40 yo) → "31-45"        | masculino | primaria       | desempleado    | España
-   *   C  | 1985-06-15 (40 yo) → "31-45"        | masculino | primaria       | desempleado    | España
-   *   D  | 1990-01-01 (35 yo) → "31-45"        | femenino  | secundaria     | economia_informal | Marruecos
-   *   E  | 1990-01-01 (35 yo) → "31-45"        | femenino  | secundaria     | economia_informal | Marruecos
-   *   F  | 2010-01-01 (15 yo) → "11-17"        | no_binario| bachillerato   | en_formacion   | Senegal
+   *   A  | 1985-06-15 (40 yo) → "31-45"        | masculino | primaria       | desempleado    | ES
+   *   B  | 1985-06-15 (40 yo) → "31-45"        | masculino | primaria       | desempleado    | ES
+   *   C  | 1985-06-15 (40 yo) → "31-45"        | masculino | primaria       | desempleado    | ES
+   *   D  | 1990-01-01 (35 yo) → "31-45"        | femenino  | secundaria     | economia_informal | MA
+   *   E  | 1990-01-01 (35 yo) → "31-45"        | femenino  | secundaria     | economia_informal | MA
+   *   F  | 2010-01-01 (15 yo) → "11-17"        | no_binario| bachillerato   | en_formacion   | SN
    *   G  | null                                 | null      | null           | null           | null
    *
-   * Marginal tallies (before k-anon):
+   * Marginal tallies (before k-anon) — after normalizeCountryKey (lowercase):
    *   age:     "31-45"=5, "11-17"=1, "sin_fecha"=1
    *   genero:  masculino=3, femenino=2, no_binario=1, no_indicado=1
    *   estudios: primaria=3, secundaria=2, bachillerato=1, no_indicado=1
    *   laboral: desempleado=3, economia_informal=2, en_formacion=1, no_indicado=1
-   *   pais:    españa=3, marruecos=2, senegal=1, no_indicado=1
+   *   pais:    es=3, ma=2, sn=1, no_indicado=1
    *
    * After k-anon (floor=3): any cell with count<3 → null
    *   age:     "31-45"=5(ok), "11-17"=null, "sin_fecha"=null  → totalSuppressedMarginal += 2
    *   genero:  masculino=3(ok), femenino=null, no_binario=null, no_indicado=null → += 3
    *   estudios: primaria=3(ok), secundaria=null, bachillerato=null, no_indicado=null → += 3
    *   laboral: desempleado=3(ok), economia_informal=null, en_formacion=null, no_indicado=null → += 3
-   *   pais:    españa=3(ok), marruecos=null, senegal=null, no_indicado=null → += 3
+   *   pais:    es=3(ok), ma=null, sn=null, no_indicado=null → += 3
    *   Total suppressed marginal cells = 2+3+3+3+3 = 14
    */
 
   const DATASET: NormalizedMiembroRow[] = [
     // A, B, C
-    { fecha_nacimiento: "1985-06-15", genero: "masculino", nivel_estudios: "primaria",    situacion_laboral: "desempleado",       pais_origen: "España"    },
-    { fecha_nacimiento: "1985-06-15", genero: "masculino", nivel_estudios: "primaria",    situacion_laboral: "desempleado",       pais_origen: "España"    },
-    { fecha_nacimiento: "1985-06-15", genero: "masculino", nivel_estudios: "primaria",    situacion_laboral: "desempleado",       pais_origen: "España"    },
+    { fecha_nacimiento: "1985-06-15", genero: "masculino", nivel_estudios: "primaria",    situacion_laboral: "desempleado",       pais_origen: "ES" },
+    { fecha_nacimiento: "1985-06-15", genero: "masculino", nivel_estudios: "primaria",    situacion_laboral: "desempleado",       pais_origen: "ES" },
+    { fecha_nacimiento: "1985-06-15", genero: "masculino", nivel_estudios: "primaria",    situacion_laboral: "desempleado",       pais_origen: "ES" },
     // D, E
-    { fecha_nacimiento: "1990-01-01", genero: "femenino",  nivel_estudios: "secundaria",  situacion_laboral: "economia_informal", pais_origen: "Marruecos" },
-    { fecha_nacimiento: "1990-01-01", genero: "femenino",  nivel_estudios: "secundaria",  situacion_laboral: "economia_informal", pais_origen: "Marruecos" },
+    { fecha_nacimiento: "1990-01-01", genero: "femenino",  nivel_estudios: "secundaria",  situacion_laboral: "economia_informal", pais_origen: "MA" },
+    { fecha_nacimiento: "1990-01-01", genero: "femenino",  nivel_estudios: "secundaria",  situacion_laboral: "economia_informal", pais_origen: "MA" },
     // F
-    { fecha_nacimiento: "2010-01-01", genero: "no_binario",nivel_estudios: "bachillerato",situacion_laboral: "en_formacion",      pais_origen: "Senegal"   },
+    { fecha_nacimiento: "2010-01-01", genero: "no_binario",nivel_estudios: "bachillerato",situacion_laboral: "en_formacion",      pais_origen: "SN" },
     // G — all nulls
-    { fecha_nacimiento: null,         genero: null,         nivel_estudios: null,          situacion_laboral: null,               pais_origen: null        },
+    { fecha_nacimiento: null,         genero: null,         nivel_estudios: null,          situacion_laboral: null,               pais_origen: null },
   ];
 
   it("totalSuppressedMarginal = 14 (every cell < 3 across all 5 dimensions)", () => {
@@ -337,25 +339,25 @@ describe("computeMarginals — five 1-D breakdowns with k-anon + ordering", () =
     expect(l["no_indicado"]).toBeNull();
   });
 
-  it("pais marginal: españa=3 visible; others suppressed", () => {
+  it("pais marginal: es=3 visible; others suppressed (ISO-2 codes normalised to lowercase)", () => {
     const { marginals } = computeMarginals(DATASET, YEAR);
     const p = Object.fromEntries(marginals.pais.map((r) => [r.key, r.count]));
-    expect(p["españa"]).toBe(3);
-    expect(p["marruecos"]).toBeNull();
-    expect(p["senegal"]).toBeNull();
+    expect(p["es"]).toBe(3);
+    expect(p["ma"]).toBeNull();
+    expect(p["sn"]).toBeNull();
     expect(p["no_indicado"]).toBeNull();
   });
 
-  it("pais marginal is ordered count DESC then key ASC (españa first)", () => {
+  it("pais marginal is ordered count DESC then key ASC (es first)", () => {
     const { marginals } = computeMarginals(DATASET, YEAR);
-    expect(marginals.pais[0].key).toBe("españa");
+    expect(marginals.pais[0].key).toBe("es");
   });
 
   it("pais marginal: full key sequence is count-DESC then key-ASC (verifies tie-break)", () => {
     const { marginals } = computeMarginals(DATASET, YEAR);
-    // españa=3 (count DESC) → marruecos=2 → no_indicado=1 ties senegal=1 → ASC → no_indicado < senegal
+    // es=3 (count DESC) → ma=2 → no_indicado=1 ties sn=1 → ASC → no_indicado < sn
     const paisKeys = marginals.pais.map((r) => r.key);
-    expect(paisKeys).toEqual(["españa", "marruecos", "no_indicado", "senegal"]);
+    expect(paisKeys).toEqual(["es", "ma", "no_indicado", "sn"]);
   });
 
   it("all-null row contributes to 'no_indicado' in genero, estudios, laboral, pais marginals", () => {
