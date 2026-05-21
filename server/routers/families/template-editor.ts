@@ -63,6 +63,14 @@ export const templateEditorRouter = router({
         .single();
 
       if (error || !data) {
+        // Concurrent publishes can both pass the deactivate step and collide on
+        // the document_templates_active_slug_uidx partial-unique index (plan §F).
+        if ((error as { code?: string } | null)?.code === "23505") {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "Ya existe una versión activa. Desactiva la versión anterior antes de publicar.",
+          });
+        }
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: error?.message ?? "Error al publicar plantilla",
