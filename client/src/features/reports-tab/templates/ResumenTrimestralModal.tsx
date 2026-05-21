@@ -65,9 +65,9 @@ export function ResumenTrimestralModal({ open, onClose }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-3xl" aria-labelledby="trimestral-title">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle id="trimestral-title">Resumen trimestral</DialogTitle>
+          <DialogTitle>Resumen trimestral</DialogTitle>
         </DialogHeader>
 
         <div className="grid grid-cols-3 gap-3 text-sm">

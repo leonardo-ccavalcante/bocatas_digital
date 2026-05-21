@@ -100,9 +100,9 @@ export function CrearInstitucionInlineModal({
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="max-w-md" aria-labelledby="crear-institucion-title">
+      <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle id="crear-institucion-title">Nueva institución</DialogTitle>
+          <DialogTitle>Nueva institución</DialogTitle>
           <DialogDescription>
             Crea una institución para derivar. Se añadirá al catálogo y quedará seleccionada.
           </DialogDescription>

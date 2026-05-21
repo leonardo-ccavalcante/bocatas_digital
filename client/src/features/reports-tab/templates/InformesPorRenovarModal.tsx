@@ -68,9 +68,9 @@ export function InformesPorRenovarModal({ open, onClose }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-3xl" aria-labelledby="informes-title">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle id="informes-title">Informes sociales por renovar</DialogTitle>
+          <DialogTitle>Informes sociales por renovar</DialogTitle>
         </DialogHeader>
 
         <div className="flex items-end gap-3 text-sm">

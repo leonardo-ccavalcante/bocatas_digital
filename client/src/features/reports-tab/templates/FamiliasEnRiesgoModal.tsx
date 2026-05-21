@@ -72,9 +72,9 @@ export function FamiliasEnRiesgoModal({ open, onClose }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-3xl" aria-labelledby="riesgo-title">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle id="riesgo-title" className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2">
             <AlertCircle className="h-4 w-4 text-destructive" aria-hidden="true" />
             Familias en riesgo
           </DialogTitle>

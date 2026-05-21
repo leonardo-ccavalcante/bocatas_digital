@@ -70,9 +70,9 @@ export function FamiliasAtendidasModal({ open, onClose }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-3xl" aria-labelledby="fam-atendidas-title">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle id="fam-atendidas-title">Familias atendidas</DialogTitle>
+          <DialogTitle>Familias atendidas</DialogTitle>
         </DialogHeader>
 
         <div className="grid grid-cols-2 gap-3 text-sm">

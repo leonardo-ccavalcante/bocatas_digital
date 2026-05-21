@@ -57,9 +57,9 @@ export function DistribucionPorDistritoModal({ open, onClose }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl" aria-labelledby="dist-distrito-title">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle id="dist-distrito-title">Distribución por distrito</DialogTitle>
+          <DialogTitle>Distribución por distrito</DialogTitle>
         </DialogHeader>
 
         <div className="flex items-end gap-3 text-sm">

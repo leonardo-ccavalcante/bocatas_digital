@@ -91,10 +91,9 @@ export default function DerivarTab({ programaId }: DerivarTabProps) {
       >
         <DialogContent
           className="max-w-2xl"
-          aria-labelledby="nueva-intervencion-title"
         >
           <DialogHeader>
-            <DialogTitle id="nueva-intervencion-title">
+            <DialogTitle>
               Nueva intervención
             </DialogTitle>
           </DialogHeader>

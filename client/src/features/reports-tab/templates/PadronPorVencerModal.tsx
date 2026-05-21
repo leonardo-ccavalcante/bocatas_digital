@@ -70,9 +70,9 @@ export function PadronPorVencerModal({ open, onClose }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-3xl" aria-labelledby="padron-title">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle id="padron-title">Padrón por vencer</DialogTitle>
+          <DialogTitle>Padrón por vencer</DialogTitle>
         </DialogHeader>
 
         <div className="flex items-end gap-3 text-sm">

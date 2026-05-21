@@ -54,9 +54,9 @@ export function EvolucionHistoricaModal({ open, onClose }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl" aria-labelledby="evolucion-title">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle id="evolucion-title">Evolución histórica</DialogTitle>
+          <DialogTitle>Evolución histórica</DialogTitle>
         </DialogHeader>
 
         <div className="flex items-end gap-3 text-sm">
