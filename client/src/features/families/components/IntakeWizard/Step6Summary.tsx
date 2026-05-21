@@ -1,5 +1,4 @@
 import { trpc } from "@/lib/trpc";
-import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, CheckCircle, Users, FileText, Shield, User } from "lucide-react";
 import { usePrograms } from "@/features/programs/hooks/usePrograms";
 import type { FamilyMember } from "../../schemas";
