@@ -23,6 +23,7 @@ import { DocumentosFaltantesModal } from "./templates/DocumentosFaltantesModal";
 import { ResumenTrimestralModal } from "./templates/ResumenTrimestralModal";
 import { DistribucionPorDistritoModal } from "./templates/DistribucionPorDistritoModal";
 import { EvolucionHistoricaModal } from "./templates/EvolucionHistoricaModal";
+import { IrpfDemograficoModal } from "./templates/IrpfDemograficoModal";
 import type { SavedQuerySpec } from "@shared/reports/savedQuerySpec";
 
 interface ReportsTabProps {
@@ -107,6 +108,10 @@ export default function ReportsTab({ currentUserId, programaId }: ReportsTabProp
       />
       <EvolucionHistoricaModal
         open={openTemplate === "evolucionHistorica"}
+        onClose={closeModal}
+      />
+      <IrpfDemograficoModal
+        open={openTemplate === "irpfDemografico"}
         onClose={closeModal}
       />
     </div>
