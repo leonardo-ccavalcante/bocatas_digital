@@ -7,7 +7,7 @@ import { useComplianceStats, usePendingItems } from "../hooks/useFamilias";
 interface StatCardProps {
   title: string;
   description: string;
-  value: number;
+  value: number | string;
   icon: React.ElementType;
   variant?: "default" | "warning" | "danger" | "success";
 }
@@ -19,10 +19,13 @@ function StatCard({ title, description, value, icon: Icon, variant = "default" }
     danger: "text-red-600",
     success: "text-green-600",
   };
+  // value may be a count (number) or a formatted metric like "50%" (string);
+  // coerce to a number purely to decide whether to highlight the card bg.
+  const numericValue = typeof value === "number" ? value : parseFloat(value) || 0;
   const bgMap = {
     default: "",
-    warning: value > 0 ? "border-yellow-200 bg-yellow-50 dark:bg-yellow-950/20" : "",
-    danger: value > 0 ? "border-red-200 bg-red-50 dark:bg-red-950/20" : "",
+    warning: numericValue > 0 ? "border-yellow-200 bg-yellow-50 dark:bg-yellow-950/20" : "",
+    danger: numericValue > 0 ? "border-red-200 bg-red-50 dark:bg-red-950/20" : "",
     success: "border-green-200",
   };
 
@@ -126,6 +129,15 @@ export function ComplianceDashboard() {
           value={stats?.cm6 ?? 0}
           icon={MapPin}
           variant={stats?.cm6 ? "warning" : "success"}
+        />
+        <StatCard
+          title="CM-7: Familias con derivación"
+          description={`${stats?.cm7Active ?? 0} de ${stats?.cm7Total ?? 0} familias con ≥1 derivación (12 meses). Objetivo: ≥20%`}
+          value={`${stats?.cm7 ?? 0}%`}
+          icon={Users}
+          variant={
+            stats?.cm7_ok ? "success" : (stats?.cm7 ?? 0) >= 10 ? "warning" : "danger"
+          }
         />
       </div>
 
