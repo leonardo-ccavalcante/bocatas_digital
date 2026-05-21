@@ -177,7 +177,7 @@ export const intervencionesRouter = router({
           `*, hoja:derivacion_hojas!inner(
             id, scope, programa_id, fecha_apertura, estado, profesional_nombre,
             persona:persons(nombre, apellidos),
-            familia:families(familia_numero)
+            familia:families(familia_numero, titular:persons!titular_id(nombre, apellidos))
           )`,
         )
         .eq("hoja.programa_id", input.programaId)
@@ -210,7 +210,7 @@ export const intervencionesRouter = router({
         .select(
           `*,
           persona:persons(nombre, apellidos),
-          familia:families(familia_numero, titular_id),
+          familia:families(familia_numero, titular:persons!titular_id(nombre, apellidos)),
           programa:programs(name)`,
         )
         .eq("id", input.hojaId)

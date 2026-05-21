@@ -65,7 +65,7 @@ const sampleRows = [
       persona: null,
       familia: {
         familia_numero: 42,
-        persons: { nombre: "Bilal", apellidos: "Mansour" },
+        titular: { nombre: "Bilal", apellidos: "Mansour" },
       },
     },
   },

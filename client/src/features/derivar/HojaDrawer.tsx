@@ -48,7 +48,7 @@ interface RawPersona {
 
 interface RawFamilia {
   familia_numero?: number | null;
-  persons?: RawPersona | null;
+  titular?: RawPersona | null;
 }
 
 interface RawPrograma {
@@ -115,7 +115,7 @@ export function HojaDrawer({
   const intervenciones = rawData?.intervenciones ?? [];
 
   const isPersona = hoja?.scope === "persona";
-  const titular = hoja?.familia?.persons;
+  const titular = hoja?.familia?.titular;
   const nombre = isPersona
     ? `${hoja?.persona?.nombre ?? ""} ${hoja?.persona?.apellidos ?? ""}`.trim()
     : titular
