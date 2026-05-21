@@ -73,7 +73,7 @@ export default function Programas() {
             <Dialog open={createOpen} onOpenChange={setCreateOpen}>
               <DialogTrigger asChild>
                 <button
-                  className="bocatas-btn-primary text-sm px-4 py-2 min-h-[36px] shrink-0"
+                  className="bocatas-btn-primary text-sm px-4 py-2 min-h-[44px] shrink-0"
                   aria-label="Crear nuevo programa"
                 >
                   <span className="text-base leading-none" aria-hidden="true">+</span>
