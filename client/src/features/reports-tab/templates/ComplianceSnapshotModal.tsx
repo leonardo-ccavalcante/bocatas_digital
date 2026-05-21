@@ -26,10 +26,9 @@ export function ComplianceSnapshotModal({ open, onClose }: Props) {
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent
         className="max-w-3xl max-h-[80vh] overflow-y-auto"
-        aria-labelledby="compliance-snap-title"
       >
         <DialogHeader>
-          <DialogTitle id="compliance-snap-title">Compliance — estado actual</DialogTitle>
+          <DialogTitle>Compliance — estado actual</DialogTitle>
         </DialogHeader>
         {/*
           ComplianceDashboard fetches its own data via the families hooks.

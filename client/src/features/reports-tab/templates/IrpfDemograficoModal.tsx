@@ -154,9 +154,9 @@ export function IrpfDemograficoModal({ open, onClose }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto" aria-labelledby="irpf-demo-title">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle id="irpf-demo-title">IRPF Demográfico</DialogTitle>
+          <DialogTitle>IRPF Demográfico</DialogTitle>
           <DialogDescription className="sr-only">
             Informe demográfico anual para justificación de subvenciones IRPF.
           </DialogDescription>

@@ -62,9 +62,9 @@ export function DocumentosFaltantesModal({ open, onClose, programaId: initialPro
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-3xl" aria-labelledby="docs-faltantes-title">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle id="docs-faltantes-title">Documentos faltantes</DialogTitle>
+          <DialogTitle>Documentos faltantes</DialogTitle>
         </DialogHeader>
 
         <div className="flex items-end gap-3 text-sm">
