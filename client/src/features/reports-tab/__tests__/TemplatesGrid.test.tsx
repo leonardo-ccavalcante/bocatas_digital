@@ -1,10 +1,10 @@
 /**
  * @vitest-environment jsdom
  *
- * TemplatesGrid.test.tsx — Contract tests for the 9-card templates grid.
+ * TemplatesGrid.test.tsx — Contract tests for the 10-card templates grid.
  *
  * Tests:
- *   - All 9 cards are rendered
+ *   - All 10 cards are rendered
  *   - Cards are grouped into 3 sections (Operacional, Compliance, Financiadores)
  *   - Clicking a card calls the onOpen callback with the correct template key
  */
@@ -28,12 +28,12 @@ afterEach(() => {
 });
 
 describe("TemplatesGrid", () => {
-  it("renders 9 template cards", () => {
+  it("renders 10 template cards", () => {
     const onOpen = vi.fn();
     render(<TemplatesGrid onOpen={onOpen} />);
     // Each card has a button to open it
     const buttons = screen.getAllByRole("button");
-    expect(buttons.length).toBeGreaterThanOrEqual(9);
+    expect(buttons.length).toBeGreaterThanOrEqual(10);
   });
 
   it("renders 3 section headings", () => {
@@ -63,12 +63,20 @@ describe("TemplatesGrid", () => {
     expect(onOpen).toHaveBeenCalledWith("complianceSnapshot");
   });
 
-  it("all 9 cards are keyboard-accessible (have aria-label)", () => {
+  it("clicking the irpfDemografico card calls onOpen with correct key", () => {
+    const onOpen = vi.fn();
+    render(<TemplatesGrid onOpen={onOpen} />);
+    const btn = screen.getByRole("button", { name: /irpf demográfico/i });
+    fireEvent.click(btn);
+    expect(onOpen).toHaveBeenCalledWith("irpfDemografico");
+  });
+
+  it("all 10 cards are keyboard-accessible (have aria-label)", () => {
     const onOpen = vi.fn();
     render(<TemplatesGrid onOpen={onOpen} />);
     const buttons = screen
       .getAllByRole("button")
       .filter((el) => el.hasAttribute("aria-label"));
-    expect(buttons.length).toBeGreaterThanOrEqual(9);
+    expect(buttons.length).toBeGreaterThanOrEqual(10);
   });
 });
