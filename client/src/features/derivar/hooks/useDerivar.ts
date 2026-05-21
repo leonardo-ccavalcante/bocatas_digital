@@ -51,5 +51,13 @@ export function useTipos(): { data: TipoIntervencion[]; isLoading: boolean } {
 }
 
 export function useAddIntervention() {
-  return trpc.derivar.addIntervention.useMutation();
+  const utils = trpc.useUtils();
+  return trpc.derivar.addIntervention.useMutation({
+    onSuccess: () => {
+      // Refresh the derivar list so a newly added intervention/hoja appears
+      // without a manual reload. (CM-7 compliance invalidation is added when
+      // that metric ships.)
+      void utils.derivar.list.invalidate();
+    },
+  });
 }
