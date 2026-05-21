@@ -42,20 +42,26 @@ export const intervencionesRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = createAdminClient();
 
-      // 1. Find or create the active hoja
-      const hojaBaseQuery = db
-        .from("derivacion_hojas")
-        .select("id, fecha_apertura")
-        .eq("programa_id", input.programaId)
-        .eq("estado", "activa")
-        .eq("scope", input.scope);
+      // 1. Find or create the active hoja.
+      // Idempotent under concurrency: two simultaneous first-interventions can
+      // both miss the find; the partial unique index then rejects the loser
+      // with 23505, so we re-fetch and reuse the winner's hoja.
+      const findActiveHoja = async () => {
+        const base = db
+          .from("derivacion_hojas")
+          .select("id, fecha_apertura")
+          .eq("programa_id", input.programaId)
+          .eq("estado", "activa")
+          .eq("scope", input.scope);
+        const scoped =
+          input.scope === "persona"
+            ? base.eq("persona_id", input.entityId)
+            : base.eq("familia_id", input.entityId);
+        const { data } = await scoped.maybeSingle();
+        return data;
+      };
 
-      const hojaQuery =
-        input.scope === "persona"
-          ? hojaBaseQuery.eq("persona_id", input.entityId)
-          : hojaBaseQuery.eq("familia_id", input.entityId);
-
-      const { data: existing } = await hojaQuery.maybeSingle();
+      const existing = await findActiveHoja();
 
       let hojaId: string;
       if (existing) {
@@ -94,12 +100,26 @@ export const intervencionesRouter = router({
           .select("id")
           .single();
         if (createErr || !created) {
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: createErr?.message ?? "Hoja create failed",
-          });
+          // Lost the create race: another request opened the active hoja
+          // between our find and insert. Re-fetch and reuse it.
+          if (createErr?.code === "23505") {
+            const raced = await findActiveHoja();
+            if (!raced) {
+              throw new TRPCError({
+                code: "INTERNAL_SERVER_ERROR",
+                message: "Hoja create failed",
+              });
+            }
+            hojaId = raced.id;
+          } else {
+            throw new TRPCError({
+              code: "INTERNAL_SERVER_ERROR",
+              message: createErr?.message ?? "Hoja create failed",
+            });
+          }
+        } else {
+          hojaId = created.id;
         }
-        hojaId = created.id;
       }
 
       // 2. Resolve institucion_snapshot — freeze at insert time
@@ -117,16 +137,22 @@ export const intervencionesRouter = router({
           .from("instituciones")
           .select("nombre, direccion, telefono, email, codigo_postal")
           .eq("id", input.institucionId)
-          .single();
-        if (inst) {
-          snapshot = {
-            nombre: inst.nombre,
-            direccion: inst.direccion,
-            telefono: inst.telefono,
-            email: inst.email,
-            codigo_postal: inst.codigo_postal,
-          };
+          .maybeSingle();
+        // Fail loud rather than silently freezing a null snapshot (which would
+        // print a blank "Recurso" on the Hoja and lose the referral target).
+        if (!inst) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Institución no encontrada",
+          });
         }
+        snapshot = {
+          nombre: inst.nombre,
+          direccion: inst.direccion,
+          telefono: inst.telefono,
+          email: inst.email,
+          codigo_postal: inst.codigo_postal,
+        };
       }
 
       // 3. Insert the intervention row

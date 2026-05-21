@@ -219,7 +219,7 @@ describe("derivar.addIntervention — institucion_snapshot freezing", () => {
       .mockReturnValueOnce({
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({ data: mockInstitucion, error: null }),
+        maybeSingle: vi.fn().mockResolvedValue({ data: mockInstitucion, error: null }),
       })
       // 3. Insert intervention
       .mockReturnValueOnce(
@@ -281,7 +281,67 @@ describe("derivar.addIntervention — institucion_snapshot freezing", () => {
     expect(fromMock).toHaveBeenCalledTimes(2);
   });
 
-  it.todo(
-    "(integration) addIntervention upserts hoja when none exists (requires local Supabase)",
-  );
+  it("throws NOT_FOUND when institucionId is given but the institución does not exist", async () => {
+    fromMock
+      // 1. Find existing hoja
+      .mockReturnValueOnce(
+        maybeSingleChain({ id: TEST_HOJA_ID, fecha_apertura: "2026-01-01" }),
+      )
+      // 2. Fetch institucion — not found
+      .mockReturnValueOnce({
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+      });
+
+    const caller = intervencionesRouter.createCaller(ctxWithRole("admin"));
+    await expect(
+      caller.addIntervention({
+        scope: "persona",
+        entityId: TEST_PERSONA_ID,
+        programaId: TEST_PROGRAMA_ID,
+        fecha: "2026-02-11",
+        tipoSlug: "salud",
+        descripcion: "Derivación",
+        institucionId: TEST_INST_ID,
+      }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+});
+
+// ─── 4. Hoja create race (23505 → re-fetch + reuse) ───────────────────────────
+
+describe("derivar.addIntervention — concurrent hoja create race", () => {
+  it("re-fetches and reuses the winner's hoja when the unique index rejects (23505)", async () => {
+    fromMock
+      // 1. Find existing hoja — none yet
+      .mockReturnValueOnce(maybeSingleChain(null))
+      // 2. Insert hoja — loses the race, unique violation
+      .mockReturnValueOnce({
+        insert: vi.fn().mockReturnThis(),
+        select: vi.fn().mockReturnThis(),
+        single: vi
+          .fn()
+          .mockResolvedValue({ data: null, error: { message: "duplicate key", code: "23505" } }),
+      })
+      // 3. Re-fetch — finds the winner's hoja
+      .mockReturnValueOnce(
+        maybeSingleChain({ id: TEST_HOJA_ID, fecha_apertura: "2026-01-01" }),
+      )
+      // 4. Insert intervention
+      .mockReturnValueOnce(singleInsertChain({ id: TEST_INTERV_ID }));
+
+    const caller = intervencionesRouter.createCaller(ctxWithRole("admin"));
+    const result = await caller.addIntervention({
+      scope: "familia",
+      entityId: TEST_PERSONA_ID,
+      programaId: TEST_PROGRAMA_ID,
+      fecha: "2026-02-11",
+      tipoSlug: "salud",
+      descripcion: "Derivación concurrente",
+    });
+
+    expect(result.hojaId).toBe(TEST_HOJA_ID);
+    expect(result.intervencionId).toBe(TEST_INTERV_ID);
+  });
 });
