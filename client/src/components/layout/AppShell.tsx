@@ -166,10 +166,12 @@ export default function AppShell({ children }: AppShellProps) {
                 decoding="async"
                 onError={(e) => {
                   (e.currentTarget as HTMLImageElement).style.display = "none";
+                  const fallback = e.currentTarget.nextElementSibling as HTMLElement | null;
+                  if (fallback) fallback.style.display = "flex";
                 }}
               />
-              {/* "B" is hidden visually — only appears if image fails */}
-              <span className="absolute text-primary font-extrabold text-[15px] tracking-tight pointer-events-none select-none" aria-hidden="true">B</span>
+              {/* "B" fallback — hidden by default, shown only if image fails to load */}
+              <span className="absolute inset-0 items-center justify-center text-primary font-extrabold text-[15px] tracking-tight pointer-events-none select-none hidden" aria-hidden="true">B</span>
             </div>
             {!sidebarCollapsed && (
               <div className="leading-tight text-left">
