@@ -15,10 +15,23 @@ import { z } from "zod";
 import { createAdminClient } from "../../../client/src/lib/supabase/server";
 import {
   renderDerivarHojaDocx,
+  DerivarTemplateError,
   type DerivarHojaTemplateData,
 } from "../../_core/docxRender";
 import { convertDocxToPdf } from "../../_core/pdfFromDocx";
 import { router, adminProcedure } from "../../_core/trpc";
+
+/** Maps a missing-template error to a friendly, PII-free BAD_REQUEST. */
+function toFriendlyTemplateError(e: unknown): never {
+  if (e instanceof DerivarTemplateError) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message:
+        "Plantilla de derivación no configurada. Contacta al administrador.",
+    });
+  }
+  throw e;
+}
 
 // ---------------------------------------------------------------------------
 // Interfaces for raw DB shapes (avoid `as unknown as`)
@@ -142,7 +155,7 @@ export const pdfGenRouter = router({
     .input(z.object({ hojaId: z.string().uuid() }))
     .query(async ({ input }) => {
       const data = await buildTemplateData(input.hojaId);
-      const buf = await renderDerivarHojaDocx(data);
+      const buf = await renderDerivarHojaDocx(data).catch(toFriendlyTemplateError);
       return {
         contentBase64: buf.toString("base64"),
         filename: `derivacion_hoja_${input.hojaId.slice(0, 8)}.docx`,
@@ -155,7 +168,7 @@ export const pdfGenRouter = router({
     .input(z.object({ hojaId: z.string().uuid() }))
     .query(async ({ input }) => {
       const data = await buildTemplateData(input.hojaId);
-      const docxBuf = await renderDerivarHojaDocx(data);
+      const docxBuf = await renderDerivarHojaDocx(data).catch(toFriendlyTemplateError);
       const pdfBuf = await convertDocxToPdf(docxBuf);
       return {
         contentBase64: pdfBuf.toString("base64"),
