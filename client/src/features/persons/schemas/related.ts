@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   CanalLlegadaSchema,
+  ConsentLanguageSchema,
   ConsentPurposeSchema,
   EstabilidadHabitacionalSchema,
   FaseItinerarioSchema,
@@ -39,7 +40,7 @@ export type OcrExtracted = z.infer<typeof OcrExtractedSchema>;
 export const ConsentTemplateSchema = z.object({
   id: z.string().uuid(),
   purpose: ConsentPurposeSchema,
-  idioma: z.enum(["es", "ar", "fr", "bm"]), // consent_language enum
+  idioma: ConsentLanguageSchema, // consent_language enum
   version: z.string(),
   text_content: z.string().min(10),
   is_active: z.boolean(),
@@ -124,7 +125,7 @@ export type Person = z.infer<typeof PersonSchema>;
 export const ConsentRowSchema = z.object({
   person_id: z.string().uuid(),
   purpose: ConsentPurposeSchema,
-  idioma: z.enum(["es", "ar", "fr", "bm"]),
+  idioma: ConsentLanguageSchema,
   granted: z.boolean(),
   granted_at: z.string().optional().nullable(),
   consent_text: z.string(),

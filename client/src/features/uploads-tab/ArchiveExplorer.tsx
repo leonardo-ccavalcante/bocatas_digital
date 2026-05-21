@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -79,121 +78,119 @@ export function ArchiveExplorer({ programaId, onReclassify }: ArchiveExplorerPro
   const total = data?.total ?? 0;
 
   return (
-    <Card>
-      <CardContent className="p-3">
-        <div className="text-sm font-medium mb-3">Archivo</div>
+    <div className="bocatas-card p-4">
+      <div className="text-eyebrow mb-3 text-muted-foreground">Archivo</div>
 
-        {/* Filter row */}
-        <div className="flex items-center gap-2 mb-3">
-          <Filter className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden="true" />
-          <Select
-            value={tipoSlug}
-            onValueChange={handleTipoChange}
+      {/* Filter row */}
+      <div className="flex items-center gap-2 mb-3">
+        <Filter className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden="true" />
+        <Select
+          value={tipoSlug}
+          onValueChange={handleTipoChange}
+        >
+          <SelectTrigger
+            className="w-[200px]"
+            aria-label="Filtrar por tipo"
           >
-            <SelectTrigger
-              className="w-[200px]"
-              aria-label="Filtrar por tipo"
-            >
-              <SelectValue placeholder="Todos los tipos" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL_TIPOS}>Todos los tipos</SelectItem>
-              {(docTypes as Array<{ id: string; slug: string; nombre: string }>).map((t) => (
-                <SelectItem key={t.id} value={t.slug}>
-                  {t.nombre}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+            <SelectValue placeholder="Todos los tipos" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL_TIPOS}>Todos los tipos</SelectItem>
+            {(docTypes as Array<{ id: string; slug: string; nombre: string }>).map((t) => (
+              <SelectItem key={t.id} value={t.slug}>
+                {t.nombre}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
-        {/* Table */}
-        <div className="border rounded-lg overflow-hidden">
-          <table
-            className="w-full text-sm"
-            aria-label="Archivo de documentos"
-          >
-            <thead className="bg-muted/50">
-              <tr>
-                <th className="text-left p-2 font-medium">Familia</th>
-                <th className="text-left p-2 font-medium">Tipo</th>
-                <th className="text-left p-2 font-medium">Fecha</th>
-                <th className="text-left p-2 font-medium">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading
-                ? Array.from({ length: 6 }).map((_, i) => (
-                    <tr key={i}>
-                      <td className="p-2"><Skeleton className="h-4 w-full" /></td>
-                      <td className="p-2"><Skeleton className="h-4 w-full" /></td>
-                      <td className="p-2"><Skeleton className="h-4 w-full" /></td>
-                      <td className="p-2"><Skeleton className="h-4 w-20" /></td>
-                    </tr>
-                  ))
-                : rows.length === 0
-                  ? (
-                    <tr>
-                      <td
-                        colSpan={4}
-                        className="p-8 text-center text-muted-foreground"
-                      >
-                        Sin documentos en el archivo
+      {/* Table */}
+      <div className="border border-border rounded-lg overflow-hidden">
+        <table
+          className="w-full text-body-sm"
+          aria-label="Archivo de documentos"
+        >
+          <thead className="bg-accent/40 text-eyebrow text-muted-foreground">
+            <tr>
+              <th className="text-left p-2 font-semibold">Familia</th>
+              <th className="text-left p-2 font-semibold">Tipo</th>
+              <th className="text-left p-2 font-semibold">Fecha</th>
+              <th className="text-left p-2 font-semibold">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading
+              ? Array.from({ length: 6 }).map((_, i) => (
+                  <tr key={i}>
+                    <td className="p-2"><Skeleton className="h-4 w-full" /></td>
+                    <td className="p-2"><Skeleton className="h-4 w-full" /></td>
+                    <td className="p-2"><Skeleton className="h-4 w-full" /></td>
+                    <td className="p-2"><Skeleton className="h-4 w-20" /></td>
+                  </tr>
+                ))
+              : rows.length === 0
+                ? (
+                  <tr>
+                    <td
+                      colSpan={4}
+                      className="p-8 text-center text-muted-foreground"
+                    >
+                      Sin documentos en el archivo
+                    </td>
+                  </tr>
+                )
+                : rows.map((row) => {
+                  const titular = row.families?.persons;
+                  const nombreCompleto = titular
+                    ? `${titular.nombre} ${titular.apellidos}`.trim()
+                    : "—";
+                  const fecha = row.created_at
+                    ? new Date(row.created_at).toLocaleDateString("es-ES")
+                    : "—";
+
+                  return (
+                    <tr key={row.id} className="border-t border-border hover:bg-accent/40">
+                      <td className="p-2">
+                        #{row.families?.familia_numero} {nombreCompleto}
+                      </td>
+                      <td className="p-2">{tipoLabel(row.documento_tipo)}</td>
+                      <td className="p-2">{fecha}</td>
+                      <td className="p-2">
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleVer(row.documento_url)}
+                            aria-label="Ver"
+                          >
+                            <Eye className="h-3 w-3 mr-1" aria-hidden="true" />
+                            Ver
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => onReclassify(row.id, row.documento_tipo)}
+                            aria-label="Reclasificar"
+                          >
+                            Reclasificar
+                          </Button>
+                        </div>
                       </td>
                     </tr>
-                  )
-                  : rows.map((row) => {
-                    const titular = row.families?.persons;
-                    const nombreCompleto = titular
-                      ? `${titular.nombre} ${titular.apellidos}`.trim()
-                      : "—";
-                    const fecha = row.created_at
-                      ? new Date(row.created_at).toLocaleDateString("es-ES")
-                      : "—";
+                  );
+                })
+            }
+          </tbody>
+        </table>
+      </div>
 
-                    return (
-                      <tr key={row.id} className="border-t">
-                        <td className="p-2">
-                          #{row.families?.familia_numero} {nombreCompleto}
-                        </td>
-                        <td className="p-2">{tipoLabel(row.documento_tipo)}</td>
-                        <td className="p-2">{fecha}</td>
-                        <td className="p-2">
-                          <div className="flex items-center gap-1">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleVer(row.documento_url)}
-                              aria-label="Ver"
-                            >
-                              <Eye className="h-3 w-3 mr-1" aria-hidden="true" />
-                              Ver
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => onReclassify(row.id, row.documento_tipo)}
-                              aria-label="Reclasificar"
-                            >
-                              Reclasificar
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-              }
-            </tbody>
-          </table>
+      {/* Total count */}
+      {!isLoading && (
+        <div className="mt-2 text-xs text-muted-foreground text-right">
+          {total} documentos
         </div>
-
-        {/* Total count */}
-        {!isLoading && (
-          <div className="mt-2 text-xs text-muted-foreground text-right">
-            {total} documentos
-          </div>
-        )}
-      </CardContent>
-    </Card>
+      )}
+    </div>
   );
 }

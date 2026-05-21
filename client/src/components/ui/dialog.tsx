@@ -130,6 +130,10 @@ function DialogContent({
         onEscapeKeyDown={handleEscapeKeyDown}
         {...props}
       >
+        {/* sr-only fallback: Radix verifies document.getElementById(titleId) on mount.
+            If children render DialogTitle conditionally, this guarantees the element
+            always exists in the DOM. Visible DialogTitle in children takes precedence. */}
+        <DialogPrimitive.Title className="sr-only" />
         {children}
         {showCloseButton && (
           <DialogPrimitive.Close
