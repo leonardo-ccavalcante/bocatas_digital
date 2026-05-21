@@ -1,7 +1,4 @@
 import { useState } from "react";
-import { Link } from "wouter";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -50,85 +47,146 @@ export default function Programas() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="border-b bg-background/95 backdrop-blur sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-bold text-foreground">Programas</h1>
-            <p className="text-sm text-muted-foreground">
-              {programs.length} programa{programs.length !== 1 ? "s" : ""} configurado{programs.length !== 1 ? "s" : ""}
-            </p>
+      {/* Sticky header — icon + title + total count + new-program CTA */}
+      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border">
+        <div className="max-w-6xl mx-auto px-4 sm:px-8 py-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <svg
+              viewBox="0 0 24 24"
+              className="h-5 w-5 text-accent-foreground shrink-0"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+            </svg>
+            <h1 className="text-h2 truncate">Programas</h1>
+            <span className="text-xs text-muted-foreground ml-1 shrink-0 tabular-stat">
+              {programs.length}
+            </span>
           </div>
-          <div className="flex items-center gap-3">
-            <Input
-              placeholder="Buscar programa..."
+          {isAdmin && (
+            <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+              <DialogTrigger asChild>
+                <button
+                  className="bocatas-btn-primary text-sm px-4 py-2 min-h-[44px] shrink-0"
+                  aria-label="Crear nuevo programa"
+                >
+                  <span className="text-base leading-none" aria-hidden="true">+</span>
+                  <span className="hidden sm:inline ml-1">Nuevo programa</span>
+                  <span className="sm:hidden ml-1">Nuevo</span>
+                </button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Crear nuevo programa</DialogTitle>
+                </DialogHeader>
+                <ProgramForm
+                  isLoading={createProgram.isPending}
+                  onSubmit={(values: ProgramFormValues) => createProgram.mutate(values)}
+                  onCancel={() => setCreateOpen(false)}
+                />
+              </DialogContent>
+            </Dialog>
+          )}
+        </div>
+
+        {/* Search bar — below title row */}
+        <div className="max-w-6xl mx-auto px-4 sm:px-8 pb-3">
+          <div className="relative">
+            <svg
+              viewBox="0 0 24 24"
+              className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              aria-hidden="true"
+            >
+              <circle cx="11" cy="11" r="6" />
+              <path d="M20 20l-4-4" strokeLinecap="round" />
+            </svg>
+            <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-48 sm:w-64"
+              placeholder="Buscar programa…"
+              aria-label="Buscar programa"
+              className="text-sm border border-border rounded-xl pl-9 pr-3 py-2 bg-card w-full focus:outline-none focus:ring-2 focus:ring-primary/30"
             />
-            {isAdmin && (
-              <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-                <DialogTrigger asChild>
-                  <Button size="sm">+ Nuevo programa</Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle>Crear nuevo programa</DialogTitle>
-                  </DialogHeader>
-                  <ProgramForm
-                    isLoading={createProgram.isPending}
-                    onSubmit={(values: ProgramFormValues) => createProgram.mutate(values)}
-                    onCancel={() => setCreateOpen(false)}
-                  />
-                </DialogContent>
-              </Dialog>
-            )}
           </div>
         </div>
       </div>
 
-      {/* Content */}
-      <div className="max-w-5xl mx-auto px-4 py-6 space-y-8">
+      {/* Body */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6 sm:py-10 space-y-10 sm:space-y-14">
         {isLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-32 rounded-lg bg-muted animate-pulse" />
+              <div key={i} className="h-48 rounded-2xl bg-muted animate-pulse" />
             ))}
           </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-16 text-muted-foreground">
-            <p className="text-lg font-medium">No se encontraron programas</p>
+            <p className="text-h3">No se encontraron programas</p>
             {search && (
-              <p className="text-sm mt-1">
-                Intenta con otro término de búsqueda
-              </p>
+              <p className="text-body-sm mt-1">Intenta con otro término de búsqueda</p>
             )}
           </div>
         ) : (
           <>
-            {/* Active programs */}
+            {/* Active programs section */}
             {active.length > 0 && (
-              <section>
-                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-4">
-                  Activos ({active.length})
-                </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {active.map((program: ProgramWithCounts) => (
-                    <ProgramCard key={program.id} program={program} isAdmin={isAdmin} />
+              <section aria-labelledby="section-activos">
+                <div className="flex items-end justify-between mb-5 sm:mb-7 gap-3">
+                  <p
+                    id="section-activos"
+                    className="text-eyebrow text-foreground flex items-center gap-1.5"
+                  >
+                    <span className="text-accent-foreground" aria-hidden="true">●</span>
+                    Activos · {String(active.length).padStart(2, "0")}
+                  </p>
+                  <div className="flex-1 h-px mx-3 sm:mx-5 bg-border" />
+                  <p className="text-[10px] sm:text-[11px] font-mono text-muted-foreground shrink-0 tabular-stat" aria-hidden="true">
+                    01 / {String(active.length).padStart(2, "0")}
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
+                  {active.map((program: ProgramWithCounts, i: number) => (
+                    <ProgramCard
+                      key={program.id}
+                      program={program}
+                      isAdmin={isAdmin}
+                      index={i + 1}
+                    />
                   ))}
                 </div>
               </section>
             )}
 
-            {/* Inactive programs */}
+            {/* Archived programs section */}
             {inactive.length > 0 && (
-              <section>
-                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-4">
-                  Inactivos ({inactive.length})
-                </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 opacity-60">
-                  {inactive.map((program: ProgramWithCounts) => (
-                    <ProgramCard key={program.id} program={program} isAdmin={isAdmin} />
+              <section aria-labelledby="section-archivados">
+                <div className="flex items-end justify-between mb-5 sm:mb-7 gap-3">
+                  <p
+                    id="section-archivados"
+                    className="text-eyebrow text-muted-foreground flex items-center gap-1.5"
+                  >
+                    <span aria-hidden="true">○</span>
+                    Archivados · {String(inactive.length).padStart(2, "0")}
+                  </p>
+                  <div className="flex-1 h-px mx-3 sm:mx-5 bg-border/60" />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5 opacity-55">
+                  {inactive.map((program: ProgramWithCounts, i: number) => (
+                    <ProgramCard
+                      key={program.id}
+                      program={program}
+                      isAdmin={isAdmin}
+                      index={active.length + i + 1}
+                    />
                   ))}
                 </div>
               </section>

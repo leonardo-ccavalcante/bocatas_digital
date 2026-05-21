@@ -1,4 +1,3 @@
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FileText, Download } from "lucide-react";
@@ -46,13 +45,11 @@ export function TiposCatalog({ programaId }: TiposCatalogProps) {
 
   if (isLoading) {
     return (
-      <Card>
-        <CardContent className="p-3 space-y-2">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full" />
-          ))}
-        </CardContent>
-      </Card>
+      <div className="bocatas-card space-y-2 p-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} className="h-12 w-full" />
+        ))}
+      </div>
     );
   }
 
@@ -60,28 +57,29 @@ export function TiposCatalog({ programaId }: TiposCatalogProps) {
 
   if (rows.length === 0) {
     return (
-      <Card>
-        <CardContent className="p-6 text-center text-muted-foreground text-sm">
-          No hay tipos de documento configurados para este programa.
-        </CardContent>
-      </Card>
+      <div className="bocatas-card p-6 text-center text-body-sm text-muted-foreground">
+        No hay tipos de documento configurados para este programa.
+      </div>
     );
   }
 
   return (
-    <Card>
-      <CardContent className="p-3">
-        <div className="text-sm font-medium mb-2">Tipos de documento</div>
-        <ul className="divide-y">
+    <div className="bocatas-card p-4">
+      <div className="text-eyebrow mb-2 text-muted-foreground">
+        Tipos de documento
+      </div>
+      <ul className="divide-y divide-border">
           {rows.map((t) => (
             <li
               key={t.id}
               className="py-2 flex flex-wrap items-center justify-between gap-2"
             >
               <div className="flex items-center gap-2 min-w-0">
-                <FileText className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden="true" />
+                <span className="bg-accent text-accent-foreground inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg">
+                  <FileText className="h-4 w-4" aria-hidden="true" />
+                </span>
                 <div className="min-w-0">
-                  <div className="font-medium truncate">{t.nombre}</div>
+                  <div className="text-body-sm font-medium text-foreground truncate">{t.nombre}</div>
                   <div className="text-xs text-muted-foreground truncate">
                     {t.scope === "familia" ? "Por familia" : "Por miembro"}
                     {t.is_required ? " · Obligatorio" : ""}
@@ -117,7 +115,6 @@ export function TiposCatalog({ programaId }: TiposCatalogProps) {
             </li>
           ))}
         </ul>
-      </CardContent>
-    </Card>
+    </div>
   );
 }
