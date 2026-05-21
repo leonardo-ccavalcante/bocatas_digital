@@ -44,10 +44,25 @@ interface FamiliaSummary {
 }
 
 function StatusBadge({ ok, label }: { ok: boolean; label: string }) {
+  // Glyph + label kept in a single text run so the prototype's pill reads as
+  // "✓ Padrón" / "⚠ Padrón". aria-label carries the spoken status; the glyph is
+  // a redundant visual cue (not color-only).
   return (
-    <Badge variant={ok ? "default" : "destructive"} aria-label={`${label}: ${ok ? "cumplido" : "pendiente"}`}>
+    <Badge
+      variant={ok ? "default" : "destructive"}
+      aria-label={`${label}: ${ok ? "cumplido" : "pendiente"}`}
+    >
       {ok ? "✓" : "⚠"} {label}
     </Badge>
+  );
+}
+
+function KV({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <p className="text-eyebrow text-muted-foreground">{label}</p>
+      <div className="mt-0.5 font-medium text-foreground">{children}</div>
+    </div>
   );
 }
 
@@ -64,10 +79,9 @@ export function FamiliaDrawer({ familyId, onClose }: FamiliaDrawerProps) {
   // projection changes, update this interface to match.
   const f = rawFamily as FamiliaSummary | undefined;
   const titular = f?.persons ?? null;
-  const titularName =
-    titular
-      ? `${titular.nombre ?? ""} ${titular.apellidos ?? ""}`.trim()
-      : "";
+  const titularName = titular
+    ? `${titular.nombre ?? ""} ${titular.apellidos ?? ""}`.trim()
+    : "";
   const totalMiembros = (f?.num_adultos ?? 0) + (f?.num_menores_18 ?? 0);
   const hasRiesgo =
     !!f &&
@@ -80,12 +94,10 @@ export function FamiliaDrawer({ familyId, onClose }: FamiliaDrawerProps) {
 
   return (
     <Sheet open={!!familyId} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <SheetContent
-        side="right"
-        className="w-full sm:max-w-lg overflow-y-auto"
-      >
+      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-lg">
         <SheetHeader>
-          <SheetTitle>
+          <p className="text-eyebrow text-muted-foreground">Ficha rápida</p>
+          <SheetTitle className="text-h2">
             {isLoading ? (
               <Skeleton className="h-6 w-32" />
             ) : (
@@ -106,7 +118,7 @@ export function FamiliaDrawer({ familyId, onClose }: FamiliaDrawerProps) {
               // Use an inline-block <span> with the same animate-pulse styles.
               <span
                 data-slot="skeleton"
-                className="bg-accent animate-pulse rounded-md h-4 w-48 inline-block"
+                className="inline-block h-4 w-48 animate-pulse rounded-md bg-accent"
               />
             ) : titularName ? (
               `Titular: ${titularName}`
@@ -125,44 +137,30 @@ export function FamiliaDrawer({ familyId, onClose }: FamiliaDrawerProps) {
         ) : f ? (
           <div className="px-4">
             <div className="mt-6 grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <span className="text-muted-foreground">Estado: </span>
+              <KV label="Estado">
                 <Badge variant={f.estado === "activa" ? "default" : "outline"}>
                   {f.estado === "activa" ? "Activa" : "En baja"}
                 </Badge>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Miembros: </span>
-                {totalMiembros}
-              </div>
-              <div>
-                <span className="text-muted-foreground">Recoge: </span>
-                {f.persona_recoge ?? "—"}
-              </div>
-              <div>
-                <span className="text-muted-foreground">Teléfono: </span>
-                {titular?.telefono ?? "—"}
-              </div>
-              <div>
-                <span className="text-muted-foreground">Informe social: </span>
+              </KV>
+              <KV label="Miembros">{totalMiembros}</KV>
+              <KV label="Recoge">{f.persona_recoge ?? "—"}</KV>
+              <KV label="Teléfono">{titular?.telefono ?? "—"}</KV>
+              <KV label="Informe social">
                 {f.informe_social_fecha
                   ? new Date(f.informe_social_fecha).toLocaleDateString("es-ES")
                   : "Pendiente"}
-              </div>
-              <div>
-                <span className="text-muted-foreground">Alta GUF: </span>
+              </KV>
+              <KV label="Alta GUF">
                 {f.fecha_alta_guf
                   ? new Date(f.fecha_alta_guf).toLocaleDateString("es-ES")
                   : f.alta_en_guf
-                  ? "Sí"
-                  : "No"}
-              </div>
+                    ? "Sí"
+                    : "No"}
+              </KV>
             </div>
 
             <div className="mt-6">
-              <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">
-                Compliance
-              </p>
+              <p className="mb-2 text-eyebrow text-muted-foreground">Cumplimiento</p>
               <div className="flex flex-wrap gap-2">
                 <StatusBadge ok={!!f.padron_recibido} label="Padrón" />
                 <StatusBadge ok={!!f.informe_social} label="Informe social" />
@@ -178,7 +176,7 @@ export function FamiliaDrawer({ familyId, onClose }: FamiliaDrawerProps) {
             <div className="mt-6 space-y-2">
               <Link href={`/familias/${f.id}`}>
                 <Button className="w-full" variant="default">
-                  <ExternalLink className="h-4 w-4 mr-2" />
+                  <ExternalLink className="mr-2 h-4 w-4" aria-hidden="true" />
                   Abrir página completa
                 </Button>
               </Link>

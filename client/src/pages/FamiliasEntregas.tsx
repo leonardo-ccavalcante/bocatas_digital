@@ -1,10 +1,9 @@
 /**
  * FamiliasEntregas — E-E6
- * Delivery day view: lists families scheduled for today's delivery,
- * allows recording individual deliveries, and includes CerrarSesionPrograma CTA.
+ * Delivery day view: lists families scheduled for today's delivery
+ * and allows recording individual deliveries.
  */
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -18,16 +17,14 @@ import {
   Users,
   CalendarDays,
 } from "lucide-react";
-import { CerrarSesionPrograma } from "@/features/families/components/CerrarSesionPrograma";
 import { trpc } from "@/lib/trpc";
 import { Link } from "wouter";
-import { useAppStore } from "@/store/useAppStore";
+import BackLink from "@/components/layout/BackLink";
 import { toast } from "sonner";
 
 export default function FamiliasEntregas() {
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("entregas");
-  const { selectedLocation } = useAppStore();
 
   const today = new Date().toISOString().split("T")[0];
 
@@ -81,33 +78,36 @@ export default function FamiliasEntregas() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
+    <div className="mx-auto max-w-3xl space-y-6 px-4 py-8 sm:px-6">
       {/* Header */}
-      <div className="flex items-start justify-between flex-wrap gap-4">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Package className="h-6 w-6 text-primary" />
-            Entregas del día
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1">
-            <CalendarDays className="h-4 w-4" />
-            {new Date().toLocaleDateString("es-ES", {
-              weekday: "long",
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            })}
-          </p>
-        </div>
-        <div className="flex gap-2 text-sm">
-          <Badge variant="outline" className="border-amber-300 text-amber-700">
-            <Clock className="h-3.5 w-3.5 mr-1" />
-            {pendingFamilies.length} pendientes
-          </Badge>
-          <Badge variant="outline" className="border-green-300 text-green-700">
-            <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
-            {deliveredFamilies.length} entregadas
-          </Badge>
+      <div>
+        <BackLink label="Familias" href="/familias" className="mb-3" />
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="text-display-2 flex items-center gap-2 text-foreground">
+              <Package className="h-6 w-6 text-primary" aria-hidden="true" />
+              Entregas del día
+            </h1>
+            <p className="mt-1 flex items-center gap-1 text-body-sm text-muted-foreground">
+              <CalendarDays className="h-4 w-4" aria-hidden="true" />
+              {new Date().toLocaleDateString("es-ES", {
+                weekday: "long",
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })}
+            </p>
+          </div>
+          <div className="flex gap-2 text-sm">
+            <Badge variant="outline" className="border-amber-300 text-amber-700">
+              <Clock className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+              {pendingFamilies.length} pendientes
+            </Badge>
+            <Badge variant="outline" className="border-green-300 text-green-700">
+              <CheckCircle2 className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+              {deliveredFamilies.length} entregadas
+            </Badge>
+          </div>
         </div>
       </div>
 
@@ -142,23 +142,22 @@ export default function FamiliasEntregas() {
               {/* Pending deliveries */}
               {pendingFamilies.length > 0 && (
                 <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                  <p className="text-eyebrow mb-2 text-muted-foreground">
                     Pendientes de entrega
                   </p>
                   {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                   {pendingFamilies.map((family: any) => (
-                    <Card key={family.id} className="mb-2">
-                      <CardContent className="py-3 flex items-center gap-3">
-                        <Users className="h-5 w-5 text-muted-foreground shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm truncate">
+                    <div key={family.id} className="bocatas-card mb-2 flex items-center gap-3 px-4 py-3">
+                        <Users className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-body-sm font-medium text-foreground truncate">
                             {family.persons?.nombre} {family.persons?.apellidos}
                           </p>
                           <p className="text-xs text-muted-foreground">
                             Familia #{family.familia_numero} · {family.num_miembros} miembro(s)
                           </p>
                         </div>
-                        <div className="flex gap-2 shrink-0">
+                        <div className="flex shrink-0 gap-2">
                           <Link href={`/familias/${family.id}`}>
                             <Button size="sm" variant="outline" className="h-8 text-xs">
                               Ver
@@ -170,12 +169,11 @@ export default function FamiliasEntregas() {
                             onClick={() => handleQuickDelivery(family.id)}
                             disabled={createDelivery.isPending}
                           >
-                            <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+                            <CheckCircle2 className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
                             Entregar
                           </Button>
                         </div>
-                      </CardContent>
-                    </Card>
+                    </div>
                   ))}
                 </div>
               )}
@@ -183,16 +181,15 @@ export default function FamiliasEntregas() {
               {/* Delivered */}
               {deliveredFamilies.length > 0 && (
                 <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                  <p className="text-eyebrow mb-2 text-muted-foreground">
                     Ya entregadas hoy
                   </p>
                   {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                   {deliveredFamilies.map((family: any) => (
-                    <Card key={family.id} className="mb-2 bg-green-50/30 border-green-200">
-                      <CardContent className="py-3 flex items-center gap-3">
-                        <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm truncate text-green-800">
+                    <div key={family.id} className="bocatas-card mb-2 flex items-center gap-3 border-green-200 bg-green-50/30 px-4 py-3">
+                        <CheckCircle2 className="h-5 w-5 shrink-0 text-green-600" aria-hidden="true" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-body-sm font-medium text-green-800 truncate">
                             {family.persons?.nombre} {family.persons?.apellidos}
                           </p>
                           <p className="text-xs text-green-700">
@@ -204,14 +201,13 @@ export default function FamiliasEntregas() {
                             Ver
                           </Button>
                         </Link>
-                      </CardContent>
-                    </Card>
+                    </div>
                   ))}
                 </div>
               )}
 
               {filteredFamilies.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-8">
+                <p className="py-8 text-center text-body-sm text-muted-foreground">
                   No hay familias activas registradas.
                 </p>
               )}
@@ -221,26 +217,24 @@ export default function FamiliasEntregas() {
 
         <TabsContent value="cierre" className="mt-4">
           <div className="space-y-4">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm text-muted-foreground">
-                  Resumen del día
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="grid grid-cols-2 gap-4 text-center">
+            <div className="bocatas-card p-5">
+              <p className="text-eyebrow mb-3 text-muted-foreground">
+                Resumen del día
+              </p>
+              <div className="grid grid-cols-2 gap-4 text-center">
                 <div>
-                  <p className="text-2xl font-bold text-primary">{deliveredFamilies.length}</p>
+                  <p className="tabular-stat text-2xl font-bold text-primary">{deliveredFamilies.length}</p>
                   <p className="text-xs text-muted-foreground">Familias atendidas</p>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-amber-600">{pendingFamilies.length}</p>
+                  <p className="tabular-stat text-2xl font-bold text-amber-600">{pendingFamilies.length}</p>
                   <p className="text-xs text-muted-foreground">Sin recoger</p>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
 
             {/* Session close form — needs a program_id */}
-            <p className="text-xs text-muted-foreground text-center">
+            <p className="text-center text-xs text-muted-foreground">
               Selecciona el programa desde{" "}
               <Link href="/programas" className="underline text-primary">
                 Programas
