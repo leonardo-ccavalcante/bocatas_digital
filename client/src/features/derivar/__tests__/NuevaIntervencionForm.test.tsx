@@ -47,6 +47,7 @@ const { mockStartUseQuery, mockAddMutation, mockInstSearchUseQuery } =
 
 vi.mock("@/lib/trpc", () => ({
   trpc: {
+    useUtils: () => ({ derivar: { list: { invalidate: vi.fn() } } }),
     derivar: {
       startIntervention: { useQuery: mockStartUseQuery },
       addIntervention: {
