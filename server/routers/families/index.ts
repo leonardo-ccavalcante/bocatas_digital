@@ -10,6 +10,7 @@ import { csvImportRouter } from "./csv-import";
 import { legacyImportRouter } from "./legacy-import";
 import { followUpsRouter } from "./follow-ups";
 import { documentsGenRouter } from "./documents-gen";
+import { templateEditorRouter } from "./template-editor";
 
 // Re-export helpers used by other routers (server/routers/persons.ts imports
 // insertFamilyRow + mirrorMembersToTable from "./families"). Preserves the
@@ -40,4 +41,5 @@ export const familiesRouter = mergeRouters(
   legacyImportRouter,
   followUpsRouter,
   documentsGenRouter,
+  templateEditorRouter,
 );
