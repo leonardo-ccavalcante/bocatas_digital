@@ -379,6 +379,41 @@ export const complianceRouter = router({
       .eq("padron_recibido", true)
       .lt("padron_recibido_fecha", cutoff180.toISOString().split("T")[0]);
 
+    // CM-7: % of active families with ≥1 derivación in the last 12 months
+    // (target ≥20%). Derivaciones are familia-scoped via derivacion_hojas
+    // (scope='familia', familia_id) → derivacion_intervenciones (fecha).
+    const cutoff12m = new Date(today);
+    cutoff12m.setFullYear(cutoff12m.getFullYear() - 1);
+
+    const { data: familiaHojas } = await db
+      .from("derivacion_hojas")
+      .select("id, familia_id")
+      .eq("scope", "familia")
+      .not("familia_id", "is", null);
+    const hojaToFamilia = new Map(
+      (familiaHojas ?? []).map((h: { id: string; familia_id: string | null }) => [
+        h.id,
+        h.familia_id,
+      ])
+    );
+
+    const { data: recentIntervenciones } = await db
+      .from("derivacion_intervenciones")
+      .select("hoja_id")
+      .gte("fecha", cutoff12m.toISOString().split("T")[0]);
+
+    const familiasConDerivacion = new Set<string>();
+    for (const iv of recentIntervenciones ?? []) {
+      const fid = hojaToFamilia.get((iv as { hoja_id: string }).hoja_id);
+      if (fid) familiasConDerivacion.add(fid);
+    }
+
+    const cm7Total = (allActiveFamilies ?? []).length;
+    const cm7Active = (allActiveFamilies ?? []).filter((f: { id: string }) =>
+      familiasConDerivacion.has(f.id)
+    ).length;
+    const cm7 = cm7Total > 0 ? Math.round((cm7Active / cm7Total) * 100) : 0;
+
     return {
       cm1: cm1 ?? 0,
       cm2: cm2 ?? 0,
@@ -387,6 +422,10 @@ export const complianceRouter = router({
       cm5: cm5List.length,
       cm5List,
       cm6: cm6 ?? 0,
+      cm7,
+      cm7_ok: cm7 >= 20,
+      cm7Active,
+      cm7Total,
     };
   }),
 

@@ -9,6 +9,8 @@ const UploadsTab = lazy(() => import("@/features/uploads-tab"));
 // Phase 2 — lazy-chunked so react-leaflet (~150KB) never enters the LCP-critical bundle.
 const MapaTab = lazy(() => import("@/features/mapa-tab"));
 const ReportsTab = lazy(() => import("@/features/reports-tab"));
+// Phase 3
+const DerivarTab = lazy(() => import("@/features/derivar"));
 
 interface Program {
   id: string;
@@ -115,7 +117,11 @@ export function ProgramTabs({ program }: ProgramTabsProps) {
         </Suspense>
       </TabsContent>
 
-      {/* Derivar TabsContent intentionally absent until Phase 3 enables it. */}
+      <TabsContent value="derivar">
+        <Suspense fallback={<TabFallback />}>
+          {ENABLED_TABS.includes("derivar") && <DerivarTab programaId={program.id} />}
+        </Suspense>
+      </TabsContent>
     </Tabs>
   );
 }
