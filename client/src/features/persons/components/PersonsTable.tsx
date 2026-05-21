@@ -152,7 +152,7 @@ export function PersonsTable() {
                     </SelectContent>
                   </Select>
                 ) : (
-                  <span className="inline-block bg-[#C41230]/10 text-[#C41230] px-2 py-1 rounded text-xs">
+                  <span className="inline-block bg-primary/10 text-primary px-2 py-1 rounded text-xs">
                     {person.fase_itinerario || "—"}
                   </span>
                 )}

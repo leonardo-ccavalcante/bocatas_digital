@@ -1,39 +1,32 @@
 /**
- * RegistrationWizard — 9-step person registration form.
+ * RegistrationWizard — person registration as a 4-phase editorial wizard.
  *
- * Steps:
- *   0 — Canal de llegada
- *   1 — Identidad (OCR optional — fills Step 1 + Step 2 fields)
- *   2 — Documento (OCR offered only if NOT already used in Step 1)
- *   3 — Contacto
- *   4 — Situación
- *   5 — Información social + Programas
- *   6 — Foto de perfil (optional)
- *   7 — Consentimiento RGPD (dynamic groups based on selected programs)
- *   8 — Programa Familias (only shown if familia program selected)
+ * The v4 prototype (persona-nueva.jsx) shows a 4-step stepper:
+ *   1 · Identidad   2 · Contacto   3 · Programa   4 · Resumen
  *
- * OCR rules:
- *   - OCR is OPTIONAL and can be triggered in Step 1 or Step 2
- *   - Once OCR has been used, the "scan" UI is replaced by a "data extracted" banner
- *   - OCR fills: nombre, apellidos, fecha_nacimiento, tipo_documento, numero_documento
+ * The underlying form keeps ALL existing functionality (OCR, duplicate
+ * detection, dynamic RGPD consent groups, profile photo, family members) by
+ * grouping the 9 functional steps into those 4 visual phases:
  *
- * RGPD rules (Step 7):
- *   - Group A (always required): tratamiento_datos_bocatas, fotografia, comunicaciones_whatsapp
- *   - Group B (if banco_alimentos program selected): tratamiento_datos_banco_alimentos
- *   - Group C (if familia program selected): compartir_datos_red
- *   - Declining Group A → submit button disabled
+ *   Phase 1 (Identidad) → Canal + Identidad + Documento
+ *   Phase 2 (Contacto)  → Contacto + Situación
+ *   Phase 3 (Programa)  → Social/Programas + Foto + Consentimiento [+ Familias]
+ *   Phase 4 (Resumen)   → read-only review before submit
  *
- * Step 8 (Familias):
- *   - Only rendered if programa "familia" is selected
- *   - Collects: num_adultos, num_menores, and optional list of miembros
+ * Per-phase gating is driven by the EXISTING Zod schema (PersonCreateSchema)
+ * via react-hook-form `trigger()` on the fields owned by each phase — no
+ * validation logic is duplicated in this component.
+ *
+ * Submission path is unchanged: useRegistrationSubmit → createPerson +
+ * enrollPerson + saveConsents + createFamily (see _useSubmit.ts).
  */
 import { useState, useCallback, useMemo, useRef } from "react";
+import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { ChevronLeft, ChevronRight, CheckCircle, Loader2 } from "lucide-react";
+import { CheckCircle, Loader2 } from "lucide-react";
 import {
   PersonCreateSchema,
   type PersonCreate,
@@ -44,24 +37,58 @@ import { useDuplicateCheck } from "../../hooks/useDuplicateCheck";
 import { usePrograms } from "../../hooks/usePrograms";
 import { useConsentTemplates } from "../../hooks/useConsentTemplates";
 import { compressImage } from "../../utils/imageUtils";
-import { type FamilyMember, SLUG_BANCO_ALIMENTOS, SLUG_FAMILIA } from "./_shared";
+import {
+  type FamilyMember,
+  SLUG_BANCO_ALIMENTOS,
+  SLUG_FAMILIA,
+  TEMPLATE_LANGUAGES,
+} from "./_shared";
 import { useRegistrationSubmit } from "./_useSubmit";
-import { Step0Canal } from "./steps/Step0Canal";
-import { Step1Identidad } from "./steps/Step1Identidad";
-import { Step2Documento } from "./steps/Step2Documento";
-import { Step3Contacto } from "./steps/Step3Contacto";
-import { Step4Situacion } from "./steps/Step4Situacion";
-import { Step5Social } from "./steps/Step5Social";
-import { Step6Foto } from "./steps/Step6Foto";
-import { Step7Consent } from "./steps/Step7Consent";
-import { Step8Familia } from "./steps/Step8Familia";
+import { type StepperPhase } from "../registration/WizardStepper";
+import { WizardHeader } from "../registration/WizardHeader";
+import { WizardPhases } from "../registration/WizardPhases";
+import { StepResumen } from "../registration/StepResumen";
+import { SectionTitle } from "../registration/SectionTitle";
+
+const PHASES: readonly StepperPhase[] = [
+  { n: 1, label: "Identidad" },
+  { n: 2, label: "Contacto" },
+  { n: 3, label: "Programa" },
+  { n: 4, label: "Resumen" },
+];
+const TOTAL_PHASES = PHASES.length;
+
+// Per-phase validation fields (derived from PersonCreateSchema keys). Phase 1
+// gate = identity required fields; phases 2/3 have no hard-required fields
+// beyond the program rule (handled in goNext). Static → module-level.
+// 3 entries only (phases 1-3); phase 4 (Resumen) submits via handleFinalSubmit
+// and is never reached by goNext.
+const PHASE_FIELDS: readonly (keyof PersonCreate)[][] = [
+  ["canal_llegada", "nombre", "apellidos", "fecha_nacimiento", "idioma_principal"],
+  [],
+  [],
+];
+
+// OCR returns tipo_documento in mixed/lowercase casing (LLM output); map to the
+// DB enum values. Static lookup → module-level.
+const OCR_TIPO_DOC_MAP: Record<string, PersonCreate["tipo_documento"]> = {
+  DNI: "DNI", NIE: "NIE", Pasaporte: "Pasaporte",
+  Documento_Extranjero: "Documento_Extranjero", Sin_Documentacion: "Sin_Documentacion",
+  dni: "DNI", nie: "NIE", pasaporte: "Pasaporte",
+  documento_extranjero: "Documento_Extranjero", otro: "Sin_Documentacion",
+};
+
+// Image compression budgets (px = longest edge, quality = JPEG quality 0-1).
+const PROFILE_PHOTO_MAX_PX = 800;
+const DOC_PHOTO_MAX_PX = 1200;
+const PHOTO_QUALITY = 0.85;
 
 export function RegistrationWizard() {
-  const [step, setStep] = useState(0);
+  const [phase, setPhase] = useState(1);
   const [duplicateDismissed, setDuplicateDismissed] = useState(false);
+  const [, navigate] = useLocation();
 
   // ── OCR shared state ──────────────────────────────────────────────────────
-  // Once OCR is used (in Step 1 or 2), ocrUsed = true → no second scan offered
   const [ocrUsed, setOcrUsed] = useState(false);
 
   // ── Profile photo ─────────────────────────────────────────────────────────
@@ -103,24 +130,33 @@ export function RegistrationWizard() {
 
   const watchedNombre = watch("nombre") ?? "";
   const watchedApellidos = watch("apellidos") ?? "";
-  const watchedProgramIds = watch("program_ids") ?? [];
-  const watchedIdioma = (watch("idioma_principal") ?? "es") as "es" | "ar" | "fr" | "bm";
+  const rawProgramIds = watch("program_ids");
+  const watchedProgramIds = useMemo(() => rawProgramIds ?? [], [rawProgramIds]);
+  const watchedIdioma = (watch("idioma_principal") ?? "es") as PersonCreate["idioma_principal"];
+
+  // Consent fallback: no active template in the person's language → show
+  // Spanish + verbal-translation banner (never silently render Spanish).
+  const needsVerbalFallback = !TEMPLATE_LANGUAGES.has(watchedIdioma);
+  const langForTemplates = (TEMPLATE_LANGUAGES.has(watchedIdioma) ? watchedIdioma : "es") as
+    | "es"
+    | "ar"
+    | "fr"
+    | "bm";
 
   // Consent templates
   const { data: consentTemplatesEs = [] } = useConsentTemplates("es");
-  const { data: consentTemplatesLang = [] } = useConsentTemplates(
-    watchedIdioma !== "es" ? watchedIdioma : "es"
-  );
+  const { data: consentTemplatesLang = [] } = useConsentTemplates(langForTemplates);
 
-  // Duplicate check
+  // Duplicate check belongs to the identity phase (phase 1) — matches the
+  // showDuplicateWarning gate below.
   const { data: duplicates = [] } = useDuplicateCheck(
     watchedNombre,
     watchedApellidos,
-    step >= 1 && !duplicateDismissed
+    phase === 1 && !duplicateDismissed
   );
-  const showDuplicateWarning = step === 1 && duplicates.length > 0 && !duplicateDismissed;
+  const showDuplicateWarning = phase === 1 && duplicates.length > 0 && !duplicateDismissed;
 
-  // ── Derived: which programs are selected ─────────────────────────────────
+  // ── Derived: selected programs ──────────────────────────────────────────────
   const selectedPrograms = useMemo(
     () => programs.filter((p) => watchedProgramIds.includes(p.id)),
     [programs, watchedProgramIds]
@@ -132,84 +168,62 @@ export function RegistrationWizard() {
   const groupAPurposes = ["tratamiento_datos_bocatas", "fotografia", "comunicaciones_whatsapp"];
   const groupBPurposes = hasBancoAlimentos ? ["tratamiento_datos_banco_alimentos"] : [];
   const groupCPurposes = hasFamilia ? ["compartir_datos_red"] : [];
-
   const groupAAccepted = groupAPurposes.every((p) => consentChoices[p] === true);
 
-  // ── Total steps: 9 base, +1 if familia selected ───────────────────────────
-  const TOTAL_STEPS = hasFamilia ? 9 : 8;
+  // ── OCR handler ─────────────────────────────────────────────────────────────
+  const handleOCRExtracted = useCallback(
+    (data: OcrExtracted) => {
+      if (data.nombre) setValue("nombre", data.nombre);
+      if (data.apellidos) setValue("apellidos", data.apellidos);
+      if (data.fecha_nacimiento) setValue("fecha_nacimiento", data.fecha_nacimiento);
+      if (data.numero_documento) setValue("numero_documento", data.numero_documento);
+      if (data.tipo_documento) {
+        const normalized = OCR_TIPO_DOC_MAP[data.tipo_documento];
+        if (normalized) setValue("tipo_documento", normalized);
+      }
+      if (data.pais_documento) setValue("pais_documento", data.pais_documento);
+      setOcrUsed(true);
+    },
+    [setValue]
+  );
 
-  const STEP_LABELS = useMemo(() => {
-    const base = [
-      "Canal de llegada",
-      "Identidad",
-      "Documento",
-      "Contacto",
-      "Situación",
-      "Información social",
-      "Foto de perfil",
-      "Consentimiento RGPD",
-    ];
-    if (hasFamilia) base.push("Programa Familias");
-    return base;
-  }, [hasFamilia]);
-
-  // ── OCR handler (shared between Step 1 and Step 2) ────────────────────────
-  const handleOCRExtracted = useCallback((data: OcrExtracted) => {
-    if (data.nombre) setValue("nombre", data.nombre);
-    if (data.apellidos) setValue("apellidos", data.apellidos);
-    if (data.fecha_nacimiento) setValue("fecha_nacimiento", data.fecha_nacimiento);
-    if (data.numero_documento) setValue("numero_documento", data.numero_documento);
-    if (data.tipo_documento) {
-      const tipoMap: Record<string, PersonCreate["tipo_documento"]> = {
-        DNI: "DNI", NIE: "NIE", Pasaporte: "Pasaporte", Documento_Extranjero: "Documento_Extranjero", Sin_Documentacion: "Sin_Documentacion",
-        dni: "DNI", nie: "NIE", pasaporte: "Pasaporte", documento_extranjero: "Documento_Extranjero", otro: "Sin_Documentacion",
-      };
-      const normalized = tipoMap[data.tipo_documento];
-      if (normalized) setValue("tipo_documento", normalized);
-    }
-    // Populate pais_documento from OCR if available
-    if (data.pais_documento) setValue("pais_documento", data.pais_documento);
-    setOcrUsed(true);
-  }, [setValue]);
-
-  // ── Step validation ───────────────────────────────────────────────────────
-  const STEP_FIELDS = useMemo<(keyof PersonCreate)[][]>(() => [
-    ["canal_llegada"],
-    ["nombre", "apellidos", "fecha_nacimiento", "idioma_principal"],
-    [], [], [], [], [], [], [],
-  ], []);
-
+  // ── Navigation ──────────────────────────────────────────────────────────────
   const goNext = useCallback(async () => {
-    const fields = STEP_FIELDS[step] ?? [];
+    // PHASE_FIELDS has 3 entries (phases 1-3); phase 4 (Resumen) submits via
+    // handleFinalSubmit and is never reached by goNext.
+    const fields = PHASE_FIELDS[phase - 1] ?? [];
     if (fields.length > 0) {
-      const valid = await trigger(fields as (keyof PersonCreate)[]);
+      const valid = await trigger(fields);
       if (!valid) return;
     }
-    // Step 5 (Programs): at least one program must be selected
-    if (step === 5 && watchedProgramIds.length === 0) {
+    // Phase 3 requires at least one program before advancing to Resumen.
+    if (phase === 3 && watchedProgramIds.length === 0) {
       toast.error("Debes seleccionar al menos un programa antes de continuar.");
       return;
     }
     if (showDuplicateWarning) return;
-    setStep((s) => Math.min(s + 1, TOTAL_STEPS - 1));
-  }, [step, trigger, showDuplicateWarning, STEP_FIELDS, TOTAL_STEPS, watchedProgramIds]);
+    setPhase((p) => Math.min(p + 1, TOTAL_PHASES));
+  }, [phase, trigger, showDuplicateWarning, watchedProgramIds]);
 
   const goBack = useCallback(() => {
-    setStep((s) => Math.max(s - 1, 0));
+    setPhase((p) => Math.max(p - 1, 1));
   }, []);
 
-  const toggleProgram = useCallback((id: string) => {
-    const current = (getValues("program_ids") as string[]) ?? [];
-    const updated = current.includes(id)
-      ? current.filter((p) => p !== id)
-      : [...current, id];
-    setValue("program_ids", updated, { shouldDirty: true });
-  }, [getValues, setValue]);
+  const toggleProgram = useCallback(
+    (id: string) => {
+      const current = (getValues("program_ids") as string[]) ?? [];
+      const updated = current.includes(id)
+        ? current.filter((p) => p !== id)
+        : [...current, id];
+      setValue("program_ids", updated, { shouldDirty: true });
+    },
+    [getValues, setValue]
+  );
 
-  // ── Profile photo ─────────────────────────────────────────────────────────
+  // ── Profile photo / consent doc handlers ────────────────────────────────────
   const handleProfilePhotoFile = useCallback(async (file: File) => {
     try {
-      const base64 = await compressImage(file, 800, 0.85);
+      const base64 = await compressImage(file, PROFILE_PHOTO_MAX_PX, PHOTO_QUALITY);
       setProfilePhotoBase64(base64);
       setProfilePhotoPreview(`data:image/jpeg;base64,${base64}`);
     } catch {
@@ -219,7 +233,7 @@ export function RegistrationWizard() {
 
   const handleConsentDocFile = useCallback(async (file: File) => {
     try {
-      const base64 = await compressImage(file, 1200, 0.85);
+      const base64 = await compressImage(file, DOC_PHOTO_MAX_PX, PHOTO_QUALITY);
       setConsentDocBase64(base64);
       setConsentDocPreview(`data:image/jpeg;base64,${base64}`);
     } catch {
@@ -227,25 +241,24 @@ export function RegistrationWizard() {
     }
   }, []);
 
-  // ── Family members helpers ────────────────────────────────────────────────
+  // ── Family member helpers ────────────────────────────────────────────────────
   const addFamilyMember = useCallback(() => {
     setFamilyMembers((prev) => [
       ...prev,
       { nombre: "", apellidos: "", fecha_nacimiento: "", parentesco: "" },
     ]);
   }, []);
-
   const removeFamilyMember = useCallback((idx: number) => {
     setFamilyMembers((prev) => prev.filter((_, i) => i !== idx));
   }, []);
+  const updateFamilyMember = useCallback(
+    (idx: number, field: keyof FamilyMember, value: string) => {
+      setFamilyMembers((prev) => prev.map((m, i) => (i === idx ? { ...m, [field]: value } : m)));
+    },
+    []
+  );
 
-  const updateFamilyMember = useCallback((idx: number, field: keyof FamilyMember, value: string) => {
-    setFamilyMembers((prev) =>
-      prev.map((m, i) => (i === idx ? { ...m, [field]: value } : m))
-    );
-  }, []);
-
-  // ── Final submit ──────────────────────────────────────────────────────────
+  // ── Submit ───────────────────────────────────────────────────────────────────
   const { isSubmitting, handleFinalSubmit } = useRegistrationSubmit({
     groupAAccepted,
     getValues,
@@ -263,131 +276,121 @@ export function RegistrationWizard() {
     numMenores,
   });
 
-  const progress = ((step + 1) / TOTAL_STEPS) * 100;
-  const isLastStep = step === TOTAL_STEPS - 1;
+  const isResumen = phase === TOTAL_PHASES;
 
-  // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="mx-auto max-w-lg md:max-w-2xl lg:max-w-4xl space-y-6 p-4">
-      {/* Header */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold">Registrar persona</h1>
-          <span className="text-sm text-muted-foreground">
-            Paso {step + 1} de {TOTAL_STEPS}
-          </span>
-        </div>
-        <Progress value={progress} className="h-2" />
-        <p className="text-sm font-medium text-primary">{STEP_LABELS[step]}</p>
-      </div>
+    <div className="flex min-h-full flex-col bg-background">
+      <WizardHeader phases={PHASES} current={phase} />
 
-      <div className="space-y-4">
-        {step === 0 && (
-          <Step0Canal register={register} watch={watch} setValue={setValue} errors={errors} />
-        )}
-        {step === 1 && (
-          <Step1Identidad
-            register={register}
-            watch={watch}
-            setValue={setValue}
-            errors={errors}
-            ocrUsed={ocrUsed}
-            handleOCRExtracted={handleOCRExtracted}
-            showDuplicateWarning={showDuplicateWarning}
-            duplicates={duplicates as DuplicateCandidate[]}
-            onDismissDuplicate={() => setDuplicateDismissed(true)}
-          />
-        )}
-        {step === 2 && (
-          <Step2Documento
-            register={register}
-            watch={watch}
-            setValue={setValue}
-            handleOCRExtracted={handleOCRExtracted}
-          />
-        )}
-        {step === 3 && <Step3Contacto register={register} errors={errors} />}
-        {step === 4 && <Step4Situacion watch={watch} setValue={setValue} />}
-        {step === 5 && (
-          <Step5Social
-            register={register}
-            programs={programs}
-            watchedProgramIds={watchedProgramIds}
-            toggleProgram={toggleProgram}
-            hasFamilia={hasFamilia}
-          />
-        )}
-        {step === 6 && (
-          <Step6Foto
-            profilePhotoPreview={profilePhotoPreview}
-            setProfilePhotoBase64={setProfilePhotoBase64}
-            setProfilePhotoPreview={setProfilePhotoPreview}
-            profileInputRef={profileInputRef}
-            handleProfilePhotoFile={handleProfilePhotoFile}
-          />
-        )}
-        {step === 7 && (
-          <Step7Consent
-            consentChoices={consentChoices}
-            setConsentChoices={setConsentChoices}
-            groupAPurposes={groupAPurposes}
-            groupBPurposes={groupBPurposes}
-            groupCPurposes={groupCPurposes}
-            groupAAccepted={groupAAccepted}
-            consentTemplatesEs={consentTemplatesEs}
-            consentTemplatesLang={consentTemplatesLang}
-            numeroSerie={numeroSerie}
-            setNumeroSerie={setNumeroSerie}
-            consentDocPreview={consentDocPreview}
-            setConsentDocBase64={setConsentDocBase64}
-            setConsentDocPreview={setConsentDocPreview}
-            consentDocInputRef={consentDocInputRef}
-            handleConsentDocFile={handleConsentDocFile}
-          />
-        )}
-        {step === 8 && hasFamilia && (
-          <Step8Familia
-            numAdultos={numAdultos}
-            setNumAdultos={setNumAdultos}
-            numMenores={numMenores}
-            setNumMenores={setNumMenores}
-            familyMembers={familyMembers}
-            addFamilyMember={addFamilyMember}
-            removeFamilyMember={removeFamilyMember}
-            updateFamilyMember={updateFamilyMember}
-          />
-        )}
+      {/* Body card */}
+      <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-8">
+        <div className="bocatas-card overflow-hidden">
+          <div className="px-5 py-6 sm:px-8">
+            {isResumen ? (
+              <>
+                <SectionTitle
+                  eyebrow="Resumen"
+                  title="Revisa antes de crear"
+                  sub="Si todo está correcto, pulsa Registrar persona. Podrás editar después."
+                />
+                <StepResumen
+                  values={getValues()}
+                  programs={programs}
+                  consentChoices={consentChoices}
+                  groupAPurposes={groupAPurposes}
+                  groupBPurposes={groupBPurposes}
+                  groupCPurposes={groupCPurposes}
+                  hasFamilia={hasFamilia}
+                  numAdultos={numAdultos}
+                  numMenores={numMenores}
+                />
+              </>
+            ) : (
+              <WizardPhases
+                phase={phase}
+                register={register}
+                watch={watch}
+                setValue={setValue}
+                getValues={getValues}
+                errors={errors}
+                ocrUsed={ocrUsed}
+                handleOCRExtracted={handleOCRExtracted}
+                showDuplicateWarning={showDuplicateWarning}
+                duplicates={duplicates as DuplicateCandidate[]}
+                onDismissDuplicate={() => setDuplicateDismissed(true)}
+                programs={programs}
+                watchedProgramIds={watchedProgramIds}
+                toggleProgram={toggleProgram}
+                hasFamilia={hasFamilia}
+                profilePhotoPreview={profilePhotoPreview}
+                setProfilePhotoBase64={setProfilePhotoBase64}
+                setProfilePhotoPreview={setProfilePhotoPreview}
+                profileInputRef={profileInputRef}
+                handleProfilePhotoFile={handleProfilePhotoFile}
+                consentChoices={consentChoices}
+                setConsentChoices={setConsentChoices}
+                groupAPurposes={groupAPurposes}
+                groupBPurposes={groupBPurposes}
+                groupCPurposes={groupCPurposes}
+                groupAAccepted={groupAAccepted}
+                consentTemplatesEs={consentTemplatesEs}
+                consentTemplatesLang={consentTemplatesLang}
+                needsVerbalFallback={needsVerbalFallback}
+                numeroSerie={numeroSerie}
+                setNumeroSerie={setNumeroSerie}
+                consentDocPreview={consentDocPreview}
+                setConsentDocBase64={setConsentDocBase64}
+                setConsentDocPreview={setConsentDocPreview}
+                consentDocInputRef={consentDocInputRef}
+                handleConsentDocFile={handleConsentDocFile}
+                numAdultos={numAdultos}
+                setNumAdultos={setNumAdultos}
+                numMenores={numMenores}
+                setNumMenores={setNumMenores}
+                familyMembers={familyMembers}
+                addFamilyMember={addFamilyMember}
+                removeFamilyMember={removeFamilyMember}
+                updateFamilyMember={updateFamilyMember}
+              />
+            )}
+          </div>
 
-        {/* Navigation buttons */}
-        <div className="sticky bottom-0 flex gap-3 pt-2 pb-2 bg-background border-t">
-          {step > 0 && (
-            <Button type="button" variant="outline" onClick={goBack} className="flex-1">
-              <ChevronLeft className="mr-1 h-4 w-4" /> Anterior
-            </Button>
-          )}
-          {!isLastStep ? (
-            <Button
-              type="button"
-              onClick={goNext}
-              disabled={showDuplicateWarning}
-              className="flex-1"
-            >
-              Siguiente <ChevronRight className="ml-1 h-4 w-4" />
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              onClick={handleFinalSubmit}
-              disabled={isSubmitting || !groupAAccepted}
-              className="flex-1"
-            >
-              {isSubmitting ? (
-                <><Loader2 className="mr-1 h-4 w-4 animate-spin" /> Guardando...</>
-              ) : (
-                <><CheckCircle className="mr-1 h-4 w-4" /> Registrar persona</>
-              )}
-            </Button>
-          )}
+          {/* Editorial footer */}
+          <div className="flex items-center justify-between gap-3 border-t border-border bg-background px-5 py-4 sm:px-8">
+            {phase === 1 ? (
+              <Button type="button" variant="outline" onClick={() => navigate("/personas")}>
+                Cancelar
+              </Button>
+            ) : (
+              <Button type="button" variant="outline" onClick={goBack}>
+                Atrás
+              </Button>
+            )}
+            <span className="text-eyebrow text-muted-foreground">
+              Paso {phase}/{TOTAL_PHASES}
+            </span>
+            {!isResumen ? (
+              <Button type="button" onClick={goNext} disabled={showDuplicateWarning}>
+                Continuar →
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                onClick={handleFinalSubmit}
+                disabled={isSubmitting || !groupAAccepted}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-1 h-4 w-4 animate-spin" /> Guardando...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="mr-1 h-4 w-4" /> Registrar persona
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </div>

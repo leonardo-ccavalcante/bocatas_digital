@@ -7,14 +7,13 @@
  *   Bottom: action buttons (Escanear QR | Búsqueda manual | Conteo anónimo)
  */
 import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Loader2, QrCode, Search, Hash } from "lucide-react";
+import { Loader2, QrCode, Search, Hash, WifiOff } from "lucide-react";
 
 import { useCheckin } from "@/features/checkin/hooks/useCheckin";
 import { QRScanner } from "@/features/checkin/components/QRScanner";
-import { ResultCard } from "@/features/checkin/components/ResultCard";
+import { ResultCard, RESULT_STATES, type ResultState } from "@/features/checkin/components/ResultCard";
 import { ManualSearchModal } from "@/features/checkin/components/ManualSearchModal";
 import { LocationSelector } from "@/features/checkin/components/LocationSelector";
 import { ProgramSelector } from "@/features/checkin/components/ProgramSelector";
@@ -60,33 +59,36 @@ export default function CheckIn() {
   const handleDemoToggle = (checked: boolean) =>
     send({ type: "SET_DEMO_MODE", isDemoMode: checked });
 
-  const isResultState = ["registered", "duplicate", "not_found", "error", "offline"].includes(
-    currentState
-  );
+  const isResultState = (RESULT_STATES as string[]).includes(currentState);
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-full flex flex-col bg-background">
       {/* ── Top bar ─────────────────────────────────────────────────────────── */}
       <div className="border-b bg-card px-4 py-3 space-y-3">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <h1 className="text-lg font-bold">Check-in</h1>
-          <div className="flex items-center gap-4 flex-wrap">
+
+          <div className="flex items-center gap-3 flex-wrap">
             {/* Offline indicator */}
             {!isOnline && (
-              <span className="text-xs font-medium text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
+              <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
+                <WifiOff className="h-3 w-3" aria-hidden="true" />
                 Sin conexión
               </span>
             )}
+
+            {/* Offline queue count */}
             <OfflinePendingBadge count={offlineCount} isSyncing={isSyncing} />
 
             {/* Demo mode toggle */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-h-[44px]">
               <Switch
                 id="demo-mode"
                 checked={ctx.isDemoMode}
                 onCheckedChange={handleDemoToggle}
+                aria-label="Modo demo"
               />
-              <Label htmlFor="demo-mode" className="text-sm cursor-pointer">
+              <Label htmlFor="demo-mode" className="text-sm cursor-pointer select-none">
                 Demo
               </Label>
             </div>
@@ -116,8 +118,8 @@ export default function CheckIn() {
         {/* Idle state */}
         {currentState === "idle" && (
           <div className="text-center space-y-3">
-            <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto">
-              <QrCode className="w-10 h-10 text-primary" />
+            <div className="w-24 h-24 rounded-3xl bg-primary/10 flex items-center justify-center mx-auto">
+              <QrCode className="w-12 h-12 text-primary" />
             </div>
             <h2 className="text-xl font-semibold">Listo para escanear</h2>
             <p className="text-sm text-muted-foreground">
@@ -137,7 +139,7 @@ export default function CheckIn() {
 
         {/* Verifying state */}
         {currentState === "verifying" && (
-          <div className="flex flex-col items-center gap-4">
+          <div className="flex flex-col items-center gap-4 py-12">
             <Loader2 className="w-12 h-12 animate-spin text-primary" />
             <p className="text-muted-foreground">Verificando...</p>
           </div>
@@ -146,7 +148,7 @@ export default function CheckIn() {
         {/* Result states */}
         {isResultState && (
           <ResultCard
-            stateValue={currentState as "registered" | "duplicate" | "not_found" | "error" | "offline"}
+            stateValue={currentState as ResultState}
             context={ctx}
             onReset={handleReset}
           />
@@ -156,40 +158,44 @@ export default function CheckIn() {
       {/* ── Action buttons ──────────────────────────────────────────────────── */}
       {(currentState === "idle" || currentState === "scanning") && (
         <div className="border-t bg-card px-4 py-3">
-          <div className="max-w-lg mx-auto flex gap-1 sm:gap-2 md:gap-3 flex-wrap justify-center">
+          <div className="max-w-lg mx-auto flex gap-2 flex-wrap justify-center">
+            {/* Escanear QR — primary pill */}
             {currentState === "idle" && (
-              <Button
-                size="sm"
-                className="gap-1 sm:gap-2 flex-1 min-w-0 sm:min-w-32 md:min-w-36 text-xs sm:text-sm"
+              <button
+                type="button"
+                className="bocatas-btn-primary flex-1 min-w-32 gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={() => send({ type: "SCAN_START" })}
                 disabled={!ctx.locationId}
+                aria-label="Escanear código QR"
               >
-                <QrCode className="w-4 sm:w-5 h-4 sm:h-5" />
-                <span className="hidden sm:inline">Escanear QR</span><span className="sm:hidden">Escanear</span>
-              </Button>
+                <QrCode className="w-5 h-5" aria-hidden="true" />
+                Escanear QR
+              </button>
             )}
 
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-1 sm:gap-2 flex-1 min-w-0 sm:min-w-32 md:min-w-36 text-xs sm:text-sm"
+            {/* Búsqueda manual — outline pill */}
+            <button
+              type="button"
+              className="bocatas-btn-outline flex-1 min-w-32"
               onClick={() => setShowManualSearch(true)}
               disabled={!ctx.locationId}
+              aria-label="Búsqueda manual de beneficiario"
             >
-              <Search className="w-4 sm:w-5 h-4 sm:h-5" />
-              <span className="hidden sm:inline">Búsqueda manual</span><span className="sm:hidden">Búsqueda</span>
-            </Button>
+              <Search className="w-5 h-5" aria-hidden="true" />
+              Búsqueda manual
+            </button>
 
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-1 sm:gap-2 flex-1 min-w-0 sm:min-w-32 md:min-w-36 text-xs sm:text-sm"
+            {/* Conteo anónimo — outline pill */}
+            <button
+              type="button"
+              className="bocatas-btn-outline flex-1 min-w-32"
               onClick={handleAnonymous}
               disabled={!ctx.locationId}
+              aria-label="Registrar conteo anónimo"
             >
-              <Hash className="w-4 sm:w-5 h-4 sm:h-5" />
-              <span className="hidden sm:inline">Conteo anónimo</span><span className="sm:hidden">Conteo</span>
-            </Button>
+              <Hash className="w-5 h-5" aria-hidden="true" />
+              Conteo anónimo
+            </button>
           </div>
         </div>
       )}

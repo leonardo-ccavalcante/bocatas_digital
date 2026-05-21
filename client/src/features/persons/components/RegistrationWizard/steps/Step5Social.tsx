@@ -4,13 +4,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CheckCircle } from "lucide-react";
 import { type PersonCreate } from "../../../schemas";
-
-interface ProgramRow {
-  id: string;
-  name: string;
-  icon: string | null;
-  slug: string;
-}
+import { type ProgramRow } from "../_shared";
 
 interface Step5SocialProps {
   register: UseFormRegister<PersonCreate>;
