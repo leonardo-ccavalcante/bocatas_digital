@@ -250,6 +250,7 @@ export default function ProgramaDetalle() {
             activeCount={activeCount}
             newCount={newThisMonth}
             completedCount={inactiveCount}
+            enrollmentsCount={activeCount + inactiveCount}
           >
             {/* Meta grid */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

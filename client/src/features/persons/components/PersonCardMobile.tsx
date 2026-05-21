@@ -42,7 +42,7 @@ export function PersonCardMobile({ person }: PersonCardMobileProps) {
       {/* Avatar */}
       <div
         aria-hidden="true"
-        className="h-10 w-10 rounded-full flex items-center justify-center font-semibold text-[11px] shrink-0 bg-accent text-accent-foreground"
+        className="h-10 w-10 rounded-full flex items-center justify-center font-semibold text-[11px] shrink-0 bg-[#E8E0D2] text-[#4F5742]"
       >
         {initials}
       </div>

@@ -132,7 +132,7 @@ export default function Home() {
 
       {/* ── Editorial header ──────────────────────────────────────────── */}
       <header className="mb-8">
-        <p className="text-eyebrow text-muted-foreground mb-2 capitalize">
+        <p className="text-[10px] font-mono tracking-[0.18em] uppercase text-muted-foreground mb-2 capitalize">
           {currentDate}
         </p>
         <h1 className="text-display-1 text-foreground">
@@ -140,7 +140,7 @@ export default function Home() {
         </h1>
         <div className="mt-4 flex items-center gap-2 flex-wrap">
           {selectedLocation && (
-            <span className="inline-flex items-center gap-1.5 text-body-sm font-semibold text-primary bg-accent border border-border rounded-full px-2.5 py-1">
+            <span className="inline-flex items-center gap-1.5 text-body-sm font-semibold text-primary bg-primary/5 border border-primary/20 rounded-full px-2.5 py-1">
               <MapPin className="h-3 w-3" aria-hidden="true" />
               {selectedLocation.nombre}
             </span>
@@ -236,7 +236,7 @@ export default function Home() {
                     <div className="px-6 pt-4 pb-5 flex-1">
                       <h3
                         lang="es"
-                        className="text-h2 text-foreground"
+                        className="text-[19px] sm:text-[21px] font-semibold leading-[1.2] tracking-[-0.01em] text-foreground"
                         style={{ textWrap: "balance" } as React.CSSProperties}
                       >
                         {tile.label}

@@ -40,9 +40,9 @@ export default function MobileFooterNav() {
                 aria-current={active ? "page" : undefined}
               >
                 <span className="shrink-0">{item.icon}</span>
-                <span className="text-[10px] font-medium leading-none">{item.label}</span>
+                <span className={cn("text-[10px] leading-none", active ? "font-semibold" : "font-medium")}>{item.label}</span>
                 {active && (
-                  <span className="w-1 h-1 rounded-full bg-primary mt-0.5" aria-hidden="true" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary mt-0.5" aria-hidden="true" />
                 )}
               </div>
             </Link>

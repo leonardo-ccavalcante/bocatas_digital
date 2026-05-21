@@ -29,7 +29,7 @@ describe("CohortRetentionPanel — empty-state render", () => {
 
   it("renders the placeholder message text", () => {
     render(<CohortRetentionPanel />);
-    expect(screen.getByText("Pendiente de implementación")).toBeInTheDocument();
+    expect(screen.getByText("Pendiente · sin datos")).toBeInTheDocument();
   });
 
   it("renders activeCount when provided", () => {
@@ -50,7 +50,7 @@ describe("HourlyDistributionChart — empty-state render", () => {
 
   it("renders the placeholder message text", () => {
     render(<HourlyDistributionChart />);
-    expect(screen.getByText("Pendiente de implementación")).toBeInTheDocument();
+    expect(screen.getByText("Pendiente · sin datos")).toBeInTheDocument();
   });
 });
 
@@ -66,6 +66,6 @@ describe("SedesPerformanceTable — empty-state render", () => {
 
   it("renders the placeholder message text", () => {
     render(<SedesPerformanceTable />);
-    expect(screen.getByText("Pendiente de implementación")).toBeInTheDocument();
+    expect(screen.getByText("Pendiente · sin datos")).toBeInTheDocument();
   });
 });

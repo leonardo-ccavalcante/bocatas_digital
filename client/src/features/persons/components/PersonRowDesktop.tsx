@@ -74,7 +74,7 @@ function PersonAvatar({
   const sz = compact ? "h-7 w-7 text-[10px]" : "h-9 w-9 text-[11px]";
   return (
     <div
-      className={`rounded-full flex items-center justify-center font-semibold shrink-0 bg-accent text-accent-foreground ${sz}`}
+      className={`rounded-full flex items-center justify-center font-semibold shrink-0 bg-[#E8E0D2] text-[#4F5742] ${sz}`}
       aria-hidden="true"
     >
       {initials}
