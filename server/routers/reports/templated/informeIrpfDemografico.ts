@@ -90,10 +90,8 @@ export const informeIrpfDemograficoRouter = router({
       const { year } = input;
       const db = createAdminClient();
 
-      // F-D note: `withSoftDeleteFilter` applies `familia_miembros.deleted_at IS NULL` only.
-      // The joined `persons` table is intentionally NOT filtered on `persons.deleted_at` —
-      // this is consistent with sibling reports. Because output is aggregate-only (k-anon),
-      // the residual statistical contribution of a soft-deleted person is an accepted EIPD posture.
+      // persons.deleted_at intentionally NOT filtered: aggregate-only k-anon output makes a soft-deleted
+      // person's residual contribution an accepted EIPD posture (consistent with sibling reports).
       const { data, error } = await withSoftDeleteFilter(
         db
           .from("familia_miembros")
