@@ -1,6 +1,6 @@
 # CODEMAP — server/routers/reports/
 
-> DX-T1 deliverable. Describes the 12-file structure, per-file LOC budgets, and the recipe for adding a 10th templated report.
+> DX-T1 deliverable. Describes the 13-file structure, per-file LOC budgets, and the recipe for adding an 11th templated report.
 
 ## Directory layout
 
@@ -13,10 +13,10 @@ shared/reports/
     └── entities.test.ts            (DX-T3 drift guard: every ENTITY_FIELDS field matches DB types)
 
 server/routers/reports/
-├── CODEMAP.md                       (this file — recipe for adding a 10th report)
+├── CODEMAP.md                       (this file — recipe for adding an 11th report)
 ├── _TEMPLATE.ts.skeleton            (copy-this-file pattern for new reports)
 ├── _shared.ts                       (~60 LOC) — withSoftDeleteFilter + wrapDbError helpers
-├── index.ts                         (~40 LOC) — mergeRouters of customQuery + 9 templated routers
+├── index.ts                         (~40 LOC) — mergeRouters of customQuery + 10 templated routers
 ├── customQuery/
 │   ├── allowlist.ts                 (~30 LOC) — re-exports ENTITY_TO_TABLE + field-name validator
 │   ├── executor.ts                  (~180 LOC) — execute() with discriminated-union operator dispatch
@@ -30,11 +30,12 @@ server/routers/reports/
     ├── documentosFaltantes.ts       (~120 LOC) — joins program_document_types + family_member_documents
     ├── resumenTrimestral.ts         (~100 LOC) — quarterly KPIs: year + quarter params
     ├── distribucionPorDistrito.ts   (~80 LOC) — group by distrito, count active families
-    └── evolucionHistorica.ts        (~80 LOC) — last 12 months monthly bucketing
+    ├── evolucionHistorica.ts        (~80 LOC) — last 12 months monthly bucketing
+    └── informeIrpfDemografico.ts    (~112 LOC) — IRPF annual demographic breakdown — marginals (age/gender/education/employment/nationality) + 5-way cross-tab; k-anon suppression via irpfAggregation.ts
 
 server/__tests__/reports/
 ├── customQuery.test.ts              (voluntario FORBIDDEN, evil field rejected by Zod BEFORE DB, CRUD via vi.mock)
-└── templated-shape.test.ts         (~9 contract tests — each procedure returns documented shape)
+└── templated-shape.test.ts         (~10 contract tests — each procedure returns documented shape)
 ```
 
 ## Dependency graph
@@ -48,13 +49,17 @@ shared/reports/entities.ts
                           └── server/routers.ts (appRouter.reports)
 
 server/routers/reports/_shared.ts
-  └── (imported by all 9 templated files + executor.ts)
+  └── (imported by all 10 templated files + executor.ts)
 
 server/routers/families/compliance.ts
   └── server/routers/reports/templated/complianceSnapshot.ts (REUSE getComplianceStats)
 
 server/_core/mapaAggregation.ts
   └── server/routers/reports/templated/familiasEnRiesgo.ts (REUSE hasComplianceRedFlag)
+
+server/_core/irpfAggregation.ts
+  └── server/routers/reports/templated/informeIrpfDemografico.ts
+        └── server/routers/reports/index.ts (merged as 10th templated router)
 ```
 
 ## Compliance constraints
@@ -65,7 +70,7 @@ server/_core/mapaAggregation.ts
 - Every DB error path goes through `wrapDbError(procedureName, error)`.
 - No `f.value as never` in executor.ts — use typed discriminated union per operator.
 
-## Recipe: adding a 10th templated report
+## Recipe: adding an 11th templated report
 
 1. **Copy `_TEMPLATE.ts.skeleton`** to `server/routers/reports/templated/<yourReport>.ts`.
 2. **Replace placeholders**: `YOUR_PROC_NAME`, `YourInputSchema`, the select + filter body.
