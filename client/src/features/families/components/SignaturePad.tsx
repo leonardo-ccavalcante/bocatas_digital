@@ -145,7 +145,12 @@ export function SignaturePad({ onCapture, className }: SignaturePadProps) {
 
   return (
     <div className={cn("rounded-lg border space-y-2", className)}>
-      <div className="px-3 pt-3 text-xs text-muted-foreground">Firmar aquí</div>
+      <div
+        id="signature-pad-hint"
+        className="px-3 pt-3 text-xs text-muted-foreground"
+      >
+        Dibuje su firma con el dedo o el ratón
+      </div>
       <canvas
         ref={canvasRef}
         className="w-full touch-none cursor-crosshair bg-white"
@@ -154,6 +159,7 @@ export function SignaturePad({ onCapture, className }: SignaturePadProps) {
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         aria-label="Área de firma"
+        aria-describedby="signature-pad-hint"
         role="img"
       />
       <div className="flex gap-2 px-3 pb-3">
