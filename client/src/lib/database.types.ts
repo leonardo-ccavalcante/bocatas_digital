@@ -619,6 +619,105 @@ export type Database = {
           },
         ]
       }
+      document_render_log: {
+        Row: {
+          actor_id: string
+          family_id: string
+          file_name: string
+          id: string
+          rendered_at: string
+          storage_path: string | null
+          template_id: string | null
+          template_slug: string
+        }
+        Insert: {
+          actor_id: string
+          family_id: string
+          file_name: string
+          id?: string
+          rendered_at?: string
+          storage_path?: string | null
+          template_id?: string | null
+          template_slug: string
+        }
+        Update: {
+          actor_id?: string
+          family_id?: string
+          file_name?: string
+          id?: string
+          rendered_at?: string
+          storage_path?: string | null
+          template_id?: string | null
+          template_slug?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_render_log_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_render_log_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "document_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_templates: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          is_active: boolean
+          logos: string[]
+          mime: string
+          nombre: string
+          placeholders: string[]
+          slug: string
+          static_blocks: Json
+          storage_path: string
+          updated_at: string
+          updated_by: string | null
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          is_active?: boolean
+          logos?: string[]
+          mime?: string
+          nombre: string
+          placeholders?: string[]
+          slug: string
+          static_blocks?: Json
+          storage_path: string
+          updated_at?: string
+          updated_by?: string | null
+          version?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          is_active?: boolean
+          logos?: string[]
+          mime?: string
+          nombre?: string
+          placeholders?: string[]
+          slug?: string
+          static_blocks?: Json
+          storage_path?: string
+          updated_at?: string
+          updated_by?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
       familia_miembros: {
         Row: {
           apellidos: string | null
@@ -963,6 +1062,50 @@ export type Database = {
             columns: ["titular_id"]
             isOneToOne: false
             referencedRelation: "persons_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      family_follow_ups: {
+        Row: {
+          created_at: string
+          created_by: string
+          deleted_at: string | null
+          family_id: string
+          fecha: string
+          id: string
+          notas: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          deleted_at?: string | null
+          family_id: string
+          fecha: string
+          id?: string
+          notas?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          deleted_at?: string | null
+          family_id?: string
+          fecha?: string
+          id?: string
+          notas?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "family_follow_ups_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
             referencedColumns: ["id"]
           },
         ]

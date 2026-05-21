@@ -89,6 +89,21 @@ function DialogOverlay({
 
 DialogOverlay.displayName = "DialogOverlay";
 
+/**
+ * Recursively detect whether `children` already contain a DialogTitle (ours or
+ * the Radix primitive), including titles nested inside DialogHeader. Used to
+ * decide whether the sr-only fallback title is needed — rendering a second
+ * Title would collide on Radix's shared titleId and blank the accessible name.
+ */
+function hasDialogTitle(node: React.ReactNode): boolean {
+  return React.Children.toArray(node).some((child) => {
+    if (!React.isValidElement(child)) return false;
+    if (child.type === DialogTitle || child.type === DialogPrimitive.Title) return true;
+    const sub = (child.props as { children?: React.ReactNode }).children;
+    return sub != null && hasDialogTitle(sub);
+  });
+}
+
 function DialogContent({
   className,
   children,
@@ -130,6 +145,11 @@ function DialogContent({
         onEscapeKeyDown={handleEscapeKeyDown}
         {...props}
       >
+        {/* Radix requires a Title for the dialog's accessible name. Render an
+            sr-only fallback ONLY when children don't already supply a DialogTitle —
+            rendering both collides on Radix's shared titleId and leaves the dialog
+            with an EMPTY accessible name (WCAG break). */}
+        {!hasDialogTitle(children) && <DialogPrimitive.Title className="sr-only" />}
         {children}
         {showCloseButton && (
           <DialogPrimitive.Close

@@ -140,10 +140,10 @@ export default function AppShell({ children }: AppShellProps) {
       <aside
         className={cn(
           "hidden md:flex flex-col shrink-0 transition-all duration-200",
-          "bg-[#8B0E22] text-white",
+          "bg-sidebar text-sidebar-foreground",
           sidebarCollapsed ? "w-16" : "w-60"
         )}
-        style={{ boxShadow: "4px 0 20px -4px rgba(139,14,34,0.25)" }}
+        style={{ boxShadow: "4px 0 20px -4px color-mix(in srgb, var(--sidebar) 25%, transparent)" }}
       >
         {/* Logo + collapse toggle */}
         <div
@@ -157,27 +157,27 @@ export default function AppShell({ children }: AppShellProps) {
             className="flex items-center gap-2.5 cursor-pointer hover:opacity-80 transition-opacity"
             aria-label="Ir a inicio"
           >
-            {!sidebarCollapsed && (
-              <div className="flex items-center gap-2.5">
-                {/* Bocatas logo circle */}
-                <img
-                  src="/bocatas-logo.png"
-                  alt="Bocatas"
-                  className="w-9 h-9 rounded-full object-cover shrink-0"
-                />
-                <div className="leading-tight">
-                  <p className="font-bold text-sm text-white">Bocatas</p>
-                  <p className="text-[10px] text-white/60 font-medium">Digital</p>
-                </div>
-              </div>
-            )}
-            {sidebarCollapsed && (
+            {/* Brand mark: white circle with logo image (or "B" fallback) */}
+            <div className="relative w-9 h-9 rounded-full bg-white flex items-center justify-center shrink-0 overflow-hidden">
               <img
                 src="/bocatas-logo.png"
-                alt="Bocatas"
-                className="w-9 h-9 rounded-full object-cover"
+                alt=""
+                className="w-full h-full object-cover"
                 decoding="async"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).style.display = "none";
+                  const fallback = e.currentTarget.nextElementSibling as HTMLElement | null;
+                  if (fallback) fallback.style.display = "flex";
+                }}
               />
+              {/* "B" fallback — hidden by default, shown only if image fails to load */}
+              <span className="absolute inset-0 items-center justify-center text-primary font-extrabold text-[15px] tracking-tight pointer-events-none select-none hidden" aria-hidden="true">B</span>
+            </div>
+            {!sidebarCollapsed && (
+              <div className="leading-tight text-left">
+                <p className="font-bold text-sm text-sidebar-foreground">Bocatas</p>
+                <p className="text-[10px] text-sidebar-foreground/60 font-medium">Digital</p>
+              </div>
             )}
           </button>
           <button
@@ -274,11 +274,11 @@ export default function AppShell({ children }: AppShellProps) {
               className="w-9 h-9 rounded-full object-cover shrink-0"
               decoding="async"
             />
-            <span className="font-bold text-base text-[#C41230]">Bocatas Digital</span>
+            <span className="font-bold text-base text-primary">Bocatas Digital</span>
           </button>
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 -mr-1 text-[#5E5E5E] rounded-xl hover:bg-black/5 transition-colors"
+            className="p-2 -mr-1 text-muted-foreground rounded-xl hover:bg-black/5 transition-colors"
             aria-label="Abrir menú"
             aria-expanded={mobileMenuOpen}
           >
@@ -310,11 +310,11 @@ export default function AppShell({ children }: AppShellProps) {
                 className="w-9 h-9 rounded-full object-cover"
                 decoding="async"
               />
-              <span className="font-bold text-base text-[#C41230]">Bocatas Digital</span>
+              <span className="font-bold text-base text-primary">Bocatas Digital</span>
             </div>
             <button
               onClick={() => setMobileMenuOpen(false)}
-              className="p-2 text-[#5E5E5E] rounded-xl hover:bg-black/5"
+              className="p-2 text-muted-foreground rounded-xl hover:bg-black/5"
               aria-label="Cerrar menú"
             >
               <X size={24} />
@@ -333,12 +333,12 @@ export default function AppShell({ children }: AppShellProps) {
                     className={cn(
                       "flex items-center gap-4 px-4 py-3.5 rounded-xl text-sm font-semibold transition-colors cursor-pointer",
                       active
-                        ? "bg-[#C41230]/10 text-[#C41230]"
-                        : "text-[#1A1A1A] hover:bg-black/5"
+                        ? "bg-accent text-accent-foreground"
+                        : "text-foreground hover:bg-black/5"
                     )}
                     aria-current={active ? "page" : undefined}
                   >
-                    <span className={cn("shrink-0", active ? "text-[#C41230]" : "text-[#5E5E5E]")}>
+                    <span className={cn("shrink-0", active ? "text-accent-foreground" : "text-muted-foreground")}>
                       {item.icon}
                     </span>
                     {item.label}
@@ -351,18 +351,18 @@ export default function AppShell({ children }: AppShellProps) {
           <div className="p-4 border-t border-black/5">
             {user && (
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-full bg-[#C41230]/15 flex items-center justify-center text-[#C41230] font-bold text-sm shrink-0">
+                <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center text-accent-foreground font-bold text-sm shrink-0">
                   {initials}
                 </div>
                 <div>
-                  <p className="font-semibold text-sm text-[#1A1A1A]">{user.name ?? user.email}</p>
-                  <p className="text-xs text-[#5E5E5E] capitalize">{role}</p>
+                  <p className="font-semibold text-sm text-foreground">{user.name ?? user.email}</p>
+                  <p className="text-xs text-muted-foreground capitalize">{role}</p>
                 </div>
               </div>
             )}
             <button
               onClick={handleSignOut}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-[#5E5E5E] hover:bg-black/5 transition-colors"
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-muted-foreground hover:bg-black/5 transition-colors"
             >
               <LogOut className="h-5 w-5" />
               Cerrar sesión

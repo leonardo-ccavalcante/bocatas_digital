@@ -7,8 +7,7 @@
  * Job 2, AC5: Per-row unenroll
  */
 import { useState, useMemo } from "react";
-import { useParams, Link } from "wouter";
-import { Button } from "@/components/ui/button";
+import { useParams } from "wouter";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -21,36 +20,18 @@ import {
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
+import BackLink from "@/components/layout/BackLink";
 import { EnrolledPersonsTable } from "@/features/programs/components/EnrolledPersonsTable";
 import { EnrollPersonModal } from "@/features/programs/components/EnrollPersonModal";
 import { ProgramForm } from "@/features/programs/components/ProgramForm";
 import { ProgramTabs } from "@/features/programs/components/ProgramTabs";
+import { ProgramGlyph } from "@/features/programs/components/ProgramGlyph";
+import { ProgramInfoBox } from "@/features/programs/components/ProgramInfoBox";
+import { KPICard, MetaCell } from "@/features/programs/components/ProgramDetailStats";
 import type { ProgramFormValues } from "@/features/programs/schemas";
-import { Users, UserCheck, UserMinus, TrendingUp } from "lucide-react";
+import { Users, TrendingUp, UserMinus } from "lucide-react";
 
-interface KPICardProps {
-  label: string;
-  value: number | undefined;
-  isLoading: boolean;
-  icon: React.ReactNode;
-  accent?: string;
-}
-
-function KPICard({ label, value, isLoading, icon, accent = "text-primary" }: KPICardProps) {
-  return (
-    <div className="bg-card border rounded-lg p-4 flex items-start gap-3">
-      <div className={`mt-0.5 shrink-0 ${accent}`}>{icon}</div>
-      <div className="min-w-0">
-        <p className="text-xs text-muted-foreground uppercase tracking-wide truncate">{label}</p>
-        {isLoading ? (
-          <Skeleton className="h-7 w-12 mt-1" />
-        ) : (
-          <p className="text-2xl font-bold text-foreground mt-0.5">{value ?? 0}</p>
-        )}
-      </div>
-    </div>
-  );
-}
+/* ── Page ────────────────────────────────────────────────────────────────── */
 
 export default function ProgramaDetalle() {
   const { slug } = useParams<{ slug: string }>();
@@ -67,16 +48,18 @@ export default function ProgramaDetalle() {
   );
 
   // KPI: enrollments with estado=activo
-  const { data: activeEnrollments, isLoading: loadingActive } = trpc.programs.getEnrollments.useQuery(
-    { programId: program?.id ?? "", estado: "activo", limit: 1, offset: 0 },
-    { enabled: !!program?.id }
-  );
+  const { data: activeEnrollments, isLoading: loadingActive } =
+    trpc.programs.getEnrollments.useQuery(
+      { programId: program?.id ?? "", estado: "activo", limit: 1, offset: 0 },
+      { enabled: !!program?.id }
+    );
 
   // KPI: enrollments with estado=completado
-  const { data: completedEnrollments, isLoading: loadingCompleted } = trpc.programs.getEnrollments.useQuery(
-    { programId: program?.id ?? "", estado: "completado", limit: 1, offset: 0 },
-    { enabled: !!program?.id }
-  );
+  const { data: completedEnrollments, isLoading: loadingCompleted } =
+    trpc.programs.getEnrollments.useQuery(
+      { programId: program?.id ?? "", estado: "completado", limit: 1, offset: 0 },
+      { enabled: !!program?.id }
+    );
 
   // KPI: new this month — filter activo enrollments by fecha_inicio in current month
   const thisMonthStart = useMemo(() => {
@@ -84,10 +67,11 @@ export default function ProgramaDetalle() {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
   }, []);
 
-  const { data: allActiveEnrollments, isLoading: loadingAllActive } = trpc.programs.getEnrollments.useQuery(
-    { programId: program?.id ?? "", estado: "activo", limit: 100, offset: 0 },
-    { enabled: !!program?.id }
-  );
+  const { data: allActiveEnrollments, isLoading: loadingAllActive } =
+    trpc.programs.getEnrollments.useQuery(
+      { programId: program?.id ?? "", estado: "activo", limit: 100, offset: 0 },
+      { enabled: !!program?.id }
+    );
 
   const newThisMonth = useMemo(() => {
     if (!allActiveEnrollments?.enrollments) return 0;
@@ -123,11 +107,11 @@ export default function ProgramaDetalle() {
     return (
       <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
         <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-32 w-full rounded-lg" />
+        <Skeleton className="h-32 w-full rounded-2xl" />
         <div className="grid grid-cols-3 gap-4">
-          <Skeleton className="h-20 rounded-lg" />
-          <Skeleton className="h-20 rounded-lg" />
-          <Skeleton className="h-20 rounded-lg" />
+          <Skeleton className="h-20 rounded-2xl" />
+          <Skeleton className="h-20 rounded-2xl" />
+          <Skeleton className="h-20 rounded-2xl" />
         </div>
       </div>
     );
@@ -136,13 +120,11 @@ export default function ProgramaDetalle() {
   if (error || !program) {
     return (
       <div className="max-w-5xl mx-auto px-4 py-16 text-center">
-        <p className="text-lg font-medium text-foreground">Programa no encontrado</p>
-        <p className="text-sm text-muted-foreground mt-1">
+        <p className="text-h3 text-foreground">Programa no encontrado</p>
+        <p className="text-body text-muted-foreground mt-1">
           El programa <strong>{slug}</strong> no existe o fue eliminado.
         </p>
-        <Link href="/programas">
-          <Button variant="outline" className="mt-4">← Volver a programas</Button>
-        </Link>
+        <BackLink href="/programas" label="Volver a programas" className="mt-4 mx-auto" />
       </div>
     );
   }
@@ -169,38 +151,51 @@ export default function ProgramaDetalle() {
     responsable_id: program.responsable_id ?? undefined,
   };
 
-  const inactiveCount = (completedEnrollments?.total ?? 0);
+  const inactiveCount = completedEnrollments?.total ?? 0;
+  const activeCount = activeEnrollments?.total ?? 0;
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="border-b bg-background/95 backdrop-blur sticky top-0 z-10">
+      {/* Sticky header */}
+      <div className="border-b border-border bg-background/95 backdrop-blur sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-4 py-4">
           <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <Link href="/programas">
-                <button className="text-muted-foreground hover:text-foreground text-sm">← Programas</button>
-              </Link>
-              <span className="text-muted-foreground">/</span>
-              <span className="text-2xl">{program.icon}</span>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-xl font-bold text-foreground">{program.name}</h1>
+            <div className="flex items-center gap-3 min-w-0">
+              {/* BackLink — auto-detects /programas as parent */}
+              <BackLink label="Programas" />
+              <span className="text-muted-foreground text-sm" aria-hidden="true">/</span>
+
+              {/* Program glyph */}
+              <div className="text-accent-foreground shrink-0">
+                <ProgramGlyph slug={program.slug} className="h-6 w-6" />
+              </div>
+
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="text-h2 text-foreground truncate">{program.name}</h1>
                   {!program.is_active && (
-                    <Badge variant="secondary" className="text-xs">Inactivo</Badge>
+                    <Badge variant="secondary" className="text-xs shrink-0">Inactivo</Badge>
                   )}
                   {program.is_default && (
-                    <Badge className="text-xs bg-primary/10 text-primary border-primary/20">Por defecto</Badge>
+                    <Badge
+                      variant="outline"
+                      className="text-xs shrink-0 border-accent-foreground/20 text-accent-foreground"
+                    >
+                      Por defecto
+                    </Badge>
                   )}
                 </div>
-                <p className="text-sm text-muted-foreground font-mono">{program.slug}</p>
+                <p className="text-body-sm text-muted-foreground font-mono">{program.slug}</p>
               </div>
             </div>
+
             {isAdmin && (
               <div className="flex items-center gap-2 shrink-0">
                 <Dialog open={editOpen} onOpenChange={setEditOpen}>
                   <DialogTrigger asChild>
-                    <Button variant="outline" size="sm">Editar</Button>
+                    <button className="bocatas-btn-outline text-sm px-3 py-1.5 min-h-[36px] rounded-xl">
+                      Editar
+                    </button>
                   </DialogTrigger>
                   <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
@@ -217,19 +212,18 @@ export default function ProgramaDetalle() {
                   </DialogContent>
                 </Dialog>
                 {program.is_active && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="text-destructive hover:text-destructive"
+                  <button
+                    className="bocatas-btn-outline text-sm px-3 py-1.5 min-h-[36px] rounded-xl text-destructive hover:text-destructive border-destructive/20"
                     onClick={() => {
                       if (confirm(`¿Desactivar el programa "${program.name}"?`)) {
                         deactivateProgram.mutate({ id: program.id });
                       }
                     }}
                     disabled={deactivateProgram.isPending}
+                    aria-label={`Desactivar programa ${program.name}`}
                   >
                     Desactivar
-                  </Button>
+                  </button>
                 )}
               </div>
             )}
@@ -237,42 +231,31 @@ export default function ProgramaDetalle() {
         </div>
       </div>
 
-      {/* Content — shared standard view for ALL programs */}
-      <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
-          {/* Program info */}
-          {program.description && (
-            <p className="text-muted-foreground">{program.description}</p>
-          )}
+      {/* Content */}
+      {program.slug === "programa_familias" ? (
+        <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
+          {/* Standard view — same as other programs */}
+          <ProgramInfoBox
+            activeCount={activeCount}
+            newCount={newThisMonth}
+            completedCount={inactiveCount}
+            enrollmentsCount={activeCount + inactiveCount}
+          >
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {program.fecha_inicio && (
+                <MetaCell label="Inicio" value={program.fecha_inicio} />
+              )}
+              <MetaCell label="Fin" value={program.fecha_fin ?? "Sin fecha de fin"} />
+              <MetaCell
+                label="Acceso voluntarios"
+                value={program.volunteer_can_access ? "Sí" : "No"}
+              />
+              <MetaCell label="Orden" value={String(program.display_order)} />
+            </div>
+          </ProgramInfoBox>
 
-          {/* Meta grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {program.fecha_inicio && (
-              <div className="bg-muted/40 rounded-lg p-3">
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">Inicio</p>
-                <p className="text-sm font-medium mt-0.5">{program.fecha_inicio}</p>
-              </div>
-            )}
-            <div className="bg-muted/40 rounded-lg p-3">
-              <p className="text-xs text-muted-foreground uppercase tracking-wide">Fin</p>
-              <p className="text-sm font-medium mt-0.5">
-                {program.fecha_fin ?? "Sin fecha de fin"}
-              </p>
-            </div>
-            <div className="bg-muted/40 rounded-lg p-3">
-              <p className="text-xs text-muted-foreground uppercase tracking-wide">Acceso voluntarios</p>
-              <p className="text-sm font-medium mt-0.5">
-                {program.volunteer_can_access ? "✅ Sí" : "❌ No"}
-              </p>
-            </div>
-            <div className="bg-muted/40 rounded-lg p-3">
-              <p className="text-xs text-muted-foreground uppercase tracking-wide">Orden</p>
-              <p className="text-sm font-medium mt-0.5">{program.display_order}</p>
-            </div>
-          </div>
-
-          {/* KPI Cards — Job 2, AC2 */}
           <div>
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+            <h2 className="text-eyebrow text-muted-foreground mb-3">
               Estadísticas de inscripción
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -280,34 +263,102 @@ export default function ProgramaDetalle() {
                 label="Inscritos activos"
                 value={activeEnrollments?.total}
                 isLoading={loadingActive}
-                icon={<Users className="w-5 h-5" />}
-                accent="text-emerald-600"
+                icon={<Users className="w-5 h-5" aria-hidden="true" />}
+                accentClass="text-emerald-600"
               />
               <KPICard
                 label="Nuevos este mes"
                 value={newThisMonth}
                 isLoading={loadingAllActive}
-                icon={<TrendingUp className="w-5 h-5" />}
-                accent="text-blue-600"
+                icon={<TrendingUp className="w-5 h-5" aria-hidden="true" />}
+                accentClass="text-blue-600"
               />
               <KPICard
                 label="Completados / Rechazados"
                 value={inactiveCount}
                 isLoading={loadingCompleted}
-                icon={<UserMinus className="w-5 h-5" />}
-                accent="text-muted-foreground"
+                icon={<UserMinus className="w-5 h-5" aria-hidden="true" />}
+                accentClass="text-muted-foreground"
+              />
+            </div>
+          </div>
+
+          {/* Programa Familias tabs */}
+          <ProgramTabs
+            program={{ id: program.id, slug: program.slug, nombre: program.name }}
+          />
+        </div>
+      ) : (
+        <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
+          {/* Description */}
+          {program.description && (
+            <p className="text-body text-muted-foreground">{program.description}</p>
+          )}
+
+          {/* Collapsible info box */}
+          <ProgramInfoBox
+            activeCount={activeCount}
+            newCount={newThisMonth}
+            completedCount={inactiveCount}
+            enrollmentsCount={activeCount + inactiveCount}
+          >
+            {/* Meta grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {program.fecha_inicio && (
+                <MetaCell label="Inicio" value={program.fecha_inicio} />
+              )}
+              <MetaCell label="Fin" value={program.fecha_fin ?? "Sin fecha de fin"} />
+              <MetaCell
+                label="Acceso voluntarios"
+                value={program.volunteer_can_access ? "Sí" : "No"}
+              />
+              <MetaCell label="Orden" value={String(program.display_order)} />
+            </div>
+          </ProgramInfoBox>
+
+          {/* KPI Cards */}
+          <div>
+            <h2 className="text-eyebrow text-muted-foreground mb-3">
+              Estadísticas de inscripción
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <KPICard
+                label="Inscritos activos"
+                value={activeEnrollments?.total}
+                isLoading={loadingActive}
+                icon={<Users className="w-5 h-5" aria-hidden="true" />}
+                accentClass="text-emerald-600"
+              />
+              <KPICard
+                label="Nuevos este mes"
+                value={newThisMonth}
+                isLoading={loadingAllActive}
+                icon={<TrendingUp className="w-5 h-5" aria-hidden="true" />}
+                accentClass="text-blue-600"
+              />
+              <KPICard
+                label="Completados / Rechazados"
+                value={inactiveCount}
+                isLoading={loadingCompleted}
+                icon={<UserMinus className="w-5 h-5" aria-hidden="true" />}
+                accentClass="text-muted-foreground"
               />
             </div>
           </div>
 
           {/* Enrolled persons section */}
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-semibold text-foreground">Personas inscritas</h2>
+          <div className="bocatas-card overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+              <h2 className="text-h3 text-foreground">Personas inscritas</h2>
               {isAdmin && (
                 <Dialog open={enrollOpen} onOpenChange={setEnrollOpen}>
                   <DialogTrigger asChild>
-                    <Button size="sm">+ Inscribir persona</Button>
+                    <button
+                      className="bocatas-btn-primary text-xs px-3 py-1.5 min-h-[36px]"
+                      aria-label="Inscribir persona en este programa"
+                    >
+                      + Inscribir persona
+                    </button>
                   </DialogTrigger>
                   <DialogContent className="sm:max-w-lg">
                     <DialogHeader>
@@ -326,24 +377,19 @@ export default function ProgramaDetalle() {
                 </Dialog>
               )}
             </div>
-            <EnrolledPersonsTable
-              programId={program.id}
-              isAdmin={isAdmin}
-              // Supabase SDK boundary — opaque join result
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              volunteerVisibleFields={(program as any).volunteer_visible_fields ?? []}
-            />
-          </div>
-
-          {/* Deep dive: programa_familias-specific tabs */}
-          {program.slug === "programa_familias" && (
-            <div className="border-t pt-6">
-              <ProgramTabs
-                program={{ id: program.id, slug: program.slug, nombre: program.name }}
+            <div className="px-5 py-4">
+              <EnrolledPersonsTable
+                programId={program.id}
+                isAdmin={isAdmin}
+                // Supabase SDK boundary — opaque join result
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                volunteerVisibleFields={(program as any).volunteer_visible_fields ?? []}
               />
             </div>
-          )}
-      </div>
+          </div>
+
+        </div>
+      )}
     </div>
   );
 }

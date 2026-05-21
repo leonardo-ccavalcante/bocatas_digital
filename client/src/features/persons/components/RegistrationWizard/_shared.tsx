@@ -2,6 +2,7 @@ import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { ConsentLanguageSchema } from "../../schemas";
 
 export interface FamilyMember {
   nombre: string;
@@ -9,6 +10,27 @@ export interface FamilyMember {
   fecha_nacimiento: string;
   parentesco: string;
 }
+
+/**
+ * Program row shape as returned by usePrograms (DB columns; icon nullable).
+ * Single source — imported by the wizard phases, social step, and resumen
+ * (which only needs `Pick<ProgramRow, "id" | "name">`).
+ */
+export interface ProgramRow {
+  id: string;
+  name: string;
+  icon: string | null;
+  slug: string;
+}
+
+/**
+ * Consent template languages (consent_language enum). Single source derived
+ * from the canonical Zod enum — a person whose idioma_principal is outside
+ * this set has no template and triggers the verbal-translation fallback
+ * banner. Used by both ConsentModal and the RegistrationWizard so the rule
+ * cannot drift.
+ */
+export const TEMPLATE_LANGUAGES = new Set<string>(ConsentLanguageSchema.options);
 
 export const CONSENT_PURPOSE_LABELS: Record<string, string> = {
   tratamiento_datos_bocatas: "Tratamiento de datos — Bocatas Digital",

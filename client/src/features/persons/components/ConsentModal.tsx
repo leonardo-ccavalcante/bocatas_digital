@@ -9,6 +9,7 @@ import { Loader2, Camera, CheckCircle, AlertCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import type { ConsentTemplate } from "../schemas";
+import { TEMPLATE_LANGUAGES } from "./RegistrationWizard/_shared";
 import { compressImage, base64ToBlob } from "../utils/imageUtils";
 
 const CONSENT_PURPOSE_LABELS: Record<string, string> = {
@@ -38,10 +39,10 @@ interface ConsentState {
   documentoFotoUrl?: string;
 }
 
-// Phase B.5 — consent_language enum: es, ar, fr, bm. Anything outside this
-// set triggers the verbal-translation fallback banner. RTL languages live
-// here so the body wrapper can flip dir="rtl".
-const TEMPLATE_LANGUAGES = new Set(["es", "ar", "fr", "bm"]);
+// TEMPLATE_LANGUAGES (consent_language enum) is the single source in
+// ./RegistrationWizard/_shared — anything outside it triggers the
+// verbal-translation fallback banner. RTL languages live here so the body
+// wrapper can flip dir="rtl".
 const RTL_LANGUAGES = new Set(["ar"]);
 
 export function ConsentModal({ open, personId, templates, onClose, onSaved, personLanguage }: ConsentModalProps) {
