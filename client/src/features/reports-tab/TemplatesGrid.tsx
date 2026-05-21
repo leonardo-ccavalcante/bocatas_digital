@@ -20,6 +20,7 @@ import {
   BarChart2,
   MapPin,
   TrendingUp,
+  FileBarChart,
 } from "lucide-react";
 
 export type TemplateKey =
@@ -31,7 +32,8 @@ export type TemplateKey =
   | "documentosFaltantes"
   | "resumenTrimestral"
   | "distribucionPorDistrito"
-  | "evolucionHistorica";
+  | "evolucionHistorica"
+  | "irpfDemografico";
 
 interface TemplateCardDef {
   key: TemplateKey;
@@ -100,6 +102,13 @@ const FINANCIADORES: TemplateCardDef[] = [
     title: "Evolución histórica",
     description: "Nuevas familias por mes en los últimos 12 meses.",
     icon: TrendingUp,
+  },
+  {
+    key: "irpfDemografico",
+    title: "IRPF Demográfico",
+    description:
+      "Desglose demográfico anual (edad, género, estudios, empleo, nacionalidad) para justificación de subvenciones IRPF.",
+    icon: FileBarChart,
   },
 ];
 
