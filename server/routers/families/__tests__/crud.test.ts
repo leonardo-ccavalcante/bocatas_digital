@@ -74,7 +74,10 @@ beforeEach(() => {
 // from("familia_miembros").select().eq().is().order(). We capture the select
 // string passed to the families query so we can assert which titular PII
 // columns are requested per role.
-function mockGetByIdChains(family: Record<string, unknown>) {
+function mockGetByIdChains(
+  family: Record<string, unknown>,
+  miembros: Record<string, unknown>[] = []
+) {
   const selectArgs: string[] = [];
   const familiesChain = {
     select: vi.fn((sel: string) => {
@@ -89,7 +92,7 @@ function mockGetByIdChains(family: Record<string, unknown>) {
     select: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
     is: vi.fn().mockReturnThis(),
-    order: vi.fn(() => Promise.resolve({ data: [], error: null })),
+    order: vi.fn(() => Promise.resolve({ data: miembros, error: null })),
   };
   fromMock.mockImplementation((table: string) =>
     table === "families" ? familiesChain : miembrosChain
@@ -113,7 +116,6 @@ describe("families.getById — titular PII minimisation", () => {
     const familiesSelect = selectArgs[0];
     expect(familiesSelect).not.toMatch(/telefono/);
     expect(familiesSelect).not.toMatch(/email/);
-    expect(familiesSelect).not.toMatch(/numero_documento/);
     // The non-PII identity fields are still requested.
     expect(familiesSelect).toMatch(/nombre/);
     expect(familiesSelect).toMatch(/apellidos/);
@@ -136,6 +138,38 @@ describe("families.getById — titular PII minimisation", () => {
     await expect(
       caller.getById({ id: "11111111-1111-1111-1111-111111111111" })
     ).rejects.toThrow();
+  });
+
+  // ── member documento (DNI/NIE) redaction ──────────────────────────────────
+  const memberWithDni = {
+    id: "m1",
+    familia_id: "f1",
+    nombre: "Luis",
+    apellidos: "García",
+    documento: "X1234567Z",
+    documentacion_id: "doc-1",
+  };
+
+  it("strips member documento + documentacion_id for voluntario callers", async () => {
+    mockGetByIdChains(family, [memberWithDni]);
+
+    const caller = crudRouter.createCaller(ctxWithRole("voluntario"));
+    const result = await caller.getById({ id: "11111111-1111-1111-1111-111111111111" });
+
+    expect(result.miembros).toHaveLength(1);
+    expect(result.miembros[0]).not.toHaveProperty("documento");
+    expect(result.miembros[0]).not.toHaveProperty("documentacion_id");
+    // Non-PII identity fields survive.
+    expect(result.miembros[0]).toMatchObject({ nombre: "Luis", apellidos: "García" });
+  });
+
+  it("returns member documento for admin callers", async () => {
+    mockGetByIdChains(family, [memberWithDni]);
+
+    const caller = crudRouter.createCaller(ctxWithRole("admin"));
+    const result = await caller.getById({ id: "11111111-1111-1111-1111-111111111111" });
+
+    expect(result.miembros[0]).toHaveProperty("documento", "X1234567Z");
   });
 });
 

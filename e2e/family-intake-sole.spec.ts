@@ -65,7 +65,8 @@ test.describe("Family intake (Sole) — JTBD <5 min", () => {
     // 5. Step 6 — the review screen is the E6 addition: confirm it renders the
     //    summary before the create call.
     await expect(page.getByText(/revisa los datos/i)).toBeVisible();
-    await expect(page.getByText(/^Titular$/)).toBeVisible();
+    // "Titular" also appears in the step indicator, so scope to the summary heading.
+    await expect(page.getByRole("heading", { name: /^Titular$/ })).toBeVisible();
 
     // 6. Submit
     await page.getByRole("button", { name: /registrar familia/i }).click();
