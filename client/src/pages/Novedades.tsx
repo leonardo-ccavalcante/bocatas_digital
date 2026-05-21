@@ -1,189 +1,275 @@
 /**
- * Novedades.tsx — Announcement feed page
- * Visible to all authenticated users (role-filtered on server)
- * Task 7 — Phase F / Wave 4C
+ * Novedades.tsx — Announcement feed page (v4 visual port)
+ *
+ * Visible to all authenticated users (role-filtered on server).
+ * Task 7 — Visual re-skin reproducing novedades.jsx prototype.
+ *
+ * Data decisions:
+ *  fijado (pin):     EXISTS in server — togglePin mutation used in NovedadItem.
+ *  Read/unread:      NOT in server — unread count badge and "No leídas" segment
+ *                    count always show 0, tab renders with count disabled.
+ *                    // TODO(frontend-v4): needs read_state field/endpoint
+ *  Reach:            NOT in server — handled in NovedadItem (progress bar empty).
+ *                    // TODO(frontend-v4): needs reach aggregation endpoint
+ *  Category filter:  Driven by TipoAnnouncement enum (info/evento/cierre_servicio/
+ *                    convocatoria). CATEGORY_META from categories.ts.
  */
-import { useState } from "react";
-import { Link } from "wouter";
-import {
-  Bell,
-  Pin,
-  Calendar,
-  ChevronRight,
-  AlertTriangle,
-  Info,
-  PartyPopper,
-  DoorClosed,
-  Megaphone,
-} from "lucide-react";
+
+import { useMemo, useState } from "react";
+import { Bell } from "lucide-react";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useAnnouncements } from "@/features/announcements/hooks/useAnnouncements";
-import type { TipoAnnouncement } from "@shared/announcementTypes";
-import { Skeleton } from "@/components/ui/skeleton";
 import { CrearNovedadButton } from "@/components/CrearNovedadButton";
-import { AnnouncementStatusBadge } from "@/features/announcements/components/AnnouncementStatusBadge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { getCategoryMeta } from "@/features/announcements/categories";
+import { NovedadFeed } from "@/features/announcements/components/NovedadFeed";
+import type { AnnouncementFeedRow } from "@/features/announcements/components/NovedadItem";
+import { ANNOUNCEMENT_TYPES } from "@shared/announcementTypes";
+import type { TipoAnnouncement } from "@shared/announcementTypes";
+import { cn } from "@/lib/utils";
 
-// ─── Tipo config (current values only — legacy urgente/cierre removed) ──────────
+// ─── Types ─────────────────────────────────────────────────────────────────────
 
-const TIPO_CONFIG: Record<TipoAnnouncement, { label: string; color: string; icon: React.ReactNode }> = {
-  info: { label: "Info", color: "bg-blue-50 text-blue-700 border-blue-200", icon: <Info className="w-3.5 h-3.5" /> },
-  evento: { label: "Evento", color: "bg-green-50 text-green-700 border-green-200", icon: <PartyPopper className="w-3.5 h-3.5" /> },
-  cierre_servicio: { label: "Cierre", color: "bg-orange-50 text-orange-700 border-orange-200", icon: <DoorClosed className="w-3.5 h-3.5" /> },
-  convocatoria: { label: "Convocatoria", color: "bg-purple-50 text-purple-700 border-purple-200", icon: <Megaphone className="w-3.5 h-3.5" /> },
-};
+type CatFilter = "todas" | TipoAnnouncement;
+// "nolei" (unread) is in the union so the ToggleGroup value is typed correctly;
+// the tab remains disabled pending read_state endpoint (TODO frontend-v4)
+type ViewFilter = "todas" | "ancladas" | "nolei";
 
-type TipoFilter = "all" | TipoAnnouncement;
+// ─── Category pill ─────────────────────────────────────────────────────────────
 
-const FILTER_OPTIONS: { value: TipoFilter; label: string }[] = [
-  { value: "all", label: "Todos" },
-  { value: "info", label: "Info" },
-  { value: "evento", label: "Evento" },
-  { value: "cierre_servicio", label: "Cierre" },
-  { value: "convocatoria", label: "Convocatoria" },
-];
-
-export default function Novedades() {
-  const [tipoFilter, setTipoFilter] = useState<TipoFilter>("all");
-  const { data, isLoading, error } = useAnnouncements({
-    tipo: tipoFilter === "all" ? undefined : tipoFilter,
-    limit: 50,
-  });
-
-  const announcements = data?.announcements ?? [];
-  const pinned = announcements.filter((a) => a.fijado);
-  const regular = announcements.filter((a) => !a.fijado);
-
+function CatPill({
+  label,
+  count,
+  active,
+  onClick,
+  dotClass,
+}: {
+  label: string;
+  count: number;
+  active: boolean;
+  onClick: () => void;
+  dotClass?: string;
+}) {
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-full bg-[#C41230]/10 flex items-center justify-center">
-          <Bell className="w-5 h-5 text-[#C41230]" />
-        </div>
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">Novedades</h1>
-          <p className="text-sm text-gray-500">Información y comunicados del equipo</p>
-        </div>
-        <div className="ml-auto">
-          <CrearNovedadButton />
-        </div>
-      </div>
-
-      {/* Type filters */}
-      <div className="flex gap-2 flex-wrap">
-        {FILTER_OPTIONS.map(({ value, label }) => (
-          <button
-            key={value}
-            onClick={() => setTipoFilter(value)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-              tipoFilter === value
-                ? "bg-[#C41230] text-white border-[#C41230]"
-                : "bg-white text-gray-600 border-gray-200 hover:border-[#C41230]/50"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {/* Loading */}
-      {isLoading && (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-24 w-full rounded-2xl" />
-          ))}
-        </div>
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        "shrink-0 inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[12px] font-medium transition-colors border",
+        active
+          ? "bg-foreground text-background border-foreground"
+          : "bg-card text-foreground border-border hover:bg-accent hover:text-accent-foreground"
       )}
-
-      {/* Error */}
-      {error && (
-        <div className="rounded-2xl bg-red-50 border border-red-200 p-4 text-sm text-red-700">
-          Error al cargar novedades. Inténtalo de nuevo.
-        </div>
+    >
+      {dotClass && (
+        <span
+          className={cn("h-1.5 w-1.5 rounded-full shrink-0", dotClass)}
+          aria-hidden="true"
+        />
       )}
+      <span>{label}</span>
+      <span
+        className={cn(
+          "text-[10px] tabular-stat",
+          active ? "text-background/70" : "text-muted-foreground"
+        )}
+      >
+        {count}
+      </span>
+    </button>
+  );
+}
 
-      {/* Pinned */}
-      {!isLoading && pinned.length > 0 && (
-        <div className="space-y-3">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide flex items-center gap-1.5">
-            <Pin className="w-3.5 h-3.5" /> Fijados
-          </p>
-          {pinned.map((a) => (
-            <AnnouncementCard key={a.id} announcement={a} />
-          ))}
-        </div>
-      )}
+// ─── Loading skeleton ───────────────────────────────────────────────────────────
 
-      {/* Regular */}
-      {!isLoading && regular.length > 0 && (
-        <div className="space-y-3">
-          {pinned.length > 0 && (
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Recientes</p>
-          )}
-          {regular.map((a) => (
-            <AnnouncementCard key={a.id} announcement={a} />
-          ))}
-        </div>
-      )}
-
-      {/* Empty */}
-      {!isLoading && announcements.length === 0 && (
-        <div className="text-center py-16 text-gray-400">
-          <Bell className="w-10 h-10 mx-auto mb-3 opacity-30" />
-          <p className="text-sm">No hay novedades disponibles</p>
-        </div>
-      )}
+function FeedSkeleton() {
+  return (
+    <div className="space-y-3" aria-busy="true" aria-label="Cargando novedades">
+      {[0, 1, 2].map((i) => (
+        <Skeleton key={i} className="h-48 w-full rounded-2xl" />
+      ))}
     </div>
   );
 }
 
-function AnnouncementCard({ announcement: a }: { announcement: Record<string, unknown> }) {
-  const tipo = (a.tipo as string) ?? "info";
-  const config = TIPO_CONFIG[tipo as TipoAnnouncement] ?? TIPO_CONFIG.info;
-  const esUrgente = a.es_urgente === true;
+// ─── Page ──────────────────────────────────────────────────────────────────────
+
+export default function Novedades() {
+  const [catFilter, setCatFilter] = useState<CatFilter>("todas");
+  const [viewFilter, setViewFilter] = useState<ViewFilter>("todas");
+
+  const { data, isLoading, error } = useAnnouncements({ limit: 50 });
+
+  const allAnnouncements = useMemo(
+    () => (data?.announcements ?? []) as AnnouncementFeedRow[],
+    [data?.announcements]
+  );
+
+  // Category counts (over unfiltered list)
+  const catCounts = useMemo(() => {
+    const counts: Record<string, number> = { todas: allAnnouncements.length };
+    for (const tipo of ANNOUNCEMENT_TYPES) {
+      counts[tipo] = allAnnouncements.filter((a) => a.tipo === tipo).length;
+    }
+    return counts;
+  }, [allAnnouncements]);
+
+  // Pinned count (for view segment)
+  const pinnedCount = useMemo(
+    () => allAnnouncements.filter((a) => a.fijado).length,
+    [allAnnouncements]
+  );
+
+  // Filtered list for the feed
+  const filtered = useMemo(() => {
+    let result = allAnnouncements;
+    if (catFilter !== "todas") result = result.filter((a) => a.tipo === catFilter);
+    if (viewFilter === "ancladas") {
+      result = result.filter((a) => a.fijado);
+    } else if (viewFilter === "nolei") {
+      // "nolei" disabled pending read-state endpoint (TODO frontend-v4)
+      // Tab is rendered disabled so this branch is unreachable in practice,
+      // but the union must be exhausted for type safety.
+    }
+    return result;
+  }, [allAnnouncements, catFilter, viewFilter]);
+
+  // TODO(frontend-v4): needs read_state field/endpoint — unread count always 0
+  const unreadCount = 0;
+
+  function handleClearFilters() {
+    setCatFilter("todas");
+    setViewFilter("todas");
+  }
 
   return (
-    <Link href={`/novedades/${a.id as string}`}>
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer p-4 space-y-2">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${config.color}`}>
-              {config.icon}
-              {config.label}
-            </span>
-            {esUrgente && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200">
-                <AlertTriangle className="w-3 h-3" aria-hidden="true" /> Urgente
-              </span>
-            )}
-            {(a.fijado as boolean) && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-50 text-yellow-700 border border-yellow-200">
-                <Pin className="w-3 h-3" /> Fijado
-              </span>
-            )}
-            <AnnouncementStatusBadge
-              publishedAt={a.published_at as string | null}
-              expiresAt={a.expires_at as string | null}
-            />
+    <div className="min-h-full flex flex-col bg-background">
+      {/* ── Sticky header ── */}
+      <div className="sticky top-0 z-10 bg-card/95 backdrop-blur border-b border-border">
+        <div className="max-w-3xl mx-auto px-4 sm:px-8 pt-5 pb-3">
+          {/* Title row */}
+          <div className="flex items-end justify-between gap-3 mb-4">
+            <div className="min-w-0">
+              <p className="text-eyebrow text-muted-foreground">
+                Equipo · Avisos
+              </p>
+              <h1 className="text-display-2 text-foreground leading-tight mt-1 flex items-center gap-3">
+                Novedades
+                {unreadCount > 0 && (
+                  <span
+                    className="inline-flex items-center justify-center text-[11px] font-bold text-primary-foreground bg-primary rounded-full px-2 h-5 tabular-stat"
+                    aria-label={`${unreadCount} no leídas`}
+                  >
+                    {unreadCount}
+                  </span>
+                )}
+              </h1>
+            </div>
+            <div className="shrink-0">
+              <CrearNovedadButton />
+            </div>
           </div>
-          <ChevronRight className="w-4 h-4 text-gray-300 shrink-0 mt-0.5" />
-        </div>
 
-        <h3 className="font-semibold text-gray-900 text-sm leading-snug">{a.titulo as string}</h3>
+          {/* Category pills */}
+          <div
+            className="flex items-center gap-1.5 overflow-x-auto -mx-1 px-1 pb-1"
+            role="group"
+            aria-label="Filtrar por categoría"
+          >
+            <CatPill
+              label="Todas"
+              count={catCounts["todas"] ?? 0}
+              active={catFilter === "todas"}
+              onClick={() => setCatFilter("todas")}
+            />
+            {ANNOUNCEMENT_TYPES.map((tipo) => {
+              const meta = getCategoryMeta(tipo);
+              return (
+                <CatPill
+                  key={tipo}
+                  label={meta.label}
+                  count={catCounts[tipo] ?? 0}
+                  active={catFilter === tipo}
+                  onClick={() => setCatFilter(tipo)}
+                  dotClass={meta.dotClass}
+                />
+              );
+            })}
+          </div>
 
-        <p className="text-xs text-gray-500 line-clamp-2">{a.contenido as string}</p>
+          {/* View segmented control + "Mark all read" (placeholder) */}
+          <div className="mt-3 flex items-center justify-between gap-3">
+            <ToggleGroup
+              type="single"
+              value={viewFilter}
+              onValueChange={(v: ViewFilter) => {
+                if (v) setViewFilter(v);
+              }}
+              className="bg-background rounded-lg p-0.5 border border-border gap-0"
+              aria-label="Vista de novedades"
+            >
+              <ToggleGroupItem
+                value="todas"
+                className="h-7 px-2.5 text-[11px] font-medium rounded-md data-[state=on]:bg-card data-[state=on]:shadow-sm data-[state=off]:text-muted-foreground"
+                aria-label="Todas las novedades"
+              >
+                Todas
+                <span className="ml-1 text-[10px] tabular-stat text-muted-foreground">
+                  {catCounts["todas"] ?? 0}
+                </span>
+              </ToggleGroupItem>
+              <ToggleGroupItem
+                value="nolei"
+                className="h-7 px-2.5 text-[11px] font-medium rounded-md data-[state=on]:bg-card data-[state=on]:shadow-sm data-[state=off]:text-muted-foreground opacity-50 cursor-not-allowed"
+                aria-label="No leídas (sin datos disponibles)"
+                disabled
+              >
+                No leídas
+                <span className="ml-1 text-[10px] tabular-stat text-muted-foreground">
+                  {/* TODO(frontend-v4): needs read_state field/endpoint */}
+                  0
+                </span>
+              </ToggleGroupItem>
+              <ToggleGroupItem
+                value="ancladas"
+                className="h-7 px-2.5 text-[11px] font-medium rounded-md data-[state=on]:bg-card data-[state=on]:shadow-sm data-[state=off]:text-muted-foreground"
+                aria-label="Novedades ancladas"
+              >
+                Ancladas
+                <span className="ml-1 text-[10px] tabular-stat text-muted-foreground">
+                  {pinnedCount}
+                </span>
+              </ToggleGroupItem>
+            </ToggleGroup>
 
-        <div className="flex items-center gap-1 text-xs text-gray-400">
-          <Calendar className="w-3 h-3" />
-          {new Date(a.created_at as string).toLocaleDateString("es-ES", {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-          })}
-          {(a.autor_nombre as string | null) && (
-            <span className="ml-1">· {a.autor_nombre as string}</span>
-          )}
+            {/* "Marcar todo leído" placeholder — no endpoint yet */}
+            <span
+              className="text-[12px] font-medium text-muted-foreground/50 cursor-not-allowed select-none hidden sm:inline"
+              aria-hidden="true"
+              title="No disponible — sin endpoint de estado de lectura"
+            >
+              {/* TODO(frontend-v4): needs read_state field/endpoint */}
+            </span>
+          </div>
         </div>
       </div>
-    </Link>
+
+      {/* ── Feed ── */}
+      <div className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-8 py-5">
+        {isLoading && <FeedSkeleton />}
+
+        {error && !isLoading && (
+          <div className="rounded-2xl bg-destructive/10 border border-destructive/20 p-4 text-sm text-destructive">
+            <Bell className="inline h-4 w-4 mr-2" aria-hidden="true" />
+            Error al cargar novedades. Inténtalo de nuevo.
+          </div>
+        )}
+
+        {!isLoading && !error && (
+          <NovedadFeed items={filtered} onClearFilters={handleClearFilters} />
+        )}
+      </div>
+    </div>
   );
 }

@@ -201,10 +201,9 @@ describe("ProgramaDetalle conditional tab surface", () => {
   });
 
   // 4 ──────────────────────────────────────────────────────────────────────────
-  // Contract updated 2026-05-07: programa_familias now renders the STANDARD view
-  // (including EnrolledPersonsTable) PLUS the deep-dive ProgramTabs section below.
-  // Spec: user requirement — standard view is the top level, ProgramTabs is the deep dive.
-  it("renders EnrolledPersonsTable for programa_familias (standard view + deep dive)", async () => {
+  // Contract updated 2026-05-21 (v4 design): programa_familias now renders ONLY
+  // ProgramTabs — the EnrolledPersonsTable is NOT shown (it lives inside ProgramTabs).
+  it("renders only ProgramTabs for programa_familias (v4 design — no separate EnrolledPersonsTable)", async () => {
     mockGetBySlugUseQuery.mockReturnValue({
       data: makeProgram("programa_familias"),
       isLoading: false,
@@ -217,8 +216,8 @@ describe("ProgramaDetalle conditional tab surface", () => {
       expect(screen.getByTestId("program-tabs-mock")).toBeInTheDocument();
     });
 
-    // Standard view (EnrolledPersonsTable) is shown for ALL programs
-    expect(screen.getByTestId("enrolled-persons-table-mock")).toBeInTheDocument();
+    // v4: EnrolledPersonsTable is NOT rendered at the top level for programa_familias
+    expect(screen.queryByTestId("enrolled-persons-table-mock")).not.toBeInTheDocument();
   });
 
   // 5 ──────────────────────────────────────────────────────────────────────────

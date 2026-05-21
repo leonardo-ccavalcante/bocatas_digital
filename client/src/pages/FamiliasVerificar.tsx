@@ -6,9 +6,9 @@
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Search, ShieldCheck, Users } from "lucide-react";
+import BackLink from "@/components/layout/BackLink";
 import { IdentityVerifier } from "@/features/families/components/IdentityVerifier";
 import { trpc } from "@/lib/trpc";
 
@@ -26,14 +26,15 @@ export default function FamiliasVerificar() {
   const handleRejected = () => setVerified(false);
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
+    <div className="mx-auto max-w-2xl space-y-6 px-4 py-8 sm:px-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <ShieldCheck className="h-6 w-6 text-primary" />
+        <BackLink label="Familias" href="/familias" className="mb-3" />
+        <h1 className="text-display-2 flex items-center gap-2 text-foreground">
+          <ShieldCheck className="h-6 w-6 text-primary" aria-hidden="true" />
           Verificar identidad
         </h1>
-        <p className="text-sm text-muted-foreground mt-1">
+        <p className="mt-1 text-body-sm text-muted-foreground">
           Busca la familia por número o nombre del titular para verificar la identidad antes de la entrega.
         </p>
       </div>
@@ -68,33 +69,28 @@ export default function FamiliasVerificar() {
           )}
           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
           {!isLoading && (results as any[])?.map((family: any) => (
-            <Card
+            <button
               key={family.id}
-              className="cursor-pointer hover:border-primary/50 transition-colors"
+              type="button"
+              className="bocatas-card flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/40"
               onClick={() => setSelectedFamilyId(family.id)}
             >
-              <CardContent className="py-3 flex items-center gap-3">
-                <Users className="h-5 w-5 text-muted-foreground shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm truncate">
-                    {family.persons?.nombre} {family.persons?.apellidos}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Familia #{family.familia_numero} · {family.num_miembros} miembro(s)
-                  </p>
-                </div>
-                <Badge
-                  variant="outline"
-                  className={`text-xs shrink-0 ${
-                    family.estado === "activa"
-                      ? "border-green-300 text-green-700"
-                      : "border-gray-300 text-gray-600"
-                  }`}
-                >
-                  {family.estado}
-                </Badge>
-              </CardContent>
-            </Card>
+              <Users className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+              <div className="min-w-0 flex-1">
+                <p className="text-body-sm font-medium text-foreground truncate">
+                  {family.persons?.nombre} {family.persons?.apellidos}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Familia #{family.familia_numero} · {family.num_miembros} miembro(s)
+                </p>
+              </div>
+              <Badge
+                variant={family.estado === "activa" ? "default" : "secondary"}
+                className="shrink-0 text-xs"
+              >
+                {family.estado}
+              </Badge>
+            </button>
           ))}
         </div>
       )}
@@ -116,11 +112,14 @@ export default function FamiliasVerificar() {
           </div>
 
           {verified && (
-            <div className="rounded-lg bg-green-50 border border-green-200 p-4 flex items-center gap-3">
-              <ShieldCheck className="h-6 w-6 text-green-600 shrink-0" />
+            <div
+              role="status"
+              className="flex items-center gap-3 rounded-lg border border-green-200 bg-green-50 p-4"
+            >
+              <ShieldCheck className="h-6 w-6 shrink-0 text-green-600" aria-hidden="true" />
               <div>
                 <p className="font-semibold text-green-800">Identidad verificada</p>
-                <p className="text-sm text-green-700">Puede proceder con la entrega.</p>
+                <p className="text-body-sm text-green-700">Puede proceder con la entrega.</p>
               </div>
             </div>
           )}
