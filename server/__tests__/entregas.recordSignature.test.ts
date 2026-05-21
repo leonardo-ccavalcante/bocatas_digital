@@ -22,6 +22,11 @@ let updatePayload: Record<string, unknown> | null = null;
 const uploadCalls: Array<{ path: string; opts: unknown }> = [];
 const removeCalls: string[][] = [];
 
+// Configurable terminal-call errors (reset in beforeEach). Default null = success.
+let uploadError: { message: string } | null = null;
+let patchError: { message: string } | null = null;
+let auditError: { code?: string; message: string } | null = null;
+
 // Mock the Supabase admin client BEFORE importing appRouter (hoisting + import
 // order matters — vi.mock is hoisted above imports, but the module graph must
 // resolve the mock when appRouter pulls in signature.ts).
@@ -54,7 +59,7 @@ vi.mock("../../client/src/lib/supabase/server", () => ({
       update: (payload: Record<string, unknown>) => ({
         eq: async () => {
           updatePayload = payload;
-          return { error: null };
+          return { error: patchError };
         },
       }),
       // delivery_signature_audit: .insert(payload).select(...).single()
@@ -62,6 +67,9 @@ vi.mock("../../client/src/lib/supabase/server", () => ({
         select: () => ({
           single: async () => {
             insertPayload = payload;
+            if (auditError) {
+              return { data: null, error: auditError };
+            }
             return {
               data: {
                 id: "11111111-2222-4333-8444-555555555555",
@@ -80,7 +88,7 @@ vi.mock("../../client/src/lib/supabase/server", () => ({
       from: () => ({
         upload: async (path: string, _buf: unknown, opts: unknown) => {
           uploadCalls.push({ path, opts });
-          return { error: null };
+          return { error: uploadError };
         },
         remove: async (paths: string[]) => {
           removeCalls.push(paths);
@@ -137,6 +145,9 @@ describe("entregas.recordSignature (real procedure)", () => {
     updatePayload = null;
     uploadCalls.length = 0;
     removeCalls.length = 0;
+    uploadError = null;
+    patchError = null;
+    auditError = null;
   });
 
   it("rejects unauthenticated callers", async () => {
@@ -244,5 +255,57 @@ describe("entregas.recordSignature (real procedure)", () => {
     ).rejects.toThrow(/CONFLICT|Ya existe/i);
 
     expect(uploadCalls.length).toBe(0);
+  });
+
+  // ─── Failure-path coverage (F-4, F-5, F-2) ────────────────────────────────
+  it("F-4: upload failure aborts cleanly with no DB state changes", async () => {
+    uploadError = { message: "boom" };
+    const caller = appRouter.createCaller(buildCtx(buildUser("voluntario")));
+
+    await expect(
+      caller.entregas.recordSignature({
+        deliveryId,
+        signerPersonId,
+        signatureDataUrl: SIG,
+      })
+    ).rejects.toThrow(/INTERNAL_SERVER_ERROR|subir la firma/i);
+
+    // Upload was attempted, but no DB write happened.
+    expect(uploadCalls.length).toBe(1);
+    expect(updatePayload).toBeNull();
+    expect(insertPayload).toBeNull();
+  });
+
+  it("F-5: patch failure triggers best-effort storage cleanup and no audit insert", async () => {
+    patchError = { message: "patch failed" };
+    const caller = appRouter.createCaller(buildCtx(buildUser("voluntario")));
+
+    await expect(
+      caller.entregas.recordSignature({
+        deliveryId,
+        signerPersonId,
+        signatureDataUrl: SIG,
+      })
+    ).rejects.toThrow(/INTERNAL_SERVER_ERROR|registrar la firma/i);
+
+    // Cleanup removed the orphaned object at the uploaded path.
+    expect(uploadCalls.length).toBe(1);
+    expect(removeCalls.length).toBe(1);
+    expect(removeCalls[0]).toContain(uploadCalls[0].path);
+    // No audit row was inserted.
+    expect(insertPayload).toBeNull();
+  });
+
+  it("F-2: audit insert FK violation (23503) maps to BAD_REQUEST", async () => {
+    auditError = { code: "23503", message: "fk" };
+    const caller = appRouter.createCaller(buildCtx(buildUser("voluntario")));
+
+    await expect(
+      caller.entregas.recordSignature({
+        deliveryId,
+        signerPersonId,
+        signatureDataUrl: SIG,
+      })
+    ).rejects.toThrow(/BAD_REQUEST|no existe/i);
   });
 });
