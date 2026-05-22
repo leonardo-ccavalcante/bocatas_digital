@@ -159,7 +159,7 @@ export default function ProgramaDetalle() {
       {/* Sticky header */}
       <div className="border-b border-border bg-background/95 backdrop-blur sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-4 py-4">
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="flex items-center gap-3 min-w-0">
               {/* BackLink — auto-detects /programas as parent */}
               <BackLink label="Programas" />
