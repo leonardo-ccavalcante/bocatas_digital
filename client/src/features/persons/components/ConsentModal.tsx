@@ -126,7 +126,7 @@ export function ConsentModal({ open, personId, templates, onClose, onSaved, pers
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogContent className="max-w-[95vw] md:max-w-lg">
+      <DialogContent className="ph-no-capture max-w-[95vw] md:max-w-lg">
         <DialogHeader>
           <DialogTitle>Consentimientos RGPD</DialogTitle>
           <DialogDescription>

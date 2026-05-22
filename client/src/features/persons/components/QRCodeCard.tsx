@@ -126,7 +126,7 @@ export function QRCodeCard({ person }: QRCodeCardProps) {
         <canvas
           ref={canvasRef}
           aria-label={`Código QR de ${fullName}`}
-          className={`rounded-lg border ${!qrPayload ? "hidden" : ""}`}
+          className={`ph-no-capture rounded-lg border ${!qrPayload ? "hidden" : ""}`}
         />
         <p className="text-center text-xs text-muted-foreground">
           Escanea este código para hacer check-in rápido en el comedor.

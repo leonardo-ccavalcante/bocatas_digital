@@ -122,3 +122,4 @@ playwright/.cache/
 
 # Supabase CLI temporary files
 supabase/.temp/
+.project-config.json
