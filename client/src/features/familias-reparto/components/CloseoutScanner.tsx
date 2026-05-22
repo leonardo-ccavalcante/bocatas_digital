@@ -1,0 +1,70 @@
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { QrCode } from "lucide-react";
+import { QRScanner } from "@/features/checkin/components/QRScanner";
+import { trpc } from "@/lib/trpc";
+
+interface Props {
+  roundId: string;
+  currentDay: string;
+  onResolved: (assignmentId: string) => void;
+}
+
+const UUID_RE = /([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i;
+
+/** QR scan path for close-out. Reuses the comedor QRScanner — no new scanner. */
+export function CloseoutScanner({ roundId, currentDay, onResolved }: Props) {
+  const [open, setOpen] = useState(false);
+  const [warning, setWarning] = useState<string | null>(null);
+  const utils = trpc.useUtils();
+
+  const handleDecoded = async (value: string) => {
+    setOpen(false);
+    const match = value.match(UUID_RE);
+    if (!match) { setWarning("QR no válido."); return; }
+    const result = await utils.families.resolveAssignment.fetch({
+      round_id: roundId,
+      person_id: match[1],
+      current_day: currentDay,
+    });
+    switch (result.status) {
+      case "ready":
+        setWarning(null);
+        onResolved(result.assignment_id);
+        break;
+      case "already_attended":
+        setWarning("Esta familia ya estaba marcada como atendida.");
+        break;
+      case "wrong_day":
+        setWarning(`Familia asignada al ${result.expected_day}, no a hoy.`);
+        break;
+      case "not_in_round":
+        setWarning("Familia no asignada a este reparto.");
+        break;
+      default:
+        setWarning("Persona no encontrada en ninguna familia del programa.");
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      {warning && (
+        <div role="status" className="rounded-md border border-amber-200 bg-amber-50 p-2 text-sm text-amber-700">
+          {warning}
+          <button className="ml-2 text-xs underline" onClick={() => setWarning(null)}>Cerrar</button>
+        </div>
+      )}
+      <Button variant="outline" className="w-full" onClick={() => setOpen(true)}>
+        <QrCode className="mr-2 h-4 w-4" aria-hidden />
+        Escanear QR
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Escanear QR familiar</DialogTitle></DialogHeader>
+          {open && <QRScanner onDecoded={handleDecoded} onCancel={() => setOpen(false)} />}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
