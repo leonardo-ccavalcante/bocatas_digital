@@ -211,7 +211,7 @@ function FamiliaRowGroup({
           {titularName || "—"}
         </td>
         <td className="px-2 py-3 tabular-stat">{totalMiembros}</td>
-        <td className="px-2 py-3">
+        <td className="px-2 py-3 whitespace-nowrap">
           {estado === "activa" ? (
             <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700">
               Activa
@@ -220,7 +220,7 @@ function FamiliaRowGroup({
             <Badge variant="outline">En baja</Badge>
           )}
         </td>
-        <td className="px-2 py-3">
+        <td className="px-2 py-3 whitespace-nowrap">
           {sinInforme ? (
             <Badge variant="destructive">Pendiente</Badge>
           ) : (

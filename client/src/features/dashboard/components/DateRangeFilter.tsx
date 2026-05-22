@@ -18,7 +18,7 @@ const OPTIONS: { value: Period; label: string }[] = [
 
 export function DateRangeFilter({ value, onChange }: DateRangeFilterProps) {
   return (
-    <div className="flex items-center gap-2 overflow-x-auto" role="group" aria-label="Período">
+    <div className="flex items-center gap-2 shrink-0" role="group" aria-label="Período">
       {OPTIONS.map((opt) => (
         <button
           key={opt.value}

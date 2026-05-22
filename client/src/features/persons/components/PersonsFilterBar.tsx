@@ -141,7 +141,7 @@ export function PersonsFilterBar({
             onValueChange={(v) => {
               if (v) onEstadoChange(v as EstadoFilter);
             }}
-            className="flex flex-wrap gap-1.5"
+            className="flex flex-nowrap gap-1.5"
             aria-label="Filtrar por estado"
           >
             <FilterPill
@@ -176,7 +176,7 @@ export function PersonsFilterBar({
               onValueChange={(v) => {
                 if (v) onFaseChange(v);
               }}
-              className="flex flex-wrap gap-1.5"
+              className="flex flex-nowrap gap-1.5"
               aria-label="Filtrar por fase de itinerario"
             >
               <FilterPill
