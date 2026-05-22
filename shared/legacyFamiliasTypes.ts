@@ -1,5 +1,64 @@
 import { z } from "zod";
 
+// ─── CSV template helpers (shared client + server) ──────────────────────────
+
+/** Canonical column order for the legacy FAMILIAS CSV format. */
+export const CSV_HEADERS = [
+  "NÚMERO DE ORDEN",
+  "NUMERO FAMILIA BOCATAS",
+  "FECHA ALTA",
+  "NOMBRE",
+  "APELLIDOS",
+  "SEXO",
+  "TELEFONO",
+  "DNI/NIE/ PASAPORTE",
+  "CABEZA DE FAMILIA",
+  "PAIS",
+  "Fecha Nacimiento",
+  "EMAIL",
+  "DIRECCION",
+  "CODIGO POSTAL",
+  "Localidad",
+  "NOTAS PARA INFORME SOCIAL",
+  "Nivel de estudios finalizados",
+  "Situación Laboral",
+  "Otras Características",
+] as const;
+
+/** Example row that demonstrates every accepted value format. */
+const TEMPLATE_EXAMPLE_ROW = [
+  "1",
+  "101",
+  "15/03/2022",
+  "Mohammed",
+  "Al-Rashid",
+  "M",
+  "612345678",
+  "X7482144M",
+  "x",
+  "Marruecos",
+  "10/05/1985",
+  "ejemplo@correo.es",
+  "Calle Mayor 12 3 B",
+  "28001",
+  "Madrid",
+  "Familia numerosa con 4 hijos menores",
+  "Educación Secundaria",
+  "Desempleado con Subsidio de Desempleo",
+  "",
+] as const;
+
+/**
+ * Returns a two-line CSV string: header row + one example row.
+ * Suitable for use as a downloadable template from the import modal.
+ */
+export function buildTemplateCsv(): string {
+  return [
+    CSV_HEADERS.join(","),
+    TEMPLATE_EXAMPLE_ROW.join(","),
+  ].join("\n");
+}
+
 // Single source of truth for the legacy FAMILIAS CSV importer.
 // Mirrors the Supabase enums verbatim (see client/src/lib/database.types.ts).
 //
