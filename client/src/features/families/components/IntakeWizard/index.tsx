@@ -5,7 +5,7 @@ import { useLocation } from "wouter";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle, ChevronRight, ChevronLeft, Users, FileText, Shield, User } from "lucide-react";
+import { CheckCircle, ChevronRight, ChevronLeft, Users, FileText, Shield, User, ClipboardCheck } from "lucide-react";
 import { FamilyIntakeSchema, type FamilyIntake, type FamilyMember } from "../../schemas";
 import { useCreateFamilia } from "../../hooks/useFamilias";
 import { Step1Titular } from "./Step1Titular";
@@ -13,6 +13,7 @@ import { Step2Members } from "./Step2Members";
 import { Step3Docs } from "./Step3Docs";
 import { Step4Guf } from "./Step4Guf";
 import { Step5Autorizado } from "./Step5Autorizado";
+import { Step6Summary } from "./Step6Summary";
 
 interface IntakeWizardProps {
   /** Pre-loaded titular person ID (from /familias/nueva?titular_id=:id) */
@@ -25,7 +26,10 @@ const STEPS = [
   { id: 3, label: "Documentación", icon: FileText },
   { id: 4, label: "GUF", icon: Shield },
   { id: 5, label: "Autorizado", icon: CheckCircle },
+  { id: 6, label: "Resumen", icon: ClipboardCheck },
 ];
+
+const LAST_STEP = STEPS.length;
 
 export function IntakeWizard({ titularId }: IntakeWizardProps) {
   const [, navigate] = useLocation();
@@ -140,6 +144,9 @@ export function IntakeWizard({ titularId }: IntakeWizardProps) {
           <CardTitle className="text-lg">
             {STEPS[step - 1]?.label}
           </CardTitle>
+          <span className="sr-only" aria-live="polite">
+            Paso {step} de {LAST_STEP}: {STEPS[step - 1]?.label}
+          </span>
         </CardHeader>
         <CardContent>
           {step === 1 && (
@@ -157,6 +164,25 @@ export function IntakeWizard({ titularId }: IntakeWizardProps) {
           {step === 3 && <Step3Docs form={form} />}
           {step === 4 && <Step4Guf form={form} />}
           {step === 5 && <Step5Autorizado form={form} />}
+          {step === 6 && (
+            <Step6Summary
+              titularId={selectedTitular?.id ?? ""}
+              programId={programId}
+              members={members}
+              docs={{
+                docs_identidad: !!form.watch("docs_identidad"),
+                padron_recibido: !!form.watch("padron_recibido"),
+                justificante_recibido: !!form.watch("justificante_recibido"),
+                informe_social: !!form.watch("informe_social"),
+              }}
+              consents={{
+                consent_bocatas: !!form.watch("consent_bocatas"),
+                consent_banco_alimentos: !!form.watch("consent_banco_alimentos"),
+              }}
+              autorizado={!!form.watch("autorizado")}
+              personaRecoge={form.watch("persona_recoge") ?? undefined}
+            />
+          )}
         </CardContent>
       </Card>
 
@@ -170,7 +196,7 @@ export function IntakeWizard({ titularId }: IntakeWizardProps) {
           <ChevronLeft className="mr-2 h-4 w-4" /> Anterior
         </Button>
 
-        {step < 5 ? (
+        {step < LAST_STEP ? (
           <Button
             onClick={() => {
               if (step === 1) {

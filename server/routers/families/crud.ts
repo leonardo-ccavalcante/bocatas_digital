@@ -6,7 +6,7 @@ import {
   superadminProcedure,
   voluntarioProcedure,
 } from "../../_core/trpc";
-import { redactHighRiskFields } from "../../_core/rlsRedaction";
+import { redactHighRiskFields, isElevatedRole } from "../../_core/rlsRedaction";
 import { createAdminClient } from "../../../client/src/lib/supabase/server";
 import { logProcedureAction } from "../../_core/logging-middleware";
 import { isMemberAdult } from "../../families-doc-helpers";
@@ -84,11 +84,17 @@ export const crudRouter = router({
     .query(async ({ input, ctx }) => {
       const db = createAdminClient();
 
+      // PII minimisation (EIPD): only admin/superadmin receive contact PII.
+      // Voluntarios never even fetch the titular's telefono/email, so it cannot
+      // leak through the nested object that redactHighRiskFields does not reach.
+      const elevated = isElevatedRole(ctx.user.role);
+      const titularFields = elevated
+        ? "id, nombre, apellidos, telefono, email, idioma_principal"
+        : "id, nombre, apellidos, idioma_principal";
+
       const { data: family, error } = await db
         .from("families")
-        .select(
-          `*, persons!titular_id(id, nombre, apellidos, telefono, email, idioma_principal)`
-        )
+        .select(`*, persons!titular_id(${titularFields})`)
         .eq("id", input.id)
         .is("deleted_at", null)
         .single();
@@ -113,9 +119,20 @@ export const crudRouter = router({
       // RLS is the primary guard; this is the application-layer guarantee.
       const redactedFamily = redactHighRiskFields(ctx.user.role, family as Record<string, unknown>) as typeof family;
 
+      // Members carry documento (DNI/NIE) + documentacion_id — strip both for
+      // non-elevated callers, mirroring the titular contact-PII minimisation.
+      const safeMiembros = elevated
+        ? miembros ?? []
+        : (miembros ?? []).map((m) => {
+            const row = { ...(m as Record<string, unknown>) };
+            delete row.documento;
+            delete row.documentacion_id;
+            return row;
+          });
+
       return {
         ...redactedFamily,
-        miembros: miembros || [],
+        miembros: safeMiembros,
       };
     }),
 
