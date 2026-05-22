@@ -34,161 +34,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      delivery_rounds: {
-        Row: {
-          cap_mode: string
-          cap_per_day: number | null
-          creado_por: string
-          created_at: string
-          deleted_at: string | null
-          dias_reparto: number
-          estado: string
-          fecha_inicio: string
-          id: string
-          kg_total_alimentos: number | null
-          kg_total_carne: number | null
-          logos: string[]
-          nombre: string
-          notas: string | null
-          num_albaran_ba: string | null
-          num_factura_carne: string | null
-          program_id: string
-          signed_actas: Json
-          updated_at: string
-        }
-        Insert: {
-          cap_mode?: string
-          cap_per_day?: number | null
-          creado_por: string
-          created_at?: string
-          deleted_at?: string | null
-          dias_reparto: number
-          estado?: string
-          fecha_inicio: string
-          id?: string
-          kg_total_alimentos?: number | null
-          kg_total_carne?: number | null
-          logos?: string[]
-          nombre: string
-          notas?: string | null
-          num_albaran_ba?: string | null
-          num_factura_carne?: string | null
-          program_id: string
-          signed_actas?: Json
-          updated_at?: string
-        }
-        Update: {
-          cap_mode?: string
-          cap_per_day?: number | null
-          creado_por?: string
-          created_at?: string
-          deleted_at?: string | null
-          dias_reparto?: number
-          estado?: string
-          fecha_inicio?: string
-          id?: string
-          kg_total_alimentos?: number | null
-          kg_total_carne?: number | null
-          logos?: string[]
-          nombre?: string
-          notas?: string | null
-          num_albaran_ba?: string | null
-          num_factura_carne?: string | null
-          program_id?: string
-          signed_actas?: Json
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "delivery_rounds_program_id_fkey"
-            columns: ["program_id"]
-            isOneToOne: false
-            referencedRelation: "programs"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      delivery_round_assignments: {
-        Row: {
-          assigned_day: string
-          attended: boolean | null
-          attended_at: string | null
-          attended_by: string | null
-          created_at: string
-          day_slot: number
-          estado_contacto: string
-          expediente: string | null
-          family_id: string
-          id: string
-          kg_alimentos: number | null
-          kg_carne: number | null
-          notas: string | null
-          preferred_day: string | null
-          reschedule_log: Json
-          round_id: string
-          total_miembros: number
-          undo_log: Json
-          updated_at: string
-        }
-        Insert: {
-          assigned_day: string
-          attended?: boolean | null
-          attended_at?: string | null
-          attended_by?: string | null
-          created_at?: string
-          day_slot: number
-          estado_contacto?: string
-          expediente?: string | null
-          family_id: string
-          id?: string
-          kg_alimentos?: number | null
-          kg_carne?: number | null
-          notas?: string | null
-          preferred_day?: string | null
-          reschedule_log?: Json
-          round_id: string
-          total_miembros?: number
-          undo_log?: Json
-          updated_at?: string
-        }
-        Update: {
-          assigned_day?: string
-          attended?: boolean | null
-          attended_at?: string | null
-          attended_by?: string | null
-          created_at?: string
-          day_slot?: number
-          estado_contacto?: string
-          expediente?: string | null
-          family_id?: string
-          id?: string
-          kg_alimentos?: number | null
-          kg_carne?: number | null
-          notas?: string | null
-          preferred_day?: string | null
-          reschedule_log?: Json
-          round_id?: string
-          total_miembros?: number
-          undo_log?: Json
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "dra_family_id_fkey"
-            columns: ["family_id"]
-            isOneToOne: false
-            referencedRelation: "families"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "dra_round_id_fkey"
-            columns: ["round_id"]
-            isOneToOne: false
-            referencedRelation: "delivery_rounds"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       announcement_audiences: {
         Row: {
           announcement_id: string
@@ -721,6 +566,161 @@ export type Database = {
             columns: ["session_id"]
             isOneToOne: false
             referencedRelation: "program_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      delivery_round_assignments: {
+        Row: {
+          assigned_day: string
+          attended: boolean | null
+          attended_at: string | null
+          attended_by: string | null
+          created_at: string
+          day_slot: number
+          estado_contacto: string
+          expediente: string | null
+          family_id: string
+          id: string
+          kg_alimentos: number | null
+          kg_carne: number | null
+          notas: string | null
+          preferred_day: string | null
+          reschedule_log: Json
+          round_id: string
+          total_miembros: number
+          undo_log: Json
+          updated_at: string
+        }
+        Insert: {
+          assigned_day: string
+          attended?: boolean | null
+          attended_at?: string | null
+          attended_by?: string | null
+          created_at?: string
+          day_slot: number
+          estado_contacto?: string
+          expediente?: string | null
+          family_id: string
+          id?: string
+          kg_alimentos?: number | null
+          kg_carne?: number | null
+          notas?: string | null
+          preferred_day?: string | null
+          reschedule_log?: Json
+          round_id: string
+          total_miembros?: number
+          undo_log?: Json
+          updated_at?: string
+        }
+        Update: {
+          assigned_day?: string
+          attended?: boolean | null
+          attended_at?: string | null
+          attended_by?: string | null
+          created_at?: string
+          day_slot?: number
+          estado_contacto?: string
+          expediente?: string | null
+          family_id?: string
+          id?: string
+          kg_alimentos?: number | null
+          kg_carne?: number | null
+          notas?: string | null
+          preferred_day?: string | null
+          reschedule_log?: Json
+          round_id?: string
+          total_miembros?: number
+          undo_log?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dra_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dra_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "delivery_rounds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      delivery_rounds: {
+        Row: {
+          cap_mode: string
+          cap_per_day: number | null
+          creado_por: string
+          created_at: string
+          deleted_at: string | null
+          dias_reparto: number
+          estado: string
+          fecha_inicio: string
+          id: string
+          kg_total_alimentos: number | null
+          kg_total_carne: number | null
+          logos: string[]
+          nombre: string
+          notas: string | null
+          num_albaran_ba: string | null
+          num_factura_carne: string | null
+          program_id: string
+          signed_actas: Json
+          updated_at: string
+        }
+        Insert: {
+          cap_mode?: string
+          cap_per_day?: number | null
+          creado_por: string
+          created_at?: string
+          deleted_at?: string | null
+          dias_reparto: number
+          estado?: string
+          fecha_inicio: string
+          id?: string
+          kg_total_alimentos?: number | null
+          kg_total_carne?: number | null
+          logos?: string[]
+          nombre: string
+          notas?: string | null
+          num_albaran_ba?: string | null
+          num_factura_carne?: string | null
+          program_id: string
+          signed_actas?: Json
+          updated_at?: string
+        }
+        Update: {
+          cap_mode?: string
+          cap_per_day?: number | null
+          creado_por?: string
+          created_at?: string
+          deleted_at?: string | null
+          dias_reparto?: number
+          estado?: string
+          fecha_inicio?: string
+          id?: string
+          kg_total_alimentos?: number | null
+          kg_total_carne?: number | null
+          logos?: string[]
+          nombre?: string
+          notas?: string | null
+          num_albaran_ba?: string | null
+          num_factura_carne?: string | null
+          program_id?: string
+          signed_actas?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "delivery_rounds_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "programs"
             referencedColumns: ["id"]
           },
         ]
@@ -2266,14 +2266,6 @@ export type Database = {
       commit_round_assignments: {
         Args: { p_round_id: string; p_rows: Json }
         Returns: number
-      }
-      check_soft_delete_schema: {
-        Args: { table_names: string[] }
-        Returns: {
-          has_deleted_at: boolean
-          has_index: boolean
-          table_name: string
-        }[]
       }
       confirm_bulk_announcement_import: {
         Args: { p_autor_id: string; p_autor_nombre: string; p_token: string }
