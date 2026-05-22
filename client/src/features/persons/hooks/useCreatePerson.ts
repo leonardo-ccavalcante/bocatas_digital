@@ -7,12 +7,14 @@
  */
 import { useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/lib/trpc";
+import { capture } from "@/lib/posthog";
 import type { PersonCreate } from "../schemas";
 
 export function useCreatePerson() {
   const queryClient = useQueryClient();
   const mutation = trpc.persons.create.useMutation({
     onSuccess: () => {
+      capture("person_registered", {});
       void queryClient.invalidateQueries({ queryKey: ["persons"] });
     },
   });
