@@ -28,13 +28,13 @@ function solve(families: Family[], numDays: number, capPerDay: number | null) {
       if (capPerDay !== null && loads[d] + fam.total_miembros > capPerDay) continue;
       if (best === -1 || loads[d] < loads[best]) best = d;
     }
-    if (best === -1) { feasible = false; best = loads.indexOf(Math.min(...loads)); }
+    if (best === -1) { feasible = false; best = minIndex(loads); }
     loads[best] += fam.total_miembros;
     dayOf.set(fam.id, best);
   }
 
   for (let iter = 0; iter < numDays * items.length; iter++) {
-    const hi = loads.indexOf(Math.max(...loads));
+    const hi = maxIndex(loads);
     let moved = false;
     for (const fam of items) {
       if (dayOf.get(fam.id) !== hi) continue;
@@ -60,12 +60,23 @@ function solve(families: Family[], numDays: number, capPerDay: number | null) {
   return { assignments, dayLoads: loads, feasible };
 }
 
+function minIndex(a: number[]): number { let m = 0; for (let i = 1; i < a.length; i++) if (a[i] < a[m]) m = i; return m; }
+function maxIndex(a: number[]): number { let m = 0; for (let i = 1; i < a.length; i++) if (a[i] > a[m]) m = i; return m; }
+
+// Reject pathological inputs so a stray/abusive call can't allocate a huge
+// array or run unbounded work.
+const MAX_DAYS = 366;
+const MAX_FAMILIES = 5000;
+
 serve(async (req) => {
   if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
   try {
     const { families, numDays, capPerDay } = await req.json();
-    if (!Array.isArray(families) || typeof numDays !== "number") {
-      return new Response(JSON.stringify({ error: "families[] and numDays required" }), { status: 400, headers: { "content-type": "application/json" } });
+    if (!Array.isArray(families) || typeof numDays !== "number" || !Number.isInteger(numDays)) {
+      return new Response(JSON.stringify({ error: "families[] and integer numDays required" }), { status: 400, headers: { "content-type": "application/json" } });
+    }
+    if (numDays < 1 || numDays > MAX_DAYS || families.length > MAX_FAMILIES) {
+      return new Response(JSON.stringify({ error: `numDays 1..${MAX_DAYS}, families ≤ ${MAX_FAMILIES}` }), { status: 400, headers: { "content-type": "application/json" } });
     }
     const result = solve(families, numDays, capPerDay ?? null);
     return new Response(JSON.stringify(result), { headers: { "content-type": "application/json" } });

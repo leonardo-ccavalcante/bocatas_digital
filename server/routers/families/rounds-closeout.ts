@@ -183,15 +183,20 @@ export const roundsCloseoutRouter = router({
   // day, this family, this amount" without re-deriving anything. Used by a
   // "mark all signed" UI and (later) by an OCR-assisted confirm flow.
   bulkMarkAttendance: voluntarioProcedure
-    .input(z.object({ assignment_ids: z.array(uuid).min(1, "Lista vacía"), attended: z.boolean() }))
+    .input(z.object({ round_id: uuid, assignment_ids: z.array(uuid).min(1, "Lista vacía"), attended: z.boolean() }))
     .mutation(async ({ input, ctx }) => {
       const db = createAdminClient();
-      const { error } = await db
+      // Scope the update to the round (RLS is bypassed via the service-role
+      // client): only rows that belong to round_id are touched, so a caller
+      // can't flip attendance on arbitrary assignments by passing stray ids.
+      const { data, error } = await db
         .from("delivery_round_assignments")
         .update({ attended: input.attended, attended_at: new Date().toISOString(), attended_by: String(ctx.user.id) })
-        .in("id", input.assignment_ids);
+        .eq("round_id", input.round_id)
+        .in("id", input.assignment_ids)
+        .select("id");
       if (error) fail(error);
-      return { count: input.assignment_ids.length };
+      return { count: data?.length ?? 0 };
     }),
 
   // Carry pending / no-show families forward to the round's remaining days.
