@@ -7,16 +7,24 @@ const captured: Array<{ table: string; op: string; payload: Record<string, unkno
 
 function makeBuilder(table: string) {
   let write: Record<string, unknown> | null = null;
-  const result = () =>
+  let inIds: string[] | null = null;
+  // .single()/.maybeSingle() expect one object; an awaited (then) query expects
+  // an array — for a write scoped by .in(ids) we echo those ids back as rows so
+  // a bulk update's .select() returns the matched count.
+  const singleResult = () =>
     write ? { data: { id: `${table}-id`, ...write }, error: null } : (tableResults[table] ?? { data: [], error: null });
+  const listResult = () =>
+    write && inIds ? { data: inIds.map((id) => ({ id })), error: null } : singleResult();
   const b: Record<string, unknown> = {
     select: () => b,
     insert: (p: Record<string, unknown>) => { write = p; captured.push({ table, op: "insert", payload: p }); return b; },
     update: (p: Record<string, unknown>) => { write = p; captured.push({ table, op: "update", payload: p }); return b; },
-    delete: () => b, eq: () => b, in: () => b, is: () => b, not: () => b, order: () => b, limit: () => b, or: () => b, lte: () => b,
-    single: async () => result(),
-    maybeSingle: async () => result(),
-    then: (resolve: (v: unknown) => unknown) => resolve(result()),
+    delete: () => b, eq: () => b,
+    in: (_col: string, ids: string[]) => { inIds = Array.isArray(ids) ? ids : null; return b; },
+    is: () => b, not: () => b, order: () => b, limit: () => b, or: () => b, lte: () => b,
+    single: async () => singleResult(),
+    maybeSingle: async () => singleResult(),
+    then: (resolve: (v: unknown) => unknown) => resolve(listResult()),
   };
   return b;
 }
@@ -88,18 +96,19 @@ describe("rounds-closeout — bulkMarkAttendance", () => {
   it("marks a batch of assignments attended in one update with the actor stamped", async () => {
     const caller = roundsCloseoutRouter.createCaller(ctx(buildUser("voluntario", 5)));
     const res = await caller.bulkMarkAttendance({
+      round_id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
       assignment_ids: ["aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"],
       attended: true,
     });
     const upd = captured.find((c) => c.op === "update");
     expect(upd?.payload.attended).toBe(true);
     expect(upd?.payload.attended_by).toBe("5");
-    expect(res.count).toBe(2);
+    expect(res.count).toBe(2); // count reflects rows matched within the round scope
   });
 
   it("rejects an empty batch", async () => {
     const caller = roundsCloseoutRouter.createCaller(ctx(buildUser("voluntario")));
-    await expect(caller.bulkMarkAttendance({ assignment_ids: [], attended: true }))
+    await expect(caller.bulkMarkAttendance({ round_id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", assignment_ids: [], attended: true }))
       .rejects.toThrow(/vac|empty|BAD_REQUEST/i);
   });
 });

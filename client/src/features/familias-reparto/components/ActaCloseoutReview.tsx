@@ -51,7 +51,7 @@ export function ActaCloseoutReview({ roundId, day }: Props) {
   const confirm = async () => {
     if (selected.size === 0) { toast.error("Selecciona al menos una familia"); return; }
     try {
-      await bulk.mutateAsync({ assignment_ids: [...selected], attended: true });
+      await bulk.mutateAsync({ round_id: roundId, assignment_ids: [...selected], attended: true });
       toast.success(`${selected.size} familia(s) marcadas como atendidas`);
       setProposal(null);
     } catch (err: unknown) {
