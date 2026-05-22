@@ -106,7 +106,7 @@ export function AnnouncementImageUploader({
             <img
               src={value}
               alt="Imagen de novedad"
-              className="w-full h-40 object-cover rounded"
+              className="ph-no-capture w-full h-40 object-cover rounded"
               loading="lazy"
               decoding="async"
             />

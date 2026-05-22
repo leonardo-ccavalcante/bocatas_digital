@@ -182,7 +182,7 @@ export function QRScanner({ onDecoded, onCancel, isDemoMode = false }: QRScanner
             {/* Native video — fills container via CSS */}
             <video
               ref={videoRef}
-              className="absolute inset-0 w-full h-full object-cover"
+              className="ph-no-capture absolute inset-0 w-full h-full object-cover"
               playsInline
               muted
               autoPlay

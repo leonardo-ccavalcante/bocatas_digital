@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Upload, Download, Calendar, User } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { capture } from "@/lib/posthog";
 import { getSignedDocUrl } from "@/features/families/utils/signedUrl";
 import {
   useUploadFamilyDocument,
@@ -189,6 +190,7 @@ export function DocumentUploadModal({
         return;
       }
 
+      capture("document_uploaded", { type: documentoTipo });
       toast.success("Documento subido");
       onOpenChange(false);
     } catch (err: unknown) {
@@ -214,7 +216,7 @@ export function DocumentUploadModal({
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="ph-no-capture max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>

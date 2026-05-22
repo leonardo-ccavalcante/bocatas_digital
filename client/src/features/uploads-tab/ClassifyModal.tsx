@@ -85,7 +85,7 @@ export function ClassifyModal({
         if (!o) onClose();
       }}
     >
-      <DialogContent className="max-w-md">
+      <DialogContent className="ph-no-capture max-w-md">
         <DialogHeader>
           <DialogTitle>Reclasificar documento</DialogTitle>
           <DialogDescription>

@@ -7,6 +7,7 @@
 import { useActor } from "@xstate/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { trpc } from "@/lib/trpc";
+import { capture } from "@/lib/posthog";
 import { checkinMachine } from "../machine/checkinMachine";
 import type { CheckinPrograma, CheckinMetodo } from "../machine/checkinMachine";
 import { useCheckinStore } from "../store/useCheckinStore";
@@ -80,7 +81,10 @@ export function useCheckin() {
       anonymousMutation.mutate(
         { locationId, programa, isDemoMode },
         {
-          onSuccess: () => send({ type: "RESULT", result: { status: "registered", restriccionesAlimentarias: null } }),
+          onSuccess: () => {
+            if (!isDemoMode) capture("checkin_completed", { method: "anonymous" });
+            send({ type: "RESULT", result: { status: "registered", restriccionesAlimentarias: null } });
+          },
           onError: (err) => send({ type: "ERROR", message: err.message }),
         }
       );
@@ -116,7 +120,14 @@ export function useCheckin() {
     verifyMutation.mutate(
       { personId, locationId, programa, metodo, isDemoMode },
       {
-        onSuccess: (result) => send({ type: "RESULT", result }),
+        onSuccess: (result) => {
+          if (!isDemoMode) {
+            capture("checkin_completed", {
+              method: metodo === "qr_scan" ? "qr" : "manual",
+            });
+          }
+          send({ type: "RESULT", result });
+        },
         onError: (err) => {
           if (!isOnline) {
             const clientId = enqueue({ personId, locationId, programa, metodo, isDemoMode });

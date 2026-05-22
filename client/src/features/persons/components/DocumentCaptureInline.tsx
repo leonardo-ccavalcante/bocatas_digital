@@ -178,7 +178,7 @@ export function DocumentCaptureInline({ onExtracted }: DocumentCaptureInlineProp
     return (
       <div className="space-y-3">
         <div className="relative overflow-hidden rounded-lg bg-black">
-          <video ref={videoRef} autoPlay playsInline muted className="w-full" />
+          <video ref={videoRef} autoPlay playsInline muted className="ph-no-capture w-full" />
           <canvas ref={canvasRef} className="hidden" />
         </div>
         <div className="flex gap-2">
@@ -200,7 +200,7 @@ export function DocumentCaptureInline({ onExtracted }: DocumentCaptureInlineProp
         <img
           src={previewUrl}
           alt="Vista previa del documento"
-          className="w-full rounded-lg object-contain max-h-48"
+          className="ph-no-capture w-full rounded-lg object-contain max-h-48"
           loading="lazy"
           decoding="async"
         />

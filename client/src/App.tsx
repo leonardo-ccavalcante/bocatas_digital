@@ -6,6 +6,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { useEffect, lazy, Suspense } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { useIdentifyStaff } from "@/lib/posthog";
 
 // Layout
 import ProtectedRoute from "./components/layout/ProtectedRoute";
@@ -245,6 +246,10 @@ function Router() {
 }
 
 function App() {
+  // Identify the staff user (id + role only) in PostHog; resets on logout.
+  // No-op when PostHog isn't initialised (key unset).
+  useIdentifyStaff();
+
   return (
     <ErrorBoundary>
       <ThemeProvider defaultTheme="light">
