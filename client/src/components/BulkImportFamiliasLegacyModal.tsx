@@ -21,11 +21,12 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Loader2, Upload, AlertTriangle, CheckCircle2, XCircle, Copy as CopyIcon, ChevronDown, ChevronRight } from "lucide-react";
+import { Loader2, Upload, AlertTriangle, CheckCircle2, XCircle, Copy as CopyIcon, ChevronDown, ChevronRight, Download } from "lucide-react";
 import {
   usePreviewLegacyImport,
   useConfirmLegacyImport,
 } from "@/features/families/hooks/useFamilias";
+import { buildTemplateCsv } from "../../../shared/legacyFamiliasTypes";
 // Type-only imports — Zod runtime is tree-shaken from the client bundle.
 import type {
   FamilyGroup,
@@ -184,6 +185,17 @@ export function BulkImportFamiliasLegacyModal({
   const previewMutation = usePreviewLegacyImport();
   const confirmMutation = useConfirmLegacyImport();
 
+  function downloadTemplate() {
+    const csv = buildTemplateCsv();
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "template_familias_bocatas.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   function resetAndClose() {
     onOpenChange(false);
     setTimeout(() => {
@@ -296,6 +308,22 @@ export function BulkImportFamiliasLegacyModal({
               con NÚMERO FAMILIA BOCATAS, CABEZA DE FAMILIA marcada con &ldquo;x&rdquo;, miembros como filas
               adicionales). Para el formato CSV interno usa el otro botón.
             </p>
+            <div className="flex items-center justify-between rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-3">
+              <div>
+                <p className="text-sm font-medium text-gray-700">¿No tienes el archivo?</p>
+                <p className="text-xs text-gray-500">Descarga el template con la estructura correcta y un ejemplo de cada campo.</p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={downloadTemplate}
+                className="ml-4 shrink-0 gap-1.5"
+              >
+                <Download className="h-4 w-4" />
+                Descargar template
+              </Button>
+            </div>
             <label
               className={`flex flex-col items-center justify-center gap-3 border-2 border-dashed rounded-lg p-8 cursor-pointer transition-colors ${
                 dragActive ? "border-blue-500 bg-blue-50" : "hover:bg-gray-50"
