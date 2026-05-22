@@ -11,6 +11,10 @@ import { legacyImportRouter } from "./legacy-import";
 import { followUpsRouter } from "./follow-ups";
 import { documentsGenRouter } from "./documents-gen";
 import { templateEditorRouter } from "./template-editor";
+import { roundsScheduleRouter } from "./rounds-schedule";
+import { roundsCloseoutRouter } from "./rounds-closeout";
+import { roundsDocumentsRouter } from "./rounds-documents";
+import { roundsOcrRouter } from "./rounds-ocr";
 
 // Re-export helpers used by other routers (server/routers/persons.ts imports
 // insertFamilyRow + mirrorMembersToTable from "./families"). Preserves the
@@ -42,4 +46,8 @@ export const familiesRouter = mergeRouters(
   followUpsRouter,
   documentsGenRouter,
   templateEditorRouter,
+  roundsScheduleRouter,
+  roundsCloseoutRouter,
+  roundsDocumentsRouter,
+  roundsOcrRouter,
 );
