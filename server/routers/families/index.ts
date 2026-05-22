@@ -8,6 +8,10 @@ import { sessionsRouter } from "./sessions";
 import { csvExportRouter } from "./csv-export";
 import { csvImportRouter } from "./csv-import";
 import { legacyImportRouter } from "./legacy-import";
+import { roundsScheduleRouter } from "./rounds-schedule";
+import { roundsCloseoutRouter } from "./rounds-closeout";
+import { roundsDocumentsRouter } from "./rounds-documents";
+import { roundsOcrRouter } from "./rounds-ocr";
 
 // Re-export helpers used by other routers (server/routers/persons.ts imports
 // insertFamilyRow + mirrorMembersToTable from "./families"). Preserves the
@@ -36,4 +40,8 @@ export const familiesRouter = mergeRouters(
   csvExportRouter,
   csvImportRouter,
   legacyImportRouter,
+  roundsScheduleRouter,
+  roundsCloseoutRouter,
+  roundsDocumentsRouter,
+  roundsOcrRouter,
 );
