@@ -181,7 +181,7 @@ export function UploadModal({ programaId, open, onClose }: UploadModalProps) {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="ph-no-capture max-w-lg">
         <DialogHeader>
           <DialogTitle>Subir documento</DialogTitle>
           <DialogDescription>

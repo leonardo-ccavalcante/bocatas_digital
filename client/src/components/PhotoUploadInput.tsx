@@ -202,7 +202,7 @@ export const PhotoUploadInput: React.FC<PhotoUploadInputProps> = ({
             <img
               src={preview}
               alt="preview"
-              className="w-full"
+              className="ph-no-capture w-full"
               loading="lazy"
               decoding="async"
               style={{
