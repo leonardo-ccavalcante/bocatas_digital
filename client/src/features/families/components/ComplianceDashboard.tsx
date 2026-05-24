@@ -35,7 +35,7 @@ function StatCard({ title, description, value, icon: Icon, variant = "default" }
         <div className="flex items-start justify-between">
           <div>
             <p className="text-xs text-muted-foreground font-medium">{title}</p>
-            <p className={`text-3xl font-bold mt-1 ${colorMap[variant]}`}>{value}</p>
+            <p className={`text-display-1 mt-1 ${colorMap[variant]}`}>{value}</p>
             <p className="text-xs text-muted-foreground mt-1">{description}</p>
           </div>
           <Icon className={`h-5 w-5 mt-1 ${colorMap[variant]}`} />

@@ -23,7 +23,7 @@ export default function AdminUsuarios() {
               <Users className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h1 className="text-lg font-semibold text-foreground">Usuarios del sistema</h1>
+              <h1 className="text-h2 text-foreground">Usuarios del sistema</h1>
               <p className="text-xs text-muted-foreground">Solo superadmin</p>
             </div>
           </div>

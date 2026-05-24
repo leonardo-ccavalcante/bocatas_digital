@@ -47,7 +47,7 @@ function KPICell({
       <p className="text-eyebrow text-muted-foreground">{label}</p>
       <p
         className={cn(
-          "tabular-stat mt-1.5 text-base font-semibold leading-none sm:text-lg",
+          "tabular-stat mt-1.5 text-h3 leading-none",
           alert ? "text-amber-700" : "text-foreground",
         )}
       >
