@@ -92,7 +92,7 @@ export function PersonaHeader({ person, visitas, onConsent }: PersonaHeaderProps
               <Badge variant={estado.variant}>{estado.label}</Badge>
             </div>
             <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted-foreground">
-              <span className="font-mono text-xs">{person.id}</span>
+              <span className="font-mono text-xs truncate max-w-[200px]">{person.id}</span>
               {edad !== undefined && (
                 <>
                   <span aria-hidden="true" className="text-border">

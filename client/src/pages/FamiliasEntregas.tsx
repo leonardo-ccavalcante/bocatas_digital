@@ -223,11 +223,11 @@ export default function FamiliasEntregas() {
               </p>
               <div className="grid grid-cols-2 gap-4 text-center">
                 <div>
-                  <p className="tabular-stat text-2xl font-bold text-primary">{deliveredFamilies.length}</p>
+                  <p className="tabular-stat text-display-1 text-primary">{deliveredFamilies.length}</p>
                   <p className="text-xs text-muted-foreground">Familias atendidas</p>
                 </div>
                 <div>
-                  <p className="tabular-stat text-2xl font-bold text-amber-600">{pendingFamilies.length}</p>
+                  <p className="tabular-stat text-display-1 text-amber-600">{pendingFamilies.length}</p>
                   <p className="text-xs text-muted-foreground">Sin recoger</p>
                 </div>
               </div>

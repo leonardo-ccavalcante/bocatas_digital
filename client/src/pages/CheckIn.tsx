@@ -66,7 +66,7 @@ export default function CheckIn() {
       {/* ── Top bar ─────────────────────────────────────────────────────────── */}
       <div className="border-b bg-card px-4 py-3 space-y-3">
         <div className="flex items-center justify-between flex-wrap gap-3">
-          <h1 className="text-lg font-bold">Check-in</h1>
+          <h1 className="text-h2">Check-in</h1>
 
           <div className="flex items-center gap-3 flex-wrap">
             {/* Offline indicator */}

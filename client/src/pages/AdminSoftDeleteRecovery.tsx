@@ -53,7 +53,7 @@ export function AdminSoftDeleteRecovery() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Recuperación de Registros Eliminados</h1>
+        <h1 className="text-display-2">Recuperación de Registros Eliminados</h1>
         <p className="text-muted-foreground mt-2">
           Ver y restaurar registros que han sido eliminados (soft-delete)
         </p>

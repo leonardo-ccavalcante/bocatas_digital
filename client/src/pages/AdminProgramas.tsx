@@ -86,7 +86,7 @@ export default function AdminProgramas() {
     <div className="mx-auto max-w-2xl space-y-6 p-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold">Programas</h1>
+          <h1 className="text-h2">Programas</h1>
           <p className="text-sm text-muted-foreground">Gestiona los programas disponibles para inscripción.</p>
         </div>
         <Button onClick={openCreate} size="sm">

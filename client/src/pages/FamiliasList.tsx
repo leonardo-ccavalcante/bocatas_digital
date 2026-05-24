@@ -38,7 +38,7 @@ export default function FamiliasList() {
           <div className="flex items-center gap-3">
             <Users className="h-6 w-6 text-primary" />
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold">Programa de Familias</h1>
+              <h1 className="text-display-2">Programa de Familias</h1>
               <p className="text-xs sm:text-sm text-muted-foreground">
                 {families?.length ?? 0} familias registradas
               </p>

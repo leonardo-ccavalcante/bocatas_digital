@@ -88,7 +88,7 @@ export default function FamiliasInformesSociales() {
       {/* Header */}
       <div className="flex items-start justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
+          <h1 className="text-display-2 flex items-center gap-2">
             <FileText className="h-6 w-6 text-primary" />
             Informes sociales
           </h1>

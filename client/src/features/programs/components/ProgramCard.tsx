@@ -29,7 +29,7 @@ function KPIStripCell({ label, value, valueClassName, border }: KPIStripCellProp
     >
       <p className="text-eyebrow text-muted-foreground">{label}</p>
       <p
-        className={`tabular-stat mt-1.5 text-[18px] sm:text-[20px] leading-none font-semibold${valueClassName ? ` ${valueClassName}` : ""}`}
+        className={`tabular-stat mt-1.5 text-h3 leading-none${valueClassName ? ` ${valueClassName}` : ""}`}
       >
         {value}
       </p>

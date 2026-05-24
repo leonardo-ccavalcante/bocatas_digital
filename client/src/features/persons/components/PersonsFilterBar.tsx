@@ -134,14 +134,14 @@ export function PersonsFilterBar({
         </div>
 
         {/* Estado filter pills */}
-        <div className="mt-3 flex items-center gap-1.5 overflow-x-auto -mx-1 px-1 pb-1">
+        <div className="mt-3 w-full flex items-center gap-1.5 overflow-x-auto -mx-1 px-1 pb-1">
           <ToggleGroup
             type="single"
             value={estadoFilter}
             onValueChange={(v) => {
               if (v) onEstadoChange(v as EstadoFilter);
             }}
-            className="flex flex-nowrap gap-1.5"
+            className="shrink-0 flex flex-nowrap gap-1.5"
             aria-label="Filtrar por estado"
           >
             <FilterPill
@@ -176,8 +176,8 @@ export function PersonsFilterBar({
               onValueChange={(v) => {
                 if (v) onFaseChange(v);
               }}
-              className="flex flex-nowrap gap-1.5"
-              aria-label="Filtrar por fase de itinerario"
+            className="shrink-0 flex flex-nowrap gap-1.5"
+            aria-label="Filtrar por fase de itinerario"
             >
               <FilterPill
                 value="todas"
