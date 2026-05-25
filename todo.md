@@ -19,3 +19,11 @@
 - [x] ComplianceDashboard.tsx: migrar KPI value a text-display-1
 - [x] ProgramCard.tsx: migrar KPI stat a text-h3
 - [x] Agregar test de regresión para verificar páginas principales usan design tokens (13 tests en typography.consistency.test.tsx)
+
+
+## Bug: Programa Familias no permite insertar nuevas familias (sesión 2026-05-24)
+- [x] Agregar header con botón "Nueva familia" a FamiliasList.tsx (dentro de ProgramTabs)
+- [x] Botón debe enlazar a /familias/nueva
+- [x] Agregar test para verificar que el botón está presente en el tab de familias (4 tests pasan)
+- [x] Condicionar botón por isAdmin (mismo patrón que otros programas)
+- [x] Verificar que el flujo de creación funciona correctamente desde el programa

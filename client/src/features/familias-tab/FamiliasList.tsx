@@ -3,7 +3,8 @@ import { trpc } from "@/lib/trpc";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
-import { AlertTriangle, ArrowRight, ChevronRight } from "lucide-react";
+import { AlertTriangle, ArrowRight, ChevronRight, Plus } from "lucide-react";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { useFamiliasFilters } from "./hooks/useFamiliasFilters";
 import { FamiliasFilterBar } from "./FamiliasFilterBar";
 import { FamiliaMembersExpand } from "./FamiliaMembersExpand";
@@ -29,6 +30,8 @@ interface FamilyRow {
 const TABLE_COLS = 8;
 
 export function FamiliasList({ onRowClick }: FamiliasListProps) {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin" || user?.role === "superadmin";
   const { filters, setSearch, setEstado, setSinGuf, setSinInformeSocial, reset } =
     useFamiliasFilters();
   const [searchInput, setSearchInput] = useState(filters.search ?? "");
@@ -55,6 +58,20 @@ export function FamiliasList({ onRowClick }: FamiliasListProps) {
 
   return (
     <div className="space-y-4">
+      {/* Header with title and Nueva familia button */}
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-h3 text-foreground">Familias</h2>
+        {isAdmin && (
+          <Link href="/familias/nueva">
+            <button className="bocatas-btn-primary text-xs px-3 py-1.5 min-h-[36px] rounded-xl inline-flex items-center gap-1" aria-label="Crear nueva familia">
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              <span className="hidden sm:inline">Nueva familia</span>
+              <span className="sm:hidden">Nueva</span>
+            </button>
+          </Link>
+        )}
+      </div>
+
       <FamiliasFilterBar
         filters={filters}
         searchInput={searchInput}
