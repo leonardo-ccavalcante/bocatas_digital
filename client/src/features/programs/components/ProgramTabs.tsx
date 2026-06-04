@@ -11,6 +11,9 @@ const MapaTab = lazy(() => import("@/features/mapa-tab"));
 const ReportsTab = lazy(() => import("@/features/reports-tab"));
 // Phase 3
 const DerivarTab = lazy(() => import("@/features/derivar"));
+const RepartoTab = lazy(() =>
+  import("@/features/familias-reparto/components/RepartoTab").then((m) => ({ default: m.RepartoTab }))
+);
 
 interface Program {
   id: string;
@@ -24,6 +27,7 @@ interface ProgramTabsProps {
 
 const TAB_LABELS: Record<ProgramTab, string> = {
   familias: "Familias",
+  repartos: "Lista de distribución",
   mapa: "Mapa",
   reports: "Reports",
   uploads: "Uploads",
@@ -114,6 +118,12 @@ export function ProgramTabs({ program }: ProgramTabsProps) {
           {ENABLED_TABS.includes("reports") && (
             <ReportsTab currentUserId={currentUserId} programaId={program.id} />
           )}
+        </Suspense>
+      </TabsContent>
+
+      <TabsContent value="repartos">
+        <Suspense fallback={<TabFallback />}>
+          {ENABLED_TABS.includes("repartos") && <RepartoTab programId={program.id} />}
         </Suspense>
       </TabsContent>
 
