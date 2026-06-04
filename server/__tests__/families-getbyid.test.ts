@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { it, expect, beforeAll, afterAll } from 'vitest';
 import { createAdminClient } from '../../client/src/lib/supabase/server';
-import type { Database } from '../../client/src/lib/database.types';
+import { getRealSupabaseDescribe } from './db-test-env';
 
 /**
  * TDD Test: families.getById should return miembros array
@@ -11,7 +11,9 @@ import type { Database } from '../../client/src/lib/database.types';
  * This test verifies that when a family with members is fetched, the miembros array is returned
  */
 
-describe('families.getById - miembros array', () => {
+const describeDb = getRealSupabaseDescribe();
+
+describeDb('families.getById - miembros array', () => {
   let testFamilyId: string;
   let testTitularId: string;
 

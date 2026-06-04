@@ -98,7 +98,7 @@ export function Step7Consent({
                         {CONSENT_PURPOSE_LABELS[purpose]}
                       </Label>
                       <Badge variant="outline" className="text-xs">Requerido</Badge>
-                      <div className={`grid gap-2 mt-1 ${templateLang && templateLang.idioma !== "es" ? "grid-cols-2" : "grid-cols-1"}`}>
+                      <div className={`grid gap-2 mt-1 ${templateLang && templateLang.idioma !== "es" ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1"}`}>
                         {templateEs && (
                           <div className="rounded bg-muted p-2">
                             <p className="text-xs font-medium mb-1">🇪🇸 Español</p>
@@ -127,6 +127,7 @@ export function Step7Consent({
           <Label className="font-semibold">Grupo B — Banco de Alimentos</Label>
           {groupBPurposes.map((purpose) => {
             const templateEs = consentTemplatesEs.find((t) => t.purpose === purpose);
+            const templateLang = consentTemplatesLang.find((t) => t.purpose === purpose);
             return (
               <div key={purpose} className="rounded-lg border p-3 space-y-1">
                 <div className="flex items-start gap-3">
@@ -143,9 +144,20 @@ export function Step7Consent({
                       {CONSENT_PURPOSE_LABELS[purpose]}
                     </Label>
                     <Badge variant="secondary" className="text-xs">Requerido para Comedor Social</Badge>
-                    {templateEs && (
-                      <p className="text-xs text-muted-foreground">{templateEs.text_content}</p>
-                    )}
+                    <div className={`grid gap-2 mt-1 ${templateLang && templateLang.idioma !== "es" ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1"}`}>
+                      {templateEs && (
+                        <div className="rounded bg-muted p-2">
+                          <p className="text-xs font-medium mb-1">🇪🇸 Español</p>
+                          <p className="text-xs text-muted-foreground">{templateEs.text_content}</p>
+                        </div>
+                      )}
+                      {templateLang && templateLang.idioma !== "es" && (
+                        <div className="rounded bg-muted p-2">
+                          <p className="text-xs font-medium mb-1">🌐 {templateLang.idioma.toUpperCase()}</p>
+                          <p className="text-xs text-muted-foreground">{templateLang.text_content}</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -160,6 +172,7 @@ export function Step7Consent({
           <Label className="font-semibold">Grupo C — Programa Familias</Label>
           {groupCPurposes.map((purpose) => {
             const templateEs = consentTemplatesEs.find((t) => t.purpose === purpose);
+            const templateLang = consentTemplatesLang.find((t) => t.purpose === purpose);
             return (
               <div key={purpose} className="rounded-lg border p-3 space-y-1">
                 <div className="flex items-start gap-3">
@@ -176,9 +189,20 @@ export function Step7Consent({
                       {CONSENT_PURPOSE_LABELS[purpose]}
                     </Label>
                     <Badge variant="secondary" className="text-xs">Opcional</Badge>
-                    {templateEs && (
-                      <p className="text-xs text-muted-foreground">{templateEs.text_content}</p>
-                    )}
+                    <div className={`grid gap-2 mt-1 ${templateLang && templateLang.idioma !== "es" ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1"}`}>
+                      {templateEs && (
+                        <div className="rounded bg-muted p-2">
+                          <p className="text-xs font-medium mb-1">🇪🇸 Español</p>
+                          <p className="text-xs text-muted-foreground">{templateEs.text_content}</p>
+                        </div>
+                      )}
+                      {templateLang && templateLang.idioma !== "es" && (
+                        <div className="rounded bg-muted p-2">
+                          <p className="text-xs font-medium mb-1">🌐 {templateLang.idioma.toUpperCase()}</p>
+                          <p className="text-xs text-muted-foreground">{templateLang.text_content}</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

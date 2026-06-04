@@ -6,9 +6,9 @@
  * to ensure templates are always visible regardless of auth state.
  */
 import { trpc } from "@/lib/trpc";
-import type { ConsentTemplate } from "../schemas";
+import type { ConsentTemplate, ConsentTemplateIdioma } from "../schemas";
 
-export function useConsentTemplates(idioma: "es" | "ar" | "fr" | "bm" = "es") {
+export function useConsentTemplates(idioma: ConsentTemplateIdioma = "es") {
   return trpc.persons.consentTemplates.useQuery(
     { idioma },
     { staleTime: 5 * 60_000 }

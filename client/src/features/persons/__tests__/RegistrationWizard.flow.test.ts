@@ -14,6 +14,8 @@
  * Pattern source: client/src/features/persons/__tests__/duplicate-creation.test.ts
  */
 import { describe, it, expect, vi } from "vitest";
+import { buildConsentRows } from "../components/RegistrationWizard/_consentRows";
+import type { ConsentTemplate } from "../schemas";
 
 // ─── Types that mirror the wizard's submit-time inputs ─────────────────────
 
@@ -22,7 +24,7 @@ interface SubmitPayload {
   nombre: string;
   apellidos: string;
   fecha_nacimiento: string;
-  idioma_principal: "es";
+  idioma_principal: "es" | "fr" | "wo";
   program_ids: string[];
 }
 
@@ -32,6 +34,9 @@ interface SubmitDeps {
   data: SubmitPayload;
   profilePhotoBase64: string | null;
   consentChoices: Record<string, boolean>;
+  consentTemplatesEs: ConsentTemplate[];
+  consentTemplatesLang: ConsentTemplate[];
+  numeroSerie: string;
   uploadPhoto: ReturnType<typeof vi.fn>;
   createPerson: ReturnType<typeof vi.fn>;
   enrollPerson: ReturnType<typeof vi.fn>;
@@ -40,6 +45,23 @@ interface SubmitDeps {
 }
 
 const GROUP_A = ["tratamiento_datos_bocatas", "fotografia", "comunicaciones_whatsapp"];
+const GRANTED_AT = "2026-01-01T00:00:00.000Z";
+
+function template(
+  purpose: ConsentTemplate["purpose"],
+  idioma: ConsentTemplate["idioma"],
+  textContent: string
+): ConsentTemplate {
+  return {
+    id: "550e8400-e29b-41d4-a716-446655440000",
+    purpose,
+    idioma,
+    version: `1.0-${idioma}`,
+    text_content: textContent,
+    is_active: true,
+    updated_at: null,
+  };
+}
 
 /**
  * Reproduces the essential branches of RegistrationWizard.handleFinalSubmit
@@ -73,11 +95,16 @@ async function runHandleFinalSubmit(deps: SubmitDeps): Promise<void> {
     });
   }
 
-  const consentRows = GROUP_A.map((purpose) => ({
-    purpose,
-    idioma: "es",
-    granted: deps.consentChoices[purpose] === true,
-  }));
+  const consentRows = buildConsentRows({
+    purposes: GROUP_A,
+    consentChoices: deps.consentChoices,
+    consentTemplatesEs: deps.consentTemplatesEs,
+    consentTemplatesLang: deps.consentTemplatesLang,
+    personLanguage: deps.data.idioma_principal,
+    consentDocUrl: null,
+    numeroSerie: deps.numeroSerie,
+    grantedAt: GRANTED_AT,
+  });
   await deps.saveConsents({ personId: person.id, consents: consentRows });
 }
 
@@ -101,6 +128,15 @@ function makeBaseDeps(): SubmitDeps {
       fotografia: true,
       comunicaciones_whatsapp: true,
     },
+    consentTemplatesEs: GROUP_A.map((purpose) =>
+      template(
+        purpose as ConsentTemplate["purpose"],
+        "es",
+        `Texto español vigente para ${purpose}`
+      )
+    ),
+    consentTemplatesLang: [],
+    numeroSerie: "BCT-2026-00142",
     uploadPhoto: vi.fn().mockResolvedValue({ url: "https://cdn/x.jpg" }),
     createPerson: vi
       .fn()
@@ -172,6 +208,45 @@ describe("RegistrationWizard — submit flow", () => {
     expect(arg.personId).toBe("person-id-123");
     expect(arg.consents).toHaveLength(3);
     expect(arg.consents.every((c: { granted: boolean }) => c.granted === true)).toBe(true);
+  });
+
+  it("saves translated consent template rows when the selected language has templates", async () => {
+    const deps = makeBaseDeps();
+    deps.data.idioma_principal = "fr";
+    deps.consentTemplatesLang = GROUP_A.map((purpose) =>
+      template(
+        purpose as ConsentTemplate["purpose"],
+        "fr",
+        `Texte français actif pour ${purpose}`
+      )
+    );
+
+    await runHandleFinalSubmit(deps);
+
+    const [arg] = deps.saveConsents.mock.calls[0] ?? [];
+    expect(arg.consents).toHaveLength(3);
+    expect(arg.consents.every((c: { idioma: string }) => c.idioma === "fr")).toBe(true);
+    expect(arg.consents[0]).toMatchObject({
+      consent_text: "Texte français actif pour tratamiento_datos_bocatas",
+      consent_version: "1.0-fr",
+      numero_serie: "BCT-2026-00142",
+    });
+  });
+
+  it("falls back to Spanish consent rows for languages without active templates", async () => {
+    const deps = makeBaseDeps();
+    deps.data.idioma_principal = "wo";
+    deps.consentTemplatesLang = deps.consentTemplatesEs;
+
+    await runHandleFinalSubmit(deps);
+
+    const [arg] = deps.saveConsents.mock.calls[0] ?? [];
+    expect(arg.consents).toHaveLength(3);
+    expect(arg.consents.every((c: { idioma: string }) => c.idioma === "es")).toBe(true);
+    expect(arg.consents[0]).toMatchObject({
+      consent_text: "Texto español vigente para tratamiento_datos_bocatas",
+      consent_version: "1.0-es",
+    });
   });
 
   it("returns early when isSubmitting is true (re-entry guard)", async () => {
