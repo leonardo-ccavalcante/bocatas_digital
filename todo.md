@@ -27,3 +27,16 @@
 - [x] Agregar test para verificar que el botón está presente en el tab de familias (4 tests pasan)
 - [x] Condicionar botón por isAdmin (mismo patrón que otros programas)
 - [x] Verificar que el flujo de creación funciona correctamente desde el programa
+
+## UX: Mejorar flujo de lista de distribución en Programa Familias (2026-06-04)
+- [x] Renombrar sub-tab "Repartos" → "Lista de distribución" en familias-tab/index.tsx
+- [x] Agregar empty state con CTA claro en RepartoTab cuando no hay repartos
+- [x] Renombrar tab "Listado interno" → "Lista de distribución" en RepartoTab
+- [x] Agregar descripción contextual al botón "Nuevo reparto" en empty state
+- [x] Tests TDD para verificar los cambios de labels y empty state (4 tests pasan)
+
+## UX: Refactorización arquitectural — tab nivel superior (2026-06-04)
+- [x] Mover "Lista de distribución" al nivel superior de ProgramTabs (junto a Familias, Mapa, Reports, Uploads, Derivar)
+- [x] Eliminar doble fila de tabs en FamiliasTab (ya no tiene sub-tabs)
+- [x] Agregar "repartos" al tipo ProgramTab, PROGRAM_TABS y ENABLED_TABS en useTabParam.ts
+- [x] Tests TDD actualizados para la nueva arquitectura (6 tests pasan + 7 ProgramaDetalle = 13 total)

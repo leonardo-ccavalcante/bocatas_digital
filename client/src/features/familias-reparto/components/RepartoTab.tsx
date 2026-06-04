@@ -46,7 +46,7 @@ export function RepartoTab({ programId }: Props) {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <Button variant="ghost" size="sm" onClick={() => setSelectedId(null)}>← Repartos</Button>
+          <Button variant="ghost" size="sm" onClick={() => setSelectedId(null)}>← Lista de distribución</Button>
           <h3 className="text-sm font-semibold">{selected.nombre}</h3>
         </div>
 
@@ -67,7 +67,7 @@ export function RepartoTab({ programId }: Props) {
               <TabsList>
                 <TabsTrigger value="closeout">Cerrar entrega</TabsTrigger>
                 <TabsTrigger value="hoja">Hoja de Firmas</TabsTrigger>
-                <TabsTrigger value="listado">Listado interno</TabsTrigger>
+                <TabsTrigger value="listado">Lista de distribución</TabsTrigger>
               </TabsList>
               <TabsContent value="closeout">
                 {activeDay && <CloseoutDayView roundId={selected.id} day={activeDay} />}
@@ -99,13 +99,27 @@ export function RepartoTab({ programId }: Props) {
     );
   }
 
+  const hasRepartos = repartos && repartos.length > 0;
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold">Repartos</h3>
-        <Button size="sm" onClick={() => setCreating(true)}>Nuevo reparto</Button>
+        <h3 className="text-h3">Lista de distribución</h3>
+        <Button size="sm" onClick={() => setCreating(true)}>Generar lista</Button>
       </div>
-      <RepartoList programId={programId} onSelect={setSelectedId} />
+      {!hasRepartos && (
+        <div className="rounded-lg border border-dashed border-muted-foreground/30 bg-muted/20 p-6 text-center space-y-3">
+          <p className="text-body font-medium text-foreground">No hay listas generadas</p>
+          <p className="text-body-sm text-muted-foreground">
+            Genera la lista de distribución para organizar qué familias reciben alimentos cada día del reparto.
+            Incluye la Hoja de Firmas y el listado de asistencia.
+          </p>
+          <Button onClick={() => setCreating(true)} className="mt-2">
+            Generar lista de distribución
+          </Button>
+        </div>
+      )}
+      {hasRepartos && <RepartoList programId={programId} onSelect={setSelectedId} />}
     </div>
   );
 }
