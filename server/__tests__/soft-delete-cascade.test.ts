@@ -1,11 +1,14 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { it, expect, beforeAll, afterAll } from "vitest";
 import { createClient } from "@supabase/supabase-js";
 import { softDeleteWithCascade } from "../db/soft-delete-cascade";
+import { getRealSupabaseDescribe } from "./db-test-env";
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-describe("Soft-Delete Cascade Rules", () => {
+const describeDb = getRealSupabaseDescribe();
+
+describeDb("Soft-Delete Cascade Rules", () => {
   let testFamilyId: string;
   let testMemberId: string;
   let db: ReturnType<typeof createClient>;

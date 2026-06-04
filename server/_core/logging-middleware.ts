@@ -4,6 +4,7 @@
  */
 
 import { TrpcContext } from "./context";
+import { redactLogValue } from "./logger";
 
 export interface LoggingOptions {
   logInputs?: boolean;
@@ -41,7 +42,7 @@ export function createLoggingMiddleware(options: LoggingOptions = {}) {
         userId: user?.id,
         type,
         path,
-        input: input ? JSON.stringify(input).slice(0, 200) : undefined,
+        input: input ? JSON.stringify(redactLogValue(input)).slice(0, 200) : undefined,
       });
     }
 

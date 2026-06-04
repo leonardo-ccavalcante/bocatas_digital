@@ -17,18 +17,20 @@
  * Requires: VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY env vars.
  * Skip gracefully if not available (CI without DB access).
  */
-import { describe, it, expect, afterAll } from "vitest";
+import { it, expect, afterAll } from "vitest";
 import { createClient } from "@supabase/supabase-js";
+import { getRealSupabaseDescribe, hasRealSupabaseEnv } from "./db-test-env";
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-const hasDb = !!supabaseUrl && !!serviceKey;
+const hasDb = hasRealSupabaseEnv();
+const describeDb = getRealSupabaseDescribe();
 
 // Tokens inserted during this test run — cleaned up in afterAll.
 const insertedTokens: string[] = [];
 
-describe.skipIf(!hasDb)(
+describeDb(
   "bulk_import_previews — DB integration (constraint regression)",
   () => {
     const db = hasDb ? createClient(supabaseUrl!, serviceKey!) : null;

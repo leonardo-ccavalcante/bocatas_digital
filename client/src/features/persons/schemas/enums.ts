@@ -14,8 +14,29 @@ export const IdiomaSchema = z.enum([
 // Subset of IdiomaSchema. Single source for the verbal-translation fallback
 // rule: an idioma_principal outside this set has no template → show Spanish +
 // verbal-translation banner. Mirrored by ConsentTemplateSchema.idioma.
-export const ConsentLanguageSchema = z.enum(["es", "ar", "fr", "bm"]);
+export const CONSENT_TEMPLATE_LANGUAGES = ["es", "ar", "fr", "bm"] as const;
+
+export const ConsentLanguageSchema = z.enum(CONSENT_TEMPLATE_LANGUAGES);
 export type ConsentLanguage = z.infer<typeof ConsentLanguageSchema>;
+
+export const ConsentTemplateIdiomaSchema = ConsentLanguageSchema;
+
+export type ConsentTemplateIdioma = ConsentLanguage;
+
+export function isConsentTemplateLanguage(
+  value: string | null | undefined
+): value is ConsentTemplateIdioma {
+  return (
+    typeof value === "string" &&
+    (CONSENT_TEMPLATE_LANGUAGES as readonly string[]).includes(value)
+  );
+}
+
+export function getConsentTemplateLanguage(
+  value: string | null | undefined
+): ConsentTemplateIdioma {
+  return isConsentTemplateLanguage(value) ? value : "es";
+}
 
 // DB enum values (exact match required for Supabase insert)
 export const TipoDocumentoSchema = z.enum([

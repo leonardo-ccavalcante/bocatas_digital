@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { Logger } from '../_core/logger';
+import { Logger, REDACTED_LOG_VALUE } from '../_core/logger';
 import { createLoggingMiddleware, logProcedureAction, logProcedureError } from '../_core/logging-middleware';
 import type { TrpcContext } from '../_core/context';
 
@@ -61,6 +61,33 @@ describe('Logging Middleware - tRPC Integration', () => {
       logs.forEach(log => {
         expect(log.correlationId).toBe('test-corr-123');
       });
+    });
+
+    it('redacts PII from logged procedure input', async () => {
+      const middleware = createLoggingMiddleware();
+
+      await middleware({
+        ctx: mockContext,
+        type: 'mutation',
+        path: 'persons.create',
+        input: {
+          nombre: 'Juan',
+          apellidos: 'García',
+          personId: 'person-123',
+          contacto: { email: 'juan@example.com' },
+        },
+        next: async () => ({ id: 'new-id' }),
+      });
+
+      const logs = logger.getLogs();
+      const startLog = logs.find(l => l.message.includes('started'));
+      expect(startLog?.input).toContain(`"nombre":"${REDACTED_LOG_VALUE}"`);
+      expect(startLog?.input).toContain(`"apellidos":"${REDACTED_LOG_VALUE}"`);
+      expect(startLog?.input).toContain(`"email":"${REDACTED_LOG_VALUE}"`);
+      expect(startLog?.input).toContain('"personId":"person-123"');
+      expect(startLog?.input).not.toContain('Juan');
+      expect(startLog?.input).not.toContain('García');
+      expect(startLog?.input).not.toContain('juan@example.com');
     });
 
     it('includes user ID in logs', async () => {

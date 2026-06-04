@@ -2,6 +2,9 @@ import { describe, it, expect } from "vitest";
 import { appRouter } from "../routers";
 import type { TrpcContext } from "../_core/context";
 import { Logger } from "../_core/logger";
+import { hasRealSupabaseEnv } from "./db-test-env";
+
+const itDb = hasRealSupabaseEnv() ? it : it.skip;
 
 function createAdminContext(): TrpcContext {
   return {
@@ -57,7 +60,7 @@ describe("Soft-Delete Recovery Procedures", () => {
   const adminCaller = appRouter.createCaller(createAdminContext());
   const userCaller = appRouter.createCaller(createUserContext());
 
-  it("lists soft-deleted families with metadata", async () => {
+  itDb("lists soft-deleted families with metadata", async () => {
     const result = await adminCaller.admin.softDelete.listDeletedFamilies({
       limit: 10,
       offset: 0,
@@ -79,7 +82,7 @@ describe("Soft-Delete Recovery Procedures", () => {
     ).rejects.toThrow("FORBIDDEN");
   });
 
-  it("lists soft-deleted persons with metadata", async () => {
+  itDb("lists soft-deleted persons with metadata", async () => {
     const result = await adminCaller.admin.softDelete.listDeletedPersons({
       limit: 10,
       offset: 0,

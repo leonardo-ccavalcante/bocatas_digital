@@ -1,12 +1,12 @@
 import { useCallback, useState } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
-import type { PersonCreate } from "../../schemas";
-import type { ConsentTemplate } from "../../schemas";
+import type { ConsentTemplate, PersonCreate } from "../../schemas";
 import { useCreatePerson } from "../../hooks/useCreatePerson";
 import { useEnrollPerson } from "../../hooks/useEnrollPerson";
 import { trpc } from "@/lib/trpc";
 import type { FamilyMember } from "./_shared";
+import { buildConsentRows } from "./_consentRows";
 
 interface UseSubmitArgs {
   groupAAccepted: boolean;
@@ -15,6 +15,8 @@ interface UseSubmitArgs {
   consentDocBase64: string | null;
   consentChoices: Record<string, boolean>;
   consentTemplatesEs: ConsentTemplate[];
+  consentTemplatesLang: ConsentTemplate[];
+  personLanguage: string | null | undefined;
   numeroSerie: string;
   groupAPurposes: string[];
   groupBPurposes: string[];
@@ -93,18 +95,14 @@ export function useRegistrationSubmit(args: UseSubmitArgs) {
 
       // 5. Save consents
       const allPurposes = [...args.groupAPurposes, ...args.groupBPurposes, ...args.groupCPurposes];
-      const consentRows = allPurposes.map((purpose) => {
-        const template = args.consentTemplatesEs.find((t) => t.purpose === purpose);
-        return {
-          purpose: purpose as "tratamiento_datos_bocatas" | "tratamiento_datos_banco_alimentos" | "compartir_datos_red" | "comunicaciones_whatsapp" | "fotografia",
-          idioma: "es" as const,
-          granted: args.consentChoices[purpose] === true,
-          granted_at: new Date().toISOString(),
-          consent_text: template?.text_content ?? "",
-          consent_version: template?.version ?? "1.0",
-          documento_foto_url: consentDocUrl,
-          numero_serie: args.numeroSerie || null,
-        };
+      const consentRows = buildConsentRows({
+        purposes: allPurposes,
+        consentChoices: args.consentChoices,
+        consentTemplatesEs: args.consentTemplatesEs,
+        consentTemplatesLang: args.consentTemplatesLang,
+        personLanguage: args.personLanguage,
+        consentDocUrl,
+        numeroSerie: args.numeroSerie,
       });
 
       await saveConsents({ personId: person.id, consents: consentRows });
