@@ -280,6 +280,23 @@ export const InformesTitularSchema = z.object({
 });
 export type InformesTitular = z.infer<typeof InformesTitularSchema>;
 
+// Family-scoped member match (2b). Maps an INFORMES member slot to an existing
+// familia_miembros row; "ambiguous"/"none" ⇒ NOT written (refuse-on-ambiguity).
+export const memberMatchTierEnum = z.enum([
+  "documento",
+  "probe_key",
+  "name_first_apellido",
+  "none",
+  "ambiguous",
+]);
+export const MemberMatchSchema = z.object({
+  slot: z.number().int(),
+  matched_member_id: z.string().uuid().nullable(),
+  matched_person_id: z.string().uuid().nullable(),
+  match_tier: memberMatchTierEnum,
+});
+export type MemberMatch = z.infer<typeof MemberMatchSchema>;
+
 export const InformesFamilySchema = z.object({
   legacy_numero_familia: z.string().min(1),
   titular: InformesTitularSchema,
@@ -289,6 +306,7 @@ export const InformesFamilySchema = z.object({
   // Resolved against the roster at preview time:
   family_id: z.string().uuid().nullable(), // null ⇒ family_missing (no enrich)
   titular_id: z.string().uuid().nullable(),
+  member_matches: z.array(MemberMatchSchema), // 2b — family-scoped member alignment
   members_truncated: z.boolean(), // INFORMES caps at 14 slots
   warnings: z.array(RowWarningSchema),
 });

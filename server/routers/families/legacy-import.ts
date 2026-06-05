@@ -275,11 +275,10 @@ export const legacyImportRouter = router({
         .select("token")
         .single();
       if (insertErr || !preview) {
+        // PII-safe: a CHECK violation can echo the failing row (full parsed_rows
+        // incl. Art.9 narrative) in message/details/hint — log only code + id.
         ctx.logger.error("[legacy-import] preview stash failed", {
           code: insertErr?.code,
-          message: insertErr?.message,
-          details: insertErr?.details,
-          hint: insertErr?.hint,
           correlationId: ctx.correlationId,
         });
         throw new TRPCError({
