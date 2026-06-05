@@ -28,7 +28,11 @@ export type MatchTier =
   | "probe_key"
   | "name_first_apellido"
   | "none"
-  | "ambiguous";
+  | "ambiguous"
+  // MEDIUM-2: name matches an existing member but the DOB or document
+  // disagrees — probable same-person discrepancy. Never auto-writes (the RPC
+  // only writes documento/probe_key); surfaced for human adjudication.
+  | "member_conflict";
 
 export interface MemberMatch {
   slot: number;
@@ -71,6 +75,12 @@ export function matchInformesMembers(
       }
     }
 
+    // A name+DOB match whose documents are both present and DISAGREE is a
+    // probable same-person discrepancy — never auto-write one DNI over another;
+    // downgrade to member_conflict (RGPD Art.5 accuracy).
+    const docsDisagree = (e: ExistingMember): boolean =>
+      !!md && !!normDoc(e.documento) && md !== normDoc(e.documento);
+
     // Name-based tiers require a DOB and are skipped if Tier 1 was ambiguous.
     if (!hit && tier !== "ambiguous" && m.fecha_nacimiento) {
       // Tier 2 — full name + DOB.
@@ -82,14 +92,18 @@ export function matchInformesMembers(
             nameKey(e.nombre, e.apellidos) === k
         );
         if (c.length === 1) {
-          hit = c[0];
-          tier = "probe_key";
+          if (docsDisagree(c[0])) {
+            tier = "member_conflict";
+          } else {
+            hit = c[0];
+            tier = "probe_key";
+          }
         } else if (c.length > 1) {
           tier = "ambiguous";
         }
       }
       // Tier 3 — name + first apellido + DOB.
-      if (!hit && tier !== "ambiguous") {
+      if (!hit && tier !== "ambiguous" && tier !== "member_conflict") {
         const fa = firstApellido(m.apellidos);
         const nm = normalizeHeader(m.nombre);
         if (fa && nm) {
@@ -100,13 +114,40 @@ export function matchInformesMembers(
               firstApellido(e.apellidos) === fa
           );
           if (c.length === 1) {
-            hit = c[0];
-            tier = "name_first_apellido";
+            if (docsDisagree(c[0])) {
+              tier = "member_conflict";
+            } else {
+              hit = c[0];
+              tier = "name_first_apellido";
+            }
           } else if (c.length > 1) {
             tier = "ambiguous";
           }
         }
       }
+    }
+
+    // member_conflict (MEDIUM-2): no clean match, but an available existing
+    // member shares the NAME while the DOB or document DISAGREES — a probable
+    // same-person discrepancy. Surface it for adjudication instead of a silent
+    // 'none'. Never auto-writes (matched ids stay null).
+    if (!hit && tier === "none") {
+      const mNom = normalizeHeader(m.nombre);
+      const mFa = firstApellido(m.apellidos);
+      const sharesName = avail().filter((e) => {
+        const fullName = nameKey(e.nombre, e.apellidos) === nameKey(m.nombre, m.apellidos);
+        const faMatch =
+          mFa !== "" && normalizeHeader(e.nombre) === mNom && firstApellido(e.apellidos) === mFa;
+        return fullName || faMatch;
+      });
+      const hasDiscrepancy = sharesName.some((e) => {
+        const dobConflict =
+          !!m.fecha_nacimiento && !!e.fecha_nacimiento &&
+          m.fecha_nacimiento !== e.fecha_nacimiento;
+        const docConflict = !!md && !!normDoc(e.documento) && md !== normDoc(e.documento);
+        return dobConflict || docConflict;
+      });
+      if (hasDiscrepancy) tier = "member_conflict";
     }
 
     if (hit) {

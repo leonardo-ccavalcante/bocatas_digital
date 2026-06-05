@@ -16,6 +16,8 @@ import {
   type nivelEstudiosEnum,
   type situacionLaboralEnum,
   CleanRowSchema,
+  NOMBRE_PLACEHOLDER,
+  APELLIDOS_PLACEHOLDER,
 } from "../shared/legacyFamiliasTypes";
 import { normalizeHeader } from "./csvLegacyFamiliasParser";
 import {
@@ -500,27 +502,28 @@ export function parseRow(input: LegacyRow, rowNumber: number): ParseRowResult {
       },
     };
   }
-  const nombre = (input.nombre ?? "").trim();
+  const warnings: RowWarning[] = [];
+
+  // Phase 5 (best-effort / G9): a missing nombre/apellidos no longer rejects the
+  // row — it would orphan the family (numero_familia is the real key). Recover
+  // with a placeholder + warning so the operator can complete it later.
+  let nombre = (input.nombre ?? "").trim();
   if (!nombre) {
-    return {
-      ok: false,
-      error: {
-        row_number: rowNumber,
-        field: "nombre",
-        message: "NOMBRE es obligatorio.",
-      },
-    };
+    nombre = NOMBRE_PLACEHOLDER;
+    warnings.push({
+      field: "nombre",
+      code: "nombre_placeholder",
+      message: `NOMBRE vacío — sustituido por "${NOMBRE_PLACEHOLDER}". Completar manualmente.`,
+    });
   }
-  const apellidos = (input.apellidos ?? "").trim();
+  let apellidos = (input.apellidos ?? "").trim();
   if (!apellidos) {
-    return {
-      ok: false,
-      error: {
-        row_number: rowNumber,
-        field: "apellidos",
-        message: "APELLIDOS es obligatorio.",
-      },
-    };
+    apellidos = APELLIDOS_PLACEHOLDER;
+    warnings.push({
+      field: "apellidos",
+      code: "apellidos_placeholder",
+      message: `APELLIDOS vacío — sustituido por "${APELLIDOS_PLACEHOLDER}". Completar manualmente.`,
+    });
   }
 
   // Email is optional but, if present, must be valid.
@@ -540,8 +543,6 @@ export function parseRow(input: LegacyRow, rowNumber: number): ParseRowResult {
     }
     email = parsed.data;
   }
-
-  const warnings: RowWarning[] = [];
 
   const titular = isTitular(input.cabeza_familia);
   const parentescoOriginal = titular ? null : (input.cabeza_familia ?? "").trim() || null;

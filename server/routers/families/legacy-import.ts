@@ -33,14 +33,8 @@ const PROBE_CHUNK_SIZE = 500;
 
 interface PersonProbeRow {
   id: string;
-  nombre: string;
-  apellidos: string | null;
-  fecha_nacimiento: string | null;
+  numero_documento: string | null;
   pais_origen: string | null;
-}
-
-function probeKey(nombre: string, apellidos: string, fecha: string | null): string {
-  return `${nombre.toLowerCase()}|${apellidos.toLowerCase()}|${fecha ?? ""}`;
 }
 
 /**
@@ -195,30 +189,30 @@ export const legacyImportRouter = router({
         }
       }
 
-      // 2. Person dedup probe.
+      // 2. Person dedup probe (LOW-4 — DOCUMENT-based).
       //
-      // Strategy: collect all unique (nombre, apellidos, dob) triples from
-      // the CSV; query persons restricted by `fecha_nacimiento IN (...dobs)`
-      // (parameterized via Supabase JS client — no string interpolation),
-      // then filter the candidate set in-memory by exact (nombre, apellidos)
-      // match per probe. This avoids hand-crafting PostgREST `or()` filter
-      // strings (injection risk) and keeps the dedup probe to a single
-      // SELECT regardless of probe count.
-      const dobSet = new Set<string>();
+      // The actual merge (upsert_legacy_person) dedups STRICTLY by
+      // numero_documento (B1: name+DOB is never a merge key — it false-merges
+      // distinct people). The preview must mirror that, or it shows the
+      // operator "dedup hits" that will never merge. So we probe persons by
+      // `numero_documento IN (...docs)` (parameterized via the Supabase JS
+      // client — no string interpolation) and report a hit only for a row whose
+      // document already exists. Rows with no document never merge.
+      const docSet = new Set<string>();
       for (const g of groups) {
         for (const r of g.rows) {
-          if (r.person.fecha_nacimiento) dobSet.add(r.person.fecha_nacimiento);
+          if (r.person.numero_documento) docSet.add(r.person.numero_documento);
         }
       }
-      const probeKeyToRow = new Map<string, PersonProbeRow>();
-      if (dobSet.size > 0) {
-        const dobList = [...dobSet];
-        for (let start = 0; start < dobList.length; start += PROBE_CHUNK_SIZE) {
-          const chunk = dobList.slice(start, start + PROBE_CHUNK_SIZE);
+      const docToRow = new Map<string, PersonProbeRow>();
+      if (docSet.size > 0) {
+        const docList = [...docSet];
+        for (let start = 0; start < docList.length; start += PROBE_CHUNK_SIZE) {
+          const chunk = docList.slice(start, start + PROBE_CHUNK_SIZE);
           const { data: rows, error: probeErr } = await db
             .from("persons")
-            .select("id, nombre, apellidos, fecha_nacimiento, pais_origen")
-            .in("fecha_nacimiento", chunk)
+            .select("id, numero_documento, pais_origen")
+            .in("numero_documento", chunk)
             .is("deleted_at", null);
           if (probeErr) {
             // Soft-fail: dedup is advisory; log and continue without it
@@ -230,10 +224,7 @@ export const legacyImportRouter = router({
             break;
           }
           for (const row of (rows ?? []) as PersonProbeRow[]) {
-            probeKeyToRow.set(
-              probeKey(row.nombre, row.apellidos ?? "", row.fecha_nacimiento),
-              row
-            );
+            if (row.numero_documento) docToRow.set(row.numero_documento, row);
           }
         }
       }
@@ -241,12 +232,9 @@ export const legacyImportRouter = router({
       for (const g of groups) {
         const hits: PersonDedupHit[] = [];
         for (let idx = 0; idx < g.rows.length; idx++) {
-          const r = g.rows[idx];
-          const dob = r.person.fecha_nacimiento;
-          if (!dob) continue;
-          const match = probeKeyToRow.get(
-            probeKey(r.person.nombre, r.person.apellidos, dob)
-          );
+          const doc = g.rows[idx].person.numero_documento;
+          if (!doc) continue;
+          const match = docToRow.get(doc);
           if (match) {
             hits.push({
               row_index: idx,
@@ -335,6 +323,11 @@ export const legacyImportRouter = router({
       z.object({
         preview_token: uuidLike,
         src_filename: z.string().max(MAX_FILENAME_LENGTH).optional(),
+        // Phase 3: 'skip' (default) leaves existing legacy_numero untouched;
+        // 'update' re-syncs (overwrite family operational fields, backfill
+        // person fields, add new members). Set by the modal's
+        // "actualizar familias existentes" toggle.
+        mode: z.enum(["skip", "update"]).default("skip"),
       })
     )
     .mutation(async ({ input, ctx }): Promise<ConfirmResponse> => {
@@ -368,7 +361,9 @@ export const legacyImportRouter = router({
       // Fix: sign a short-lived Supabase JWT for the authenticated user so the RPC
       // sees the correct role and uid.
       // IMPORTANT: sub must equal actorId (String(ctx.user.id)) because the RPC
-      // checks `created_by = auth.uid()::text` for ownership verification.
+      // checks `created_by = (auth.jwt() ->> 'sub')` for ownership verification.
+      // Do NOT reintroduce auth.uid() — it casts sub->uuid and raises 22P02 for
+      // the non-UUID Manus openId (see migration 20260605000001 / 20260506000003).
       const userDb = await createUserImpersonationClient(
         actorId,
         ctx.user.role
@@ -379,6 +374,7 @@ export const legacyImportRouter = router({
         {
           p_token: input.preview_token,
           p_src_filename: safeName ?? undefined,
+          p_mode: input.mode,
         }
       );
       if (rpcErr) {

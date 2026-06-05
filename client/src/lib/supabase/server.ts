@@ -77,8 +77,10 @@ export function createAdminClient() {
  * The token expires in 5 minutes (single-use, fire-and-forget).
  *
  * IMPORTANT: `actorId` must be the same value stored in `created_by` on the
- * preview row (i.e. `String(ctx.user.id)`, the numeric DB id as a string).
- * The RPC checks `created_by = auth.uid()::text` for ownership verification.
+ * preview row (i.e. `String(ctx.user.id)`, the Manus openId as a string).
+ * The legacy-import RPCs check `created_by = (auth.jwt() ->> 'sub')` for
+ * ownership — NOT `auth.uid()`, which casts sub->uuid and raises 22P02 for the
+ * non-UUID openId (see migrations 20260605000001 / 20260605000002).
  *
  * @param actorId - String(ctx.user.id) — the numeric DB id used as JWT `sub`
  * @param role    - The user's app role ('admin' | 'superadmin' | 'user')

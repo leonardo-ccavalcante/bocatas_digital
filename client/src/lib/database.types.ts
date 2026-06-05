@@ -2269,6 +2269,10 @@ export type Database = {
       }
     }
     Functions: {
+      backfill_legacy_person: {
+        Args: { p_person: Json; p_person_id: string }
+        Returns: undefined
+      }
       commit_round_assignments: {
         Args: { p_round_id: string; p_rows: Json }
         Returns: number
@@ -2278,7 +2282,7 @@ export type Database = {
         Returns: Json
       }
       confirm_legacy_familias_import: {
-        Args: { p_src_filename?: string; p_token: string }
+        Args: { p_mode?: string; p_src_filename?: string; p_token: string }
         Returns: Json
       }
       enrich_families_from_informes: {
@@ -2355,6 +2359,15 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      upsert_familia_enrollment: {
+        Args: {
+          p_family_id: string
+          p_member_index: number
+          p_person_id: string
+          p_program_id: string
+        }
+        Returns: undefined
       }
       upsert_legacy_person: { Args: { p_person: Json }; Returns: string }
     }
