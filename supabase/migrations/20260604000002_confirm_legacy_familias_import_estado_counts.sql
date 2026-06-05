@@ -203,7 +203,9 @@ BEGIN
     'created_count', v_created,
     'skipped_count', v_skipped,
     'error_count',   v_errors,
-    'errors',        v_error_list
+    -- Key matches ConfirmResponseSchema.error_details (was 'errors' in v1 →
+    -- silently dropped per-family failures). Now surfaced to the operator.
+    'error_details', v_error_list
   );
 END;
 $$;

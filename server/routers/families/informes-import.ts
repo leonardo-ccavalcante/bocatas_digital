@@ -6,6 +6,7 @@ import {
   createUserImpersonationClient,
 } from "../../../client/src/lib/supabase/server";
 import { parseInformesDocument } from "../../csvInformesParser";
+import { matchInformesMembers, type ExistingMember } from "../../csvInformesMatch";
 import {
   type InformesFamily,
   type InformesPreviewResponse,
@@ -18,6 +19,9 @@ import { safeFilename } from "./legacy-import";
 
 const MAX_FILENAME_LENGTH = 255;
 const PROBE_CHUNK_SIZE = 500;
+// The bulk_import_previews row cap CHECK keys on `parsed_rows->'groups'`, which
+// the INFORMES stash (`families[]`) doesn't have — so enforce the cap here.
+const MAX_FAMILIES = 10_000;
 
 export const informesImportRouter = router({
   /**
@@ -47,6 +51,12 @@ export const informesImportRouter = router({
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "El CSV no contiene filas de datos válidas.",
+        });
+      }
+      if (families.length > MAX_FAMILIES) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `El CSV tiene ${families.length} familias; el máximo por importación es ${MAX_FAMILIES}.`,
         });
       }
 
@@ -96,6 +106,51 @@ export const informesImportRouter = router({
           f.titular.warnings.length > 0 ||
           f.members.some((m) => m.warnings.length > 0);
         if (hit && hasWarning) warning_families++;
+      }
+
+      // 2b — family-scoped member matching. Batch-fetch existing members for the
+      // resolved families, then align each INFORMES member (refuse-on-ambiguity).
+      const foundIds = families
+        .map((f) => f.family_id)
+        .filter((id): id is string => id !== null);
+      const membersByFamily = new Map<string, ExistingMember[]>();
+      for (let start = 0; start < foundIds.length; start += PROBE_CHUNK_SIZE) {
+        const chunk = foundIds.slice(start, start + PROBE_CHUNK_SIZE);
+        const { data, error } = await db
+          .from("familia_miembros")
+          .select("id, person_id, nombre, apellidos, fecha_nacimiento, documento, familia_id")
+          .in("familia_id", chunk)
+          .is("deleted_at", null);
+        if (error) {
+          ctx.logger.error("[informes-import] familia_miembros probe failed", {
+            code: error.code,
+            correlationId: ctx.correlationId,
+          });
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Error consultando miembros existentes.",
+          });
+        }
+        for (const row of data ?? []) {
+          const arr = membersByFamily.get(row.familia_id) ?? [];
+          arr.push({
+            id: row.id,
+            person_id: row.person_id,
+            nombre: row.nombre,
+            apellidos: row.apellidos,
+            fecha_nacimiento: row.fecha_nacimiento,
+            documento: row.documento,
+          });
+          membersByFamily.set(row.familia_id, arr);
+        }
+      }
+      for (const f of families) {
+        if (f.family_id) {
+          f.member_matches = matchInformesMembers(
+            f.members,
+            membersByFamily.get(f.family_id) ?? []
+          );
+        }
       }
 
       const stash: InformesStashPayload = {

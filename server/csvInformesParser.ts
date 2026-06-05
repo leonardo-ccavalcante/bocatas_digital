@@ -209,7 +209,12 @@ export function parseInformesDocument(text: string): ParsedInformes {
         lastSlotFilled = slot.slot;
       }
     }
-    const warnings: RowWarning[] = [...titular.warnings];
+    // Family warnings = titular warnings + every member's warnings, so a
+    // consumer of family.warnings sees the full picture (not just the titular).
+    const warnings: RowWarning[] = [
+      ...titular.warnings,
+      ...members.flatMap((m) => m.warnings),
+    ];
     families.push({
       legacy_numero_familia: legacy,
       titular,
@@ -218,6 +223,9 @@ export function parseInformesDocument(text: string): ParsedInformes {
       necesidades_texto: cell(rec, cmap.necesidades) || null,
       family_id: null,
       titular_id: null,
+      member_matches: [], // resolved against the roster in the router (2b)
+      // The sheet has only 14 member slots; a filled last slot means the family
+      // MAY have additional (truncated) members → flag for manual verification.
       members_truncated: lastSlotFilled >= MAX_SLOT,
       warnings,
     });
