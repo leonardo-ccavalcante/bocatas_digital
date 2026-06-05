@@ -46,6 +46,6 @@
 - [x] Copiar 68 archivos de GitHub PRs #68, #69, #70 al proyecto Manus
 - [x] Corregir TypeScript errors: buildTemplateCsv, fieldsToLegacyRow, imports
 - [x] Actualizar tests de contrato (ProgramTabs, useTabParam) para reflejar 6 tabs
-- [ ] Aplicar 6 migraciones SQL de Supabase (pendiente — requiere SQL Editor de Supabase)
-- [ ] Tests de integración: confirm-legacy-import-upsert (6 tests) — bloqueados por migraciones
-- [ ] Tests de integración: enrich-informes-rpc (2 tests) — bloqueados por migraciones
+- [x] Aplicar 6 migraciones SQL de Supabase (aplicadas via Supabase MCP apply_migration)
+- [x] Tests de integración: confirm-legacy-import-upsert (6 tests) — PASAN tras aplicar migraciones
+- [x] Tests de integración: enrich-informes-rpc (2 tests) — PASAN tras aplicar migraciones
