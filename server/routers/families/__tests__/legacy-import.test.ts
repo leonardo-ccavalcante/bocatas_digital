@@ -141,15 +141,19 @@ describe("Legacy import — CSV to groups transformation", () => {
     expect(groups[0].errors[0].message).toContain("varios titulares");
   });
 
-  it("flags rows with missing nombre as parse errors", () => {
+  it("recovers rows with missing nombre via a placeholder (Phase 5 — not a parse error)", () => {
     const csv = [
       FIXTURE_HEADER,
       '1,1030,,,Apellidos,M,,,x,Perú,17/03/1983,,,,,,,,',
     ].join("\n");
 
     const { parseErrors, groups } = transformCsv(csv);
-    expect(parseErrors).toBe(1);
-    expect(groups.length).toBe(0);
+    // Best-effort: a missing nombre no longer rejects the row — it is recovered
+    // with a placeholder + warning so the family isn't lost.
+    expect(parseErrors).toBe(0);
+    expect(groups.length).toBe(1);
+    expect(groups[0].rows[0].person.nombre).toBe("(sin nombre)");
+    expect(groups[0].rows[0].warnings.some((w) => w.code === "nombre_placeholder")).toBe(true);
   });
 });
 

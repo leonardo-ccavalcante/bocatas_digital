@@ -450,23 +450,40 @@ describe("parseRow — error paths", () => {
     if (r.ok) return;
     expect(r.error.field).toBe("numero_familia");
   });
-  it("missing nombre → error", () => {
+  // Phase 5 (best-effort): missing nombre/apellidos no longer rejects the row —
+  // it recovers with a placeholder + warning so the family/member isn't lost.
+  it("missing nombre → placeholder + warning (recovered, not rejected)", () => {
     const r = parseRow(
       { numero_familia: "1030", cabeza_familia: "x", apellidos: "Y" },
       4
     );
-    expect(r.ok).toBe(false);
-    if (r.ok) return;
-    expect(r.error.field).toBe("nombre");
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.row.person.nombre).toBe("(sin nombre)");
+    expect(r.row.warnings.some((w) => w.code === "nombre_placeholder")).toBe(true);
   });
-  it("missing apellidos → error", () => {
+  it("missing apellidos → placeholder + warning (recovered, not rejected)", () => {
     const r = parseRow(
       { numero_familia: "1030", cabeza_familia: "x", nombre: "X" },
       4
     );
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.row.person.apellidos).toBe("(sin apellidos)");
+    expect(r.row.warnings.some((w) => w.code === "apellidos_placeholder")).toBe(true);
+  });
+  it("missing BOTH nombre and apellidos → both placeholders, still recovered", () => {
+    const r = parseRow({ numero_familia: "1030", cabeza_familia: "x" }, 4);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.row.person.nombre).toBe("(sin nombre)");
+    expect(r.row.person.apellidos).toBe("(sin apellidos)");
+  });
+  it("empty numero_familia stays a HARD error (not recoverable)", () => {
+    const r = parseRow({ nombre: "X", apellidos: "Y", cabeza_familia: "x" }, 4);
     expect(r.ok).toBe(false);
     if (r.ok) return;
-    expect(r.error.field).toBe("apellidos");
+    expect(r.error.field).toBe("numero_familia");
   });
   it("invalid email → error", () => {
     const r = parseRow(
