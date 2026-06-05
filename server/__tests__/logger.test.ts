@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { Logger, LogLevel, LogEntry } from '../_core/logger';
+import { Logger, REDACTED_LOG_VALUE } from '../_core/logger';
 
 describe('Logger - Professional Logging System', () => {
   let logger: Logger;
@@ -98,6 +98,34 @@ describe('Logger - Professional Logging System', () => {
         action: 'create_person',
         duration: 125,
         success: true,
+      });
+    });
+
+    it('redacts PII metadata while preserving operational IDs', () => {
+      logger.info('Person action', {
+        correlationId: 'test-123',
+        userId: 'user-42',
+        personId: 'person-123',
+        nombre: 'Juan',
+        apellidos: 'García',
+        nested: {
+          email: 'juan@example.com',
+          numero_documento: 'ABC123',
+          programId: 'program-1',
+        },
+      });
+
+      const logs = logger.getLogs();
+      expect(logs[0]).toMatchObject({
+        userId: 'user-42',
+        personId: 'person-123',
+        nombre: REDACTED_LOG_VALUE,
+        apellidos: REDACTED_LOG_VALUE,
+        nested: {
+          email: REDACTED_LOG_VALUE,
+          numero_documento: REDACTED_LOG_VALUE,
+          programId: 'program-1',
+        },
       });
     });
 
