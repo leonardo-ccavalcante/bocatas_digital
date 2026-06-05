@@ -1,4 +1,4 @@
-/**
+/*
  * BulkImportFamiliasLegacyModal.tsx — 3-step bulk importer for the legacy
  * FAMILIAS Excel/CSV format.
  *
@@ -10,6 +10,11 @@
  *   - Atomicity is per-family (one bad family doesn't block the rest), so
  *     "Confirmar" is enabled even when warnings or duplicates are present;
  *     only group-level errors block the entire import.
+ *
+ * Phase 4 additions:
+ *   - Sticky action bar at the top of the dialog (no scroll needed)
+ *   - "Descargar reporte" button (opens /api/legacy-import/report/:token)
+ *   - "Solo importar familias OK" toggle (excludes warnings + duplicates)
  */
 import { useMemo, useState } from "react";
 import {
@@ -17,13 +22,22 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Loader2, Upload, AlertTriangle, CheckCircle2, XCircle, Copy as CopyIcon, ChevronDown, ChevronRight } from "lucide-react";
+import {
+  Loader2,
+  Upload,
+  AlertTriangle,
+  CheckCircle2,
+  XCircle,
+  Copy as CopyIcon,
+  ChevronDown,
+  ChevronRight,
+  Download,
+} from "lucide-react";
 import {
   usePreviewLegacyImport,
   useConfirmLegacyImport,
@@ -189,8 +203,10 @@ export function BulkImportFamiliasLegacyModal({
   const [filename, setFilename] = useState<string | undefined>(undefined);
   const [activeTab, setActiveTab] = useState<FilterTab>("ok");
   const [dragActive, setDragActive] = useState(false);
-  // Phase 3: "actualizar familias existentes" → p_mode 'update' vs 'skip'.
+  // "Actualizar familias existentes" → p_mode 'update' vs 'skip'.
   const [updateExisting, setUpdateExisting] = useState(false);
+  // "Solo importar familias OK" → exclude warning + duplicate families.
+  const [skipWarnings, setSkipWarnings] = useState(false);
 
   const previewMutation = usePreviewLegacyImport();
   const confirmMutation = useConfirmLegacyImport();
@@ -204,6 +220,7 @@ export function BulkImportFamiliasLegacyModal({
       setFilename(undefined);
       setActiveTab("ok");
       setUpdateExisting(false);
+      setSkipWarnings(false);
     }, 300);
   }
 
@@ -257,11 +274,27 @@ export function BulkImportFamiliasLegacyModal({
   function handleConfirm() {
     if (!preview) return;
     setStep(3);
+
+    // When "Solo importar familias OK" is active, collect the legacy numbers
+    // of warning, duplicate, AND error families so the SQL function skips them.
+    // Error families are always excluded (SQL savepoints handle them gracefully),
+    // but passing them explicitly ensures audit trail shows 'skipped_excluded'.
+    let excludedNumbers: string[] | undefined;
+    if (skipWarnings) {
+      excludedNumbers = preview.groups
+        .filter((g) => {
+          const tab = classifyGroup(g);
+          return tab === "warnings" || tab === "duplicates" || tab === "errors";
+        })
+        .map((g) => g.legacy_numero_familia);
+    }
+
     confirmMutation.mutate(
       {
         preview_token: preview.preview_token,
         src_filename: filename,
         mode: updateExisting ? "update" : "skip",
+        excluded_family_numbers: excludedNumbers,
       },
       {
         onSuccess: (r) => {
@@ -296,7 +329,32 @@ export function BulkImportFamiliasLegacyModal({
   const stepLabel =
     step === 1 ? "1/3 — Subir CSV" : step === 2 ? "2/3 — Vista previa" : "3/3 — Confirmando";
 
-  const blockedByErrors = (preview?.error_families ?? 0) > 0;
+  // Error families are handled by per-family savepoints in the SQL function
+  // (they are skipped with audit 'error'). The frontend should NOT block
+  // confirmation when error families coexist with OK/warning families.
+  // Only block when there are literally zero importable families.
+  const blockedByErrors = false; // SQL handles per-family errors gracefully.
+
+  // Count of families that will actually be imported (respects skipWarnings toggle).
+  const familiasAImportar = useMemo(() => {
+    if (!preview) return 0;
+    if (skipWarnings) {
+      // Only OK families (+ duplicates if updateExisting is on)
+      return (
+        preview.valid_families +
+        (updateExisting ? preview.duplicate_families : 0)
+      );
+    }
+    return (
+      preview.valid_families +
+      preview.warning_families +
+      (updateExisting ? preview.duplicate_families : 0)
+    );
+  }, [preview, skipWarnings, updateExisting]);
+
+  // Whether the report download button should be shown.
+  const hasWarningsOrErrors =
+    (preview?.warning_families ?? 0) > 0 || (preview?.error_families ?? 0) > 0;
 
   return (
     <Dialog
@@ -305,187 +363,262 @@ export function BulkImportFamiliasLegacyModal({
         if (!v) resetAndClose();
       }}
     >
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>
-            {lane === "informes"
-              ? "Enriquecer familias con Informes Sociales"
-              : `Importar familias desde CSV legacy (${stepLabel})`}
-          </DialogTitle>
-        </DialogHeader>
+      {/*
+       * Layout: flex column, fixed max-height.
+       * - DialogHeader + sticky action bar: fixed at top, never scroll.
+       * - Inner content area: overflow-y-auto, grows to fill remaining space.
+       * This prevents the user from having to scroll to reach the action buttons.
+       */}
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col gap-0 p-0 overflow-hidden">
+        {/* ── Header ─────────────────────────────────────────────────────── */}
+        <div className="px-6 pt-6 pb-3 border-b">
+          <DialogHeader>
+            <DialogTitle>
+              {lane === "informes"
+                ? "Enriquecer familias con Informes Sociales"
+                : `Importar familias desde CSV legacy (${stepLabel})`}
+            </DialogTitle>
+          </DialogHeader>
 
-        <div role="tablist" aria-label="Tipo de importación" className="flex gap-2 border-b pb-3">
-          <Button
-            role="tab"
-            aria-selected={lane === "roster"}
-            variant={lane === "roster" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setLane("roster")}
-          >
-            Padrón (familias)
-          </Button>
-          <Button
-            role="tab"
-            aria-selected={lane === "informes"}
-            variant={lane === "informes" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setLane("informes")}
-          >
-            Informes sociales (enriquecer)
-          </Button>
+          {/* Lane switcher */}
+          <div role="tablist" aria-label="Tipo de importación" className="flex gap-2 mt-3">
+            <Button
+              role="tab"
+              aria-selected={lane === "roster"}
+              variant={lane === "roster" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setLane("roster")}
+            >
+              Padrón (familias)
+            </Button>
+            <Button
+              role="tab"
+              aria-selected={lane === "informes"}
+              variant={lane === "informes" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setLane("informes")}
+            >
+              Informes sociales (enriquecer)
+            </Button>
+          </div>
         </div>
 
-        {lane === "informes" ? (
-          <InformesEnrichLane onDone={resetAndClose} />
-        ) : (
-          <>
-        {step === 1 && (
-          <div className="space-y-5 py-2">
-            <p className="text-sm text-gray-600">
-              Acepta el CSV exportado del Excel <span className="font-mono">FAMILIAS</span> legacy (formato
-              con NÚMERO FAMILIA BOCATAS, CABEZA DE FAMILIA marcada con &ldquo;x&rdquo;, miembros como filas
-              adicionales). Para el formato CSV interno usa el otro botón.
-            </p>
-            <label
-              className={`flex flex-col items-center justify-center gap-3 border-2 border-dashed rounded-lg p-8 cursor-pointer transition-colors ${
-                dragActive ? "border-blue-500 bg-blue-50" : "hover:bg-gray-50"
-              }`}
-              onDragEnter={handleDrag}
-              onDragLeave={handleDrag}
-              onDragOver={handleDrag}
-              onDrop={handleDrop}
-            >
-              {previewMutation.isPending ? (
-                <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
-              ) : (
-                <Upload className="h-8 w-8 text-gray-400" />
-              )}
-              <span className="text-sm font-medium text-gray-600 text-center">
-                {previewMutation.isPending
-                  ? "Analizando CSV…"
-                  : dragActive
-                  ? "Suelta el archivo CSV aquí"
-                  : "Haz clic o arrastra un archivo CSV aquí"}
-              </span>
-              <input
-                type="file"
-                accept=".csv"
-                className="sr-only"
-                disabled={previewMutation.isPending}
-                onChange={handleFileChange}
-              />
-            </label>
-          </div>
-        )}
-
-        {step === 2 && preview && (
-          <div className="space-y-4 py-2">
-            <div className="rounded border bg-gray-50 p-3 text-sm">
-              <p className="font-medium">
-                {preview.total_families} familias · {preview.total_rows} personas
-              </p>
-              <p className="text-gray-600">
-                <span className="text-green-700">{preview.valid_families} OK</span> ·{" "}
-                <span className="text-amber-700">{preview.warning_families} con advertencias</span> ·{" "}
-                <span className="text-red-700">{preview.error_families} con errores</span> ·{" "}
-                <span className="text-blue-700">{preview.duplicate_families} ya importadas</span>
-              </p>
-              {preview.parse_errors.length > 0 && (
-                <p className="text-red-700 mt-1">
-                  {preview.parse_errors.length} filas no pudieron interpretarse y fueron descartadas (corregir en origen).
-                </p>
-              )}
-            </div>
-
-            <div className="flex items-start gap-3 rounded border bg-gray-50 p-3">
-              <Switch
-                id="update-existing"
-                checked={updateExisting}
-                onCheckedChange={setUpdateExisting}
-              />
-              <Label htmlFor="update-existing" className="text-sm font-medium">
-                Actualizar familias existentes
-                <span className="mt-0.5 block text-xs font-normal text-gray-500">
-                  Re-sincroniza las {preview.duplicate_families} familias ya importadas
-                  (estado, recuento y datos; añade miembros nuevos). Si está
-                  desactivado, las duplicadas se omiten.
-                </span>
-              </Label>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              {(["ok", "warnings", "errors", "duplicates"] as FilterTab[]).map((tab) => {
-                const count =
-                  tab === "ok"
-                    ? preview.valid_families
-                    : tab === "warnings"
-                    ? preview.warning_families
-                    : tab === "errors"
-                    ? preview.error_families
-                    : preview.duplicate_families;
-                const label =
-                  tab === "ok" ? "OK" : tab === "warnings" ? "Advertencias" : tab === "errors" ? "Errores" : "Duplicadas";
-                return (
-                  <Button
-                    key={tab}
-                    variant={activeTab === tab ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setActiveTab(tab)}
-                  >
-                    {label} ({count})
-                  </Button>
-                );
-              })}
-            </div>
-
-            <div className="space-y-2">
-              {filteredGroups.length === 0 ? (
-                <p className="text-sm text-gray-500 italic">No hay familias en esta categoría.</p>
-              ) : (
-                filteredGroups.map((g, idx) => (
-                  <FamilyRow key={`${g.legacy_numero_familia}-${idx}`} group={g} />
-                ))
-              )}
-            </div>
-          </div>
-        )}
-
-        {step === 3 && (
-          <div className="flex flex-col items-center gap-3 py-8">
-            <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
-            <p className="text-sm text-gray-600">Importando familias…</p>
-          </div>
-        )}
-
-        <DialogFooter className="gap-2">
-          {step === 1 && (
-            <Button variant="outline" onClick={resetAndClose}>
-              Cancelar
+        {/* ── Sticky action bar (step 2 only, roster lane only) ──────────── */}
+        {lane === "roster" && step === 2 && preview && (
+          <div className="px-6 py-3 border-b bg-gray-50 flex flex-wrap items-center gap-2">
+            {/* Back button */}
+            <Button variant="outline" size="sm" onClick={() => setStep(1)}>
+              Volver
             </Button>
-          )}
-          {step === 2 && (
-            <>
-              <Button variant="outline" onClick={() => setStep(1)}>
-                Volver
+
+            {/* Download report button — shown when there are warnings or errors */}
+            {hasWarningsOrErrors && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  window.open(
+                    `/api/legacy-import/report/${preview.preview_token}`,
+                    "_blank",
+                    "noopener,noreferrer"
+                  )
+                }
+              >
+                <Download className="h-4 w-4 mr-1.5" />
+                Descargar reporte
               </Button>
-              <Button onClick={handleConfirm} disabled={blockedByErrors}>
-                {blockedByErrors
-                  ? "Corrige los errores antes de confirmar"
-                  : `Confirmar importación (${
-                      (preview?.valid_families ?? 0) +
-                      (preview?.warning_families ?? 0) +
-                      (updateExisting ? preview?.duplicate_families ?? 0 : 0)
-                    } familias)`}
-              </Button>
-            </>
+            )}
+
+            {/* Spacer */}
+            <div className="flex-1" />
+
+            {/* Confirm button */}
+            <Button
+              size="sm"
+              onClick={handleConfirm}
+              disabled={familiasAImportar === 0}
+            >
+              {familiasAImportar === 0
+                ? "Sin familias para importar"
+                : `Confirmar importación (${familiasAImportar} familias)`}
+            </Button>
+          </div>
+        )}
+
+        {/* ── Scrollable content area ────────────────────────────────────── */}
+        <div className="flex-1 overflow-y-auto min-h-0">
+          {lane === "informes" ? (
+            <div className="p-6">
+              <InformesEnrichLane onDone={resetAndClose} />
+            </div>
+          ) : (
+            <div className="p-6 space-y-4">
+
+              {/* Step 1: Upload */}
+              {step === 1 && (
+                <div className="space-y-5 py-2">
+                  <p className="text-sm text-gray-600">
+                    Acepta el CSV exportado del Excel <span className="font-mono">FAMILIAS</span> legacy (formato
+                    con NÚMERO FAMILIA BOCATAS, CABEZA DE FAMILIA marcada con &ldquo;x&rdquo;, miembros como filas
+                    adicionales). Para el formato CSV interno usa el otro botón.
+                  </p>
+                  <label
+                    className={`flex flex-col items-center justify-center gap-3 border-2 border-dashed rounded-lg p-8 cursor-pointer transition-colors ${
+                      dragActive ? "border-blue-500 bg-blue-50" : "hover:bg-gray-50"
+                    }`}
+                    onDragEnter={handleDrag}
+                    onDragLeave={handleDrag}
+                    onDragOver={handleDrag}
+                    onDrop={handleDrop}
+                  >
+                    {previewMutation.isPending ? (
+                      <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
+                    ) : (
+                      <Upload className="h-8 w-8 text-gray-400" />
+                    )}
+                    <span className="text-sm font-medium text-gray-600 text-center">
+                      {previewMutation.isPending
+                        ? "Analizando CSV…"
+                        : dragActive
+                        ? "Suelta el archivo CSV aquí"
+                        : "Haz clic o arrastra un archivo CSV aquí"}
+                    </span>
+                    <input
+                      type="file"
+                      accept=".csv"
+                      className="sr-only"
+                      disabled={previewMutation.isPending}
+                      onChange={handleFileChange}
+                    />
+                  </label>
+                  <div className="flex justify-end">
+                    <Button variant="outline" onClick={resetAndClose}>
+                      Cancelar
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 2: Preview */}
+              {step === 2 && preview && (
+                <div className="space-y-4 py-2">
+                  {/* Summary card */}
+                  <div className="rounded border bg-gray-50 p-3 text-sm">
+                    <p className="font-medium">
+                      {preview.total_families} familias · {preview.total_rows} personas
+                    </p>
+                    <p className="text-gray-600">
+                      <span className="text-green-700">{preview.valid_families} OK</span> ·{" "}
+                      <span className="text-amber-700">{preview.warning_families} con advertencias</span> ·{" "}
+                      <span className="text-red-700">{preview.error_families} con errores</span> ·{" "}
+                      <span className="text-blue-700">{preview.duplicate_families} ya importadas</span>
+                    </p>
+                    {preview.parse_errors.length > 0 && (
+                      <p className="text-red-700 mt-1">
+                        {preview.parse_errors.length} filas no pudieron interpretarse y fueron descartadas (corregir en origen).
+                      </p>
+                    )}
+                  </div>
+
+                  {/* "Actualizar familias existentes" toggle */}
+                  <div className="flex items-start gap-3 rounded border bg-gray-50 p-3">
+                    <Switch
+                      id="update-existing"
+                      checked={updateExisting}
+                      onCheckedChange={setUpdateExisting}
+                    />
+                    <Label htmlFor="update-existing" className="text-sm font-medium">
+                      Actualizar familias existentes
+                      <span className="mt-0.5 block text-xs font-normal text-gray-500">
+                        Re-sincroniza las {preview.duplicate_families} familias ya importadas
+                        (estado, recuento y datos; añade miembros nuevos). Si está
+                        desactivado, las duplicadas se omiten.
+                      </span>
+                    </Label>
+                  </div>
+
+                  {/* "Solo importar familias OK" toggle — shown when there are warnings or duplicates */}
+                  {(preview.warning_families > 0 || preview.duplicate_families > 0) && (
+                    <div className="flex items-start gap-3 rounded border bg-amber-50 border-amber-200 p-3">
+                      <Switch
+                        id="skip-warnings"
+                        checked={skipWarnings}
+                        onCheckedChange={setSkipWarnings}
+                      />
+                      <Label htmlFor="skip-warnings" className="text-sm font-medium">
+                        Solo importar familias OK
+                        <span className="mt-0.5 block text-xs font-normal text-gray-500">
+                          Omite las {preview.warning_families} familias con advertencias
+                          {!updateExisting && preview.duplicate_families > 0
+                            ? ` y las ${preview.duplicate_families} ya importadas`
+                            : ""}
+                          . Útil para importar solo los registros limpios y revisar el resto manualmente.
+                          {hasWarningsOrErrors && (
+                            <> Descarga el reporte para ver el detalle.</>
+                          )}
+                        </span>
+                      </Label>
+                    </div>
+                  )}
+
+                  {/* Filter tabs */}
+                  <div className="flex flex-wrap gap-2">
+                    {(["ok", "warnings", "errors", "duplicates"] as FilterTab[]).map((tab) => {
+                      const count =
+                        tab === "ok"
+                          ? preview.valid_families
+                          : tab === "warnings"
+                          ? preview.warning_families
+                          : tab === "errors"
+                          ? preview.error_families
+                          : preview.duplicate_families;
+                      const label =
+                        tab === "ok" ? "OK" : tab === "warnings" ? "Advertencias" : tab === "errors" ? "Errores" : "Duplicadas";
+                      return (
+                        <Button
+                          key={tab}
+                          variant={activeTab === tab ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setActiveTab(tab)}
+                        >
+                          {label} ({count})
+                        </Button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Family list */}
+                  <div className="space-y-2">
+                    {filteredGroups.length === 0 ? (
+                      <p className="text-sm text-gray-500 italic">No hay familias en esta categoría.</p>
+                    ) : (
+                      filteredGroups.map((g, idx) => (
+                        <FamilyRow key={`${g.legacy_numero_familia}-${idx}`} group={g} />
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Step 3: Confirming spinner */}
+              {step === 3 && (
+                <div className="flex flex-col items-center gap-3 py-8">
+                  <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
+                  <p className="text-sm text-gray-600">Importando familias…</p>
+                </div>
+              )}
+
+            </div>
           )}
-          {step === 3 && (
+        </div>
+
+        {/* ── Bottom action bar (step 3 cancel only) ────────────────────── */}
+        {step === 3 && (
+          <div className="px-6 py-3 border-t bg-gray-50 flex justify-end">
             <Button variant="outline" disabled>
               Cancelar
             </Button>
-          )}
-        </DialogFooter>
-          </>
+          </div>
         )}
       </DialogContent>
     </Dialog>

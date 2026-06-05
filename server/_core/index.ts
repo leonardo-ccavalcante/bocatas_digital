@@ -8,6 +8,9 @@ import { registerOAuthRoutes } from "./oauth";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
+import { createAdminClient } from "../../client/src/lib/supabase/server";
+import { generateWarningsReport } from "../legacyImportReport";
+import { sdk } from "./sdk";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -75,6 +78,48 @@ async function startServer() {
 
   // OAuth callback under /api/oauth/callback
   registerOAuthRoutes(app);
+
+  // ── REST: download warnings/errors Excel report for a legacy import preview ──
+  // GET /api/legacy-import/report/:token
+  // Requires a valid session cookie (admin only). Returns an .xlsx file.
+  app.get("/api/legacy-import/report/:token", async (req, res) => {
+    try {
+      // Auth: verify session cookie via sdk (same as tRPC context)
+      const user = await sdk.authenticateRequest(req).catch(() => null);
+      if (!user || user.role !== "admin") {
+        res.status(403).json({ error: "Forbidden" });
+        return;
+      }
+      const { token } = req.params;
+      if (!token || typeof token !== "string" || token.length > 128) {
+        res.status(400).json({ error: "Invalid token" });
+        return;
+      }
+      const supabase = createAdminClient();
+      const { data, error } = await supabase
+        .from("bulk_import_previews")
+        .select("parsed_rows")
+        .eq("token", token)
+        .single();
+      if (error || !data) {
+        res.status(404).json({ error: "Preview not found or expired" });
+        return;
+      }
+      const parsedRows = data.parsed_rows as { groups?: unknown[]; src_filename?: string | null };
+      const groups = (parsedRows?.groups ?? []) as Parameters<typeof generateWarningsReport>[0];
+      const buffer = await generateWarningsReport(groups);
+      const srcFilename = parsedRows?.src_filename ?? "importacion";
+      const baseName = srcFilename.replace(/\.csv$/i, "");
+      const reportName = `reporte_advertencias_${baseName}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", `attachment; filename="${reportName}"`);
+      res.send(buffer);
+    } catch (err) {
+      console.error("[legacy-import/report] Error generating report:", err);
+      res.status(500).json({ error: "Failed to generate report" });
+    }
+  });
+
   // tRPC API
   app.use(
     "/api/trpc",

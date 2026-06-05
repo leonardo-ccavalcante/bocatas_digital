@@ -49,3 +49,8 @@
 - [x] Aplicar 6 migraciones SQL de Supabase (aplicadas via Supabase MCP apply_migration)
 - [x] Tests de integración: confirm-legacy-import-upsert (6 tests) — PASAN tras aplicar migraciones
 - [x] Tests de integración: enrich-informes-rpc (2 tests) — PASAN tras aplicar migraciones
+
+- [x] Mejora: Generar reporte Excel de advertencias/errores dentro de la plataforma con botón de descarga
+- [x] Mejora: Toggle "Importar solo familias OK" (excluir advertencias y errores del import)
+- [x] Mejora: Fijar barra de acciones (botones Confirmar/Volver) en la parte superior del modal para evitar scroll
+- [x] Mejora: Familias con errores ya no bloquean la confirmación (SQL las excluye automáticamente con savepoints; frontend no bloquea si hay familias OK)

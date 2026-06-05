@@ -328,6 +328,10 @@ export const legacyImportRouter = router({
         // person fields, add new members). Set by the modal's
         // "actualizar familias existentes" toggle.
         mode: z.enum(["skip", "update"]).default("skip"),
+        // Phase 4: When the "Solo importar familias OK" toggle is active,
+        // the frontend passes the legacy numbers of warning/duplicate families
+        // so the SQL function skips them (audit: 'skipped_excluded').
+        excluded_family_numbers: z.array(z.string()).optional(),
       })
     )
     .mutation(async ({ input, ctx }): Promise<ConfirmResponse> => {
@@ -375,6 +379,9 @@ export const legacyImportRouter = router({
           p_token: input.preview_token,
           p_src_filename: safeName ?? undefined,
           p_mode: input.mode,
+          p_excluded_numbers: input.excluded_family_numbers?.length
+            ? input.excluded_family_numbers
+            : undefined,
         }
       );
       if (rpcErr) {
