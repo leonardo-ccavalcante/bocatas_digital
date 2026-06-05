@@ -198,10 +198,31 @@ export function usePreviewLegacyImport() {
   return trpc.families.previewLegacyImport.useMutation();
 }
 
-/** Atomically commit a legacy import preview (per-family savepoints). */
+/**
+ * Atomically commit a legacy roster import preview (per-family savepoints).
+ * `mode` ('skip' | 'update') is threaded through to the RPC's p_mode — the
+ * modal's "actualizar familias existentes" toggle sets it (Phase 3).
+ */
 export function useConfirmLegacyImport() {
   const utils = trpc.useUtils();
   return trpc.families.confirmLegacyImport.useMutation({
+    onSuccess: () => {
+      void utils.families.getAll.invalidate();
+    },
+  });
+}
+
+// ─── INFORMES SOCIALES enrich import (wide sheet → backfill existing families) ─
+
+/** Parse the wide INFORMES sheet, resolve against the roster, stash a preview. */
+export function usePreviewInformesImport() {
+  return trpc.families.previewInformesImport.useMutation();
+}
+
+/** Commit an INFORMES enrich preview (backfill-only; per-family savepoints). */
+export function useConfirmInformesImport() {
+  const utils = trpc.useUtils();
+  return trpc.families.confirmInformesImport.useMutation({
     onSuccess: () => {
       void utils.families.getAll.invalidate();
     },

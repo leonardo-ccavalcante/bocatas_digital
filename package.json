@@ -118,6 +118,7 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "jsdom": "^29.1.1",
     "knip": "^6.11.0",
+    "pg": "^8.21.0",
     "playwright": "^1.59.1",
     "pnpm": "^10.15.1",
     "postcss": "^8.4.47",

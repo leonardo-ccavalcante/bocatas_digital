@@ -13,6 +13,7 @@ describe("parseTabFromSearch", () => {
     expect(parseTabFromSearch("?tab=uploads")).toBe("uploads");
     expect(parseTabFromSearch("?tab=derivar")).toBe("derivar");
     expect(parseTabFromSearch("?tab=familias")).toBe("familias");
+    expect(parseTabFromSearch("?tab=repartos")).toBe("repartos");
   });
 
   it("falls back to 'familias' when tab param is unknown", () => {
@@ -46,12 +47,12 @@ describe("buildTabSearch", () => {
 });
 
 describe("PROGRAM_TABS / ENABLED_TABS", () => {
-  it("PROGRAM_TABS lists exactly the 5 tabs in order", () => {
-    expect(PROGRAM_TABS).toEqual(["familias", "mapa", "reports", "uploads", "derivar"]);
+  it("PROGRAM_TABS lists exactly the 6 tabs in order", () => {
+    expect(PROGRAM_TABS).toEqual(["familias", "repartos", "mapa", "reports", "uploads", "derivar"]);
   });
 
-  it("ENABLED_TABS includes derivar (Phase 3 active)", () => {
-    expect(ENABLED_TABS).toEqual(["familias", "uploads", "mapa", "reports", "derivar"]);
+  it("ENABLED_TABS includes repartos and derivar (Phase 3+ active)", () => {
+    expect(ENABLED_TABS).toEqual(["familias", "repartos", "uploads", "mapa", "reports", "derivar"]);
   });
 
   it("every ENABLED_TAB is also a PROGRAM_TAB", () => {

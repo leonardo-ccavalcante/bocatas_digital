@@ -3,7 +3,7 @@
  * del template CSV en el Step 1 y que el CSV generado tiene las cabeceras correctas.
  */
 import { describe, it, expect } from "vitest";
-import { buildTemplateCsv, CSV_HEADERS } from "../../../../shared/legacyFamiliasTypes";
+import { buildTemplateCsv, CSV_HEADERS } from "../../../../server/csvLegacyFamiliasMapper";
 
 describe("buildTemplateCsv", () => {
   it("genera una cadena CSV con la primera fila igual a CSV_HEADERS", () => {

@@ -32,6 +32,7 @@ import {
   type PersonCreate,
   type OcrExtracted,
   type DuplicateCandidate,
+  getConsentTemplateLanguage,
 } from "../../schemas";
 import { useDuplicateCheck } from "../../hooks/useDuplicateCheck";
 import { usePrograms } from "../../hooks/usePrograms";
@@ -41,7 +42,6 @@ import {
   type FamilyMember,
   SLUG_BANCO_ALIMENTOS,
   SLUG_FAMILIA,
-  TEMPLATE_LANGUAGES,
 } from "./_shared";
 import { useRegistrationSubmit } from "./_useSubmit";
 import { type StepperPhase } from "../registration/WizardStepper";
@@ -132,20 +132,16 @@ export function RegistrationWizard() {
   const watchedApellidos = watch("apellidos") ?? "";
   const rawProgramIds = watch("program_ids");
   const watchedProgramIds = useMemo(() => rawProgramIds ?? [], [rawProgramIds]);
-  const watchedIdioma = (watch("idioma_principal") ?? "es") as PersonCreate["idioma_principal"];
+  const watchedIdioma = watch("idioma_principal") ?? "es";
+  const templateIdioma = getConsentTemplateLanguage(watchedIdioma);
 
   // Consent fallback: no active template in the person's language → show
   // Spanish + verbal-translation banner (never silently render Spanish).
-  const needsVerbalFallback = !TEMPLATE_LANGUAGES.has(watchedIdioma);
-  const langForTemplates = (TEMPLATE_LANGUAGES.has(watchedIdioma) ? watchedIdioma : "es") as
-    | "es"
-    | "ar"
-    | "fr"
-    | "bm";
+  const needsVerbalFallback = watchedIdioma !== "es" && templateIdioma === "es";
 
   // Consent templates
   const { data: consentTemplatesEs = [] } = useConsentTemplates("es");
-  const { data: consentTemplatesLang = [] } = useConsentTemplates(langForTemplates);
+  const { data: consentTemplatesLang = [] } = useConsentTemplates(templateIdioma);
 
   // Duplicate check belongs to the identity phase (phase 1) — matches the
   // showDuplicateWarning gate below.
@@ -266,6 +262,8 @@ export function RegistrationWizard() {
     consentDocBase64,
     consentChoices,
     consentTemplatesEs,
+    consentTemplatesLang,
+    personLanguage: watchedIdioma,
     numeroSerie,
     groupAPurposes,
     groupBPurposes,

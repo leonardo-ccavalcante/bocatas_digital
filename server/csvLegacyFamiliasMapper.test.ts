@@ -9,6 +9,8 @@ import {
   parseColectivos,
   isTitular,
   parseParentesco,
+  parseEstado,
+  parseCodigoPostal,
   parseRow,
   CSV_HEADERS,
 } from "./csvLegacyFamiliasMapper";
@@ -448,23 +450,40 @@ describe("parseRow — error paths", () => {
     if (r.ok) return;
     expect(r.error.field).toBe("numero_familia");
   });
-  it("missing nombre → error", () => {
+  // Phase 5 (best-effort): missing nombre/apellidos no longer rejects the row —
+  // it recovers with a placeholder + warning so the family/member isn't lost.
+  it("missing nombre → placeholder + warning (recovered, not rejected)", () => {
     const r = parseRow(
       { numero_familia: "1030", cabeza_familia: "x", apellidos: "Y" },
       4
     );
-    expect(r.ok).toBe(false);
-    if (r.ok) return;
-    expect(r.error.field).toBe("nombre");
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.row.person.nombre).toBe("(sin nombre)");
+    expect(r.row.warnings.some((w) => w.code === "nombre_placeholder")).toBe(true);
   });
-  it("missing apellidos → error", () => {
+  it("missing apellidos → placeholder + warning (recovered, not rejected)", () => {
     const r = parseRow(
       { numero_familia: "1030", cabeza_familia: "x", nombre: "X" },
       4
     );
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.row.person.apellidos).toBe("(sin apellidos)");
+    expect(r.row.warnings.some((w) => w.code === "apellidos_placeholder")).toBe(true);
+  });
+  it("missing BOTH nombre and apellidos → both placeholders, still recovered", () => {
+    const r = parseRow({ numero_familia: "1030", cabeza_familia: "x" }, 4);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.row.person.nombre).toBe("(sin nombre)");
+    expect(r.row.person.apellidos).toBe("(sin apellidos)");
+  });
+  it("empty numero_familia stays a HARD error (not recoverable)", () => {
+    const r = parseRow({ nombre: "X", apellidos: "Y", cabeza_familia: "x" }, 4);
     expect(r.ok).toBe(false);
     if (r.ok) return;
-    expect(r.error.field).toBe("apellidos");
+    expect(r.error.field).toBe("numero_familia");
   });
   it("invalid email → error", () => {
     const r = parseRow(
@@ -506,5 +525,183 @@ describe("CSV_HEADERS", () => {
       "Situación Laboral",
       "Otras Características",
     ]);
+  });
+});
+
+// ── v2 additions (G3 dates / G5 country / R2 parentesco) — real-export cases ──
+
+describe("parseDate v2 — Spanish months, 2-digit pivot, Excel serials, junk", () => {
+  it("Spanish abbreviated month: 17-mar-83 → 1983-03-17 (unambiguous: 2083 is future)", () => {
+    const r = parseDate("17-mar-83");
+    expect(r.value).toBe("1983-03-17");
+    expect(r.warning).toBeNull();
+  });
+  it("recent 2-digit year IS ambiguous: 10/05/20 → 2020 + date_ambiguous", () => {
+    const r = parseDate("10/05/20");
+    expect(r.value).toBe("2020-05-10");
+    expect(r.warning?.code).toBe("date_ambiguous");
+  });
+  it("sept variant: 23-sept-22 → 2022-09-23", () => {
+    expect(parseDate("23-sept-22").value).toBe("2022-09-23");
+  });
+  it("full month name: 08-julio-96 → 1996-07-08", () => {
+    expect(parseDate("08-julio-96").value).toBe("1996-07-08");
+  });
+  it("Excel serial 44827 → 2022-09-23 (cross-validates the dual encoding)", () => {
+    expect(parseDate("44827").value).toBe("2022-09-23");
+  });
+  it("2-digit year pivot: 15/12/88 → 1988-12-15", () => {
+    expect(parseDate("15/12/88").value).toBe("1988-12-15");
+  });
+  it("junk punctuation stripped: º / // / _ / .", () => {
+    expect(parseDate("12-jun-º75").value).toBe("1975-06-12");
+    expect(parseDate("24/02//1978").value).toBe("1978-02-24");
+    expect(parseDate("20-09_1988").value).toBe("1988-09-20");
+    expect(parseDate("01-ago-.95").value).toBe("1995-08-01");
+  });
+  it("unrecoverable → date_invalid: xx/xx/1976, !0-1-78, year-only 1985", () => {
+    expect(parseDate("xx/xx/1976").warning?.code).toBe("date_invalid");
+    expect(parseDate("!0-1-78").warning?.code).toBe("date_invalid");
+    expect(parseDate("1985").warning?.code).toBe("date_invalid");
+  });
+  it("4-digit dd/mm/yyyy stays unambiguous (no warning)", () => {
+    expect(parseDate("30/09/2020")).toEqual({ value: "2020-09-30", warning: null });
+  });
+});
+
+describe("parseCountry v2 — 128-value tail (typos, adjectivals, abbrev, dual, city)", () => {
+  it("uppercase/lowercase variants → ES", () => {
+    expect(parseCountry("ESPAÑA").value).toBe("ES");
+    expect(parseCountry("españa").value).toBe("ES");
+  });
+  it("typos: Hoduras→HN, Venezula→VE, Maruecos→MA", () => {
+    expect(parseCountry("Hoduras").value).toBe("HN");
+    expect(parseCountry("Venezula").value).toBe("VE");
+    expect(parseCountry("Maruecos").value).toBe("MA");
+  });
+  it("adjectival forms: Colombiana→CO, Peruana→PE, Boliviana→BO", () => {
+    expect(parseCountry("Colombiana").value).toBe("CO");
+    expect(parseCountry("Peruana").value).toBe("PE");
+    expect(parseCountry("Boliviana").value).toBe("BO");
+  });
+  it("abbreviations: Rep. Dominicana / Santo Domingo → DO", () => {
+    expect(parseCountry("Rep. Dominicana").value).toBe("DO");
+    expect(parseCountry("Santo Domingo").value).toBe("DO");
+  });
+  it("dual nationality takes first: Perú/Española → PE", () => {
+    expect(parseCountry("Perú/Española").value).toBe("PE");
+  });
+  it("city-as-country: Tehran, Iran → IR", () => {
+    expect(parseCountry("Tehran, Iran").value).toBe("IR");
+  });
+  it("stray backtick: `PERU → PE", () => {
+    expect(parseCountry("`PERU").value).toBe("PE");
+  });
+  it("junk 'SI' → country_unknown", () => {
+    expect(parseCountry("SI").warning?.code).toBe("country_unknown");
+  });
+});
+
+describe("parseParentesco v2 — slash forms + expanded synonyms", () => {
+  it("slash forms: Hijo/a→hijo_a, ESPOSO/A→esposo_a, NIETO/A→other", () => {
+    expect(parseParentesco("Hijo/a").relacion).toBe("hijo_a");
+    expect(parseParentesco("ESPOSO/A").relacion).toBe("esposo_a");
+    expect(parseParentesco("NIETO/A").relacion).toBe("other");
+  });
+  it("Marido/Mujer → esposo_a", () => {
+    expect(parseParentesco("Marido").relacion).toBe("esposo_a");
+    expect(parseParentesco("Mujer").relacion).toBe("esposo_a");
+  });
+  it("Pareja → other (+ warning; not coerced to spouse)", () => {
+    const r = parseParentesco("Pareja");
+    expect(r.relacion).toBe("other");
+    expect(r.warning?.code).toBe("parentesco_coerced");
+  });
+});
+
+describe("parseDate v2 — review-driven boundary cases (F-1, F-7)", () => {
+  it("pre-1941 Excel serial now accepted (F-1): 14000 → 1938-04-30", () => {
+    expect(parseDate("14000").value).toBe("1938-04-30");
+  });
+  it("4-digit year still rejected as serial: 1985 → date_invalid", () => {
+    expect(parseDate("1985").warning?.code).toBe("date_invalid");
+  });
+  it("pivot boundary is stable across calendar years", () => {
+    const yy = new Date().getFullYear() % 100;
+    const next = String((yy + 1) % 100).padStart(2, "0");
+    // current 2-digit year → 20yy (valid past) → ambiguous
+    const cur = parseDate(`01/06/${String(yy).padStart(2, "0")}`);
+    expect(cur.warning?.code).toBe("date_ambiguous");
+    // next year as 2 digits → 20(yy+1) would be future → must be 19xx → unambiguous
+    expect(parseDate(`01/06/${next}`).warning).toBeNull();
+  });
+});
+
+describe("parseEstado (Phase 2 — families.estado activa/baja)", () => {
+  it("A / Activa / Activo / Alta → activa", () => {
+    expect(parseEstado("A").value).toBe("activa");
+    expect(parseEstado("Activa").value).toBe("activa");
+    expect(parseEstado("Activo").value).toBe("activa");
+    expect(parseEstado(" alta ").value).toBe("activa");
+  });
+  it("B / Baja → baja", () => {
+    expect(parseEstado("B").value).toBe("baja");
+    expect(parseEstado("BAJA").value).toBe("baja");
+  });
+  it("real-file junk → null + estado_unknown", () => {
+    expect(parseEstado("NP").warning?.code).toBe("estado_unknown");
+    expect(parseEstado("125").warning?.code).toBe("estado_unknown");
+    expect(parseEstado("Esta en otro codigo").warning?.code).toBe("estado_unknown");
+  });
+  it("empty → null, no warning", () => {
+    expect(parseEstado("")).toEqual({ value: null, warning: null });
+    expect(parseEstado(undefined)).toEqual({ value: null, warning: null });
+  });
+});
+
+describe("parseCodigoPostal (B3 — must satisfy ^\\d{5}$ or null+warn)", () => {
+  it("clean 5-digit", () => {
+    expect(parseCodigoPostal("28012").value).toBe("28012");
+  });
+  it("strips trailing space / dots / slashes (first CP wins)", () => {
+    expect(parseCodigoPostal("28012 ").value).toBe("28012");
+    expect(parseCodigoPostal("28.012").value).toBe("28012");
+    expect(parseCodigoPostal("28012/28013").value).toBe("28012");
+    expect(parseCodigoPostal("Madrid 28012").value).toBe("28012");
+  });
+  it("non-CP text → null + cp_invalid", () => {
+    expect(parseCodigoPostal("Madrid").warning?.code).toBe("cp_invalid");
+    expect(parseCodigoPostal("2801").warning?.code).toBe("cp_invalid"); // 4 digits
+  });
+  it("rejects impossible province (guards misrouted phone numbers)", () => {
+    expect(parseCodigoPostal("604372950").value).toBeNull(); // prov 60 > 52
+    expect(parseCodigoPostal("604372950").warning?.code).toBe("cp_invalid");
+  });
+  it("empty → null, no warning", () => {
+    expect(parseCodigoPostal("")).toEqual({ value: null, warning: null });
+  });
+});
+
+describe("parseRow — Phase 2 estado + validated codigo_postal threading", () => {
+  it("threads ACTIVA→activa estado and a validated CP onto the CleanRow/person", () => {
+    const r = parseRow(
+      { numero_familia: "9001", nombre: "X", apellidos: "Y", cabeza_familia: "x",
+        estado: "A", codigo_postal: "28004 " },
+      4
+    );
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.row.estado).toBe("activa");
+    expect(r.row.person.codigo_postal).toBe("28004");
+  });
+  it("flags a dirty CP (never emits a value that violates the ^\\d{5}$ CHECK)", () => {
+    const r = parseRow(
+      { numero_familia: "9001", nombre: "X", apellidos: "Y", cabeza_familia: "x",
+        codigo_postal: "Madrid" },
+      4
+    );
+    if (!r.ok) throw new Error("expected ok");
+    expect(r.row.person.codigo_postal).toBeNull();
+    expect(r.row.warnings.map((w) => w.code)).toContain("cp_invalid");
   });
 });

@@ -22,6 +22,11 @@ const HIGH_RISK_FIELDS = [
   "situacion_legal",
   "recorrido_migratorio",
   "foto_documento_url",
+  // Family social-report narrative (INFORMES SOCIALES). GDPR Art. 9 — admin/
+  // superadmin only. Applied wherever a families row is returned (e.g.
+  // families/crud.ts getById). NOTE: verify list paths also redact.
+  "situacion_familiar_texto",
+  "necesidades_texto",
 ] as const;
 
 const ELEVATED_ROLES = new Set(["admin", "superadmin"]);

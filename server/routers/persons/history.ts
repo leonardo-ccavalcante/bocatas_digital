@@ -1,16 +1,16 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { createAdminClient } from "../../../client/src/lib/supabase/server";
-import { protectedProcedure, router } from "../../_core/trpc";
+import { adminProcedure, router } from "../../_core/trpc";
 import { uuidLike } from "./_shared";
 
 export const historyRouter = router({
   /**
    * getCheckinHistory — paginated check-in history for a person.
    * Returns { rows, total, hasMore } with location name, program, method, date, time.
-   * Admin-only: protectedProcedure (any authenticated user can view for now).
+   * Admin-only because attendance history identifies a person and their service usage.
    */
-  getCheckinHistory: protectedProcedure
+  getCheckinHistory: adminProcedure
     .input(
       z.object({
         personId: uuidLike,

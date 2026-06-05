@@ -2,11 +2,14 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, adminProcedure } from "../../_core/trpc";
 import { createAdminClient, createUserImpersonationClient } from "../../../client/src/lib/supabase/server";
-import { parseCSVLine } from "../announcements/_shared";
+import { parseRow } from "../../csvLegacyFamiliasMapper";
 import {
+  parseCSVDocument,
+  resolveColumnMap,
   fieldsToLegacyRow,
-  parseRow,
-} from "../../csvLegacyFamiliasMapper";
+  REQUIRED_KEYS,
+  type ColumnMap,
+} from "../../csvLegacyFamiliasParser";
 import { assembleFamilyGroups } from "../../csvLegacyFamiliasGroup";
 import {
   type CleanRow,
@@ -30,14 +33,8 @@ const PROBE_CHUNK_SIZE = 500;
 
 interface PersonProbeRow {
   id: string;
-  nombre: string;
-  apellidos: string | null;
-  fecha_nacimiento: string | null;
+  numero_documento: string | null;
   pais_origen: string | null;
-}
-
-function probeKey(nombre: string, apellidos: string, fecha: string | null): string {
-  return `${nombre.toLowerCase()}|${apellidos.toLowerCase()}|${fecha ?? ""}`;
 }
 
 /**
@@ -73,71 +70,65 @@ export const legacyImportRouter = router({
       })
     )
     .mutation(async ({ input, ctx }): Promise<PreviewResponse> => {
-      const csvNormalised = input.csv
-        .replace(/^﻿/, "")
-        .replace(/\r\n/g, "\n")
-        .replace(/\r/g, "\n");
+      // Parse the WHOLE document quote-aware (G2): the real export's NOTAS
+      // cells contain embedded newlines, so a line-by-line split shatters
+      // ~92 records. parseCSVDocument treats newlines inside quotes as content.
+      let records: string[][];
+      try {
+        records = parseCSVDocument(input.csv);
+      } catch {
+        // parseCSVDocument throws past its record ceiling (memory guard).
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "El archivo CSV es demasiado grande o está mal formado.",
+        });
+      }
 
-      const rawLines = csvNormalised.split("\n");
-
-      // Find the header row: first non-empty line whose first non-empty field
-      // matches "NÚMERO DE ORDEN" (case-sensitive). Tolerates leading blank /
-      // metadata rows like the user's CSV which has an empty row 1 and a
-      // multi-line header in rows 2-3.
-      let headerLineIdx = -1;
-      for (let i = 0; i < rawLines.length; i++) {
-        const fields = parseCSVLine(rawLines[i]);
-        if (fields[0]?.trim().startsWith("NÚMERO DE ORDEN")) {
-          headerLineIdx = i;
+      // Locate the header by STRUCTURE, not position: the first of the first
+      // few records whose columns resolve (by name) to all REQUIRED_KEYS.
+      // This tolerates the leading blank row + the multi-line CABEZA cell, and
+      // — crucially (G1) — maps each canonical field to its true column even
+      // though the real export interleaves 35 extra columns between them.
+      let headerIdx = -1;
+      let columnMap: ColumnMap | null = null;
+      for (let i = 0; i < Math.min(records.length, 10); i++) {
+        const candidate = resolveColumnMap(records[i]);
+        if (REQUIRED_KEYS.every((k) => candidate.has(k))) {
+          headerIdx = i;
+          columnMap = candidate;
           break;
         }
       }
-      if (headerLineIdx === -1) {
+      if (headerIdx === -1 || !columnMap) {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message:
-            "Encabezado no encontrado. La primera columna debe ser 'NÚMERO DE ORDEN'.",
+            "Encabezado no encontrado. Se requieren las columnas NUMERO FAMILIA BOCATAS, NOMBRE, APELLIDOS y CABEZA DE FAMILIA.",
         });
       }
 
-      // Detect whether the header is split across two physical rows (the user's
-      // CSV puts CABEZA DE FAMILIA on one row and "(MARCAR CON UNA X DONDE
-      // PROCEDA)" on the next). When the header is split, the second row's
-      // first column is also part of the header line — rejoin and skip.
-      let dataStartLine = headerLineIdx + 1;
-      const nextLine = rawLines[headerLineIdx + 1] ?? "";
-      const nextFields = parseCSVLine(nextLine);
-      // Heuristic: if the next row has fewer than half the columns of the
-      // header AND its first non-empty field looks like the parenthetical
-      // continuation, treat it as a header continuation.
-      if (
-        nextFields[0]?.trim().startsWith("(MARCAR CON UNA X")
-      ) {
-        dataStartLine = headerLineIdx + 2;
-      }
-
-      // Hard cap on data row count.
-      const dataLineCount = rawLines.length - dataStartLine;
-      if (dataLineCount > MAX_BULK_ROWS) {
+      const dataRecords = records.slice(headerIdx + 1);
+      if (dataRecords.length > MAX_BULK_ROWS) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: `El CSV tiene ${dataLineCount} filas de datos; el máximo por importación es ${MAX_BULK_ROWS}.`,
+          message: `El CSV tiene ${dataRecords.length} filas de datos; el máximo por importación es ${MAX_BULK_ROWS}.`,
         });
       }
 
+      const famIdx = columnMap.get("numero_familia")!;
       const cleanRows: CleanRow[] = [];
       const parseErrors: RowError[] = [];
 
-      for (let i = dataStartLine; i < rawLines.length; i++) {
-        const line = rawLines[i];
-        if (!line.trim()) continue;
-        const fields = parseCSVLine(line).map((f) => f.trim());
-        // Skip rows with no NUMERO FAMILIA BOCATAS — they are blank or trailing.
-        if (!fields[1]) continue;
+      for (let r = 0; r < dataRecords.length; r++) {
+        const rec = dataRecords[r];
+        // Skip fully-blank rows and the right-hand pivot-stats block (rows with
+        // no NUMERO FAMILIA BOCATAS).
+        if (rec.every((c) => c.trim() === "")) continue;
+        if (!(rec[famIdx] ?? "").trim()) continue;
 
-        const legacy = fieldsToLegacyRow(fields);
-        // The CSV's row indices are 1-based (line 1 in spreadsheet view).
-        const rowNumber = i + 1;
+        const legacy = fieldsToLegacyRow(rec, columnMap);
+        // 1-based spreadsheet row number for operator-facing error messages.
+        const rowNumber = headerIdx + 1 + r + 1;
         const result = parseRow(legacy, rowNumber);
         if (result.ok) {
           cleanRows.push(result.row);
@@ -198,30 +189,30 @@ export const legacyImportRouter = router({
         }
       }
 
-      // 2. Person dedup probe.
+      // 2. Person dedup probe (LOW-4 — DOCUMENT-based).
       //
-      // Strategy: collect all unique (nombre, apellidos, dob) triples from
-      // the CSV; query persons restricted by `fecha_nacimiento IN (...dobs)`
-      // (parameterized via Supabase JS client — no string interpolation),
-      // then filter the candidate set in-memory by exact (nombre, apellidos)
-      // match per probe. This avoids hand-crafting PostgREST `or()` filter
-      // strings (injection risk) and keeps the dedup probe to a single
-      // SELECT regardless of probe count.
-      const dobSet = new Set<string>();
+      // The actual merge (upsert_legacy_person) dedups STRICTLY by
+      // numero_documento (B1: name+DOB is never a merge key — it false-merges
+      // distinct people). The preview must mirror that, or it shows the
+      // operator "dedup hits" that will never merge. So we probe persons by
+      // `numero_documento IN (...docs)` (parameterized via the Supabase JS
+      // client — no string interpolation) and report a hit only for a row whose
+      // document already exists. Rows with no document never merge.
+      const docSet = new Set<string>();
       for (const g of groups) {
         for (const r of g.rows) {
-          if (r.person.fecha_nacimiento) dobSet.add(r.person.fecha_nacimiento);
+          if (r.person.numero_documento) docSet.add(r.person.numero_documento);
         }
       }
-      const probeKeyToRow = new Map<string, PersonProbeRow>();
-      if (dobSet.size > 0) {
-        const dobList = [...dobSet];
-        for (let start = 0; start < dobList.length; start += PROBE_CHUNK_SIZE) {
-          const chunk = dobList.slice(start, start + PROBE_CHUNK_SIZE);
+      const docToRow = new Map<string, PersonProbeRow>();
+      if (docSet.size > 0) {
+        const docList = [...docSet];
+        for (let start = 0; start < docList.length; start += PROBE_CHUNK_SIZE) {
+          const chunk = docList.slice(start, start + PROBE_CHUNK_SIZE);
           const { data: rows, error: probeErr } = await db
             .from("persons")
-            .select("id, nombre, apellidos, fecha_nacimiento, pais_origen")
-            .in("fecha_nacimiento", chunk)
+            .select("id, numero_documento, pais_origen")
+            .in("numero_documento", chunk)
             .is("deleted_at", null);
           if (probeErr) {
             // Soft-fail: dedup is advisory; log and continue without it
@@ -233,10 +224,7 @@ export const legacyImportRouter = router({
             break;
           }
           for (const row of (rows ?? []) as PersonProbeRow[]) {
-            probeKeyToRow.set(
-              probeKey(row.nombre, row.apellidos ?? "", row.fecha_nacimiento),
-              row
-            );
+            if (row.numero_documento) docToRow.set(row.numero_documento, row);
           }
         }
       }
@@ -244,12 +232,9 @@ export const legacyImportRouter = router({
       for (const g of groups) {
         const hits: PersonDedupHit[] = [];
         for (let idx = 0; idx < g.rows.length; idx++) {
-          const r = g.rows[idx];
-          const dob = r.person.fecha_nacimiento;
-          if (!dob) continue;
-          const match = probeKeyToRow.get(
-            probeKey(r.person.nombre, r.person.apellidos, dob)
-          );
+          const doc = g.rows[idx].person.numero_documento;
+          if (!doc) continue;
+          const match = docToRow.get(doc);
           if (match) {
             hits.push({
               row_index: idx,
@@ -278,11 +263,10 @@ export const legacyImportRouter = router({
         .select("token")
         .single();
       if (insertErr || !preview) {
+        // PII-safe: a CHECK violation can echo the failing row (full parsed_rows
+        // incl. Art.9 narrative) in message/details/hint — log only code + id.
         ctx.logger.error("[legacy-import] preview stash failed", {
           code: insertErr?.code,
-          message: insertErr?.message,
-          details: insertErr?.details,
-          hint: insertErr?.hint,
           correlationId: ctx.correlationId,
         });
         throw new TRPCError({
@@ -339,6 +323,11 @@ export const legacyImportRouter = router({
       z.object({
         preview_token: uuidLike,
         src_filename: z.string().max(MAX_FILENAME_LENGTH).optional(),
+        // Phase 3: 'skip' (default) leaves existing legacy_numero untouched;
+        // 'update' re-syncs (overwrite family operational fields, backfill
+        // person fields, add new members). Set by the modal's
+        // "actualizar familias existentes" toggle.
+        mode: z.enum(["skip", "update"]).default("skip"),
       })
     )
     .mutation(async ({ input, ctx }): Promise<ConfirmResponse> => {
@@ -372,7 +361,9 @@ export const legacyImportRouter = router({
       // Fix: sign a short-lived Supabase JWT for the authenticated user so the RPC
       // sees the correct role and uid.
       // IMPORTANT: sub must equal actorId (String(ctx.user.id)) because the RPC
-      // checks `created_by = auth.uid()::text` for ownership verification.
+      // checks `created_by = (auth.jwt() ->> 'sub')` for ownership verification.
+      // Do NOT reintroduce auth.uid() — it casts sub->uuid and raises 22P02 for
+      // the non-UUID Manus openId (see migration 20260605000001 / 20260506000003).
       const userDb = await createUserImpersonationClient(
         actorId,
         ctx.user.role
@@ -383,6 +374,7 @@ export const legacyImportRouter = router({
         {
           p_token: input.preview_token,
           p_src_filename: safeName ?? undefined,
+          p_mode: input.mode,
         }
       );
       if (rpcErr) {

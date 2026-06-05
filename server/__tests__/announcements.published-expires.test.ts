@@ -1,11 +1,12 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { createAdminClient } from '../../client/src/lib/supabase/server';
 import type { Database } from '../../client/src/lib/database.types';
 import { randomUUID } from 'crypto';
+import { getRealSupabaseDescribe } from './db-test-env';
+
+const describeDb = getRealSupabaseDescribe();
 
 describe('Announcements - published_at/expires_at columns', () => {
-  const db = createAdminClient();
-
   it('should have published_at and expires_at columns in database.types', async () => {
     // This test verifies the TypeScript types include the new columns
     // The actual database migration will be verified by the next test
@@ -22,6 +23,10 @@ describe('Announcements - published_at/expires_at columns', () => {
     expect(testRow.published_at).toBeDefined();
     expect(testRow.expires_at).toBeDefined();
   });
+});
+
+describeDb('Announcements - published_at/expires_at live database behavior', () => {
+  const db = createAdminClient();
 
   it('should allow creating announcement with published_at and expires_at', async () => {
     const publishedDate = '2026-05-01';

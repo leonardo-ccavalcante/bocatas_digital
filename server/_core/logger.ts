@@ -26,6 +26,80 @@ export interface LogEntry {
   [key: string]: any;
 }
 
+export const REDACTED_LOG_VALUE = "[redacted]";
+
+const SENSITIVE_LOG_KEY_NORMALIZED = new Set([
+  "nombre",
+  "apellidos",
+  "telefono",
+  "email",
+  "direccion",
+  "tipodocumento",
+  "numerodocumento",
+  "paisdocumento",
+  "fechanacimiento",
+  "fechallegadaespana",
+  "situacionlegal",
+  "recorridomigratorio",
+  "fotodocumentourl",
+  "documentofotourl",
+  "notasprivadas",
+  "observaciones",
+  "necesidadesprincipales",
+  "restriccionesalimentarias",
+  "consenttext",
+  "consentimiento",
+]);
+
+function normalizeLogKey(key: string): string {
+  return key.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+}
+
+function isSensitiveLogKey(key: string): boolean {
+  const normalized = normalizeLogKey(key);
+  return (
+    SENSITIVE_LOG_KEY_NORMALIZED.has(normalized) ||
+    normalized.endsWith("email") ||
+    normalized.endsWith("telefono") ||
+    normalized.endsWith("nombre") ||
+    normalized.endsWith("apellidos") ||
+    normalized.endsWith("numerodocumento") ||
+    normalized.endsWith("documentofotourl") ||
+    normalized.endsWith("fotodocumentourl")
+  );
+}
+
+export function redactLogValue(
+  value: unknown,
+  seen: WeakSet<object> = new WeakSet()
+): unknown {
+  if (value === null || value === undefined) return value;
+  if (value instanceof Error) return value;
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value !== "object") return value;
+
+  if (seen.has(value)) return "[circular]";
+  seen.add(value);
+
+  if (Array.isArray(value)) {
+    return value.map((item) => redactLogValue(item, seen));
+  }
+
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).map(([key, item]) => [
+      key,
+      isSensitiveLogKey(key) ? REDACTED_LOG_VALUE : redactLogValue(item, seen),
+    ])
+  );
+}
+
+export function sanitizeLogMetadata(
+  metadata?: Record<string, any>
+): Record<string, any> | undefined {
+  if (!metadata) return undefined;
+  return redactLogValue(metadata) as Record<string, any>;
+}
+
 export class Logger {
   private logs: LogEntry[] = [];
   private maxSize: number;
@@ -116,11 +190,12 @@ export class Logger {
    * Internal: add log entry to ring buffer
    */
   private addLog(level: LogLevel, message: string, metadata?: Record<string, any>): void {
+    const safeMetadata = sanitizeLogMetadata(metadata);
     const entry: LogEntry = {
       level,
       message,
       timestamp: new Date().toISOString(),
-      ...metadata,
+      ...safeMetadata,
     };
 
     // Extract error details if present

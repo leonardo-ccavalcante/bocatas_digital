@@ -1,7 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { auditSoftDeleteSchema, SOFT_DELETE_REQUIRED_TABLES } from "../db/soft-delete-audit";
+import { getRealSupabaseDescribe } from "./db-test-env";
 
-describe("Soft-Delete Schema Audit", () => {
+const describeDb = getRealSupabaseDescribe();
+
+describeDb("Soft-Delete Schema Audit live database", () => {
   it("identifies all tables with soft-delete requirements", async () => {
     const audit = await auditSoftDeleteSchema();
 
@@ -53,7 +56,9 @@ describe("Soft-Delete Schema Audit", () => {
       expect(sql).toContain("deleted_at");
     }
   }, 30_000);
+});
 
+describe("Soft-Delete Schema Audit static config", () => {
   it("SOFT_DELETE_REQUIRED_TABLES does not include legacy table names", () => {
     const tables = SOFT_DELETE_REQUIRED_TABLES as readonly string[];
     expect(tables).not.toContain("entregas");

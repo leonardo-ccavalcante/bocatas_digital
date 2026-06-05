@@ -14,19 +14,15 @@
  * Gated on SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY env so the test does
  * not require local supabase. Runs as a query — no DML.
  */
-import { describe, it, expect } from "vitest";
+import { it, expect } from "vitest";
 import { createClient } from "@supabase/supabase-js";
+import { getRealSupabaseDescribe } from "./db-test-env";
 
 const url = process.env.SUPABASE_URL;
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const isLive = Boolean(url && key);
+const describeDb = getRealSupabaseDescribe();
 
-describe("sanitize_audit_error SQL function", () => {
-  if (!isLive) {
-    it.skip("requires SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY to run live", () => {});
-    return;
-  }
-
+describeDb("sanitize_audit_error SQL function", () => {
   const db = createClient(url!, key!, { auth: { persistSession: false } });
 
   async function sanitize(msg: string): Promise<string> {

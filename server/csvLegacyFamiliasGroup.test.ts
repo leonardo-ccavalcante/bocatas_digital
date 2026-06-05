@@ -14,6 +14,7 @@ function row(overrides: Partial<CleanRow> & { legacy_numero_familia: string; row
     is_titular: overrides.is_titular ?? false,
     parentesco_original: overrides.parentesco_original ?? null,
     fecha_alta: overrides.fecha_alta ?? null,
+    estado: overrides.estado ?? null,
     person: overrides.person ?? {
       nombre: "Test",
       apellidos: "Person",
@@ -29,6 +30,7 @@ function row(overrides: Partial<CleanRow> & { legacy_numero_familia: string; row
       nivel_estudios: null,
       situacion_laboral: null,
       observaciones: null,
+      codigo_postal: null,
       metadata: { colectivos: [], legacy_row: overrides.row_number },
     },
     relacion_db: overrides.relacion_db ?? "other",
