@@ -4,6 +4,17 @@
 **Companion plan (full history + decisions):** `~/.claude/plans/ok-now-we-have-sunny-pizza.md`
 **Project memory:** `project-bocatas-legacy-familias-import-hardening` (in the auto-memory dir).
 
+> **STATUS (2026-06-05): IMPLEMENTED on branch `feat/legacy-familias-phase3-5`** (forked off the
+> already-merged `origin/main` `b0db4fb`; §1 rebase was obsolete — PR #69 merged the base).
+> Done: Phase 3 (repeatable upsert + familia enrollment), Phase 4 (two-lane modal), Phase 5
+> (placeholders), follow-ups M-1 / LOW-4 / member-conflict. A multi-agent review surfaced + fixed
+> 12 findings (incl. a HIGH enrollment-23505 and a latent `auth.uid()::text` 22P02 in both RPCs →
+> `auth.jwt() ->> 'sub'`). `pnpm check`/`lint` clean; importer suite green. **Still open (not dev):**
+> the §5 member-match confirmation UI mechanism (weak `name_first_apellido` matches stay flag-only),
+> the §4 *to-confirm* "overwrite vs backfill" is locked to overwrite-family/backfill-person, the
+> §1 runtime gates (`/qa` Gate D, `/benchmark`, full WCAG audit), and the §8 RGPD + manual prod-apply
+> gates. No prod migration applied.
+
 ---
 
 ## 0. TL;DR
