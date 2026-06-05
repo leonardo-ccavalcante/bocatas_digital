@@ -17,25 +17,21 @@
  *   - created_by is stored as String(ctx.user.id) — must match sub for ownership check
  */
 
-import { describe, it, expect, afterAll } from "vitest";
+import { it, expect, afterAll } from "vitest";
 import { createClient } from "@supabase/supabase-js";
 import { SignJWT } from "jose";
+import { getRealSupabaseDescribe, hasRealSupabaseEnv } from "./db-test-env";
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const jwtSecret = process.env.SUPABASE_JWT_SECRET;
+const hasDb = hasRealSupabaseEnv({ requireJwtSecret: true });
+const describeDb = getRealSupabaseDescribe({ requireJwtSecret: true });
 
-if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey || !jwtSecret) {
-  throw new Error(
-    "Missing required env vars: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, " +
-    "SUPABASE_SERVICE_ROLE_KEY, SUPABASE_JWT_SECRET"
-  );
-}
-
-const adminDb = createClient(supabaseUrl, supabaseServiceKey, {
+const adminDb = hasDb ? createClient(supabaseUrl!, supabaseServiceKey!, {
   auth: { persistSession: false, autoRefreshToken: false },
-});
+}) : null;
 
 /** Helper: create a Supabase client impersonating a user with the given actorId and role */
 async function makeUserClient(actorId: string, role: string) {
@@ -62,7 +58,7 @@ async function makeUserClient(actorId: string, role: string) {
 const createdTokens: string[] = [];
 
 afterAll(async () => {
-  if (createdTokens.length > 0) {
+  if (adminDb && createdTokens.length > 0) {
     await adminDb
       .from("bulk_import_previews")
       .delete()
@@ -70,7 +66,7 @@ afterAll(async () => {
   }
 });
 
-describe("createUserImpersonationClient — SUPABASE_JWT_SECRET integration", () => {
+describeDb("createUserImpersonationClient — SUPABASE_JWT_SECRET integration", () => {
   it("role check passes for admin (no 42501 error)", async () => {
     // A fake token — the RPC will fail with 'preview expired or not found',
     // NOT with 'forbidden: legacy import requires admin role'. This proves
@@ -117,7 +113,7 @@ describe("createUserImpersonationClient — SUPABASE_JWT_SECRET integration", ()
       src_filename: "test-confirm.csv",
     };
 
-    const { data: preview, error: insertErr } = await adminDb
+    const { data: preview, error: insertErr } = await adminDb!
       .from("bulk_import_previews")
       .insert({ parsed_rows: payload, created_by: actorId })
       .select("token")
@@ -179,7 +175,7 @@ describe("createUserImpersonationClient — SUPABASE_JWT_SECRET integration", ()
       src_filename: "test-shape.csv",
     };
 
-    const { data: preview, error: insertErr } = await adminDb
+    const { data: preview, error: insertErr } = await adminDb!
       .from("bulk_import_previews")
       .insert({ parsed_rows: payload, created_by: actorId })
       .select("token")

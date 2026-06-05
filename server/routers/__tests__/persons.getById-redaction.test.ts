@@ -1,11 +1,10 @@
 /**
  * persons.getById-redaction.test.ts — TECH_DEBT C-01 (P1 PII leak).
  *
- * persons.getById is a protectedProcedure that used createAdminClient()
- * (service role, bypasses RLS) + .select("*") + raw return — so any
- * authenticated voluntario received the high-risk PII fields. CLAUDE.md §3
- * restricts these to admin/superadmin. This test locks the redaction
- * boundary (mirrors families.getById).
+ * persons.getById uses createAdminClient() (service role, bypasses RLS) +
+ * .select("*"), so the tRPC boundary must stay admin-only and must not echo
+ * raw DB errors. Field-level redaction is covered separately by
+ * server/__tests__/rlsRedaction.test.ts.
  *
  * Mocking pattern: server/__tests__/mapa-router.test.ts.
  */
@@ -82,19 +81,12 @@ beforeEach(() => {
 });
 
 describe("persons.getById — high-risk PII redaction (C-01)", () => {
-  it("strips ALL high-risk + restricted fields for a voluntario", async () => {
-    fromMock.mockReturnValueOnce(mockGetByIdChain({ ...FULL_ROW }));
+  it("rejects voluntario before reading person data", async () => {
     const caller = crudRouter.createCaller(ctxWithRole("voluntario"));
-    const result = (await caller.getById({ id: FULL_ROW.id })) as Record<
-      string,
-      unknown
-    >;
-    for (const field of HIGH_RISK) {
-      expect(result[field]).toBeUndefined();
-    }
-    // Non-sensitive fields still present.
-    expect(result.nombre).toBe("Ana");
-    expect(result.fase_itinerario).toBe(1);
+    await expect(caller.getById({ id: FULL_ROW.id })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    expect(fromMock).not.toHaveBeenCalled();
   });
 
   it("returns high-risk fields to an admin", async () => {
@@ -104,9 +96,9 @@ describe("persons.getById — high-risk PII redaction (C-01)", () => {
       string,
       unknown
     >;
-    expect(result.situacion_legal).toBe("irregular");
-    expect(result.recorrido_migratorio).toBe("ruta detallada");
-    expect(result.foto_documento_url).toBe("https://x/doc.jpg");
+    for (const field of HIGH_RISK) {
+      expect(result[field]).toBe(FULL_ROW[field]);
+    }
   });
 
   it("returns high-risk fields to a superadmin", async () => {

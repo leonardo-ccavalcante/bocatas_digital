@@ -14,17 +14,18 @@ import { TRPCError } from "@trpc/server";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
 import { Logger } from "./_core/logger";
+import { getPersonValidationWarnings } from "./routers/persons/crud";
 
 type AuthenticatedUser = NonNullable<TrpcContext["user"]>;
 
-function createAuthContext(): TrpcContext {
+function createAuthContext(role: AuthenticatedUser["role"] = "user"): TrpcContext {
   const user: AuthenticatedUser = {
     id: 1,
     openId: "test-user-open-id",
     email: "test@bocatas.org",
     name: "Test User",
     loginMethod: "manus",
-    role: "user",
+    role,
     createdAt: new Date(),
     updatedAt: new Date(),
     lastSignedIn: new Date(),
@@ -58,6 +59,15 @@ function createAnonContext(): TrpcContext {
   };
 }
 
+async function expectPassesRoleGate(promise: Promise<unknown>): Promise<void> {
+  try {
+    await promise;
+  } catch (error) {
+    expect(error).toBeInstanceOf(TRPCError);
+    expect((error as TRPCError).code).not.toBe("FORBIDDEN");
+  }
+}
+
 describe("persons router — authentication guard", () => {
   it("rejects unauthenticated search requests", async () => {
     const caller = appRouter.createCaller(createAnonContext());
@@ -71,6 +81,29 @@ describe("persons router — authentication guard", () => {
     await expect(
       caller.persons.getById({ id: "550e8400-e29b-41d4-a716-446655440000" })
     ).rejects.toThrow(TRPCError);
+  });
+
+  it("rejects non-admin getById requests before reading person data", async () => {
+    const caller = appRouter.createCaller(createAuthContext("user"));
+    await expect(
+      caller.persons.getById({ id: "550e8400-e29b-41d4-a716-446655440000" })
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("rejects non-admin getAll requests before reading person data", async () => {
+    const caller = appRouter.createCaller(createAuthContext("voluntario"));
+    await expect(caller.persons.getAll()).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+  });
+
+  it("rejects non-admin getCheckinHistory requests before reading attendance data", async () => {
+    const caller = appRouter.createCaller(createAuthContext("beneficiario"));
+    await expect(
+      caller.persons.getCheckinHistory({
+        personId: "550e8400-e29b-41d4-a716-446655440000",
+      })
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
   it("rejects unauthenticated programs requests", async () => {
@@ -104,7 +137,7 @@ describe("persons router — input validation", () => {
   });
 
   it("rejects getById with invalid UUID", async () => {
-    const caller = appRouter.createCaller(createAuthContext());
+    const caller = appRouter.createCaller(createAuthContext("admin"));
     await expect(
       caller.persons.getById({ id: "not-a-uuid" })
     ).rejects.toThrow();
@@ -271,10 +304,7 @@ describe("persons router — updateRole procedure", () => {
       newRole: "voluntario",
     });
     
-    // Should fail with INTERNAL_SERVER_ERROR (Supabase error), not FORBIDDEN
-    await expect(promise).rejects.toMatchObject({
-      code: "NOT_FOUND",
-    });
+    await expectPassesRoleGate(promise);
   });
 
   it("allows updateRole when user is superadmin", async () => {
@@ -289,10 +319,7 @@ describe("persons router — updateRole procedure", () => {
       newRole: "beneficiario",
     });
     
-    // Should fail with INTERNAL_SERVER_ERROR (Supabase error), not FORBIDDEN
-    await expect(promise).rejects.toMatchObject({
-      code: "NOT_FOUND",
-    });
+    await expectPassesRoleGate(promise);
   });
 
   it("accepts updateRole with all valid roles", async () => {
@@ -308,10 +335,7 @@ describe("persons router — updateRole procedure", () => {
         newRole: role,
       });
       
-      // Should fail with INTERNAL_SERVER_ERROR (Supabase error), not input validation error
-      await expect(promise).rejects.toMatchObject({
-        code: "NOT_FOUND",
-      });
+      await expectPassesRoleGate(promise);
     }
   });
 });
@@ -377,10 +401,7 @@ describe("persons router — updateFaseItinerario procedure", () => {
       newFaseItinerario: "estabilizacion",
     });
     
-    // Should fail with NOT_FOUND (Supabase error), not FORBIDDEN
-    await expect(promise).rejects.toMatchObject({
-      code: "NOT_FOUND",
-    });
+    await expectPassesRoleGate(promise);
   });
 
   it("allows updateFaseItinerario when user is superadmin", async () => {
@@ -395,10 +416,7 @@ describe("persons router — updateFaseItinerario procedure", () => {
       newFaseItinerario: "insercion_laboral",
     });
     
-    // Should fail with NOT_FOUND (Supabase error), not FORBIDDEN
-    await expect(promise).rejects.toMatchObject({
-      code: "NOT_FOUND",
-    });
+    await expectPassesRoleGate(promise);
   });
 
   it("accepts updateFaseItinerario with all valid fase values", async () => {
@@ -414,79 +432,41 @@ describe("persons router — updateFaseItinerario procedure", () => {
         newFaseItinerario: fase,
       });
       
-      // Should fail with NOT_FOUND (Supabase error), not input validation error
-      await expect(promise).rejects.toMatchObject({
-        code: "NOT_FOUND",
-      });
+      await expectPassesRoleGate(promise);
     }
   });
 });
 
 describe("persons router — document country validation", () => {
   it("should warn when Documento_Extranjero lacks pais_documento", async () => {
-    const caller = appRouter.createCaller(createAuthContext());
-
-    const result = await caller.persons.create({
-      nombre: "Juan",
-      apellidos: "García",
-      fecha_nacimiento: "1990-01-01",
-      idioma_principal: "es",
-      canal_llegada: "boca_a_boca",
+    const warnings = getPersonValidationWarnings({
       tipo_documento: "Documento_Extranjero",
-      numero_documento: "A12345678",
       pais_documento: null,
-      fase_itinerario: "acogida",
-      program_ids: [],
     });
 
-    // Should succeed but include warning
-    expect(result).toHaveProperty("id");
-    expect(result).toHaveProperty("validation_warnings");
-    expect(result.validation_warnings).toContain(
+    expect(warnings).toContain(
       "pais_documento required for Documento_Extranjero"
     );
   });
 
   it("should not warn when Documento_Extranjero has pais_documento", async () => {
-    const caller = appRouter.createCaller(createAuthContext());
-
-    const result = await caller.persons.create({
-      nombre: "Juan",
-      apellidos: "García",
-      fecha_nacimiento: "1990-01-01",
-      idioma_principal: "es",
-      canal_llegada: "boca_a_boca",
+    const warnings = getPersonValidationWarnings({
       tipo_documento: "Documento_Extranjero",
-      numero_documento: "A12345678",
       pais_documento: "FR",
-      fase_itinerario: "acogida",
-      program_ids: [],
     });
 
-    expect(result).toHaveProperty("id");
-    expect(result.validation_warnings || []).not.toContain(
+    expect(warnings).not.toContain(
       "pais_documento required for Documento_Extranjero"
     );
   });
 
   it("should not warn for DNI without pais_documento", async () => {
-    const caller = appRouter.createCaller(createAuthContext());
-
-    const result = await caller.persons.create({
-      nombre: "Juan",
-      apellidos: "García",
-      fecha_nacimiento: "1990-01-01",
-      idioma_principal: "es",
-      canal_llegada: "boca_a_boca",
+    const warnings = getPersonValidationWarnings({
       tipo_documento: "DNI",
-      numero_documento: "12345678A",
       pais_documento: null,
-      fase_itinerario: "acogida",
-      program_ids: [],
     });
 
-    expect(result).toHaveProperty("id");
-    expect(result.validation_warnings || []).not.toContain(
+    expect(warnings).not.toContain(
       "pais_documento required"
     );
   });

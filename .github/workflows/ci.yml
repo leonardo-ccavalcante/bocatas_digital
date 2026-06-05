@@ -50,18 +50,17 @@ jobs:
         run: pnpm check
 
       - name: Run tests with coverage
-        # Tests can fail (env-only failures are documented in open items);
-        # the gate that matters is the coverage gate below, which runs even
-        # on test failure thanks to --coverage.reportOnFailure=true.
+        # Unit tests are blocking. Placeholder Supabase values cover code paths
+        # that only need env presence; live DB integration tests must self-skip
+        # when they require real credentials.
         run: pnpm vitest run --coverage --coverage.reportOnFailure=true
         env:
-          # Placeholder values keep env-only tests from throwing at suite load.
+          # Placeholder values keep env-only imports from throwing at suite load.
           # Real prod credentials should NOT be exposed to coverage runs.
           SUPABASE_URL: http://localhost
           SUPABASE_SERVICE_ROLE_KEY: ph_only
           VITE_SUPABASE_URL: http://localhost
           VITE_SUPABASE_ANON_KEY: ph.ph.ph
-        continue-on-error: true
 
       - name: Coverage gate (verified-baseline thresholds — see vitest.config.ts)
         run: |
