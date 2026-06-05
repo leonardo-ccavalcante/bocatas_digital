@@ -2,11 +2,14 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, adminProcedure } from "../../_core/trpc";
 import { createAdminClient, createUserImpersonationClient } from "../../../client/src/lib/supabase/server";
-import { parseCSVLine } from "../announcements/_shared";
+import { parseRow } from "../../csvLegacyFamiliasMapper";
 import {
+  parseCSVDocument,
+  resolveColumnMap,
   fieldsToLegacyRow,
-  parseRow,
-} from "../../csvLegacyFamiliasMapper";
+  REQUIRED_KEYS,
+  type ColumnMap,
+} from "../../csvLegacyFamiliasParser";
 import { assembleFamilyGroups } from "../../csvLegacyFamiliasGroup";
 import {
   type CleanRow,
@@ -73,71 +76,65 @@ export const legacyImportRouter = router({
       })
     )
     .mutation(async ({ input, ctx }): Promise<PreviewResponse> => {
-      const csvNormalised = input.csv
-        .replace(/^﻿/, "")
-        .replace(/\r\n/g, "\n")
-        .replace(/\r/g, "\n");
+      // Parse the WHOLE document quote-aware (G2): the real export's NOTAS
+      // cells contain embedded newlines, so a line-by-line split shatters
+      // ~92 records. parseCSVDocument treats newlines inside quotes as content.
+      let records: string[][];
+      try {
+        records = parseCSVDocument(input.csv);
+      } catch {
+        // parseCSVDocument throws past its record ceiling (memory guard).
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "El archivo CSV es demasiado grande o está mal formado.",
+        });
+      }
 
-      const rawLines = csvNormalised.split("\n");
-
-      // Find the header row: first non-empty line whose first non-empty field
-      // matches "NÚMERO DE ORDEN" (case-sensitive). Tolerates leading blank /
-      // metadata rows like the user's CSV which has an empty row 1 and a
-      // multi-line header in rows 2-3.
-      let headerLineIdx = -1;
-      for (let i = 0; i < rawLines.length; i++) {
-        const fields = parseCSVLine(rawLines[i]);
-        if (fields[0]?.trim().startsWith("NÚMERO DE ORDEN")) {
-          headerLineIdx = i;
+      // Locate the header by STRUCTURE, not position: the first of the first
+      // few records whose columns resolve (by name) to all REQUIRED_KEYS.
+      // This tolerates the leading blank row + the multi-line CABEZA cell, and
+      // — crucially (G1) — maps each canonical field to its true column even
+      // though the real export interleaves 35 extra columns between them.
+      let headerIdx = -1;
+      let columnMap: ColumnMap | null = null;
+      for (let i = 0; i < Math.min(records.length, 10); i++) {
+        const candidate = resolveColumnMap(records[i]);
+        if (REQUIRED_KEYS.every((k) => candidate.has(k))) {
+          headerIdx = i;
+          columnMap = candidate;
           break;
         }
       }
-      if (headerLineIdx === -1) {
+      if (headerIdx === -1 || !columnMap) {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message:
-            "Encabezado no encontrado. La primera columna debe ser 'NÚMERO DE ORDEN'.",
+            "Encabezado no encontrado. Se requieren las columnas NUMERO FAMILIA BOCATAS, NOMBRE, APELLIDOS y CABEZA DE FAMILIA.",
         });
       }
 
-      // Detect whether the header is split across two physical rows (the user's
-      // CSV puts CABEZA DE FAMILIA on one row and "(MARCAR CON UNA X DONDE
-      // PROCEDA)" on the next). When the header is split, the second row's
-      // first column is also part of the header line — rejoin and skip.
-      let dataStartLine = headerLineIdx + 1;
-      const nextLine = rawLines[headerLineIdx + 1] ?? "";
-      const nextFields = parseCSVLine(nextLine);
-      // Heuristic: if the next row has fewer than half the columns of the
-      // header AND its first non-empty field looks like the parenthetical
-      // continuation, treat it as a header continuation.
-      if (
-        nextFields[0]?.trim().startsWith("(MARCAR CON UNA X")
-      ) {
-        dataStartLine = headerLineIdx + 2;
-      }
-
-      // Hard cap on data row count.
-      const dataLineCount = rawLines.length - dataStartLine;
-      if (dataLineCount > MAX_BULK_ROWS) {
+      const dataRecords = records.slice(headerIdx + 1);
+      if (dataRecords.length > MAX_BULK_ROWS) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: `El CSV tiene ${dataLineCount} filas de datos; el máximo por importación es ${MAX_BULK_ROWS}.`,
+          message: `El CSV tiene ${dataRecords.length} filas de datos; el máximo por importación es ${MAX_BULK_ROWS}.`,
         });
       }
 
+      const famIdx = columnMap.get("numero_familia")!;
       const cleanRows: CleanRow[] = [];
       const parseErrors: RowError[] = [];
 
-      for (let i = dataStartLine; i < rawLines.length; i++) {
-        const line = rawLines[i];
-        if (!line.trim()) continue;
-        const fields = parseCSVLine(line).map((f) => f.trim());
-        // Skip rows with no NUMERO FAMILIA BOCATAS — they are blank or trailing.
-        if (!fields[1]) continue;
+      for (let r = 0; r < dataRecords.length; r++) {
+        const rec = dataRecords[r];
+        // Skip fully-blank rows and the right-hand pivot-stats block (rows with
+        // no NUMERO FAMILIA BOCATAS).
+        if (rec.every((c) => c.trim() === "")) continue;
+        if (!(rec[famIdx] ?? "").trim()) continue;
 
-        const legacy = fieldsToLegacyRow(fields);
-        // The CSV's row indices are 1-based (line 1 in spreadsheet view).
-        const rowNumber = i + 1;
+        const legacy = fieldsToLegacyRow(rec, columnMap);
+        // 1-based spreadsheet row number for operator-facing error messages.
+        const rowNumber = headerIdx + 1 + r + 1;
         const result = parseRow(legacy, rowNumber);
         if (result.ok) {
           cleanRows.push(result.row);
@@ -278,11 +275,10 @@ export const legacyImportRouter = router({
         .select("token")
         .single();
       if (insertErr || !preview) {
+        // PII-safe: a CHECK violation can echo the failing row (full parsed_rows
+        // incl. Art.9 narrative) in message/details/hint — log only code + id.
         ctx.logger.error("[legacy-import] preview stash failed", {
           code: insertErr?.code,
-          message: insertErr?.message,
-          details: insertErr?.details,
-          hint: insertErr?.hint,
           correlationId: ctx.correlationId,
         });
         throw new TRPCError({

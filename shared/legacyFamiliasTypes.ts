@@ -75,6 +75,7 @@ export const LegacyRowSchema = z.object({
   telefono: z.string().optional(),
   documento: z.string().optional(),
   cabeza_familia: z.string().optional(),
+  estado: z.string().optional(),
   pais: z.string().optional(),
   fecha_nacimiento: z.string().optional(),
   email: z.string().optional(),
@@ -100,6 +101,8 @@ export const warningCodeEnum = z.enum([
   "dni_unparseable",
   "sexo_unknown",
   "colectivo_unknown",
+  "estado_unknown",
+  "cp_invalid",
 ]);
 
 export const RowWarningSchema = z.object({
@@ -129,6 +132,13 @@ export const CleanPersonSchema = z.object({
   nivel_estudios: nivelEstudiosEnum.nullable(),
   situacion_laboral: situacionLaboralEnum.nullable(),
   observaciones: z.string().nullable(),
+  // Validated 5-digit CP (parseCodigoPostal). Mirrors persons.codigo_postal
+  // CHECK ^\d{5}$; distrito is trigger-derived from it. The raw cell still
+  // lives in metadata.codigo_postal for provenance.
+  codigo_postal: z
+    .string()
+    .regex(/^\d{5}$/)
+    .nullable(),
   metadata: z
     .object({
       colectivos: z.array(z.string()).default([]),
@@ -148,6 +158,8 @@ export const CleanRowSchema = z.object({
   is_titular: z.boolean(),
   parentesco_original: z.string().nullable(),
   fecha_alta: z.string().nullable(),
+  // ACTIVA/BAJA — row-level; the titular row's estado drives families.estado.
+  estado: z.enum(["activa", "baja"]).nullable(),
   person: CleanPersonSchema,
   relacion_db: relacionEnum,
   warnings: z.array(RowWarningSchema),
@@ -233,3 +245,96 @@ export const StashPayloadSchema = z.object({
   src_filename: z.string().nullable(),
 });
 export type StashPayload = z.infer<typeof StashPayloadSchema>;
+
+// ─── INFORMES SOCIALES enrich contract (wide sheet → enrich existing families) ─
+//
+// INFORMES is 1 row per family (wide): titular + narrative (situación familiar +
+// necesidades) + denormalized member slots 2..14. It ENRICHES families the
+// roster already created (joined by legacy_numero), backfill-only.
+
+export const InformesMemberSchema = z.object({
+  slot: z.number().int().min(2).max(14),
+  nombre: z.string(),
+  apellidos: z.string().nullable(),
+  fecha_nacimiento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
+  relacion_db: relacionEnum,
+  parentesco_original: z.string().nullable(),
+  tipo_documento: tipoDocumentoEnum.nullable(),
+  numero_documento: z.string().nullable(),
+  warnings: z.array(RowWarningSchema),
+});
+export type InformesMember = z.infer<typeof InformesMemberSchema>;
+
+export const InformesTitularSchema = z.object({
+  nombre: z.string().nullable(),
+  apellidos: z.string().nullable(),
+  fecha_nacimiento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
+  pais_origen: z.string().length(2).nullable(),
+  telefono: z.string().nullable(),
+  direccion: z.string().nullable(),
+  municipio: z.string().nullable(),
+  codigo_postal: z.string().regex(/^\d{5}$/).nullable(),
+  tipo_documento: tipoDocumentoEnum.nullable(),
+  numero_documento: z.string().nullable(),
+  warnings: z.array(RowWarningSchema),
+});
+export type InformesTitular = z.infer<typeof InformesTitularSchema>;
+
+// Family-scoped member match (2b). Maps an INFORMES member slot to an existing
+// familia_miembros row; "ambiguous"/"none" ⇒ NOT written (refuse-on-ambiguity).
+export const memberMatchTierEnum = z.enum([
+  "documento",
+  "probe_key",
+  "name_first_apellido",
+  "none",
+  "ambiguous",
+]);
+export const MemberMatchSchema = z.object({
+  slot: z.number().int(),
+  matched_member_id: z.string().uuid().nullable(),
+  matched_person_id: z.string().uuid().nullable(),
+  match_tier: memberMatchTierEnum,
+});
+export type MemberMatch = z.infer<typeof MemberMatchSchema>;
+
+export const InformesFamilySchema = z.object({
+  legacy_numero_familia: z.string().min(1),
+  titular: InformesTitularSchema,
+  members: z.array(InformesMemberSchema),
+  situacion_familiar_texto: z.string().nullable(),
+  necesidades_texto: z.string().nullable(),
+  // Resolved against the roster at preview time:
+  family_id: z.string().uuid().nullable(), // null ⇒ family_missing (no enrich)
+  titular_id: z.string().uuid().nullable(),
+  member_matches: z.array(MemberMatchSchema), // 2b — family-scoped member alignment
+  members_truncated: z.boolean(), // INFORMES caps at 14 slots
+  warnings: z.array(RowWarningSchema),
+});
+export type InformesFamily = z.infer<typeof InformesFamilySchema>;
+
+export const InformesStashPayloadSchema = z.object({
+  kind: z.literal("informes_enrich_v1"),
+  families: z.array(InformesFamilySchema),
+  src_filename: z.string().nullable(),
+});
+export type InformesStashPayload = z.infer<typeof InformesStashPayloadSchema>;
+
+export const InformesPreviewResponseSchema = z.object({
+  preview_token: z.string().uuid(),
+  total_rows: z.number().int().nonnegative(),
+  total_families: z.number().int().nonnegative(),
+  families_to_enrich: z.number().int().nonnegative(),
+  family_missing: z.number().int().nonnegative(),
+  warning_families: z.number().int().nonnegative(),
+  families: z.array(InformesFamilySchema),
+  parse_errors: z.array(RowErrorSchema),
+});
+export type InformesPreviewResponse = z.infer<typeof InformesPreviewResponseSchema>;
+
+export const InformesConfirmResponseSchema = z.object({
+  enriched_count: z.number().int().nonnegative(),
+  skipped_missing_count: z.number().int().nonnegative(),
+  error_count: z.number().int().nonnegative(),
+  errors: z.array(ConfirmErrorSchema).default([]),
+});
+export type InformesConfirmResponse = z.infer<typeof InformesConfirmResponseSchema>;

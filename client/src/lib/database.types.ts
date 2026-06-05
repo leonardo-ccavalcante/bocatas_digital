@@ -1115,6 +1115,7 @@ export type Database = {
           legacy_numero: string | null
           metadata: Json | null
           motivo_baja: Database["public"]["Enums"]["motivo_baja_familia"] | null
+          necesidades_texto: string | null
           num_adultos: number | null
           num_menores_18: number | null
           num_miembros: number | null
@@ -1123,6 +1124,7 @@ export type Database = {
           persona_recoge: string | null
           sin_guf: boolean | null
           sin_informe_social: boolean | null
+          situacion_familiar_texto: string | null
           titular_id: string | null
           updated_at: string
         }
@@ -1154,6 +1156,7 @@ export type Database = {
           motivo_baja?:
             | Database["public"]["Enums"]["motivo_baja_familia"]
             | null
+          necesidades_texto?: string | null
           num_adultos?: number | null
           num_menores_18?: number | null
           num_miembros?: number | null
@@ -1162,6 +1165,7 @@ export type Database = {
           persona_recoge?: string | null
           sin_guf?: boolean | null
           sin_informe_social?: boolean | null
+          situacion_familiar_texto?: string | null
           titular_id?: string | null
           updated_at?: string
         }
@@ -1193,6 +1197,7 @@ export type Database = {
           motivo_baja?:
             | Database["public"]["Enums"]["motivo_baja_familia"]
             | null
+          necesidades_texto?: string | null
           num_adultos?: number | null
           num_menores_18?: number | null
           num_miembros?: number | null
@@ -1201,6 +1206,7 @@ export type Database = {
           persona_recoge?: string | null
           sin_guf?: boolean | null
           sin_informe_social?: boolean | null
+          situacion_familiar_texto?: string | null
           titular_id?: string | null
           updated_at?: string
         }
@@ -2272,6 +2278,10 @@ export type Database = {
         Returns: Json
       }
       confirm_legacy_familias_import: {
+        Args: { p_src_filename?: string; p_token: string }
+        Returns: Json
+      }
+      enrich_families_from_informes: {
         Args: { p_src_filename?: string; p_token: string }
         Returns: Json
       }
