@@ -20,12 +20,15 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Loader2, Upload, AlertTriangle, CheckCircle2, XCircle, Copy as CopyIcon, ChevronDown, ChevronRight } from "lucide-react";
 import {
   usePreviewLegacyImport,
   useConfirmLegacyImport,
 } from "@/features/families/hooks/useFamilias";
+import { InformesEnrichLane } from "@/features/families/components/InformesEnrichLane";
 // Type-only imports — Zod runtime is tree-shaken from the client bundle.
 import type {
   FamilyGroup,
@@ -89,6 +92,11 @@ function FamilyRow({ group }: { group: FamilyGroup }) {
           {titular ? `${titular.person.nombre} ${titular.person.apellidos}` : "(sin titular)"}
         </span>
         <span className="text-xs text-gray-500">· {group.rows.length} miembros</span>
+        {titular?.estado === "baja" && (
+          <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-700">
+            baja
+          </span>
+        )}
         <span className="ml-auto"><StatusPill tab={tab} /></span>
       </button>
 
@@ -175,11 +183,14 @@ export function BulkImportFamiliasLegacyModal({
   open,
   onOpenChange,
 }: BulkImportFamiliasLegacyModalProps) {
+  const [lane, setLane] = useState<"roster" | "informes">("roster");
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [preview, setPreview] = useState<PreviewResponse | null>(null);
   const [filename, setFilename] = useState<string | undefined>(undefined);
   const [activeTab, setActiveTab] = useState<FilterTab>("ok");
   const [dragActive, setDragActive] = useState(false);
+  // Phase 3: "actualizar familias existentes" → p_mode 'update' vs 'skip'.
+  const [updateExisting, setUpdateExisting] = useState(false);
 
   const previewMutation = usePreviewLegacyImport();
   const confirmMutation = useConfirmLegacyImport();
@@ -187,10 +198,12 @@ export function BulkImportFamiliasLegacyModal({
   function resetAndClose() {
     onOpenChange(false);
     setTimeout(() => {
+      setLane("roster");
       setStep(1);
       setPreview(null);
       setFilename(undefined);
       setActiveTab("ok");
+      setUpdateExisting(false);
     }, 300);
   }
 
@@ -245,17 +258,25 @@ export function BulkImportFamiliasLegacyModal({
     if (!preview) return;
     setStep(3);
     confirmMutation.mutate(
-      { preview_token: preview.preview_token, src_filename: filename },
+      {
+        preview_token: preview.preview_token,
+        src_filename: filename,
+        mode: updateExisting ? "update" : "skip",
+      },
       {
         onSuccess: (r) => {
+          const updated = r.updated_count > 0 ? `, ${r.updated_count} actualizadas` : "";
           if (r.error_count > 0) {
             toast.warning(
-              `Importación parcial: ${r.created_count} creadas, ${r.skipped_count} omitidas, ${r.error_count} con error.`
+              `Importación parcial: ${r.created_count} creadas${updated}, ${r.skipped_count} omitidas, ${r.error_count} con error.`
             );
           } else {
             toast.success(
-              `${r.created_count} familias importadas${r.skipped_count > 0 ? ` (${r.skipped_count} omitidas como duplicadas)` : ""}`
+              `${r.created_count} familias importadas${updated}${r.skipped_count > 0 ? ` (${r.skipped_count} omitidas)` : ""}`
             );
+          }
+          if (r.enrollment_program_missing) {
+            toast.warning("El programa de familias no existe en este entorno; no se inscribió a nadie.");
           }
           resetAndClose();
         },
@@ -286,9 +307,38 @@ export function BulkImportFamiliasLegacyModal({
     >
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Importar familias desde CSV legacy ({stepLabel})</DialogTitle>
+          <DialogTitle>
+            {lane === "informes"
+              ? "Enriquecer familias con Informes Sociales"
+              : `Importar familias desde CSV legacy (${stepLabel})`}
+          </DialogTitle>
         </DialogHeader>
 
+        <div role="tablist" aria-label="Tipo de importación" className="flex gap-2 border-b pb-3">
+          <Button
+            role="tab"
+            aria-selected={lane === "roster"}
+            variant={lane === "roster" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setLane("roster")}
+          >
+            Padrón (familias)
+          </Button>
+          <Button
+            role="tab"
+            aria-selected={lane === "informes"}
+            variant={lane === "informes" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setLane("informes")}
+          >
+            Informes sociales (enriquecer)
+          </Button>
+        </div>
+
+        {lane === "informes" ? (
+          <InformesEnrichLane onDone={resetAndClose} />
+        ) : (
+          <>
         {step === 1 && (
           <div className="space-y-5 py-2">
             <p className="text-sm text-gray-600">
@@ -345,6 +395,22 @@ export function BulkImportFamiliasLegacyModal({
                   {preview.parse_errors.length} filas no pudieron interpretarse y fueron descartadas (corregir en origen).
                 </p>
               )}
+            </div>
+
+            <div className="flex items-start gap-3 rounded border bg-gray-50 p-3">
+              <Switch
+                id="update-existing"
+                checked={updateExisting}
+                onCheckedChange={setUpdateExisting}
+              />
+              <Label htmlFor="update-existing" className="text-sm font-medium">
+                Actualizar familias existentes
+                <span className="mt-0.5 block text-xs font-normal text-gray-500">
+                  Re-sincroniza las {preview.duplicate_families} familias ya importadas
+                  (estado, recuento y datos; añade miembros nuevos). Si está
+                  desactivado, las duplicadas se omiten.
+                </span>
+              </Label>
             </div>
 
             <div className="flex flex-wrap gap-2">
@@ -405,7 +471,11 @@ export function BulkImportFamiliasLegacyModal({
               <Button onClick={handleConfirm} disabled={blockedByErrors}>
                 {blockedByErrors
                   ? "Corrige los errores antes de confirmar"
-                  : `Confirmar importación (${(preview?.valid_families ?? 0) + (preview?.warning_families ?? 0)} familias)`}
+                  : `Confirmar importación (${
+                      (preview?.valid_families ?? 0) +
+                      (preview?.warning_families ?? 0) +
+                      (updateExisting ? preview?.duplicate_families ?? 0 : 0)
+                    } familias)`}
               </Button>
             </>
           )}
@@ -415,6 +485,8 @@ export function BulkImportFamiliasLegacyModal({
             </Button>
           )}
         </DialogFooter>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );
