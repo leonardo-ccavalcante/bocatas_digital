@@ -82,7 +82,7 @@ export function createAdminClient() {
  * ownership — NOT `auth.uid()`, which casts sub->uuid and raises 22P02 for the
  * non-UUID openId (see migrations 20260605000001 / 20260605000002).
  *
- * @param actorId - String(ctx.user.id) — the numeric DB id used as JWT `sub`
+ * @param actorId - String(ctx.user.id) — the Manus openId (non-UUID) used as JWT `sub`
  * @param role    - The user's app role ('admin' | 'superadmin' | 'user')
  */
 export async function createUserImpersonationClient(

@@ -321,7 +321,9 @@ BEGIN
               PERFORM upsert_familia_enrollment(v_member_person, v_program_id, v_family_id, j);
             END IF;
           ELSE
-            -- New member.
+            -- New member. Capture its id into v_used_ids so a LATER same-name,
+            -- no-document member in THIS same payload can't collapse onto the
+            -- row we just inserted (it would otherwise match by name+DOB).
             v_dep_person_id := upsert_legacy_person(v_dep_row -> 'person');
             INSERT INTO familia_miembros (
               familia_id, person_id, nombre, apellidos, rol, relacion,
@@ -335,7 +337,9 @@ BEGIN
               NULLIF(v_dep_row -> 'person' ->> 'fecha_nacimiento', '')::date,
               NULLIF(v_dep_row -> 'person' ->> 'numero_documento', ''),
               CASE WHEN (v_dep_row ->> 'estado') = 'baja' THEN 'baja' ELSE 'activo' END
-            );
+            )
+            RETURNING id INTO v_member_id;
+            v_used_ids := array_append(v_used_ids, v_member_id);
             PERFORM upsert_familia_enrollment(v_dep_person_id, v_program_id, v_family_id, j);
           END IF;
         END LOOP;
