@@ -24,6 +24,9 @@ const fullRow = {
   situacion_legal: "regular",
   recorrido_migratorio: "Llegó en 2020 vía Marruecos",
   foto_documento_url: "https://cdn/doc.jpg",
+  // Family social-report narrative (INFORMES SOCIALES) — also high-risk (Art. 9).
+  situacion_familiar_texto: "Familia monoparental con dos menores.",
+  necesidades_texto: "Apoyo alimentario y acompañamiento.",
   fase_itinerario: "acogida",
 };
 
@@ -45,7 +48,7 @@ describe("redactHighRiskFields — elevated roles", () => {
 });
 
 describe("redactHighRiskFields — non-elevated roles", () => {
-  it("strips all three fields for voluntario (role='user')", () => {
+  it("strips all high-risk fields for voluntario (role='user')", () => {
     const result = redactHighRiskFields("user", fullRow);
     for (const field of HIGH_RISK_FIELD_NAMES) {
       expect(result).not.toHaveProperty(field);
@@ -54,28 +57,28 @@ describe("redactHighRiskFields — non-elevated roles", () => {
     expect(result.apellidos).toBe("García");
   });
 
-  it("strips all three fields for explicit voluntario role", () => {
+  it("strips all high-risk fields for explicit voluntario role", () => {
     const result = redactHighRiskFields("voluntario", fullRow);
     for (const field of HIGH_RISK_FIELD_NAMES) {
       expect(result).not.toHaveProperty(field);
     }
   });
 
-  it("strips all three fields when role is undefined (fail-closed)", () => {
+  it("strips all high-risk fields when role is undefined (fail-closed)", () => {
     const result = redactHighRiskFields(undefined, fullRow);
     for (const field of HIGH_RISK_FIELD_NAMES) {
       expect(result).not.toHaveProperty(field);
     }
   });
 
-  it("strips all three fields when role is null (fail-closed)", () => {
+  it("strips all high-risk fields when role is null (fail-closed)", () => {
     const result = redactHighRiskFields(null, fullRow);
     for (const field of HIGH_RISK_FIELD_NAMES) {
       expect(result).not.toHaveProperty(field);
     }
   });
 
-  it("strips all three fields for an unknown role string (fail-closed)", () => {
+  it("strips all high-risk fields for an unknown role string (fail-closed)", () => {
     const result = redactHighRiskFields("guest", fullRow);
     for (const field of HIGH_RISK_FIELD_NAMES) {
       expect(result).not.toHaveProperty(field);
