@@ -14,8 +14,9 @@
  * No mocks. No DB calls. Pure deterministic pipeline.
  */
 import { describe, it, expect } from "vitest";
-import { buildTemplateCsv, CSV_HEADERS } from "../../../../shared/legacyFamiliasTypes";
-import { parseRow, fieldsToLegacyRow } from "../../../csvLegacyFamiliasMapper";
+import { buildTemplateCsv, CSV_HEADERS } from "../../../csvLegacyFamiliasMapper";
+import { parseRow } from "../../../csvLegacyFamiliasMapper";
+import { fieldsToLegacyRow, resolveColumnMap } from "../../../csvLegacyFamiliasParser";
 import { assembleFamilyGroups } from "../../../csvLegacyFamiliasGroup";
 import { parseCSVLine } from "../../announcements/_shared";
 
@@ -42,21 +43,22 @@ function transformCsv(csv: string): {
       break;
     }
   }
-  if (headerLineIdx === -1) throw new Error("Header not found in CSV");
-
+    if (headerLineIdx === -1) throw new Error("Header not found in CSV");
+  // Build column map from the actual header line
+  const headerFields = parseCSVLine(lines[headerLineIdx]).map((f) => f.trim());
+  const columnMap = resolveColumnMap(headerFields);
   let dataStart = headerLineIdx + 1;
   const next = parseCSVLine(lines[headerLineIdx + 1] ?? "");
   if (next[0]?.trim().startsWith("(MARCAR CON UNA X")) {
     dataStart = headerLineIdx + 2;
   }
-
   const cleanRows = [];
   let parseErrors = 0;
   for (let i = dataStart; i < lines.length; i++) {
     if (!lines[i].trim()) continue;
     const fields = parseCSVLine(lines[i]).map((f) => f.trim());
     if (!fields[1]) continue;
-    const legacy = fieldsToLegacyRow(fields);
+    const legacy = fieldsToLegacyRow(fields, columnMap);
     const r = parseRow(legacy, i + 1);
     if (r.ok) cleanRows.push(r.row);
     else parseErrors++;

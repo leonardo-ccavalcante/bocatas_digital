@@ -8,6 +8,7 @@ import { sessionsRouter } from "./sessions";
 import { csvExportRouter } from "./csv-export";
 import { csvImportRouter } from "./csv-import";
 import { legacyImportRouter } from "./legacy-import";
+import { informesImportRouter } from "./informes-import";
 import { followUpsRouter } from "./follow-ups";
 import { documentsGenRouter } from "./documents-gen";
 import { templateEditorRouter } from "./template-editor";
@@ -43,6 +44,7 @@ export const familiesRouter = mergeRouters(
   csvExportRouter,
   csvImportRouter,
   legacyImportRouter,
+  informesImportRouter,
   followUpsRouter,
   documentsGenRouter,
   templateEditorRouter,

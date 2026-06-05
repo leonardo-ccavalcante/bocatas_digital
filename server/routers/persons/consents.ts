@@ -60,6 +60,7 @@ export const consentsRouter = router({
         consent_text: z.string().optional(),
         consent_version: z.string().optional(),
         documento_foto_url: z.string().url().optional().nullable(),
+        numero_serie: z.string().max(50).optional().nullable(),
         registrado_por: z.string().uuid().optional().nullable(),
       })),
     }))
@@ -94,6 +95,7 @@ export const consentsRouter = router({
         consent_text: c.consent_text ?? "",
         consent_version: c.consent_version ?? "",
         documento_foto_url: c.documento_foto_url ?? null,
+        numero_serie: c.numero_serie ?? null,
         registrado_por: c.registrado_por ?? null,
       }));
 

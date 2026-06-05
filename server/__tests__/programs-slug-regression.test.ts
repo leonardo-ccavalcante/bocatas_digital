@@ -8,15 +8,20 @@
  *
  * TDD: this test is written BEFORE the fix (RED) and must pass AFTER (GREEN).
  */
-import { describe, it, expect, beforeAll } from "vitest";
+import { it, expect } from "vitest";
 import { createClient } from "@supabase/supabase-js";
+import { getRealSupabaseDescribe } from "./db-test-env";
+
+const DB_TEST_TIMEOUT_MS = 15_000;
+const describeDb = getRealSupabaseDescribe();
 
 const supabase = createClient(
-  process.env.VITE_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.VITE_SUPABASE_URL ?? process.env.SUPABASE_URL ?? "http://localhost",
+  process.env.SUPABASE_SERVICE_ROLE_KEY ?? "placeholder",
+  { auth: { persistSession: false } }
 );
 
-describe("programs slug — regression: programa_familias", () => {
+describeDb("programs slug — regression: programa_familias", () => {
   it("programs table has a row with slug='programa_familias'", async () => {
     const { data, error } = await supabase
       .from("programs")
@@ -28,7 +33,7 @@ describe("programs slug — regression: programa_familias", () => {
     expect(data).not.toBeNull();
     expect(data!.slug).toBe("programa_familias");
     expect(data!.name).toMatch(/familia/i);
-  });
+  }, DB_TEST_TIMEOUT_MS);
 
   it("there is NO row with the old slug='familia' after the rename", async () => {
     const { data } = await supabase
@@ -38,5 +43,5 @@ describe("programs slug — regression: programa_familias", () => {
 
     // After the migration the old slug must not exist
     expect(data).toHaveLength(0);
-  });
+  }, DB_TEST_TIMEOUT_MS);
 });

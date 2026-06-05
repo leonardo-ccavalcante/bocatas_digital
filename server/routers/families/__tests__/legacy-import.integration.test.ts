@@ -166,13 +166,13 @@ function familiesProbeChain(rows: { legacy_numero: string | null }[], err: { mes
   return { select: selectFn };
 }
 
-// Build a personsProbe chain stub: `db.from("persons").select(...).in("fecha_nacimiento", chunk).is(...)` ⇒ rows.
+// Build a personsProbe chain stub: `db.from("persons").select(...).in("numero_documento", chunk).is(...)` ⇒ rows.
+// LOW-4: dedup is now document-based (mirrors upsert_legacy_person's
+// dedup-by-document), so the probe matches by numero_documento, not name+DOB.
 function personsProbeChain(
   rows: Array<{
     id: string;
-    nombre: string;
-    apellidos: string | null;
-    fecha_nacimiento: string | null;
+    numero_documento: string | null;
     pais_origen: string | null;
   }>,
   err: { message: string; code?: string } | null = null
@@ -337,46 +337,51 @@ describe("previewLegacyImport — happy path", () => {
     expect(fam.family_already_imported).toBe(true);
   });
 
-  it("chunks the families idempotency probe when > 500 groups (URL length defense)", async () => {
+  it("chunks both the families and (document) person probes when > 500 groups (URL length defense)", async () => {
     // PostgREST encodes `.in()` filters into the URL. For 10k-row imports
     // with naive single-call probes the URL exceeds the proxy cap. The
     // implementation chunks at 500. This test pins the chunking contract:
-    // 600 distinct families → 2 calls to from("families"), 1 to persons,
-    // 1 to bulk_import_previews.
+    // 600 distinct families each with a unique document → 2 calls to
+    // from("families") + 2 to persons (LOW-4: dedup probes by numero_documento)
+    // + 1 to bulk_import_previews.
     const N = 600;
     fromMock
       .mockReturnValueOnce(familiesProbeChain([]))
       .mockReturnValueOnce(familiesProbeChain([]))
       .mockReturnValueOnce(personsProbeChain([]))
+      .mockReturnValueOnce(personsProbeChain([]))
       .mockReturnValueOnce(stashInsertChain("token-chunked"));
 
     const rows = Array.from({ length: N }, (_, i) => {
-      // Each unique family number has its own titular row.
-      return `${i + 1},${1000 + i},30/09/2020,Nombre${i},Apellido${i},M,,,x,España,17/03/1983,,,,,,,,Otros/ especificar...`;
+      // Each family has its own titular row WITH a unique document, so the
+      // document-based dedup probe (LOW-4) also chunks at 500.
+      return `${i + 1},${1000 + i},30/09/2020,Nombre${i},Apellido${i},M,,DOC${i},x,España,17/03/1983,,,,,,,,Otros/ especificar...`;
     });
 
     const handler = procedureSpies.previewLegacyImport.handler;
     const result = await handler({ input: { csv: csvWith(rows) }, ctx: makeCtx() });
 
     expect(result.total_families).toBe(N);
-    // 2 chunks for families + 1 for persons + 1 for bulk_import_previews.
-    expect(fromMock).toHaveBeenCalledTimes(4);
+    // 2 chunks for families + 2 for persons + 1 for bulk_import_previews.
+    expect(fromMock).toHaveBeenCalledTimes(5);
     expect(fromMock).toHaveBeenNthCalledWith(1, "families");
     expect(fromMock).toHaveBeenNthCalledWith(2, "families");
     expect(fromMock).toHaveBeenNthCalledWith(3, "persons");
-    expect(fromMock).toHaveBeenNthCalledWith(4, "bulk_import_previews");
+    expect(fromMock).toHaveBeenNthCalledWith(4, "persons");
+    expect(fromMock).toHaveBeenNthCalledWith(5, "bulk_import_previews");
   });
 
-  it("surfaces person dedup hits with no document fragment", async () => {
+  it("surfaces person dedup hits (document-based) with no document fragment", async () => {
+    // SAMPLE_TITULAR_ROW's document is "Y-8206459-G" → normalized "Y8206459G".
+    // The dedup hit must be keyed on numero_documento (what actually merges),
+    // NOT name+DOB (which never merges — B1).
     fromMock
       .mockReturnValueOnce(familiesProbeChain([])) // not a duplicate family
       .mockReturnValueOnce(
         personsProbeChain([
           {
             id: "existing-person-1",
-            nombre: "Luis",
-            apellidos: "Apellido",
-            fecha_nacimiento: "1983-03-17",
+            numero_documento: "Y8206459G",
             pais_origen: "PE",
           },
         ])
@@ -474,9 +479,9 @@ describe("confirmLegacyImport", () => {
         error: null,
       })
     );
-    // RPC returns the SQL function's native field names
+    // RPC returns the SQL function's native field names (incl. Phase 3 updated_count).
     rpcMock.mockResolvedValue({
-      data: { created_count: 5, skipped_count: 1, error_count: 0, error_details: [] },
+      data: { created_count: 5, updated_count: 0, skipped_count: 1, error_count: 0, error_details: [] },
       error: null,
     });
 
@@ -485,15 +490,17 @@ describe("confirmLegacyImport", () => {
       input: {
         preview_token: "11111111-1111-4111-8111-111111111111",
         src_filename: "../traversal/some.csv",
+        mode: "update", // Phase 3: must thread through to p_mode
       },
       ctx: makeCtx(),
     });
 
-    expect(result).toEqual({ created_count: 5, skipped_count: 1, error_count: 0, error_details: [] });
+    expect(result).toEqual({ created_count: 5, updated_count: 0, skipped_count: 1, error_count: 0, error_details: [], enrollment_program_missing: false });
     expect(rpcMock).toHaveBeenCalledWith(
       "confirm_legacy_familias_import",
-      // src_filename must be sanitized to its basename before going to the RPC.
-      { p_token: "11111111-1111-4111-8111-111111111111", p_src_filename: "some.csv" }
+      // src_filename must be sanitized to its basename before going to the RPC;
+      // p_mode threaded from input.mode.
+      { p_token: "11111111-1111-4111-8111-111111111111", p_src_filename: "some.csv", p_mode: "update" }
     );
   });
 

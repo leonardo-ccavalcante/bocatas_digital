@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { createAdminClient } from "../../../client/src/lib/supabase/server";
-import { protectedProcedure, router } from "../../_core/trpc";
+import { adminProcedure, protectedProcedure, router } from "../../_core/trpc";
 import { logProcedureAction, logProcedureError } from "../../_core/logging-middleware";
 import { redactHighRiskFields } from "../../_core/rlsRedaction";
 import { PersonCreateInput } from "./_shared";
@@ -42,6 +42,26 @@ export function getAllColumnsForRole(role: string | undefined | null): string {
     : PERSONS_GETALL_BASE_COLUMNS;
 }
 
+export function getPersonValidationWarnings(
+  personData: Pick<
+    z.infer<typeof PersonCreateInput>,
+    "tipo_documento" | "pais_documento"
+  >
+): string[] {
+  const validationWarnings: string[] = [];
+
+  if (
+    personData.tipo_documento === "Documento_Extranjero" &&
+    !personData.pais_documento
+  ) {
+    validationWarnings.push(
+      "pais_documento required for Documento_Extranjero"
+    );
+  }
+
+  return validationWarnings;
+}
+
 export const crudRouter = router({
   /**
    * Create a new person record.
@@ -51,21 +71,11 @@ export const crudRouter = router({
     .input(PersonCreateInput)
     .mutation(async ({ ctx, input }) => {
       const supabase = createAdminClient();
-      const { program_ids: _, ...personData } = input;
+      const { program_ids, ...personData } = input;
+      void program_ids;
       const startTime = Date.now();
 
-      // Validation warnings
-      const validationWarnings: string[] = [];
-
-      // Validate pais_documento requirement for Documento_Extranjero
-      if (
-        personData.tipo_documento === "Documento_Extranjero" &&
-        !personData.pais_documento
-      ) {
-        validationWarnings.push(
-          "pais_documento required for Documento_Extranjero"
-        );
-      }
+      const validationWarnings = getPersonValidationWarnings(personData);
 
       // Helper: convert empty strings to null to satisfy DB CHECK constraints
       const str = (v: string | null | undefined): string | null =>
@@ -119,8 +129,7 @@ export const crudRouter = router({
 
       if (error) {
         logProcedureError(ctx, 'Failed to create person', error as Error, {
-          nombre: personData.nombre,
-          apellidos: personData.apellidos,
+          validationWarnings,
         });
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
@@ -132,9 +141,8 @@ export const crudRouter = router({
       const duration = Date.now() - startTime;
       logProcedureAction(ctx, 'Person created successfully', {
         personId: person.id,
-        nombre: person.nombre,
-        apellidos: person.apellidos,
         duration,
+        validationWarnings,
       });
 
       return {
@@ -147,7 +155,7 @@ export const crudRouter = router({
    * Get a single person by ID.
    * Uses service role key to bypass RLS.
    */
-  getById: protectedProcedure
+  getById: adminProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const supabase = createAdminClient();
@@ -189,10 +197,10 @@ export const crudRouter = router({
   /**
    * Get all persons (admin view).
    * Uses service role key to bypass RLS — the role gate is enforced at
-   * the tRPC layer via getAllColumnsForRole(ctx.user.role) so high-risk
-   * fields (e.g. situacion_legal) only ship to admin/superadmin callers.
+   * the tRPC layer so the admin column list only ships to admin/superadmin
+   * callers.
    */
-  getAll: protectedProcedure.query(async ({ ctx }) => {
+  getAll: adminProcedure.query(async ({ ctx }) => {
     const supabase = createAdminClient();
 
     const { data, error } = await supabase

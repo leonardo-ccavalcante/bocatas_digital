@@ -40,3 +40,12 @@
 - [x] Eliminar doble fila de tabs en FamiliasTab (ya no tiene sub-tabs)
 - [x] Agregar "repartos" al tipo ProgramTab, PROGRAM_TABS y ENABLED_TABS en useTabParam.ts
 - [x] Tests TDD actualizados para la nueva arquitectura (6 tests pasan + 7 ProgramaDetalle = 13 total)
+
+## GitHub Sync — PRs #68, #69, #70 (2026-06-05)
+- [x] Clonar repo GitHub y comparar con Manus (68 archivos diferentes)
+- [x] Copiar 68 archivos de GitHub PRs #68, #69, #70 al proyecto Manus
+- [x] Corregir TypeScript errors: buildTemplateCsv, fieldsToLegacyRow, imports
+- [x] Actualizar tests de contrato (ProgramTabs, useTabParam) para reflejar 6 tabs
+- [ ] Aplicar 6 migraciones SQL de Supabase (pendiente — requiere SQL Editor de Supabase)
+- [ ] Tests de integración: confirm-legacy-import-upsert (6 tests) — bloqueados por migraciones
+- [ ] Tests de integración: enrich-informes-rpc (2 tests) — bloqueados por migraciones

@@ -1,12 +1,15 @@
-import { describe, it, expect } from 'vitest';
+import { it, expect } from 'vitest';
 import { createAdminClient } from '../../client/src/lib/supabase/server';
 import { randomUUID } from 'crypto';
+import { getRealSupabaseDescribe } from './db-test-env';
 
 /**
  * Test that getAll procedure filters announcements by published_at/expires_at
  * in addition to fecha_inicio/fecha_fin
  */
-describe('Announcements - getAll filtering by published_at/expires_at', () => {
+const describeDb = getRealSupabaseDescribe();
+
+describeDb('Announcements - getAll filtering by published_at/expires_at', () => {
   const db = createAdminClient();
 
   it('should filter out announcements with future published_at', async () => {
