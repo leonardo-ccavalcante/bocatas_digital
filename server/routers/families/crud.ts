@@ -215,7 +215,9 @@ export const crudRouter = router({
       // Mirror to familia_miembros — now the canonical store for member rows.
       await mirrorMembersToTable(db, ctx, family.id, resolvedMiembros);
 
-      return family;
+      // insertFamilyRow returns SELECT * (incl. the Art.9 narrative columns).
+      // Redact for non-elevated callers — defense in depth (same as getById).
+      return redactHighRiskFields(ctx.user.role, family as Record<string, unknown>) as typeof family;
     }),
 
   // ─── Job 4: Update docs checklist ────────────────────────────────────────
