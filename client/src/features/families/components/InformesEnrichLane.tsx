@@ -262,7 +262,7 @@ export function InformesEnrichLane({ onDone }: { onDone: () => void }) {
         {grouped.length === 0 ? (
           <p className="text-sm italic text-gray-500">No hay familias en esta categoría.</p>
         ) : (
-          grouped.map((f) => <FamilyCard key={f.legacy_numero_familia} family={f} />)
+          grouped.map((f, idx) => <FamilyCard key={`${f.legacy_numero_familia}-${idx}`} family={f} />)
         )}
       </div>
 
