@@ -52,14 +52,21 @@ async function startServer() {
   const app = express();
   const server = createServer(app);
 
-  // Global body parser: 1MB (safe default for JSON API payloads)
-  app.use(express.json({ limit: "1mb" }));
+    // Body parsers: routes that carry large payloads (base64 images, CSV exports)
+  // get 10MB; everything else gets the safe 1MB default.
+  // IMPORTANT: use a single conditional middleware so the 1MB global parser
+  // never runs first and rejects large-payload routes with HTTP 413.
+  const LARGE_PAYLOAD_PATHS = [
+    "/api/trpc/ocr",
+    "/api/trpc/persons.uploadPhoto",
+    "/api/trpc/families.previewLegacyImport",
+    "/api/trpc/families.confirmLegacyImport",
+  ];
+  app.use((req, res, next) => {
+    const isLarge = LARGE_PAYLOAD_PATHS.some((p) => req.path === p || req.path.startsWith(p + "?") || req.path.startsWith(p + "/"));
+    return express.json({ limit: isLarge ? "10mb" : "1mb" })(req, res, next);
+  });
   app.use(express.urlencoded({ limit: "1mb", extended: true }));
-  // OCR / photo-upload routes carry base64 images — allow up to 10MB
-  const uploadJsonParser = express.json({ limit: "10mb" });
-  app.use("/api/trpc/ocr", uploadJsonParser);
-  app.use("/api/trpc/persons.uploadPhoto", uploadJsonParser);
-
   // Trust the first proxy (required for express-rate-limit to correctly identify IPs behind reverse proxies)
   app.set("trust proxy", 1);
   // Rate limiting

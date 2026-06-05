@@ -442,8 +442,8 @@ export function BulkImportFamiliasLegacyModal({
               {filteredGroups.length === 0 ? (
                 <p className="text-sm text-gray-500 italic">No hay familias en esta categoría.</p>
               ) : (
-                filteredGroups.map((g) => (
-                  <FamilyRow key={g.legacy_numero_familia} group={g} />
+                filteredGroups.map((g, idx) => (
+                  <FamilyRow key={`${g.legacy_numero_familia}-${idx}`} group={g} />
                 ))
               )}
             </div>
