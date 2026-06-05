@@ -92,7 +92,10 @@ beforeAll(cleanup);
 afterAll(cleanup);
 
 describeDb("legacy-familias importer — full CSV→DB end-to-end (synthetic)", () => {
-  it("imports a real synthetic CSV through the UI's tRPC procedures into real rows", async () => {
+  // 60s timeout: the happy path chains ~6 tRPC calls + many admin reads and
+  // runs ~6s on a cold PostgREST — over vitest's 5s default (which has no
+  // override in vitest.config.ts), so it would otherwise flake.
+  it("imports a real synthetic CSV through the UI's tRPC procedures into real rows", { timeout: 60000 }, async () => {
     const caller = appRouter.createCaller(adminCtx());
     const csv = readFileSync(FIXTURE, "utf8");
 

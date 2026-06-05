@@ -84,8 +84,15 @@ export async function resolveMemberPersonId(
 }
 
 /**
- * Idempotent insert of a `program_enrollments` row.
- * If an active enrollment already exists for (person_id, program_id), do nothing.
+ * Idempotent active enrollment in a program (revive-on-conflict).
+ *
+ * program_enrollments has a NON-partial UNIQUE (person_id, program_id) on top of
+ * the partial active-only index, so a bare INSERT raises 23505 whenever an
+ * INACTIVE / soft-deleted row already exists (a normal baja → re-intake) — and
+ * the old active-only guard could not see it, so it silently failed to enroll.
+ * upsert onConflict revives the existing row to active instead (mirrors
+ * persons/enroll.ts). The 23505 class is now closed across both this helper and
+ * the legacy-import RPC's upsert_familia_enrollment.
  */
 export async function ensureFamiliaEnrollment(
   db: ReturnType<typeof createAdminClient>,
@@ -94,22 +101,16 @@ export async function ensureFamiliaEnrollment(
   family_id: string,
   member_index: number
 ): Promise<void> {
-  const { data: existing } = await db
-    .from("program_enrollments")
-    .select("id")
-    .eq("person_id", person_id)
-    .eq("program_id", program_id)
-    .eq("estado", "activo")
-    .is("deleted_at", null)
-    .limit(1);
-  if (existing && existing.length > 0) return;
-
-  await db.from("program_enrollments").insert({
-    person_id,
-    program_id,
-    estado: "activo",
-    metadata: { family_id, member_index },
-  });
+  await db.from("program_enrollments").upsert(
+    {
+      person_id,
+      program_id,
+      estado: "activo",
+      deleted_at: null,
+      metadata: { family_id, member_index },
+    },
+    { onConflict: "person_id,program_id" }
+  );
 }
 
 export const familyDocTypeSchema = z.enum([

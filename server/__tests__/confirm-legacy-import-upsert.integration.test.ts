@@ -533,6 +533,69 @@ describeDb("confirm_legacy_familias_import — Phase 3 upsert + enrollment", () 
     expect(totalEnroll).toBe(1); // still exactly one row, just revived
   });
 
+  // Double-check finding (HIGH): two BRAND-NEW same-name no-document members in a
+  // single 'update' payload (none pre-existing) must both be inserted — the
+  // new-member branch must add its inserted id to the used-set, else the 2nd
+  // collapses onto the 1st just-inserted row.
+  it("inserts two brand-new same-name no-doc members in one update (no insert-collapse)", async () => {
+    const actorId = `phase3-newcollapse-${Date.now()}`;
+    const legacyNum = `P3-NEWCOLLAPSE-${Date.now()}`;
+    const docT = `DOC-NCT-${Date.now()}`;
+    createdLegacyNums.push(legacyNum);
+    const userClient = await makeUserClient(actorId, "admin");
+
+    const titular = {
+      estado: "activa" as const,
+      relacion_db: "other",
+      person: {
+        nombre: "Solo",
+        apellidos: "Titular",
+        fecha_nacimiento: "1970-01-01",
+        numero_documento: docT,
+      },
+    };
+    const placeholder = {
+      estado: "activa" as const,
+      relacion_db: "other",
+      person: {
+        nombre: "(sin nombre)",
+        apellidos: "(sin apellidos)",
+        fecha_nacimiento: null,
+        numero_documento: null,
+      },
+    };
+
+    // Create with the titular ONLY (zero members).
+    await stashAndConfirm(userClient, actorId, [group(legacyNum, 0, [titular])]);
+    const fam = await familyByLegacy(legacyNum);
+
+    // Update adds TWO identical brand-new placeholder members in one payload.
+    await stashAndConfirm(
+      userClient,
+      actorId,
+      [group(legacyNum, 0, [titular, placeholder, placeholder])],
+      "update"
+    );
+    const { count: afterUpdate } = await adminDb!
+      .from("familia_miembros")
+      .select("id", { count: "exact", head: true })
+      .eq("familia_id", fam.id);
+    expect(afterUpdate).toBe(2); // both inserted, NOT collapsed to 1
+
+    // Idempotent: a second identical update keeps it at 2 (no drift).
+    await stashAndConfirm(
+      userClient,
+      actorId,
+      [group(legacyNum, 0, [titular, placeholder, placeholder])],
+      "update"
+    );
+    const { count: afterSecond } = await adminDb!
+      .from("familia_miembros")
+      .select("id", { count: "exact", head: true })
+      .eq("familia_id", fam.id);
+    expect(afterSecond).toBe(2);
+  });
+
   // Review finding #3 (MEDIUM): two no-document, same-name members must NOT
   // collapse onto a single existing row on update (per-loop used guard).
   it("does not collapse two no-document placeholder members onto one row", async () => {
