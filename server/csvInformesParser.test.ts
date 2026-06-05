@@ -74,3 +74,25 @@ describe("parseInformesDocument", () => {
     expect(m3.numero_documento).toBe("Y6802248N");
   });
 });
+
+// ── Phase 5 (best-effort): a member slot with data but no NOMBRE is recovered
+//    with a placeholder, not dropped; a fully-empty slot is still skipped. ──
+describe("parseInformesDocument — Phase 5 member placeholder", () => {
+  // slot 2: apellido + fecha + parentesco present, NOMBRE 2 empty → placeholder.
+  // slot 3: fully empty → skipped.
+  const ROW =
+    'XYZ-2,01/01/2020,Ana,Ruiz,600,,España,01/01/1980,"C/ X",28004,Madrid,' +
+    '"sit","nec",,Perez,12/12/2015,Hijo,,,,,,';
+  const parsed = parseInformesDocument(`${HEADER}\n${ROW}`);
+
+  it("keeps a named-less slot as a placeholder member (not dropped)", () => {
+    expect(parsed.families.length).toBe(1);
+    const f = parsed.families[0];
+    expect(f.members.length).toBe(1); // slot 2 kept, slot 3 (empty) skipped
+    const m = f.members[0];
+    expect(m.nombre).toBe("(sin nombre)");
+    expect(m.apellidos).toBe("Perez");
+    expect(m.fecha_nacimiento).toBe("2015-12-12");
+    expect(m.warnings.some((w) => w.code === "nombre_placeholder")).toBe(true);
+  });
+});

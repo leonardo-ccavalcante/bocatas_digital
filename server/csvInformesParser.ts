@@ -23,6 +23,7 @@ import type {
   RowWarning,
   RowError,
 } from "../shared/legacyFamiliasTypes";
+import { NOMBRE_PLACEHOLDER } from "../shared/legacyFamiliasTypes";
 
 const MAX_SLOT = 14;
 
@@ -142,21 +143,38 @@ function buildMember(
   rec: ReadonlyArray<string>,
   slot: InformesColumnMap["memberSlots"][number]
 ): InformesMember | null {
-  const nombre = cell(rec, slot.nombre);
-  // A slot with no name is empty (or garbage) → not a member.
-  if (!nombre) return null;
-  const warnings: RowWarning[] = [];
-  const dob = parseDate(cell(rec, slot.fecha));
-  if (dob.warning) warnings.push(dob.warning);
-  const doc = parseDocumento(cell(rec, slot.documento));
-  if (doc.warning) warnings.push(doc.warning);
+  const rawNombre = cell(rec, slot.nombre);
+  const apellidos = cell(rec, slot.apellido);
+  const fechaRaw = cell(rec, slot.fecha);
+  const docRaw = cell(rec, slot.documento);
   const parRaw = cell(rec, slot.parentesco);
+
+  // A slot with NO identifying data at all is an empty column group → not a
+  // member. But a slot that carries apellido/fecha/documento/parentesco yet no
+  // NOMBRE is a real member with a missing name (Phase 5): recover it with a
+  // placeholder rather than silently dropping the person.
+  if (!rawNombre && !apellidos && !fechaRaw && !docRaw && !parRaw) return null;
+
+  const warnings: RowWarning[] = [];
+  let nombre = rawNombre;
+  if (!nombre) {
+    nombre = NOMBRE_PLACEHOLDER;
+    warnings.push({
+      field: "nombre",
+      code: "nombre_placeholder",
+      message: `NOMBRE de miembro vacío — sustituido por "${NOMBRE_PLACEHOLDER}". Completar manualmente.`,
+    });
+  }
+  const dob = parseDate(fechaRaw);
+  if (dob.warning) warnings.push(dob.warning);
+  const doc = parseDocumento(docRaw);
+  if (doc.warning) warnings.push(doc.warning);
   const par = parseParentesco(parRaw);
   if (par.warning) warnings.push(par.warning);
   return {
     slot: slot.slot,
     nombre,
-    apellidos: cell(rec, slot.apellido) || null,
+    apellidos: apellidos || null,
     fecha_nacimiento: dob.value,
     relacion_db: par.relacion,
     parentesco_original: parRaw || null,

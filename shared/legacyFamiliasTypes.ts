@@ -103,7 +103,15 @@ export const warningCodeEnum = z.enum([
   "colectivo_unknown",
   "estado_unknown",
   "cp_invalid",
+  // Phase 5 (best-effort): a row/member with no nombre/apellidos is recovered
+  // with a placeholder instead of being rejected, so the family isn't lost.
+  "nombre_placeholder",
+  "apellidos_placeholder",
 ]);
+
+// Best-effort placeholders for a missing nombre/apellidos (Phase 5 / G9).
+export const NOMBRE_PLACEHOLDER = "(sin nombre)";
+export const APELLIDOS_PLACEHOLDER = "(sin apellidos)";
 
 export const RowWarningSchema = z.object({
   field: z.string(),
@@ -228,10 +236,15 @@ export const ConfirmErrorSchema = z.object({
 
 export const ConfirmResponseSchema = z.object({
   created_count: z.number().int().nonnegative(),
+  // Phase 3: families re-synced via p_mode='update' (0 in skip mode).
+  updated_count: z.number().int().nonnegative().default(0),
   skipped_count: z.number().int().nonnegative(),
   error_count: z.number().int().nonnegative(),
   // The SQL function returns this as 'error_details' (array of per-family errors)
   error_details: z.array(ConfirmErrorSchema).default([]),
+  // true when the programa_familias program was absent in the target env, so
+  // familia enrollment was a silent no-op (prod-vs-repo slug-drift visibility).
+  enrollment_program_missing: z.boolean().default(false),
 });
 export type ConfirmResponse = z.infer<typeof ConfirmResponseSchema>;
 
@@ -288,6 +301,9 @@ export const memberMatchTierEnum = z.enum([
   "name_first_apellido",
   "none",
   "ambiguous",
+  // MEDIUM-2: name matches but DOB/DNI disagrees — surfaced for adjudication,
+  // never auto-written.
+  "member_conflict",
 ]);
 export const MemberMatchSchema = z.object({
   slot: z.number().int(),

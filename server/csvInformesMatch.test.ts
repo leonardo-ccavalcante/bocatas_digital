@@ -108,6 +108,64 @@ describe("matchInformesMembers", () => {
     expect(r[0].matched_member_id).toBeNull();
   });
 
+  // ── member_conflict (MEDIUM-2): name matches but DOB/DNI disagrees ──────────
+  it("name matches but DOB differs → member_conflict (probable same person; never writes)", () => {
+    const r = matchInformesMembers(
+      [im({ slot: 2, nombre: "Ana", apellidos: "Perez Ruiz", fecha_nacimiento: "2008-05-05" })],
+      [ex({ id: "m1", nombre: "Ana", apellidos: "Perez Ruiz", fecha_nacimiento: "1999-12-31" })]
+    );
+    expect(r[0].match_tier).toBe("member_conflict");
+    expect(r[0].matched_member_id).toBeNull();
+    expect(r[0].matched_person_id).toBeNull();
+  });
+
+  it("name matches + both documents present but DIFFERENT (no DOB) → member_conflict", () => {
+    const r = matchInformesMembers(
+      [im({ slot: 2, nombre: "Juan", apellidos: "Garcia", fecha_nacimiento: null, numero_documento: "DOC-A" })],
+      [ex({ id: "m1", nombre: "Juan", apellidos: "Garcia", fecha_nacimiento: null, documento: "DOC-B" })]
+    );
+    expect(r[0].match_tier).toBe("member_conflict");
+    expect(r[0].matched_member_id).toBeNull();
+  });
+
+  it("name + first-apellido match but DOB differs → member_conflict (not a silent none)", () => {
+    const r = matchInformesMembers(
+      [im({ slot: 2, nombre: "Juan", apellidos: "Garcia", fecha_nacimiento: "2010-01-01" })],
+      [ex({ id: "m1", nombre: "Juan", apellidos: "Garcia Lopez", fecha_nacimiento: "2001-06-06" })]
+    );
+    expect(r[0].match_tier).toBe("member_conflict");
+  });
+
+  it("full name + DOB match but documents DISAGREE → member_conflict (not probe_key; never writes)", () => {
+    // Same name + same DOB would normally be probe_key, but both sides carry a
+    // DIFFERENT document → a discrepancy that must not auto-write one DNI over another.
+    const r = matchInformesMembers(
+      [im({ slot: 2, nombre: "Ana", apellidos: "Perez Ruiz", fecha_nacimiento: "2008-05-05", numero_documento: "DOC-A" })],
+      [ex({ id: "m1", nombre: "ana", apellidos: "perez ruiz", fecha_nacimiento: "2008-05-05", documento: "DOC-B" })]
+    );
+    expect(r[0].match_tier).toBe("member_conflict");
+    expect(r[0].matched_member_id).toBeNull();
+    expect(r[0].matched_person_id).toBeNull();
+  });
+
+  it("name + DOB match with MATCHING documents stays a clean probe_key", () => {
+    const r = matchInformesMembers(
+      [im({ slot: 2, nombre: "Ana", apellidos: "Perez Ruiz", fecha_nacimiento: "2008-05-05", numero_documento: "DOC-SAME" })],
+      [ex({ id: "m1", nombre: "ana", apellidos: "perez ruiz", fecha_nacimiento: "2008-05-05", documento: "DOC-SAME" })]
+    );
+    // Document tier wins first (documento), which is fine — it's a clean match.
+    expect(r[0].matched_member_id).toBe("m1");
+    expect(["documento", "probe_key"]).toContain(r[0].match_tier);
+  });
+
+  it("name matches with NO comparable DOB/DNI on either side → stays none (no discrepancy to flag)", () => {
+    const r = matchInformesMembers(
+      [im({ slot: 2, nombre: "Sin", apellidos: "Fecha", fecha_nacimiento: null, numero_documento: null })],
+      [ex({ id: "m1", nombre: "Sin", apellidos: "Fecha", fecha_nacimiento: null, documento: null })]
+    );
+    expect(r[0].match_tier).toBe("none");
+  });
+
   it("document beats name when both available (and is preferred)", () => {
     const r = matchInformesMembers(
       [im({ slot: 2, nombre: "X", apellidos: "Y", fecha_nacimiento: "2000-01-01", numero_documento: "DOC9" })],
