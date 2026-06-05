@@ -1,0 +1,15 @@
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+NÚMERO DE ORDEN,NUMERO FAMILIA BOCATAS,FECHA ALTA,NOMBRE,APELLIDOS,SEXO,TELEFONO,DNI/NIE/ PASAPORTE,"CABEZA DE FAMILIA
+(MARCAR CON UNA X DONDE PROCEDA)",ACTIVA/BAJA BOCATAS,PAIS,DOCUMENTACIÓN EN REGLA,Fecha Nacimiento,EMAIL,DIRECCION,CODIGO POSTAL,Localidad,TOTAL NÚMERO MIEMBROS,Nº MIEMBROS UNIDAD FAMILIAR MENORES 3 AÑOS,Nº MIEMBROS UNIDAD FAMILIAR 3 A 18 AÑOS,Nº MIEMBROS UNIDAD FAMILIAR 18 A 65 AÑOS,Nº MIEMBROS UNIDAD FAMILIAR MAYORES 66 AÑOS,DESCRIPCION SITUACIÓN FAMILIAR,DESCRIPCION SITUACIÓN ECONÓMICA,NEC ALIMENTOS,PERSONA CONTACTO,,NOTAS NECESIDADES,NOTAS PARA INFORME SOCIAL,Nivel de estudios finalizados,Situación Laboral,Otras Características,DISTRITO,Banco Alimentos,ESTADÍSTICA,nº FAMILIAS POR ESTADO ECONÓMICO,1-2,3-4,>5,TOTAL,,,,,,,,,,,,,,
+1,9001,30/09/2020,Sintetica Uno,Apellido Test,F,600000001,50.773.937-B,x,Activa,España,SI,09/08/1977,,Calle Falsa 1,28004,Madrid,3,,1,2,,Situación de prueba,,Sí,Sintetica Uno,,,"Nota de informe social línea 1.
+Línea 2 con salto de línea embebido.",Educación Secundaria ,Personas Inactivas ,Otros/ especificar,Centro,,,,,,,,,,,,,,,,,,,,,
+2,9001,,Sintetica Dos,Apellido Test,M,,,Hijo,A,Peru,,23-sept-22,,,,,,,,,,,,,,,,,Sin Estudios ,Personas en situación de Precariedad Laboral ,Gitanos,,,,,,,,,,,,,,,,,,,,,,
+3,9001,,Sintetica Tres,Apellido Test,M,,,Cuñado,B,Hoduras,,17-mar-83,,,,,,,,,,,,,,,,,Educación Primaria ,Desempleado  con Subsidio de desempleo de larga duración (más de 12 meses) ,Sin Hogar,,,,,,,,,,,,,,,,,,,,,,
+4,9002,27/06/2025,Sintetica Cuatro,Familia Dos,F,600000002,Y6802248N,X,Baja,Venezuela,,44827,,Avenida Inventada 22,28018,Madrid,3,,2,1,,,,,,,,Familia monoparental de prueba.,Educación Superior ,Personas Inactivas ,,,,,,,,,,,,,,,,,,,,,,,
+5,9002,,Sintetica Cinco,Familia Dos,F,,,Pareja,B,Perú/Española,,08-julio-96,,,,,,,,,,,,,,,,,Educación Post-Secundaria no Superior ,Personas Inactivas ,,,,,,,,,,,,,,,,,,,,,,,
+6,9002,,Sintetica Seis,Familia Dos,M,,,Nieto,NP,SI,,xx/xx/1976,,,,,,,,,,,,,,,,,Sin Estudios ,,,,,,,,,,,,,,,,,,,,,,,,
+7,9003,10/06/2022,Sintetica Siete,Familia Tres,F,600000003,52.050.996-H,x,A,Colombiana,,15/12/88,,Plaza Ejemplo 3,28015,Madrid,1,,,1,,,,,,,,,Educación Primaria ,Personas en situación de Precariedad Laboral ,,,,,,,,,,,,,,,,,,,,,,,
+8,9004,,Sintetica Ocho,Familia Cuatro,M,,,Hijo,B,Marruecos,,20/04/2004,,,,,,,,,,,,,,,,,Educación Secundaria ,,,,,,,,,,,,,,,,,,,,,,,,
+9,9005,,,Familia Cinco,F,,,x,Activa,Ucrania,,01/01/1990,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,Huerfano,Sin Familia,,,,Hijo,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,ESTADÍSTICA,,120,80,15,215,,,,,,,,,,,,,,

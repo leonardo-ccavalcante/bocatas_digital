@@ -12,43 +12,47 @@
  * local Supabase instance.
  */
 import { describe, it, expect } from "vitest";
-import { parseRow, fieldsToLegacyRow, CSV_HEADERS } from "../../../csvLegacyFamiliasMapper";
+import { parseRow, CSV_HEADERS } from "../../../csvLegacyFamiliasMapper";
+import {
+  parseCSVDocument,
+  resolveColumnMap,
+  fieldsToLegacyRow,
+  REQUIRED_KEYS,
+} from "../../../csvLegacyFamiliasParser";
 import { assembleFamilyGroups } from "../../../csvLegacyFamiliasGroup";
-import { parseCSVLine } from "../../announcements/_shared";
 
 // Deterministic end-to-end transformation: CSV string → groups[].
+// Mirrors the production parsing in legacy-import.ts (whole-document parser +
+// header-NAME resolution) so the test exercises the real pipeline.
 function transformCsv(csv: string): {
   groups: ReturnType<typeof assembleFamilyGroups>;
   parseErrors: number;
 } {
-  const csvNormalised = csv.replace(/^﻿/, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-  const lines = csvNormalised.split("\n");
+  const records = parseCSVDocument(csv);
 
-  let headerLineIdx = -1;
-  for (let i = 0; i < lines.length; i++) {
-    const fields = parseCSVLine(lines[i]);
-    if (fields[0]?.trim().startsWith("NÚMERO DE ORDEN")) {
-      headerLineIdx = i;
+  let headerIdx = -1;
+  let columnMap: ReturnType<typeof resolveColumnMap> | null = null;
+  for (let i = 0; i < Math.min(records.length, 10); i++) {
+    const candidate = resolveColumnMap(records[i]);
+    if (REQUIRED_KEYS.every((k) => candidate.has(k))) {
+      headerIdx = i;
+      columnMap = candidate;
       break;
     }
   }
-  if (headerLineIdx === -1) throw new Error("Header not found");
+  if (headerIdx === -1 || !columnMap) throw new Error("Header not found");
 
-  let dataStart = headerLineIdx + 1;
-  const next = parseCSVLine(lines[headerLineIdx + 1] ?? "");
-  if (next[0]?.trim().startsWith("(MARCAR CON UNA X")) {
-    dataStart = headerLineIdx + 2;
-  }
-
+  const famIdx = columnMap.get("numero_familia")!;
+  const data = records.slice(headerIdx + 1);
   const cleanRows = [];
   let parseErrors = 0;
-  for (let i = dataStart; i < lines.length; i++) {
-    if (!lines[i].trim()) continue;
-    const fields = parseCSVLine(lines[i]).map((f) => f.trim());
-    if (!fields[1]) continue;
-    const legacy = fieldsToLegacyRow(fields);
-    const r = parseRow(legacy, i + 1);
-    if (r.ok) cleanRows.push(r.row);
+  for (let r = 0; r < data.length; r++) {
+    const rec = data[r];
+    if (rec.every((c) => c.trim() === "")) continue;
+    if (!(rec[famIdx] ?? "").trim()) continue;
+    const legacy = fieldsToLegacyRow(rec, columnMap);
+    const res = parseRow(legacy, headerIdx + 1 + r + 1);
+    if (res.ok) cleanRows.push(res.row);
     else parseErrors++;
   }
   return { groups: assembleFamilyGroups(cleanRows), parseErrors };

@@ -123,3 +123,13 @@ playwright/.cache/
 # Supabase CLI temporary files
 supabase/.temp/
 .project-config.json
+
+# Real beneficiary PII subset for local high-fidelity validation — never commit
+tests/fixtures/legacy-familias-real-subset.csv
+scripts/_validate-legacy-real.ts
+scripts/_validate-informes-real.ts
+
+# Local Supabase env (per-dev ports; not committed)
+supabase/config.toml
+supabase/.branches/
+supabase/.temp/
