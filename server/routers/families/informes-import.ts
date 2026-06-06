@@ -64,7 +64,8 @@ export const informesImportRouter = router({
       const db = createAdminClient();
       const numeros = [...new Set(families.map((f) => f.legacy_numero_familia))];
       const existing = new Map<string, { id: string; titular_id: string | null }>();
-      for (let start = 0; start < numeros.length; start += PROBE_CHUNK_SIZE) {
+      // Guard: PostgREST .in() with an empty array returns an error.
+      for (let start = 0; numeros.length > 0 && start < numeros.length; start += PROBE_CHUNK_SIZE) {
         const chunk = numeros.slice(start, start + PROBE_CHUNK_SIZE);
         const { data, error } = await db
           .from("families")
@@ -74,6 +75,9 @@ export const informesImportRouter = router({
         if (error) {
           ctx.logger.error("[informes-import] families probe failed", {
             code: error.code,
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
             correlationId: ctx.correlationId,
           });
           throw new TRPCError({
@@ -114,7 +118,9 @@ export const informesImportRouter = router({
         .map((f) => f.family_id)
         .filter((id): id is string => id !== null);
       const membersByFamily = new Map<string, ExistingMember[]>();
-      for (let start = 0; start < foundIds.length; start += PROBE_CHUNK_SIZE) {
+      // Guard: PostgREST .in() with an empty array returns an error. Skip the
+      // loop entirely when no families were resolved against the roster.
+      for (let start = 0; foundIds.length > 0 && start < foundIds.length; start += PROBE_CHUNK_SIZE) {
         const chunk = foundIds.slice(start, start + PROBE_CHUNK_SIZE);
         const { data, error } = await db
           .from("familia_miembros")
@@ -124,6 +130,9 @@ export const informesImportRouter = router({
         if (error) {
           ctx.logger.error("[informes-import] familia_miembros probe failed", {
             code: error.code,
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
             correlationId: ctx.correlationId,
           });
           throw new TRPCError({

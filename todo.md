@@ -49,3 +49,13 @@
 - [x] Aplicar 6 migraciones SQL de Supabase (aplicadas via Supabase MCP apply_migration)
 - [x] Tests de integración: confirm-legacy-import-upsert (6 tests) — PASAN tras aplicar migraciones
 - [x] Tests de integración: enrich-informes-rpc (2 tests) — PASAN tras aplicar migraciones
+
+## Bug: getEligibleFamilies Bad Request con >100 familias + informes-import empty-array guard (2026-06-06)
+- [x] Reemplazar 3 queries .in() encadenadas en getEligibleFamilies por RPC get_eligible_families_for_reparto
+- [x] Migración SQL: CREATE OR REPLACE FUNCTION get_eligible_families_for_reparto (aplicada a Supabase)
+- [x] Guard en informes-import.ts: numeros.length > 0 antes del loop .in("legacy_numero", chunk)
+- [x] Guard en informes-import.ts: foundIds.length > 0 antes del loop .in("familia_id", chunk)
+- [x] Enriquecer logs de error con message/details/hint en ambos probes (families + familia_miembros)
+- [x] Reescribir tests de getEligibleFamilies para reflejar contrato RPC (4 tests nuevos)
+- [x] Refactorizar mock: rpcResult:unknown → rpcResults:Record<string,unknown> (fix rows.map bug)
+- [x] Suite completa: 2756 tests pasan, 0 fallos, TypeScript 0 errores

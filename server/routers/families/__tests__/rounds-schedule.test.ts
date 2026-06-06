@@ -6,7 +6,8 @@ import type { User } from "../../../../drizzle/schema";
 const tableResults: Record<string, { data: unknown; error: { message: string } | null }> = {};
 const captured: Array<{ table: string; op: string; payload: unknown }> = [];
 const rpcCalls: Array<{ name: string; args: unknown }> = [];
-let rpcResult: unknown = 0;
+// rpcResults maps RPC name → return value so different RPCs can return different shapes.
+const rpcResults: Record<string, unknown> = {};
 
 function makeBuilder(table: string) {
   let write: Record<string, unknown> | null = null;
@@ -30,7 +31,11 @@ function makeBuilder(table: string) {
 vi.mock("../../../../client/src/lib/supabase/server", () => ({
   createAdminClient: () => ({
     from: (table: string) => makeBuilder(table),
-    rpc: async (name: string, args: unknown) => { rpcCalls.push({ name, args }); return { data: rpcResult, error: null }; },
+    rpc: async (name: string, args: unknown) => {
+      rpcCalls.push({ name, args });
+      const result = rpcResults[name] ?? [];
+      return { data: result, error: null };
+    },
   }),
 }));
 
@@ -49,7 +54,8 @@ const PROG = "00000000-0000-0000-0000-000000000001";
 
 beforeEach(() => {
   for (const k of Object.keys(tableResults)) delete tableResults[k];
-  captured.length = 0; rpcCalls.length = 0; rpcResult = 0;
+  for (const k of Object.keys(rpcResults)) delete rpcResults[k];
+  captured.length = 0; rpcCalls.length = 0;
   vi.clearAllMocks();
 });
 
@@ -74,29 +80,48 @@ describe("rounds-schedule — createRound", () => {
   });
 });
 
-describe("rounds-schedule — getEligibleFamilies (PRE-1)", () => {
-  it("derives families via familia_miembros.person_id and sums members", async () => {
-    tableResults["program_enrollments"] = { data: [{ person_id: "p1" }, { person_id: "p2" }], error: null };
-    tableResults["familia_miembros"] = { data: [{ familia_id: "famA" }, { familia_id: "famA" }], error: null };
-    tableResults["families"] = { data: [{ id: "famA", familia_numero: 7, num_adultos: 2, num_menores_18: 3 }], error: null };
-
+describe("rounds-schedule — getEligibleFamilies (PRE-1, RPC-based)", () => {
+  it("calls get_eligible_families_for_reparto RPC with the program_id", async () => {
+    rpcResults["get_eligible_families_for_reparto"] = [];
     const caller = roundsScheduleRouter.createCaller(buildCtx(buildUser("admin")));
-    const result = await caller.getEligibleFamilies({ program_id: PROG });
-
-    expect(result).toEqual([{ id: "famA", familia_numero: 7, total_miembros: 5 }]);
+    await caller.getEligibleFamilies({ program_id: PROG });
+    expect(rpcCalls[0]?.name).toBe("get_eligible_families_for_reparto");
+    expect((rpcCalls[0]?.args as Record<string, unknown>).p_program_id).toBe(PROG);
   });
 
-  it("returns [] when no members are enrolled", async () => {
-    tableResults["program_enrollments"] = { data: [], error: null };
+  it("maps RPC rows: parses familia_numero string→number and passes total_miembros through", async () => {
+    rpcResults["get_eligible_families_for_reparto"] = [
+      { id: "famA", familia_numero: "7", total_miembros: 5 },
+      { id: "famB", familia_numero: "12", total_miembros: 3 },
+    ];
+    const caller = roundsScheduleRouter.createCaller(buildCtx(buildUser("admin")));
+    const result = await caller.getEligibleFamilies({ program_id: PROG });
+    expect(result).toEqual([
+      { id: "famA", familia_numero: 7, total_miembros: 5 },
+      { id: "famB", familia_numero: 12, total_miembros: 3 },
+    ]);
+  });
+
+  it("returns [] when RPC returns empty array (no enrolled families)", async () => {
+    rpcResults["get_eligible_families_for_reparto"] = [];
     const caller = roundsScheduleRouter.createCaller(buildCtx(buildUser("admin")));
     expect(await caller.getEligibleFamilies({ program_id: PROG })).toEqual([]);
+  });
+
+  it("handles null familia_numero gracefully", async () => {
+    rpcResults["get_eligible_families_for_reparto"] = [
+      { id: "famC", familia_numero: null, total_miembros: 2 },
+    ];
+    const caller = roundsScheduleRouter.createCaller(buildCtx(buildUser("admin")));
+    const result = await caller.getEligibleFamilies({ program_id: PROG });
+    expect(result).toEqual([{ id: "famC", familia_numero: null, total_miembros: 2 }]);
   });
 });
 
 describe("rounds-schedule — commitAssignments", () => {
   it("calls the commit RPC and activates the round", async () => {
     tableResults["delivery_rounds"] = { data: { id: "r1", estado: "borrador" }, error: null };
-    rpcResult = 2;
+    rpcResults["commit_round_assignments"] = 2;
     const caller = roundsScheduleRouter.createCaller(buildCtx(buildUser("admin")));
     const res = await caller.commitAssignments({
       round_id: "11111111-1111-4111-8111-111111111111",
