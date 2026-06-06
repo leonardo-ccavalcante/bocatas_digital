@@ -86,3 +86,4 @@
 - [x] Phase 2: Test RED — 2 tests frontend fallan correctamente; 2 tests backend actualizados
 - [x] Phase 3: Fix GREEN — eliminada condición en frontend + eliminado guard en backend
 - [x] Phase 4: Deep QA — 2775 tests pasan, TypeScript 0 errores, 13 tests deleteRound pasan, product review completo
+# batch 9 checkpoint trigger
