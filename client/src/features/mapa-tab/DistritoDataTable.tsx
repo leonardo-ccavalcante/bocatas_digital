@@ -62,33 +62,6 @@ export function DistritoDataTable({
 
   return (
     <div className="space-y-2">
-      {/* Legend — documents the scale + the privacy marker, in text. */}
-      <div
-        data-testid="mapa-legend"
-        className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground"
-      >
-        <span className="font-medium text-foreground">Leyenda:</span>
-        <span className="flex items-center gap-1">
-          <span
-            className="inline-block h-3 w-6 rounded-sm"
-            style={{
-              background: "linear-gradient(to right, rgb(254,229,217), rgb(180,30,30))",
-            }}
-            aria-hidden="true"
-          />
-          {layer === "compliance"
-            ? "Menor → mayor cumplimiento"
-            : "Menos → más familias"}
-        </span>
-        <span className="flex items-center gap-1">
-          <span
-            className="inline-block h-3 w-3 rounded-sm border border-border bg-[#e5e7eb]"
-            aria-hidden="true"
-          />
-          {`Menos de ${kAnonymityFloor} familias (dato protegido)`}
-        </span>
-      </div>
-
       <Table>
         <TableCaption className="sr-only">
           Familias atendidas por distrito de Madrid

@@ -105,3 +105,11 @@
 - [x] Bug #8d: Compliance modal carga infinita — fix: createUserImpersonationClient() usa SUPABASE_URL + SUPABASE_ANON_KEY con fallback a VITE_*
 - [x] Tests de regresión: 5 tests nuevos en supabase-server-env-url.test.ts verifican env vars correctas
 - [x] Suite completa: 2780 tests pasan, 0 fallos, TypeScript 0 errores
+
+## Bugs batch 9 (2026-06-06) — Map rendering systematic fix
+- [x] Bug #9a: Fondo verde del mapa — fix: `.leaflet-container { background: #f8fafc }` en index.css + `outline-none` en MapContainer
+- [x] Bug #9b: Heatmap polígonos blancos — fix: `key={\`${layer}-${rows.length}\`}` en <GeoJSON> para forzar re-mount cuando llegan datos (Leaflet no re-aplica style prop)
+- [x] Bug #9c: Doble leyenda — fix: eliminada leyenda redundante de DistritoDataTable (ya existe MapaLegend en MapaChoropleth)
+- [x] Bug #9d: Subtitle faltante — fix: añadido subtitle descriptivo contextual bajo el título (cambia según layer densidad/compliance)
+- [x] Test actualizado: MapaChoropleth.test.tsx — testid mapa-legend → mapa-choropleth-legend + geoJson prop añadida
+- [x] Suite completa: 2780 tests pasan, 0 fallos, TypeScript 0 errores

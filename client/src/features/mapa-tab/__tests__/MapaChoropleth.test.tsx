@@ -360,9 +360,10 @@ describe("<MapaChoropleth /> — accessible data table (C-06)", () => {
         kAnonymityFloor={3}
         layer="densidad"
         onDistritoClick={vi.fn()}
+        geoJson={SAMPLE_GEOJSON}
       />,
     );
-    expect(screen.getByTestId("mapa-legend")).toBeInTheDocument();
+    expect(screen.getByTestId("mapa-choropleth-legend")).toBeInTheDocument();
   });
 });
 
