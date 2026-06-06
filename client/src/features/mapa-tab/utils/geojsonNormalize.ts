@@ -15,7 +15,7 @@ export function normalizeNombreToSlug(nombre: string): DistritoSlug | null {
   if (!nombre) return null;
   const slug = nombre
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-");
