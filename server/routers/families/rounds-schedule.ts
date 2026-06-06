@@ -86,44 +86,20 @@ export const roundsScheduleRouter = router({
     }),
 
   // PRE-1 — families eligible for a reparto: active families with at least one
-  // member enrolled (active) in the program. program_enrollments is person-keyed
-  // (no family FK), so we hop person_id -> familia_miembros.familia_id -> families.
+  // member enrolled (active) in the program.
+  // Uses a single SQL RPC to avoid PostgREST .in() array size limits (fails at ~100+ items).
   getEligibleFamilies: adminProcedure
     .input(z.object({ program_id: programIdSchema }))
     .query(async ({ input }) => {
       const db = createAdminClient();
-
-      const { data: enroll, error: e1 } = await db
-        .from("program_enrollments")
-        .select("person_id")
-        .eq("program_id", input.program_id)
-        .eq("estado", "activo")
-        .is("deleted_at", null);
-      if (e1) fail(e1);
-      const personIds = [...new Set((enroll ?? []).map((r) => r.person_id).filter(Boolean))];
-      if (personIds.length === 0) return [];
-
-      const { data: members, error: e2 } = await db
-        .from("familia_miembros")
-        .select("familia_id")
-        .in("person_id", personIds)
-        .is("deleted_at", null);
-      if (e2) fail(e2);
-      const familyIds = [...new Set((members ?? []).map((r) => r.familia_id).filter(Boolean))];
-      if (familyIds.length === 0) return [];
-
-      const { data: fams, error: e3 } = await db
-        .from("families")
-        .select("id, familia_numero, num_adultos, num_menores_18")
-        .in("id", familyIds)
-        .eq("estado", "activa")
-        .is("deleted_at", null);
-      if (e3) fail(e3);
-
-      return (fams ?? []).map((f) => ({
+      const { data, error } = await (db as ReturnType<typeof createAdminClient>)
+        .rpc("get_eligible_families_for_reparto" as never, { p_program_id: input.program_id } as never);
+      if (error) fail(error as never);
+      const rows = (data ?? []) as Array<{ id: string; familia_numero: string; total_miembros: number }>;
+      return rows.map((f) => ({
         id: f.id,
-        familia_numero: f.familia_numero,
-        total_miembros: (f.num_adultos ?? 1) + (f.num_menores_18 ?? 0),
+        familia_numero: f.familia_numero != null ? parseInt(f.familia_numero, 10) : null,
+        total_miembros: f.total_miembros,
       }));
     }),
 
