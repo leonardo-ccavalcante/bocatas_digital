@@ -73,3 +73,10 @@
 - [x] Delete Lista de Distribución: ampliar a todos los estados (no solo borrador), con log de auditoría en tabla audit_log (admin only)
 - [x] Reporte de errores/avisos de "Enriquecer familias con Informes Sociales" (descarga Excel/CSV)
 - [x] Reporte de familias OK-pero-fallidas en upload Padrón (familias que pasan validación pero fallan en upsert)
+
+## Tipos TypeScript: eliminar casts `as never` (sesión 2026-06-06)
+- [x] Añadir `delivery_rounds_audit_log` a `database.types.ts` (Tables section)
+- [x] Añadir `get_eligible_families_for_reparto` a `database.types.ts` (Functions section)
+- [x] Eliminar 3 casts `as never` en `rounds-schedule.ts` (rpc call, fail(error), insert payload)
+- [x] TypeScript: 0 errores tras los cambios
+- [x] Suite completa: 2773 tests pasan, 0 fallos

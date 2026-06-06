@@ -725,6 +725,42 @@ export type Database = {
           },
         ]
       }
+      delivery_rounds_audit_log: {
+        Row: {
+          action: string
+          actor_id: string
+          actor_name: string | null
+          created_at: string
+          id: string
+          metadata: Json | null
+          round_estado: string | null
+          round_id: string
+          round_nombre: string | null
+        }
+        Insert: {
+          action: string
+          actor_id: string
+          actor_name?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          round_estado?: string | null
+          round_id: string
+          round_nombre?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string
+          actor_name?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          round_estado?: string | null
+          round_id?: string
+          round_nombre?: string | null
+        }
+        Relationships: []
+      }
       delivery_signature_audit: {
         Row: {
           client_ip_hash: string | null
@@ -2298,6 +2334,14 @@ export type Database = {
           id: string
           nombre: string
           similarity: number
+        }[]
+      }
+      get_eligible_families_for_reparto: {
+        Args: { p_program_id: string }
+        Returns: {
+          familia_numero: string
+          id: string
+          total_miembros: number
         }[]
       }
       get_person_id: { Args: never; Returns: string }
