@@ -81,6 +81,17 @@
 - [x] TypeScript: 0 errores tras los cambios
 - [x] Suite completa: 2773 tests pasan, 0 fallos
 
+## Tipos TypeScript: eliminar casts `as never` restantes (sesión 2026-06-06 batch 5)
+- [x] Auditar todos los casts `as never` / `as unknown as never` restantes en producción
+- [x] `announcements/bulk-import.ts`: `parsed_rows: valid as unknown as never` → `as unknown as Json` + import `Json`
+- [x] `families/legacy-import.ts`: `parsed_rows: stash as unknown as never` → `as unknown as Json` + import `Json`
+- [x] `families/informes-import.ts`: `parsed_rows: stash as unknown as never` → `as unknown as Json` + import `Json`
+- [x] `announcements/crud.ts`: `.update(updatePayload as never)` → `as AnnouncementsUpdate` + import `Database` + type alias
+- [x] `__tests__/sanitize_audit_error.test.ts`: `createClient<Database>` + eliminar `"sanitize_audit_error" as never` y `{} as never`
+- [x] Añadir test de tipo `server/__tests__/no-never-casts.typecheck.ts` que documenta los casts correctos
+- [x] TypeScript: 0 errores tras los cambios
+- [x] Suite completa: 2773 tests pasan, 0 fallos
+
 ## Bug crítico: Delete button missing in Lista de Distribución (sesión 2026-06-06 batch 7)
 - [x] Phase 1: Root cause — DOBLE: frontend `r.estado === "borrador"` + backend guard `round.estado !== "borrador"` ambos bloqueaban delete
 - [x] Phase 2: Test RED — 2 tests frontend fallan correctamente; 2 tests backend actualizados

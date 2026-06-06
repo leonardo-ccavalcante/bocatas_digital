@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { router, adminProcedure } from "../../_core/trpc";
 import { ENV } from "../../_core/env";
 import { createAdminClient } from "../../../client/src/lib/supabase/server";
+import type { Database } from "../../../client/src/lib/database.types";
 import {
   type TipoAnnouncement,
   type AudienceRule,
@@ -20,6 +21,8 @@ import {
   writeAuditRows,
   replaceAudiences,
 } from "./_shared";
+
+type AnnouncementsUpdate = Database["public"]["Tables"]["announcements"]["Update"];
 
 export const crudRouter = router({
   /**
@@ -149,10 +152,10 @@ export const crudRouter = router({
       if (Object.keys(updatePayload).length > 0) {
         const { data: updated, error: updErr } = await db
           .from("announcements")
-          // Supabase's generated types reject Record<string, unknown> because
-          // they enforce a closed shape per column. The fields we set are
-          // guaranteed to exist by diffForAudit, so a cast is safe.
-          .update(updatePayload as never)
+          // Record<string, unknown> is structurally assignable to AnnouncementsUpdate
+          // (all fields are optional). The cast makes the intent explicit: only
+          // fields produced by diffForAudit (a subset of AnnouncementsUpdate) are set.
+          .update(updatePayload as AnnouncementsUpdate)
           .eq("id", input.id)
           .select()
           .single();

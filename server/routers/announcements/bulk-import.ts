@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { router, adminProcedure } from "../../_core/trpc";
 import { ENV } from "../../_core/env";
 import { createAdminClient } from "../../../client/src/lib/supabase/server";
+import type { Json } from "../../../client/src/lib/database.types";
 import { type AudienceRule } from "../../../shared/announcementTypes";
 import {
   validateBulkRow,
@@ -116,10 +117,11 @@ export const bulkImportRouter = router({
         .from("bulk_import_previews")
         .insert({
           // Supabase's generated types model parsed_rows (jsonb) as the wide
-          // `Json` union which doesn't accept ParsedBulkRowWithLine[] directly.
-          // Cast through `unknown` is the pragmatic fix; runtime correctness
-          // is guaranteed by validateBulkRow above (line ~95).
-          parsed_rows: valid as unknown as never,
+          // `Json` union which doesn't accept ParsedBulkRowWithLine[] directly
+          // because `unknown[]` is not assignable to `Json[]`. The cast through
+          // `unknown as Json` is correct: runtime correctness is guaranteed by
+          // validateBulkRow above (line ~95), and Json is the intended target type.
+          parsed_rows: valid as unknown as Json,
           created_by: String(ctx.user.id),
         })
         .select("token")
