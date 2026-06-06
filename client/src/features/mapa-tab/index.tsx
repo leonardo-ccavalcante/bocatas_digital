@@ -49,10 +49,17 @@ export default function MapaTab() {
 
   return (
     <section aria-labelledby="mapa-tab-heading" className="space-y-4 p-1">
-      <div className="flex items-center justify-between gap-3">
-        <h2 id="mapa-tab-heading" className="text-h2 font-sans">
-          Familias por distrito
-        </h2>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 id="mapa-tab-heading" className="text-h2 font-sans">
+            Familias por distrito
+          </h2>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            {layer === "densidad"
+              ? "Número de familias activas por distrito de Madrid"
+              : "Porcentaje de documentación completa por distrito"}
+          </p>
+        </div>
         <LayerToggle layer={layer} onChange={setLayer} />
       </div>
 

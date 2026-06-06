@@ -309,12 +309,17 @@ export function MapaChoropleth({
         <MapContainer
           center={MADRID_CENTER}
           zoom={MADRID_ZOOM}
-          className="h-[520px] w-full rounded-lg overflow-hidden border border-border"
+          className="h-[300px] md:h-[520px] w-full rounded-lg overflow-hidden border border-border outline-none"
           style={{ background: "#f8fafc" }}
         >
           {/* No TileLayer — intentional per Cole Nussbaumer design principles */}
+          {/*
+           * key includes rows.length so the GeoJSON layer re-mounts when data
+           * arrives. Without this, Leaflet renders polygons with an empty
+           * valueMap (rows=[]) and never re-applies style when rows load later.
+           */}
           <GeoJSON
-            key={layer}
+            key={`${layer}-${rows.length}`}
             data={geoJson as FeatureCollection}
             style={styleFn as (feature?: Feature) => object}
             onEachFeature={onEachFeature as (feature: Feature, layer: Layer) => void}
