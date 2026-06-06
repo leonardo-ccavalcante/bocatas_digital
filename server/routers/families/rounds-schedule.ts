@@ -92,10 +92,10 @@ export const roundsScheduleRouter = router({
     .input(z.object({ program_id: programIdSchema }))
     .query(async ({ input }) => {
       const db = createAdminClient();
-      const { data, error } = await (db as ReturnType<typeof createAdminClient>)
-        .rpc("get_eligible_families_for_reparto" as never, { p_program_id: input.program_id } as never);
-      if (error) fail(error as never);
-      const rows = (data ?? []) as Array<{ id: string; familia_numero: string; total_miembros: number }>;
+      const { data, error } = await db
+        .rpc("get_eligible_families_for_reparto", { p_program_id: input.program_id });
+      if (error) fail(error);
+      const rows = data ?? [];
       return rows.map((f) => ({
         id: f.id,
         familia_numero: f.familia_numero != null ? parseInt(f.familia_numero, 10) : null,
@@ -162,9 +162,7 @@ export const roundsScheduleRouter = router({
         .eq("id", input.round_id);
       if (error) fail(error);
       // Persist immutable audit log entry.
-      // Cast as never: delivery_rounds_audit_log is not yet in database.types.ts
-      // (tech debt: regenerate types after migration is stable).
-      await (db.from as (t: string) => ReturnType<typeof db.from>)("delivery_rounds_audit_log").insert({
+      await db.from("delivery_rounds_audit_log").insert({
         action: "delete_round",
         round_id: input.round_id,
         round_nombre: (round as { nombre?: string }).nombre ?? null,
@@ -172,7 +170,7 @@ export const roundsScheduleRouter = router({
         actor_id: ctx.user.openId,
         actor_name: ctx.user.name ?? null,
         metadata: { program_id: null },
-      } as never);
+      });
       return { deleted: true };
     }),
 
