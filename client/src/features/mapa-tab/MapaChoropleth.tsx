@@ -23,7 +23,7 @@
 
 import { useMemo } from "react";
 import type { Layer } from "leaflet";
-import { MapContainer, GeoJSON } from "react-leaflet";
+import { MapContainer, GeoJSON, TileLayer } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import type { Feature, FeatureCollection } from "geojson";
 
@@ -310,13 +310,17 @@ export function MapaChoropleth({
           center={MADRID_CENTER}
           zoom={MADRID_ZOOM}
           className="h-[300px] md:h-[520px] w-full rounded-lg overflow-hidden border border-border outline-none"
-          style={{ background: "#f8fafc" }}
         >
-          {/* No TileLayer — intentional per Cole Nussbaumer design principles */}
+          {/* OpenStreetMap tiles provide geographic context */}
+          <TileLayer
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            maxZoom={19}
+          />
           {/*
-           * key includes rows.length so the GeoJSON layer re-mounts when data
-           * arrives. Without this, Leaflet renders polygons with an empty
-           * valueMap (rows=[]) and never re-applies style when rows load later.
+           * GeoJSON choropleth layer with density coloring.
+           * Key includes rows.length so the layer re-mounts when data arrives,
+           * forcing Leaflet to re-apply styles when rows load.
            */}
           <GeoJSON
             key={`${layer}-${rows.length}`}
