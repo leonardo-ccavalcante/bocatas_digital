@@ -150,11 +150,6 @@ export const roundsScheduleRouter = router({
         .is("deleted_at", null)
         .single();
       if (re || !round) throw new TRPCError({ code: "NOT_FOUND", message: "Reparto no encontrado" });
-      if (round.estado !== "borrador")
-        throw new TRPCError({
-          code: "CONFLICT",
-          message: "Solo se pueden eliminar repartos en estado borrador.",
-        });
       // Soft-delete the round.
       const { error } = await db
         .from("delivery_rounds")

@@ -129,20 +129,18 @@ describe("rounds-schedule — deleteRound", () => {
     expect((upd?.payload as Record<string, unknown>).deleted_at).toBeDefined();
   });
 
-  it("rejects deletion of an active round with CONFLICT", async () => {
-    tableResults["delivery_rounds"] = { data: { id: "r2", estado: "activa" }, error: null };
+  it("allows deletion of an active round (spec: all estados allowed)", async () => {
+    tableResults["delivery_rounds"] = { data: { id: "r2", estado: "activa", nombre: "Hoja_Test" }, error: null };
     const caller = roundsScheduleRouter.createCaller(buildCtx(buildUser("admin")));
-    await expect(
-      caller.deleteRound({ round_id: "11111111-1111-4111-8111-111111111112" }),
-    ).rejects.toThrow(/borrador|CONFLICT/i);
+    const res = await caller.deleteRound({ round_id: "11111111-1111-4111-8111-111111111112" });
+    expect(res.deleted).toBe(true);
   });
 
-  it("rejects deletion of a closed round with CONFLICT", async () => {
-    tableResults["delivery_rounds"] = { data: { id: "r3", estado: "cerrada" }, error: null };
+  it("allows deletion of a closed round (spec: all estados allowed)", async () => {
+    tableResults["delivery_rounds"] = { data: { id: "r3", estado: "cerrada", nombre: "Hoja_Test" }, error: null };
     const caller = roundsScheduleRouter.createCaller(buildCtx(buildUser("admin")));
-    await expect(
-      caller.deleteRound({ round_id: "11111111-1111-4111-8111-111111111113" }),
-    ).rejects.toThrow(/borrador|CONFLICT/i);
+    const res = await caller.deleteRound({ round_id: "11111111-1111-4111-8111-111111111113" });
+    expect(res.deleted).toBe(true);
   });
 
   it("rejects voluntario from deleteRound", async () => {
