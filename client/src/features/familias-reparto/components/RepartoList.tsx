@@ -50,16 +50,14 @@ export function RepartoList({ programId, onSelect }: Props) {
               <Button variant="ghost" size="sm" onClick={() => onSelect(r.id)}>
                 Abrir
               </Button>
-              {r.estado === "borrador" && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-destructive hover:text-destructive"
-                  onClick={() => setPendingDeleteId(r.id)}
-                >
-                  Eliminar
-                </Button>
-              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:text-destructive"
+                onClick={() => setPendingDeleteId(r.id)}
+              >
+                Eliminar
+              </Button>
             </div>
           </li>
         ))}

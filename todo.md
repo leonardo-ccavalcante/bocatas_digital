@@ -80,3 +80,9 @@
 - [x] Eliminar 3 casts `as never` en `rounds-schedule.ts` (rpc call, fail(error), insert payload)
 - [x] TypeScript: 0 errores tras los cambios
 - [x] Suite completa: 2773 tests pasan, 0 fallos
+
+## Bug crítico: Delete button missing in Lista de Distribución (sesión 2026-06-06 batch 7)
+- [x] Phase 1: Root cause — DOBLE: frontend `r.estado === "borrador"` + backend guard `round.estado !== "borrador"` ambos bloqueaban delete
+- [x] Phase 2: Test RED — 2 tests frontend fallan correctamente; 2 tests backend actualizados
+- [x] Phase 3: Fix GREEN — eliminada condición en frontend + eliminado guard en backend
+- [x] Phase 4: Deep QA — 2775 tests pasan, TypeScript 0 errores, 13 tests deleteRound pasan, product review completo
