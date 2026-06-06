@@ -54,6 +54,17 @@ vi.mock("@/lib/trpc", () => ({
   },
 }));
 
+// ── useAuth mock ────────────────────────────────────────────────────────────
+// FamiliasList calls useAuth() solely to derive `isAdmin`. The real hook eagerly
+// evaluates getLoginUrl() (needs VITE_OAUTH_PORTAL_URL — else `new URL` throws
+// "Invalid URL: undefined/app-auth") and calls trpc.useUtils/auth.me/auth.logout,
+// none of which this list contract exercises. Mock it to an unauthenticated user
+// so isAdmin is false — the state these tests were written against (the real
+// useAuth resolves trpc.auth.me, which is mocked away → user undefined).
+vi.mock("@/_core/hooks/useAuth", () => ({
+  useAuth: () => ({ user: null }),
+}));
+
 // Import AFTER mocks are registered.
 import { FamiliasList } from "../FamiliasList";
 
