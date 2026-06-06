@@ -78,6 +78,7 @@ export default function MapaTab() {
           row={selectedRow}
           kAnonymityFloor={kAnonymityFloor}
           layer={layer}
+          geoJson={geoJson}
         />
       )}
     </section>

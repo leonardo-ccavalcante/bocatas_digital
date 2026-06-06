@@ -110,3 +110,11 @@
 - [x] Eliminar TileLayer de MapaChoropleth (Cole Nussbaumer: no basemap, los polígonos son el dato)
 - [x] Actualizar test S4 para reflejar ausencia de tile layer
 - [x] Suite completa: 2799 tests pasan, 0 fallos, TypeScript 0 errores
+
+## Batch 12: TileLayer + DistritoPanel mini-map (sesión 2026-06-06)
+- [x] TDD RED: Invertir test S4 — tile-layer debe estar presente (no ausente)
+- [x] TDD RED: Añadir 4 tests para DistritoPanel mini-map (geoJson prop, 1 feature, tile layer, sin geoJson)
+- [x] TDD GREEN: Añadir TileLayer de OSM a MapaChoropleth.tsx
+- [x] TDD GREEN: Añadir geoJson prop a DistritoPanel — mini-map con MapContainer+TileLayer+GeoJSON filtrado al distrito seleccionado
+- [x] Pasar geoJson desde index.tsx a DistritoPanel
+- [x] Suite completa: 2803 tests pasan, 0 fallos, TypeScript 0 errores

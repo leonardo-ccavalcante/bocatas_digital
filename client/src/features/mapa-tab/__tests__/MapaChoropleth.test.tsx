@@ -381,7 +381,7 @@ describe("<MapaChoropleth /> — S4 Cole Nussbaumer heatmap", () => {
     })),
   };
 
-  it("renders map container without tile layer (clean choropleth, no basemap)", () => {
+  it("renders map container with OSM tile layer as basemap", () => {
     render(
       <MapaChoropleth
         rows={DENSITY_ROWS}
@@ -391,8 +391,8 @@ describe("<MapaChoropleth /> — S4 Cole Nussbaumer heatmap", () => {
         geoJson={DENSITY_GEOJSON}
       />,
     );
-    // No OSM tile layer — choropleth polygons are the data (Cole Nussbaumer)
-    expect(screen.queryByTestId("tile-layer")).not.toBeInTheDocument();
+    // OSM tile layer must be present as basemap context
+    expect(screen.getByTestId("tile-layer")).toBeInTheDocument();
     // Map container still renders
     expect(screen.getByTestId("map-container")).toBeInTheDocument();
   });

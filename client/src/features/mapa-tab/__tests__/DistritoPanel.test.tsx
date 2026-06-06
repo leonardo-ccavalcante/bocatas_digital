@@ -36,9 +36,41 @@ if (!Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = () => {};
 }
 
+// Mock react-leaflet — jsdom has no canvas/map support
+vi.mock("react-leaflet", () => ({
+  MapContainer: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="distrito-mini-map">{children}</div>
+  ),
+  TileLayer: () => <div data-testid="mini-tile-layer" />,
+  GeoJSON: ({ data }: { data: { features: Array<{ properties: { slug?: string } }> } }) => (
+    <div
+      data-testid="mini-geojson-layer"
+      data-feature-count={data?.features?.length ?? 0}
+    />
+  ),
+}));
+
 import { DistritoPanel } from "../DistritoPanel";
 
 import type { DistritoStatRow } from "../../../../../server/routers/mapa";
+import type { FeatureCollection } from "geojson";
+
+// Minimal GeoJSON with two districts
+const SAMPLE_GEOJSON: FeatureCollection = {
+  type: "FeatureCollection",
+  features: [
+    {
+      type: "Feature",
+      properties: { NOMBRE: "Centro", slug: "centro" },
+      geometry: { type: "Polygon", coordinates: [[[0,0],[1,0],[1,1],[0,1],[0,0]]] },
+    },
+    {
+      type: "Feature",
+      properties: { NOMBRE: "Carabanchel", slug: "carabanchel" },
+      geometry: { type: "Polygon", coordinates: [[[2,2],[3,2],[3,3],[2,3],[2,2]]] },
+    },
+  ],
+};
 
 const CENTRO_ROW: DistritoStatRow = {
   distrito: "centro",
@@ -170,5 +202,64 @@ describe("<DistritoPanel />", () => {
     );
     // Should not render family IDs or any personal data
     expect(screen.queryByText(/f1|family_id|uuid/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("<DistritoPanel /> mini-map", () => {
+  it("renders a mini-map when geoJson is provided", () => {
+    renderInRouter(
+      <DistritoPanel
+        open
+        onClose={vi.fn()}
+        row={CENTRO_ROW}
+        kAnonymityFloor={3}
+        layer="densidad"
+        geoJson={SAMPLE_GEOJSON}
+      />,
+    );
+    expect(screen.getByTestId("distrito-mini-map")).toBeInTheDocument();
+  });
+
+  it("mini-map shows only the selected district polygon (1 feature)", () => {
+    renderInRouter(
+      <DistritoPanel
+        open
+        onClose={vi.fn()}
+        row={CENTRO_ROW}
+        kAnonymityFloor={3}
+        layer="densidad"
+        geoJson={SAMPLE_GEOJSON}
+      />,
+    );
+    const geojsonLayer = screen.getByTestId("mini-geojson-layer");
+    // Only the selected district's feature should be passed to GeoJSON
+    expect(geojsonLayer.getAttribute("data-feature-count")).toBe("1");
+  });
+
+  it("mini-map has OSM tile layer as basemap", () => {
+    renderInRouter(
+      <DistritoPanel
+        open
+        onClose={vi.fn()}
+        row={CENTRO_ROW}
+        kAnonymityFloor={3}
+        layer="densidad"
+        geoJson={SAMPLE_GEOJSON}
+      />,
+    );
+    expect(screen.getByTestId("mini-tile-layer")).toBeInTheDocument();
+  });
+
+  it("does not render mini-map when geoJson is not provided", () => {
+    renderInRouter(
+      <DistritoPanel
+        open
+        onClose={vi.fn()}
+        row={CENTRO_ROW}
+        kAnonymityFloor={3}
+        layer="densidad"
+      />,
+    );
+    expect(screen.queryByTestId("distrito-mini-map")).not.toBeInTheDocument();
   });
 });
