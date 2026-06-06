@@ -381,7 +381,7 @@ describe("<MapaChoropleth /> — S4 Cole Nussbaumer heatmap", () => {
     })),
   };
 
-  it("does NOT render a TileLayer (no OSM basemap in Cole Nussbaumer style)", () => {
+  it("renders OpenStreetMap TileLayer for geographic context", () => {
     render(
       <MapaChoropleth
         rows={DENSITY_ROWS}
@@ -391,7 +391,7 @@ describe("<MapaChoropleth /> — S4 Cole Nussbaumer heatmap", () => {
         geoJson={DENSITY_GEOJSON}
       />,
     );
-    expect(screen.queryByTestId("tile-layer")).not.toBeInTheDocument();
+    expect(screen.getByTestId("tile-layer")).toBeInTheDocument();
   });
 
   it("renders legend bins with at least 3 distinct color swatches", () => {
