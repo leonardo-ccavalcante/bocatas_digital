@@ -22,7 +22,7 @@ export default function MapaTab() {
   const [geoJson, setGeoJson] = useState<FeatureCollection | undefined>(undefined);
 
   useEffect(() => {
-    fetch("/manus-storage/madrid-distritos_c2dcb693.geojson")
+    fetch("/manus-storage/madrid-distritos_2968b5a3.geojson")
       .then((r) => r.json())
       .then((raw: FeatureCollection) => setGeoJson(normalizeGeoJson(raw)))
       .catch((err) => console.warn("[MapaTab] GeoJSON load failed:", err));

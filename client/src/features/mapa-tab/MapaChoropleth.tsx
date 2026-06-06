@@ -23,7 +23,7 @@
 
 import { useMemo } from "react";
 import type { Layer } from "leaflet";
-import { MapContainer, GeoJSON, TileLayer } from "react-leaflet";
+import { MapContainer, GeoJSON } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import type { Feature, FeatureCollection } from "geojson";
 
@@ -319,12 +319,6 @@ export function MapaChoropleth({
           zoom={MADRID_ZOOM}
           className="h-[300px] md:h-[520px] w-full rounded-lg overflow-hidden border border-border outline-none"
         >
-          {/* OpenStreetMap tiles provide geographic context */}
-          <TileLayer
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            maxZoom={19}
-          />
           {/*
            * GeoJSON choropleth layer with density coloring.
            * Key includes rows.length so the layer re-mounts when data arrives,

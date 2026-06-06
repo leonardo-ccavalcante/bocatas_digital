@@ -100,3 +100,13 @@
 - [x] Añadir tests de regresión específicos para MapaChoropleth (17 tests: tooltip binding, hover styling, click handlers, leyenda, accessibility) — PASS 17/17
 - [x] Suite completa: 2799 tests pasan (incluye 7 explodeMultiPolygons + 17 MapaChoropleth.interactions), 0 fallos, TypeScript 0 errores
 - [x] Verificación de código: explodeMultiPolygons integrado en MapaChoropleth, cada polígono hereda slug para coloreado correcto
+
+## Bug fix: Mapa choropleth — distritos con cobertura parcial + tile layer (sesión 2026-06-06 batch 11)
+- [x] Root cause: GeoJSON local tenía geometría degenerada (line segments de 2 puntos, no polígonos cerrados)
+- [x] Reemplazar GeoJSON roto con datos correctos de click_that_hood (21 distritos, polígonos cerrados, 100-3000+ puntos por distrito)
+- [x] Normalizar nombres: name → NOMBRE, añadir tildes correctas (Chamartín, Tetuán, Chamberí, Vicálvaro), San Blas → San Blas-Canillejas
+- [x] Subir nuevo GeoJSON a S3: /manus-storage/madrid-distritos_2968b5a3.geojson
+- [x] Actualizar index.tsx para usar nueva URL del GeoJSON
+- [x] Eliminar TileLayer de MapaChoropleth (Cole Nussbaumer: no basemap, los polígonos son el dato)
+- [x] Actualizar test S4 para reflejar ausencia de tile layer
+- [x] Suite completa: 2799 tests pasan, 0 fallos, TypeScript 0 errores

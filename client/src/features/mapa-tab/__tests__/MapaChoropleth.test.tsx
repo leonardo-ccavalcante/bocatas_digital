@@ -381,7 +381,7 @@ describe("<MapaChoropleth /> — S4 Cole Nussbaumer heatmap", () => {
     })),
   };
 
-  it("renders OpenStreetMap TileLayer for geographic context", () => {
+  it("renders map container without tile layer (clean choropleth, no basemap)", () => {
     render(
       <MapaChoropleth
         rows={DENSITY_ROWS}
@@ -391,7 +391,10 @@ describe("<MapaChoropleth /> — S4 Cole Nussbaumer heatmap", () => {
         geoJson={DENSITY_GEOJSON}
       />,
     );
-    expect(screen.getByTestId("tile-layer")).toBeInTheDocument();
+    // No OSM tile layer — choropleth polygons are the data (Cole Nussbaumer)
+    expect(screen.queryByTestId("tile-layer")).not.toBeInTheDocument();
+    // Map container still renders
+    expect(screen.getByTestId("map-container")).toBeInTheDocument();
   });
 
   it("renders legend bins with at least 3 distinct color swatches", () => {
