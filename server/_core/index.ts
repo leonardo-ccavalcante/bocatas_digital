@@ -5,11 +5,14 @@ import net from "net";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import rateLimit from "express-rate-limit";
 import { registerOAuthRoutes } from "./oauth";
+import { registerStorageProxy } from "./storageProxy";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { createAdminClient } from "../../client/src/lib/supabase/server";
 import { generateWarningsReport } from "../legacyImportReport";
+import { generateInformesWarningsReport } from "../informesImportReport";
+import type { InformesStashPayload } from "../../shared/legacyFamiliasTypes";
 import { sdk } from "./sdk";
 
 function isPortAvailable(port: number): Promise<boolean> {
@@ -77,6 +80,7 @@ async function startServer() {
   app.use("/api/oauth", authLimiter);
 
   // OAuth callback under /api/oauth/callback
+  registerStorageProxy(app);
   registerOAuthRoutes(app);
 
   // ── REST: download warnings/errors Excel report for a legacy import preview ──
@@ -116,6 +120,105 @@ async function startServer() {
       res.send(buffer);
     } catch (err) {
       console.error("[legacy-import/report] Error generating report:", err);
+      res.status(500).json({ error: "Failed to generate report" });
+    }
+  });
+
+  // POST /api/legacy-import/confirm-report
+  // Requires a valid session cookie (admin only). Accepts error_details JSON, returns .xlsx.
+  app.post("/api/legacy-import/confirm-report", express.json({ limit: "1mb" }), async (req, res) => {
+    try {
+      const user = await sdk.authenticateRequest(req).catch(() => null);
+      if (!user || user.role !== "admin") {
+        res.status(403).json({ error: "Forbidden" });
+        return;
+      }
+      const { error_details, src_filename } = req.body as {
+        error_details?: Array<{ legacy_numero_familia: string; message: string }>;
+        src_filename?: string;
+      };
+      if (!Array.isArray(error_details)) {
+        res.status(400).json({ error: "error_details must be an array" });
+        return;
+      }
+      // Generate a simple XLSX with the error details
+      const ExcelJS = await import("exceljs");
+      const wb = new ExcelJS.default.Workbook();
+      wb.creator = "Bocatas Digital";
+      wb.created = new Date();
+      const ws = wb.addWorksheet("Fallos de importación");
+      ws.views = [{ showGridLines: false }];
+      ws.columns = [
+        { key: "a", width: 4 },
+        { key: "b", width: 12 },
+        { key: "c", width: 80 },
+      ];
+      // Header
+      const hdr = ws.addRow(["", "Nº Familia", "Error"]);
+      hdr.eachCell({ includeEmpty: false }, (cell, col) => {
+        if (col === 1) return;
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1A237E" } };
+        cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 10 };
+        cell.alignment = { vertical: "middle" };
+      });
+      hdr.height = 22;
+      for (const e of error_details) {
+        const row = ws.addRow(["", e.legacy_numero_familia, e.message]);
+        row.getCell("B").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFCE4EC" } };
+        row.getCell("B").font = { color: { argb: "FF880E4F" }, size: 10 };
+        row.getCell("C").font = { size: 10 };
+        row.getCell("C").alignment = { wrapText: true };
+        row.height = 28;
+      }
+      const buf = await wb.xlsx.writeBuffer();
+      const baseName = (src_filename ?? "importacion").replace(/\.csv$/i, "");
+      const reportName = `reporte_fallos_${baseName}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", `attachment; filename="${reportName}"`);
+      res.send(Buffer.from(buf));
+    } catch (err) {
+      console.error("[legacy-import/confirm-report] Error generating report:", err);
+      res.status(500).json({ error: "Failed to generate report" });
+    }
+  });
+
+  // GET /api/informes-import/report/:token
+  // Requires a valid session cookie (admin only). Returns an .xlsx file.
+  app.get("/api/informes-import/report/:token", async (req, res) => {
+    try {
+      const user = await sdk.authenticateRequest(req).catch(() => null);
+      if (!user || user.role !== "admin") {
+        res.status(403).json({ error: "Forbidden" });
+        return;
+      }
+      const { token } = req.params;
+      if (!token || typeof token !== "string" || token.length > 128) {
+        res.status(400).json({ error: "Invalid token" });
+        return;
+      }
+      const supabase = createAdminClient();
+      const { data, error } = await supabase
+        .from("bulk_import_previews")
+        .select("parsed_rows")
+        .eq("token", token)
+        .single();
+      if (error || !data) {
+        res.status(404).json({ error: "Preview not found or expired" });
+        return;
+      }
+      const stash = data.parsed_rows as InformesStashPayload;
+      if (stash?.kind !== "informes_enrich_v1") {
+        res.status(400).json({ error: "Token is not an Informes preview" });
+        return;
+      }
+      const buffer = await generateInformesWarningsReport(stash.families, stash.src_filename);
+      const baseName = (stash.src_filename ?? "informes").replace(/\.csv$/i, "");
+      const reportName = `reporte_informes_${baseName}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", `attachment; filename="${reportName}"`);
+      res.send(buffer);
+    } catch (err) {
+      console.error("[informes-import/report] Error generating report:", err);
       res.status(500).json({ error: "Failed to generate report" });
     }
   });

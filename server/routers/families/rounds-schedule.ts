@@ -137,6 +137,45 @@ export const roundsScheduleRouter = router({
       return { count: count ?? 0 };
     }),
 
+  // Soft-delete a round (borrador only). Active/closed rounds cannot be deleted.
+  deleteRound: adminProcedure
+    .input(z.object({ round_id: uuidLike }))
+    .mutation(async ({ input, ctx }) => {
+      const db = createAdminClient();
+      // Fetch the round first to enforce state guard and capture name snapshot.
+      const { data: round, error: re } = await db
+        .from("delivery_rounds")
+        .select("id, estado, nombre")
+        .eq("id", input.round_id)
+        .is("deleted_at", null)
+        .single();
+      if (re || !round) throw new TRPCError({ code: "NOT_FOUND", message: "Reparto no encontrado" });
+      if (round.estado !== "borrador")
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "Solo se pueden eliminar repartos en estado borrador.",
+        });
+      // Soft-delete the round.
+      const { error } = await db
+        .from("delivery_rounds")
+        .update({ deleted_at: new Date().toISOString() })
+        .eq("id", input.round_id);
+      if (error) fail(error);
+      // Persist immutable audit log entry.
+      // Cast as never: delivery_rounds_audit_log is not yet in database.types.ts
+      // (tech debt: regenerate types after migration is stable).
+      await (db.from as (t: string) => ReturnType<typeof db.from>)("delivery_rounds_audit_log").insert({
+        action: "delete_round",
+        round_id: input.round_id,
+        round_nombre: (round as { nombre?: string }).nombre ?? null,
+        round_estado: round.estado,
+        actor_id: ctx.user.openId,
+        actor_name: ctx.user.name ?? null,
+        metadata: { program_id: null },
+      } as never);
+      return { deleted: true };
+    }),
+
   // Close an active round.
   closeRound: adminProcedure
     .input(z.object({ round_id: uuidLike, notas: z.string().max(500).optional() }))

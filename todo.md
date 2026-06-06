@@ -59,3 +59,17 @@
 - [x] Reescribir tests de getEligibleFamilies para reflejar contrato RPC (4 tests nuevos)
 - [x] Refactorizar mock: rpcResult:unknown → rpcResults:Record<string,unknown> (fix rows.map bug)
 - [x] Suite completa: 2756 tests pasan, 0 fallos, TypeScript 0 errores
+
+## Bugs sesión 2026-06-06 (batch 2)
+- [x] GitHub push bloqueado por secret scanning en commit 4bbf75a (.project-config.json con AWS keys + GH PAT) — fix: git-filter-repo eliminó el archivo de todo el historial + force-push
+- [x] Mapa de distritos no funciona (GeoJSON placeholder vacío) — fix: GeoJSON real de Madrid (21 distritos, Overpass API) subido a S3 + storage proxy + useEffect en MapaTab
+- [x] Delete Lista de Distribución (solo borrador) — fix: procedure deleteRound (soft-delete, guard borrador) + hook useDeleteReparto + AlertDialog en RepartoList
+- [x] Corregir cálculo "Nuevos este mes" (usaba fecha_inicio en lugar de created_at) — fix: SQL migration get_programs_with_counts usa pe.created_at
+- [x] TRPCClientError: Error consultando miembros existentes (PROBE_CHUNK_SIZE=500 supera límite URL PostgREST) — fix: PROBE_CHUNK_SIZE 500→100
+- [x] Suite completa: 2760 tests pasan, 0 fallos, TypeScript 0 errores
+
+## Features sesión 2026-06-06 (batch 3)
+- [x] Mapa: heatmap choropleth real con densidad de familias estilo Cole Nusbaumer (colores secuenciales, leyenda, sin OSM tiles de fondo)
+- [x] Delete Lista de Distribución: ampliar a todos los estados (no solo borrador), con log de auditoría en tabla audit_log (admin only)
+- [x] Reporte de errores/avisos de "Enriquecer familias con Informes Sociales" (descarga Excel/CSV)
+- [x] Reporte de familias OK-pero-fallidas en upload Padrón (familias que pasan validación pero fallan en upsert)
