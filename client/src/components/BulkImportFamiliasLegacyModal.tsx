@@ -17,13 +17,12 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Loader2, Upload, AlertTriangle, CheckCircle2, XCircle, Copy as CopyIcon, ChevronDown, ChevronRight } from "lucide-react";
+import { Loader2, Upload, AlertTriangle, CheckCircle2, XCircle, Copy as CopyIcon, ChevronDown, ChevronRight, Download } from "lucide-react";
 import {
   usePreviewLegacyImport,
   useConfirmLegacyImport,
@@ -296,7 +295,15 @@ export function BulkImportFamiliasLegacyModal({
   const stepLabel =
     step === 1 ? "1/3 — Subir CSV" : step === 2 ? "2/3 — Vista previa" : "3/3 — Confirmando";
 
-  const blockedByErrors = (preview?.error_families ?? 0) > 0;
+  // Confirm is blocked only when there are zero importable families (ok + warnings).
+  // Families with errors are auto-excluded by SQL savepoints, so they never block.
+  const importableFamilies =
+    (preview?.valid_families ?? 0) +
+    (preview?.warning_families ?? 0) +
+    (updateExisting ? (preview?.duplicate_families ?? 0) : 0);
+  const hasReportableIssues =
+    (preview?.warning_families ?? 0) > 0 || (preview?.error_families ?? 0) > 0;
+  const blockedByErrors = importableFamilies === 0;
 
   return (
     <Dialog
@@ -306,6 +313,42 @@ export function BulkImportFamiliasLegacyModal({
       }}
     >
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        {/* Sticky action bar — always visible at top, no scroll needed */}
+        {step === 2 && lane === "roster" && (
+          <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b bg-white pb-3 pt-1">
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => setStep(1)}>
+                Volver
+              </Button>
+              {hasReportableIssues && preview && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  asChild
+                  title="Descargar reporte de advertencias y errores"
+                >
+                  <a
+                    href={`/api/legacy-import/report/${preview.preview_token}`}
+                    download
+                  >
+                    <Download className="mr-1 h-4 w-4" />
+                    Descargar reporte
+                  </a>
+                </Button>
+              )}
+            </div>
+            <Button
+              size="sm"
+              onClick={handleConfirm}
+              disabled={blockedByErrors}
+            >
+              {blockedByErrors
+                ? "Sin familias para importar"
+                : `Confirmar importación (${importableFamilies} familias)`}
+            </Button>
+          </div>
+        )}
+
         <DialogHeader>
           <DialogTitle>
             {lane === "informes"
@@ -457,34 +500,21 @@ export function BulkImportFamiliasLegacyModal({
           </div>
         )}
 
-        <DialogFooter className="gap-2">
-          {step === 1 && (
+        {/* Bottom footer — only shown for step 1 and step 3 (step 2 uses sticky top bar) */}
+        {step === 1 && lane === "roster" && (
+          <div className="flex justify-end pt-2">
             <Button variant="outline" onClick={resetAndClose}>
               Cancelar
             </Button>
-          )}
-          {step === 2 && (
-            <>
-              <Button variant="outline" onClick={() => setStep(1)}>
-                Volver
-              </Button>
-              <Button onClick={handleConfirm} disabled={blockedByErrors}>
-                {blockedByErrors
-                  ? "Corrige los errores antes de confirmar"
-                  : `Confirmar importación (${
-                      (preview?.valid_families ?? 0) +
-                      (preview?.warning_families ?? 0) +
-                      (updateExisting ? preview?.duplicate_families ?? 0 : 0)
-                    } familias)`}
-              </Button>
-            </>
-          )}
-          {step === 3 && (
+          </div>
+        )}
+        {step === 3 && (
+          <div className="flex justify-end pt-2">
             <Button variant="outline" disabled>
               Cancelar
             </Button>
-          )}
-        </DialogFooter>
+          </div>
+        )}
           </>
         )}
       </DialogContent>
