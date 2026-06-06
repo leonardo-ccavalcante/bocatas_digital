@@ -499,10 +499,64 @@ describe("confirmLegacyImport", () => {
     expect(rpcMock).toHaveBeenCalledWith(
       "confirm_legacy_familias_import",
       // src_filename must be sanitized to its basename before going to the RPC;
-      // p_mode threaded from input.mode.
-      { p_token: "11111111-1111-4111-8111-111111111111", p_src_filename: "some.csv", p_mode: "update" }
+      // p_mode threaded from input.mode; p_excluded_numbers defaults to null.
+      { p_token: "11111111-1111-4111-8111-111111111111", p_src_filename: "some.csv", p_mode: "update", p_excluded_numbers: null }
     );
   });
+
+  it("passes excluded_family_numbers as p_excluded_numbers to the RPC", async () => {
+    fromMock.mockReturnValueOnce(
+      confirmFetchChain({
+        data: { token: "tok", created_by: "admin-uuid", created_at: new Date().toISOString() },
+        error: null,
+      })
+    );
+    rpcMock.mockResolvedValue({
+      data: { created_count: 3, updated_count: 0, skipped_count: 5, error_count: 0, error_details: [] },
+      error: null,
+    });
+
+    const handler = procedureSpies.confirmLegacyImport.handler;
+    await handler({
+      input: {
+        preview_token: "44444444-4444-4444-8444-444444444444",
+        excluded_family_numbers: ["1001", "1002", "1003"],
+      },
+      ctx: makeCtx(),
+    });
+
+    expect(rpcMock).toHaveBeenCalledWith(
+      "confirm_legacy_familias_import",
+      expect.objectContaining({
+        p_excluded_numbers: ["1001", "1002", "1003"],
+      })
+    );
+  });
+
+  it("passes null for p_excluded_numbers when excluded_family_numbers is omitted", async () => {
+    fromMock.mockReturnValueOnce(
+      confirmFetchChain({
+        data: { token: "tok", created_by: "admin-uuid", created_at: new Date().toISOString() },
+        error: null,
+      })
+    );
+    rpcMock.mockResolvedValue({
+      data: { created_count: 2, updated_count: 0, skipped_count: 0, error_count: 0, error_details: [] },
+      error: null,
+    });
+
+    const handler = procedureSpies.confirmLegacyImport.handler;
+    await handler({
+      input: { preview_token: "55555555-5555-4555-8555-555555555555" },
+      ctx: makeCtx(),
+    });
+
+    expect(rpcMock).toHaveBeenCalledWith(
+      "confirm_legacy_familias_import",
+      expect.objectContaining({ p_excluded_numbers: null })
+    );
+  });
+
 
   it("returns INTERNAL_SERVER_ERROR (no PII) when RPC raises and cleans up the preview", async () => {
     const ctx = makeCtx();

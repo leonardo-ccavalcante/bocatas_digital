@@ -190,6 +190,8 @@ export function BulkImportFamiliasLegacyModal({
   const [dragActive, setDragActive] = useState(false);
   // Phase 3: "actualizar familias existentes" → p_mode 'update' vs 'skip'.
   const [updateExisting, setUpdateExisting] = useState(false);
+  // "Solo importar familias OK" — excludes warnings, errors, and duplicates.
+  const [skipWarnings, setSkipWarnings] = useState(false);
 
   const previewMutation = usePreviewLegacyImport();
   const confirmMutation = useConfirmLegacyImport();
@@ -203,6 +205,7 @@ export function BulkImportFamiliasLegacyModal({
       setFilename(undefined);
       setActiveTab("ok");
       setUpdateExisting(false);
+      setSkipWarnings(false);
     }, 300);
   }
 
@@ -253,6 +256,14 @@ export function BulkImportFamiliasLegacyModal({
     if (f) await processFile(f);
   }
 
+  // Numbers of families that will be excluded when skipWarnings is active.
+  const excludedFamilyNumbers = useMemo(() => {
+    if (!preview || !skipWarnings) return undefined;
+    return preview.groups
+      .filter((g) => classifyGroup(g) !== "ok")
+      .map((g) => g.legacy_numero_familia);
+  }, [preview, skipWarnings]);
+
   function handleConfirm() {
     if (!preview) return;
     setStep(3);
@@ -261,6 +272,7 @@ export function BulkImportFamiliasLegacyModal({
         preview_token: preview.preview_token,
         src_filename: filename,
         mode: updateExisting ? "update" : "skip",
+        excluded_family_numbers: excludedFamilyNumbers,
       },
       {
         onSuccess: (r) => {
@@ -297,10 +309,17 @@ export function BulkImportFamiliasLegacyModal({
 
   // Confirm is blocked only when there are zero importable families (ok + warnings).
   // Families with errors are auto-excluded by SQL savepoints, so they never block.
-  const importableFamilies =
+  const totalNonErrorFamilies =
     (preview?.valid_families ?? 0) +
     (preview?.warning_families ?? 0) +
     (updateExisting ? (preview?.duplicate_families ?? 0) : 0);
+  // When skipWarnings is active, only OK families are imported.
+  const importableFamilies = skipWarnings
+    ? (preview?.valid_families ?? 0)
+    : totalNonErrorFamilies;
+  const excludedCount = skipWarnings
+    ? totalNonErrorFamilies - (preview?.valid_families ?? 0) + (preview?.error_families ?? 0)
+    : (preview?.error_families ?? 0);
   const hasReportableIssues =
     (preview?.warning_families ?? 0) > 0 || (preview?.error_families ?? 0) > 0;
   const blockedByErrors = importableFamilies === 0;
@@ -315,37 +334,58 @@ export function BulkImportFamiliasLegacyModal({
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         {/* Sticky action bar — always visible at top, no scroll needed */}
         {step === 2 && lane === "roster" && (
-          <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b bg-white pb-3 pt-1">
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => setStep(1)}>
-                Volver
-              </Button>
-              {hasReportableIssues && preview && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  asChild
-                  title="Descargar reporte de advertencias y errores"
-                >
-                  <a
-                    href={`/api/legacy-import/report/${preview.preview_token}`}
-                    download
-                  >
-                    <Download className="mr-1 h-4 w-4" />
-                    Descargar reporte
-                  </a>
+          <div className="sticky top-0 z-10 border-b bg-white pb-3 pt-1">
+            {/* Row 1: navigation + confirm */}
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => setStep(1)}>
+                  Volver
                 </Button>
-              )}
+                {hasReportableIssues && preview && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    asChild
+                    title="Descargar reporte de advertencias y errores"
+                  >
+                    <a
+                      href={`/api/legacy-import/report/${preview.preview_token}`}
+                      download
+                    >
+                      <Download className="mr-1 h-4 w-4" />
+                      Descargar reporte
+                    </a>
+                  </Button>
+                )}
+              </div>
+              <Button
+                size="sm"
+                onClick={handleConfirm}
+                disabled={blockedByErrors}
+              >
+                {blockedByErrors
+                  ? "Sin familias para importar"
+                  : excludedCount > 0
+                  ? `Confirmar (${importableFamilies} familias · ${excludedCount} excluidas)`
+                  : `Confirmar importación (${importableFamilies} familias)`}
+              </Button>
             </div>
-            <Button
-              size="sm"
-              onClick={handleConfirm}
-              disabled={blockedByErrors}
-            >
-              {blockedByErrors
-                ? "Sin familias para importar"
-                : `Confirmar importación (${importableFamilies} familias)`}
-            </Button>
+            {/* Row 2: "Solo importar familias OK" toggle */}
+            {hasReportableIssues && (
+              <div className="mt-2 flex items-center gap-2">
+                <Switch
+                  id="skip-warnings"
+                  checked={skipWarnings}
+                  onCheckedChange={setSkipWarnings}
+                />
+                <Label htmlFor="skip-warnings" className="text-xs font-medium cursor-pointer">
+                  Solo importar familias OK
+                  <span className="ml-1 font-normal text-gray-500">
+                    (excluye advertencias, errores y duplicadas)
+                  </span>
+                </Label>
+              </div>
+            )}
           </div>
         )}
 
