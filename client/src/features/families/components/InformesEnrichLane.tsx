@@ -11,7 +11,7 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
-  Loader2, Upload, AlertTriangle, CheckCircle2, HelpCircle, FileText, SearchX, ChevronDown, ChevronRight,
+  Loader2, Upload, AlertTriangle, CheckCircle2, HelpCircle, FileText, SearchX, ChevronDown, ChevronRight, Download,
 } from "lucide-react";
 import {
   usePreviewInformesImport,
@@ -266,8 +266,23 @@ export function InformesEnrichLane({ onDone }: { onDone: () => void }) {
         )}
       </div>
 
-      <div className="flex justify-end gap-2">
-        <Button variant="outline" onClick={() => setStep(1)}>Volver</Button>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setStep(1)}>Volver</Button>
+          {(preview!.warning_families > 0 || preview!.family_missing > 0) && (
+            <Button
+              variant="outline"
+              size="sm"
+              asChild
+              title="Descargar reporte de avisos y familias no encontradas"
+            >
+              <a href={`/api/informes-import/report/${preview!.preview_token}`} download>
+                <Download className="mr-1 h-4 w-4" aria-hidden="true" />
+                Descargar reporte
+              </a>
+            </Button>
+          )}
+        </div>
         <Button onClick={handleConfirm} disabled={preview!.families_to_enrich === 0}>
           {preview!.families_to_enrich === 0
             ? "Ninguna familia para enriquecer"

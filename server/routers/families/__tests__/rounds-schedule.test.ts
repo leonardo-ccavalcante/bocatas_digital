@@ -118,6 +118,69 @@ describe("rounds-schedule — getEligibleFamilies (PRE-1, RPC-based)", () => {
   });
 });
 
+describe("rounds-schedule — deleteRound", () => {
+  it("soft-deletes a borrador round (sets deleted_at)", async () => {
+    tableResults["delivery_rounds"] = { data: { id: "r1", estado: "borrador", nombre: "Test Round" }, error: null };
+    const caller = roundsScheduleRouter.createCaller(buildCtx(buildUser("admin")));
+    const res = await caller.deleteRound({ round_id: "11111111-1111-4111-8111-111111111111" });
+    expect(res.deleted).toBe(true);
+    const upd = captured.find((c) => c.table === "delivery_rounds" && c.op === "update");
+    expect(upd).toBeDefined();
+    expect((upd?.payload as Record<string, unknown>).deleted_at).toBeDefined();
+  });
+
+  it("rejects deletion of an active round with CONFLICT", async () => {
+    tableResults["delivery_rounds"] = { data: { id: "r2", estado: "activa" }, error: null };
+    const caller = roundsScheduleRouter.createCaller(buildCtx(buildUser("admin")));
+    await expect(
+      caller.deleteRound({ round_id: "11111111-1111-4111-8111-111111111112" }),
+    ).rejects.toThrow(/borrador|CONFLICT/i);
+  });
+
+  it("rejects deletion of a closed round with CONFLICT", async () => {
+    tableResults["delivery_rounds"] = { data: { id: "r3", estado: "cerrada" }, error: null };
+    const caller = roundsScheduleRouter.createCaller(buildCtx(buildUser("admin")));
+    await expect(
+      caller.deleteRound({ round_id: "11111111-1111-4111-8111-111111111113" }),
+    ).rejects.toThrow(/borrador|CONFLICT/i);
+  });
+
+  it("rejects voluntario from deleteRound", async () => {
+    const caller = roundsScheduleRouter.createCaller(buildCtx(buildUser("voluntario")));
+    await expect(
+      caller.deleteRound({ round_id: "11111111-1111-4111-8111-111111111111" }),
+    ).rejects.toThrow(/FORBIDDEN|UNAUTHORIZED|admin|permission|10002/i);
+  });
+
+  it("inserts an audit log row with actor_id and round snapshot", async () => {
+    tableResults["delivery_rounds"] = { data: { id: "r1", estado: "borrador", nombre: "Hoja_Test" }, error: null };
+    const adminUser = buildUser("admin", 42);
+    const caller = roundsScheduleRouter.createCaller(buildCtx(adminUser));
+    await caller.deleteRound({ round_id: "11111111-1111-4111-8111-111111111111" });
+    const auditInsert = captured.find(
+      (c) => c.table === "delivery_rounds_audit_log" && c.op === "insert",
+    );
+    expect(auditInsert).toBeDefined();
+    const payload = auditInsert?.payload as Record<string, unknown>;
+    expect(payload.action).toBe("delete_round");
+    expect(payload.actor_id).toBe(adminUser.openId);
+    expect(payload.round_nombre).toBe("Hoja_Test");
+    expect(payload.round_estado).toBe("borrador");
+  });
+
+  it("does NOT insert audit log when round is not found", async () => {
+    tableResults["delivery_rounds"] = { data: null, error: { message: "not found" } };
+    const caller = roundsScheduleRouter.createCaller(buildCtx(buildUser("admin")));
+    await expect(
+      caller.deleteRound({ round_id: "11111111-1111-4111-8111-111111111119" }),
+    ).rejects.toThrow(/NOT_FOUND|no encontrado/i);
+    const auditInsert = captured.find(
+      (c) => c.table === "delivery_rounds_audit_log" && c.op === "insert",
+    );
+    expect(auditInsert).toBeUndefined();
+  });
+});
+
 describe("rounds-schedule — commitAssignments", () => {
   it("calls the commit RPC and activates the round", async () => {
     tableResults["delivery_rounds"] = { data: { id: "r1", estado: "borrador" }, error: null };

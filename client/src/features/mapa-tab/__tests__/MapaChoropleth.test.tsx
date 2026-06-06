@@ -359,3 +359,80 @@ describe("<MapaChoropleth /> — accessible data table (C-06)", () => {
     expect(screen.getByTestId("mapa-legend")).toBeInTheDocument();
   });
 });
+
+// ── S4: Cole Nussbaumer heatmap contract (TDD RED) ────────────────────────────
+describe("<MapaChoropleth /> — S4 Cole Nussbaumer heatmap", () => {
+  const DENSITY_ROWS: DistritoStatRow[] = [
+    { distrito: "centro", count: 50, compliance: 0.9 },
+    { distrito: "carabanchel", count: 30, compliance: 0.7 },
+    { distrito: "arganzuela", count: 20, compliance: 0.8 },
+    { distrito: "retiro", count: 10, compliance: 0.6 },
+    { distrito: "salamanca", count: 5, compliance: 0.5 },
+    { distrito: "vicalvaro", count: null },
+  ];
+
+  const DENSITY_GEOJSON = {
+    type: "FeatureCollection" as const,
+    features: DENSITY_ROWS.map((r, i) => ({
+      type: "Feature" as const,
+      properties: { NOMBRE: r.distrito, COD_DIS: i + 1, slug: r.distrito },
+      geometry: { type: "Polygon" as const, coordinates: [] },
+    })),
+  };
+
+  it("does NOT render a TileLayer (no OSM basemap in Cole Nussbaumer style)", () => {
+    render(
+      <MapaChoropleth
+        rows={DENSITY_ROWS}
+        kAnonymityFloor={3}
+        layer="densidad"
+        onDistritoClick={vi.fn()}
+        geoJson={DENSITY_GEOJSON}
+      />,
+    );
+    expect(screen.queryByTestId("tile-layer")).not.toBeInTheDocument();
+  });
+
+  it("renders legend bins with at least 3 distinct color swatches", () => {
+    render(
+      <MapaChoropleth
+        rows={DENSITY_ROWS}
+        kAnonymityFloor={3}
+        layer="densidad"
+        onDistritoClick={vi.fn()}
+        geoJson={DENSITY_GEOJSON}
+      />,
+    );
+    const legend = screen.getByTestId("mapa-choropleth-legend");
+    const swatches = legend.querySelectorAll("[data-testid='legend-swatch']");
+    expect(swatches.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("legend shows suppressed-data marker for k-anon floor", () => {
+    render(
+      <MapaChoropleth
+        rows={DENSITY_ROWS}
+        kAnonymityFloor={3}
+        layer="densidad"
+        onDistritoClick={vi.fn()}
+        geoJson={DENSITY_GEOJSON}
+      />,
+    );
+    const legend = screen.getByTestId("mapa-choropleth-legend");
+    expect(legend).toHaveTextContent(/dato protegido|<3/i);
+  });
+
+  it("tooltip for suppressed distrito uses k-anon text", () => {
+    render(
+      <MapaChoropleth
+        rows={DENSITY_ROWS}
+        kAnonymityFloor={3}
+        layer="densidad"
+        onDistritoClick={vi.fn()}
+        geoJson={DENSITY_GEOJSON}
+      />,
+    );
+    const suppressedPolygon = screen.getByTestId("polygon-vicalvaro");
+    expect(suppressedPolygon.getAttribute("data-tooltip")).toMatch(/<3 familias|dato protegido/i);
+  });
+});

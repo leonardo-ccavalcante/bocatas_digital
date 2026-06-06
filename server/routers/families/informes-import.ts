@@ -18,7 +18,9 @@ import { uuidLike } from "./_shared";
 import { safeFilename } from "./legacy-import";
 
 const MAX_FILENAME_LENGTH = 255;
-const PROBE_CHUNK_SIZE = 500;
+// PostgREST URL limit is ~8KB; 500 UUIDs × 37 chars = ~18KB → exceeds limit.
+// 100 UUIDs × 37 chars = ~3.7KB → safe margin.
+const PROBE_CHUNK_SIZE = 100;
 // The bulk_import_previews row cap CHECK keys on `parsed_rows->'groups'`, which
 // the INFORMES stash (`families[]`) doesn't have — so enforce the cap here.
 const MAX_FAMILIES = 10_000;
