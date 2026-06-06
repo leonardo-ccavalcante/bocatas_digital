@@ -91,6 +91,7 @@
 ## Bug: Mapa choropleth — MultiPolygon distritos no están completamente coloreados (sesión 2026-06-06 batch 10)
 - [x] Phase 1: Implementar explodeMultiPolygons.ts para aplanar MultiPolygons en Polygons individuales
 - [x] Phase 2: Integrar explodeMultiPolygons en MapaChoropleth.tsx (useMemo + GeoJSON key)
-- [ ] Phase 3: Verificación visual — confirmar que Ciudad Lineal y otros distritos MultiPolygon están completamente coloreados
-- [x] Phase 4: Tests de regresión — verificar que todos los tests pasan (2775+ tests PASS)
-- [ ] Phase 5: QA profundo — hover tooltips, click handlers, leyenda
+- [x] Phase 3: Tests de regresión — crear 7 tests para explodeMultiPolygons (PASS 7/7)
+- [x] Phase 4: Suite completa — verificar que todos los tests pasan (2782 tests PASS, 0 fallos)
+- [ ] Phase 5: Verificación visual en browser — confirmar que Ciudad Lineal y otros distritos MultiPolygon están completamente coloreados
+- [ ] Phase 6: QA profundo — hover tooltips, click handlers, leyenda
