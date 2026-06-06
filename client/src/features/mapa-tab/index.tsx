@@ -3,7 +3,9 @@
  * Lazy-loaded via React.lazy() — react-leaflet chunk stays out of LCP bundle.
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import type { FeatureCollection } from "geojson";
+import { normalizeGeoJson } from "./utils/geojsonNormalize";
 
 import type { DistritoSlug } from "@shared/madrid/distritos";
 
@@ -17,6 +19,14 @@ export default function MapaTab() {
   const [selectedDistrito, setSelectedDistrito] = useState<DistritoSlug | null>(null);
 
   const { rows, kAnonymityFloor, isLoading, isError, error } = useMapaData(layer);
+  const [geoJson, setGeoJson] = useState<FeatureCollection | undefined>(undefined);
+
+  useEffect(() => {
+    fetch("/manus-storage/madrid-distritos_c2dcb693.geojson")
+      .then((r) => r.json())
+      .then((raw: FeatureCollection) => setGeoJson(normalizeGeoJson(raw)))
+      .catch((err) => console.warn("[MapaTab] GeoJSON load failed:", err));
+  }, []);
 
   const selectedRow = rows.find((r) => r.distrito === selectedDistrito) ?? null;
 
@@ -46,12 +56,12 @@ export default function MapaTab() {
         <LayerToggle layer={layer} onChange={setLayer} />
       </div>
 
-      {/* geoJson omitted — EmptyState renders until canonical GeoJSON asset lands */}
       <MapaChoropleth
         rows={rows}
         kAnonymityFloor={kAnonymityFloor}
         layer={layer}
         onDistritoClick={(slug) => setSelectedDistrito(slug)}
+        geoJson={geoJson}
       />
 
       {selectedRow && (

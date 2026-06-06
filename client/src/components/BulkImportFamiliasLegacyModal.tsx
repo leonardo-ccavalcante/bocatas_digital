@@ -33,6 +33,7 @@ import type {
   FamilyGroup,
   PersonDedupHit,
   PreviewResponse,
+  ConfirmResponse,
 } from "../../../shared/legacyFamiliasTypes";
 
 type FilterTab = "ok" | "warnings" | "errors" | "duplicates";
@@ -192,6 +193,8 @@ export function BulkImportFamiliasLegacyModal({
   const [updateExisting, setUpdateExisting] = useState(false);
   // "Solo importar familias OK" — excludes warnings, errors, and duplicates.
   const [skipWarnings, setSkipWarnings] = useState(false);
+  // Saved confirm result when error_count > 0 so user can download the error report.
+  const [confirmResult, setConfirmResult] = useState<ConfirmResponse | null>(null);
 
   const previewMutation = usePreviewLegacyImport();
   const confirmMutation = useConfirmLegacyImport();
@@ -206,6 +209,7 @@ export function BulkImportFamiliasLegacyModal({
       setActiveTab("ok");
       setUpdateExisting(false);
       setSkipWarnings(false);
+      setConfirmResult(null);
     }, 300);
   }
 
@@ -281,15 +285,21 @@ export function BulkImportFamiliasLegacyModal({
             toast.warning(
               `Importación parcial: ${r.created_count} creadas${updated}, ${r.skipped_count} omitidas, ${r.error_count} con error.`
             );
+            // Keep modal open so user can download the error report
+            setConfirmResult(r);
+            setStep(2); // go back to step 2 to show the result panel
           } else {
             toast.success(
               `${r.created_count} familias importadas${updated}${r.skipped_count > 0 ? ` (${r.skipped_count} omitidas)` : ""}`
             );
+            if (r.enrollment_program_missing) {
+              toast.warning("El programa de familias no existe en este entorno; no se inscribió a nadie.");
+            }
+            resetAndClose();
           }
-          if (r.enrollment_program_missing) {
+          if (r.enrollment_program_missing && r.error_count > 0) {
             toast.warning("El programa de familias no existe en este entorno; no se inscribió a nadie.");
           }
-          resetAndClose();
         },
         onError: (err) => {
           toast.error(err instanceof Error ? err.message : "Error al importar");
@@ -458,6 +468,53 @@ export function BulkImportFamiliasLegacyModal({
                 onChange={handleFileChange}
               />
             </label>
+          </div>
+        )}
+
+        {step === 2 && preview && confirmResult && confirmResult.error_count > 0 && (
+          <div className="rounded border border-red-200 bg-red-50 p-3 text-sm mb-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="font-semibold text-red-800">
+                  Importación parcial: {confirmResult.error_count} familia{confirmResult.error_count !== 1 ? "s" : ""} con error
+                </p>
+                <p className="text-red-700 text-xs mt-0.5">
+                  {confirmResult.created_count} creadas · {confirmResult.skipped_count} omitidas · {confirmResult.error_count} fallidas
+                </p>
+              </div>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1.5 rounded border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50 transition-colors"
+                onClick={() => {
+                  // Generate and download the error report via POST
+                  fetch("/api/legacy-import/confirm-report", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      error_details: confirmResult.error_details,
+                      src_filename: filename,
+                    }),
+                  })
+                    .then((res) => {
+                      if (!res.ok) throw new Error("Error al generar el reporte");
+                      return res.blob();
+                    })
+                    .then((blob) => {
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      const base = (filename ?? "importacion").replace(/\.csv$/i, "");
+                      a.download = `reporte_fallos_${base}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    })
+                    .catch(() => toast.error("No se pudo generar el reporte de fallos"));
+                }}
+              >
+                <Download className="h-3.5 w-3.5" aria-hidden="true" />
+                Descargar reporte de fallos
+              </button>
+            </div>
           </div>
         )}
 

@@ -39,6 +39,13 @@ export function useCloseReparto() {
   });
 }
 
+export function useDeleteReparto() {
+  const utils = trpc.useUtils();
+  return trpc.families.deleteRound.useMutation({
+    onSuccess: () => utils.families.listRounds.invalidate(),
+  });
+}
+
 // ─── Close-out ────────────────────────────────────────────────────────────────
 export function useAssignmentsForDay(round_id: string, assigned_day: string) {
   return trpc.families.getAssignmentsForDay.useQuery(

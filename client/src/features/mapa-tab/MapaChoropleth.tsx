@@ -1,41 +1,46 @@
 /**
- * MapaChoropleth — Stage S3 react-leaflet choropleth for Madrid distritos.
+ * MapaChoropleth — Stage S4 Cole Nussbaumer choropleth for Madrid distritos.
  *
- * Replaces the S2 text-list stub with GeoJSON polygon rendering. Features:
- * - Two layers: "densidad" (family count) and "compliance" (ratio 0-1)
- * - K-anonymity floor: null count → neutral gray + accessible tooltip
- * - EmptyState when GeoJSON has no features (placeholder asset case — T3)
- * - No PII in tooltips — only counts and distrito names
+ * Design principles (Cole Nussbaumer Knaflic, "Storytelling with Data"):
+ * - Sequential single-hue palette (blue: light → dark) for density data.
+ *   Diverging palettes are reserved for data with a meaningful midpoint.
+ * - No decorative basemap (OSM tiles removed) — the polygons ARE the story.
+ *   A minimal light-gray background lets the choropleth breathe.
+ * - Quantile classification (5 bins) ensures equal-count bins, preventing
+ *   outliers from washing out the rest of the distribution.
+ * - Explicit legend with labeled bins and a separate k-anon suppression marker.
+ * - Compliance layer keeps the red-scale (diverging from 0→1 is appropriate
+ *   since 0% and 100% are both meaningful extremes).
  *
  * Accessibility (WCAG 2.1 AA, TECH_DEBT C-06): the leaflet SVG map encodes
  * values by fill COLOR only and its polygons are NOT keyboard/screen-reader
  * reachable. The map is therefore a visual enhancement; the accessible source
- * of truth is the always-rendered <DistritoDataTable> below it (values as
- * text, keyboard-actionable per distrito, plus a legend).
+ * of truth is the always-rendered <DistritoDataTable> below it.
  *
  * The geoJson prop is optional; when absent (or empty features), the
- * EmptyState renders instead of the map — but the data table always renders,
- * so the tab is fully usable while the canonical GeoJSON asset is a follow-up.
- *
- * Lazy-chunked at the TabsContent level — this file does NOT eagerly import
- * react-leaflet at the parent module level. The dynamic import happens when
- * the user navigates to the mapa tab.
+ * EmptyState renders instead of the map.
  */
 
 import { useMemo } from "react";
 import type { Layer } from "leaflet";
-import { MapContainer, TileLayer, GeoJSON } from "react-leaflet";
+import { MapContainer, GeoJSON } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import type { Feature, FeatureCollection } from "geojson";
 
 import type { DistritoSlug } from "@shared/madrid/distritos";
-
 import type { DistritoStatRow } from "../../../../server/routers/mapa";
 import { DistritoDataTable } from "./DistritoDataTable";
 
 // Madrid city centre coordinates
 const MADRID_CENTER: [number, number] = [40.4168, -3.7038];
 const MADRID_ZOOM = 11;
+
+// ── Cole Nussbaumer blue sequential palette (5 bins) ─────────────────────────
+// Based on ColorBrewer Blues-5: light → dark, perceptually uniform.
+const BLUE_BINS = ["#c6dbef", "#9ecae1", "#6baed6", "#3182bd", "#08519c"] as const;
+
+// Neutral gray for k-anon suppressed distritos
+const SUPPRESSED_COLOR = "#d1d5db";
 
 interface MapaChoroplethProps {
   rows: readonly DistritoStatRow[];
@@ -46,9 +51,36 @@ interface MapaChoroplethProps {
   geoJson?: FeatureCollection;
 }
 
-// ── Color scale ───────────────────────────────────────────────────────────────
+// ── Quantile classifier ───────────────────────────────────────────────────────
 
-/** Returns a red-gradient fill for a normalised value t ∈ [0, 1]. */
+/**
+ * Compute quantile bin boundaries for n bins from a sorted array of values.
+ * Returns an array of (n-1) thresholds: value < thresholds[0] → bin 0, etc.
+ */
+function quantileThresholds(sorted: number[], nBins: number): number[] {
+  if (sorted.length === 0 || nBins <= 1) return [];
+  const thresholds: number[] = [];
+  for (let i = 1; i < nBins; i++) {
+    const idx = (i / nBins) * (sorted.length - 1);
+    const lo = Math.floor(idx);
+    const hi = Math.ceil(idx);
+    const frac = idx - lo;
+    thresholds.push(sorted[lo] + (sorted[hi] - sorted[lo]) * frac);
+  }
+  return thresholds;
+}
+
+/** Assign a bin index [0, nBins-1] for a value given thresholds. */
+function binIndex(value: number, thresholds: number[]): number {
+  for (let i = 0; i < thresholds.length; i++) {
+    if (value <= thresholds[i]) return i;
+  }
+  return thresholds.length; // last bin
+}
+
+// ── Color scale helpers ───────────────────────────────────────────────────────
+
+/** Returns a red-gradient fill for a normalised value t ∈ [0, 1] (compliance layer). */
 function redScale(t: number): string {
   const r = Math.round(254 - (254 - 180) * t);
   const g = Math.round(229 - (229 - 30) * t);
@@ -56,9 +88,8 @@ function redScale(t: number): string {
   return `rgb(${r},${g},${b})`;
 }
 
-// ── Feature value helpers ──────────────────────────────────────────────────
+// ── Feature value helpers ─────────────────────────────────────────────────────
 
-/** Build a lookup map from slug → metric value for fast polygon styling. */
 function buildValueMap(
   rows: readonly DistritoStatRow[],
   layer: "densidad" | "compliance",
@@ -76,13 +107,49 @@ function buildValueMap(
   return map;
 }
 
-/** Compute max non-null value for color scale normalisation. */
-function maxNonNull(map: Map<string, number | null>): number {
-  let max = 0;
-  for (const v of map.values()) {
-    if (v !== null && v > max) max = v;
-  }
-  return max;
+// ── Legend component ──────────────────────────────────────────────────────────
+
+interface LegendBin {
+  color: string;
+  label: string;
+}
+
+function MapaLegend({
+  bins,
+  kAnonymityFloor,
+}: {
+  bins: LegendBin[];
+  kAnonymityFloor: number;
+}) {
+  return (
+    <div
+      data-testid="mapa-choropleth-legend"
+      className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground"
+    >
+      <span className="font-medium text-foreground">Leyenda:</span>
+      {bins.map((bin, i) => (
+        <span key={i} className="flex items-center gap-1">
+          <span
+            data-testid="legend-swatch"
+            className="inline-block h-3 w-5 rounded-sm border border-border"
+            style={{ backgroundColor: bin.color }}
+            aria-hidden="true"
+          />
+          {bin.label}
+        </span>
+      ))}
+      {/* K-anonymity suppression marker */}
+      <span className="flex items-center gap-1">
+        <span
+          data-testid="legend-swatch"
+          className="inline-block h-3 w-5 rounded-full border border-border"
+          style={{ backgroundColor: SUPPRESSED_COLOR }}
+          aria-hidden="true"
+        />
+        {`Menos de ${kAnonymityFloor} familias (dato protegido)`}
+      </span>
+    </div>
+  );
 }
 
 // ── EmptyState ────────────────────────────────────────────────────────────────
@@ -98,12 +165,8 @@ function MapaEmptyState() {
       <span className="text-4xl" aria-hidden="true">
         🗺️
       </span>
-      <p className="text-sm">
-        Mapa de distritos pendiente de carga.
-      </p>
-      <p className="text-xs">
-        El archivo GeoJSON de Madrid se incorporará próximamente.
-      </p>
+      <p className="text-sm">Mapa de distritos pendiente de carga.</p>
+      <p className="text-xs">El archivo GeoJSON de Madrid se incorporará próximamente.</p>
     </div>
   );
 }
@@ -119,12 +182,38 @@ export function MapaChoropleth({
 }: MapaChoroplethProps) {
   const hasFeatures = (geoJson?.features.length ?? 0) > 0;
 
-  const valueMap = useMemo(
-    () => buildValueMap(rows, layer),
-    [rows, layer],
-  );
+  const valueMap = useMemo(() => buildValueMap(rows, layer), [rows, layer]);
 
-  const maxValue = useMemo(() => maxNonNull(valueMap), [valueMap]);
+  // Build quantile thresholds from non-null density values
+  const { thresholds, maxValue } = useMemo(() => {
+    const nonNull = [...valueMap.values()]
+      .filter((v): v is number => v !== null)
+      .sort((a, b) => a - b);
+    const thresholds =
+      layer === "densidad" ? quantileThresholds(nonNull, BLUE_BINS.length) : [];
+    const maxValue = nonNull.length > 0 ? nonNull[nonNull.length - 1] : 1;
+    return { thresholds, maxValue };
+  }, [valueMap, layer]);
+
+  // Legend bins
+  const legendBins = useMemo<LegendBin[]>(() => {
+    if (layer === "compliance") {
+      return [
+        { color: redScale(0), label: "0% compliance" },
+        { color: redScale(0.5), label: "50%" },
+        { color: redScale(1), label: "100%" },
+      ];
+    }
+    // Density: label each bin with its threshold range
+    const allThresholds = [0, ...thresholds, maxValue];
+    return BLUE_BINS.map((color, i) => ({
+      color,
+      label:
+        i === BLUE_BINS.length - 1
+          ? `>${Math.round(allThresholds[i])} fam.`
+          : `${Math.round(allThresholds[i])}–${Math.round(allThresholds[i + 1])} fam.`,
+    }));
+  }, [layer, thresholds, maxValue]);
 
   const styleFn = useMemo(
     () =>
@@ -133,26 +222,33 @@ export function MapaChoropleth({
         const value = slug ? valueMap.get(slug) : undefined;
 
         if (!slug || value === undefined || value === null) {
-          // Neutral gray for unknown or k-anon-suppressed distritos
           return {
-            fillColor: "#e5e7eb",
+            fillColor: SUPPRESSED_COLOR,
             weight: 1,
             opacity: 1,
-            color: "#94a3b8",
-            fillOpacity: 0.7,
+            color: "#9ca3af",
+            fillOpacity: 0.75,
           };
         }
 
-        const t = maxValue > 0 ? Math.min(1, value / maxValue) : 0;
+        let fillColor: string;
+        if (layer === "compliance") {
+          const t = maxValue > 0 ? Math.min(1, (value as number) / maxValue) : 0;
+          fillColor = redScale(t);
+        } else {
+          const bin = binIndex(value as number, thresholds);
+          fillColor = BLUE_BINS[Math.min(bin, BLUE_BINS.length - 1)];
+        }
+
         return {
-          fillColor: redScale(t),
+          fillColor,
           weight: 1,
           opacity: 1,
-          color: "#94a3b8",
-          fillOpacity: 0.7,
+          color: "#6b7280",
+          fillOpacity: 0.8,
         };
       },
-    [valueMap, maxValue],
+    [valueMap, layer, thresholds, maxValue],
   );
 
   const onEachFeature = useMemo(
@@ -173,7 +269,6 @@ export function MapaChoropleth({
         const value = valueMap.get(slug);
         const isSuppressed = value === null || value === undefined;
 
-        // Tooltip text — no PII, only aggregate counts
         let tooltipText: string;
         if (isSuppressed) {
           tooltipText = `${nombre ?? slug}: <${kAnonymityFloor} familias`;
@@ -186,15 +281,13 @@ export function MapaChoropleth({
 
         leafletLayer.bindTooltip(tooltipText, { sticky: true });
 
-        // Hover highlight
         leafletLayer.on("mouseover", () => {
-          leafletLayer.setStyle?.({ weight: 2, color: "#475569" });
+          leafletLayer.setStyle?.({ weight: 2, color: "#374151" });
         });
         leafletLayer.on("mouseout", () => {
-          leafletLayer.setStyle?.({ weight: 1, color: "#94a3b8" });
+          leafletLayer.setStyle?.({ weight: 1, color: "#6b7280" });
         });
 
-        // Click → open DistritoPanel
         leafletLayer.on("click", () => {
           onDistritoClick(slug as DistritoSlug);
         });
@@ -208,29 +301,30 @@ export function MapaChoropleth({
       aria-label="Distritos de Madrid con número de familias atendidas"
       className="space-y-2"
     >
-      {/* Visual enhancement: the leaflet map (when the GeoJSON asset is present)
-          or a placeholder. The accessible representation is the data table below. */}
       {!hasFeatures ? (
         <MapaEmptyState />
       ) : (
+        // Cole Nussbaumer: no OSM basemap — the choropleth IS the data.
+        // A plain white/light-gray background keeps focus on the polygons.
         <MapContainer
           center={MADRID_CENTER}
           zoom={MADRID_ZOOM}
           className="h-[520px] w-full rounded-lg overflow-hidden border border-border"
+          style={{ background: "#f8fafc" }}
         >
-          <TileLayer
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          />
+          {/* No TileLayer — intentional per Cole Nussbaumer design principles */}
           <GeoJSON
             key={layer}
             data={geoJson as FeatureCollection}
             style={styleFn as (feature?: Feature) => object}
-            onEachFeature={
-              onEachFeature as (feature: Feature, layer: Layer) => void
-            }
+            onEachFeature={onEachFeature as (feature: Feature, layer: Layer) => void}
           />
         </MapContainer>
+      )}
+
+      {/* Legend — always rendered when map is visible */}
+      {hasFeatures && (
+        <MapaLegend bins={legendBins} kAnonymityFloor={kAnonymityFloor} />
       )}
 
       {/* Accessible source of truth — always rendered (C-06). */}
