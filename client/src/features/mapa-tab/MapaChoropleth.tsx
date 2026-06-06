@@ -19,11 +19,16 @@
  *
  * The geoJson prop is optional; when absent (or empty features), the
  * EmptyState renders instead of the map.
+ *
+ * Bug #8a fix: Added FitBoundsController component that uses useMap() hook
+ * to call map.fitBounds(layer.getBounds()) after GeoJSON loads, so the map
+ * viewport adjusts to the actual polygon extent instead of using a fixed
+ * center/zoom that may not match the loaded GeoJSON.
  */
 
-import { useMemo } from "react";
-import type { Layer } from "leaflet";
-import { MapContainer, GeoJSON } from "react-leaflet";
+import { useEffect, useRef, useMemo } from "react";
+import type { Layer, GeoJSON as LeafletGeoJSON } from "leaflet";
+import { MapContainer, GeoJSON, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import type { Feature, FeatureCollection } from "geojson";
 
@@ -31,7 +36,7 @@ import type { DistritoSlug } from "@shared/madrid/distritos";
 import type { DistritoStatRow } from "../../../../server/routers/mapa";
 import { DistritoDataTable } from "./DistritoDataTable";
 
-// Madrid city centre coordinates
+// Madrid city centre coordinates — used as initial center before fitBounds
 const MADRID_CENTER: [number, number] = [40.4168, -3.7038];
 const MADRID_ZOOM = 11;
 
@@ -105,6 +110,56 @@ function buildValueMap(
     map.set(row.distrito, value);
   }
   return map;
+}
+
+// ── FitBoundsController ───────────────────────────────────────────────────────
+
+/**
+ * Internal component that uses useMap() (must be inside MapContainer) to:
+ * 1. Call map.fitBounds() after the GeoJSON layer is rendered so the viewport
+ *    adjusts to the actual polygon extent (Bug #8a fix).
+ * 2. Call map.invalidateSize() on container resize so the map tiles and
+ *    polygons fill the container correctly after responsive layout changes.
+ *
+ * Bug #8a fix: without this, the map uses a fixed center/zoom that may not
+ * match the actual polygon extent of the loaded GeoJSON, causing distorted
+ * or off-center rendering on mobile and desktop.
+ */
+function FitBoundsController({
+  geoJsonRef,
+}: {
+  geoJsonRef: React.RefObject<LeafletGeoJSON | null>;
+}) {
+  const map = useMap();
+
+  // Fit bounds to the GeoJSON polygon extent after initial render
+  useEffect(() => {
+    if (!geoJsonRef.current) return;
+    try {
+      const bounds = geoJsonRef.current.getBounds();
+      if (bounds.isValid()) {
+        map.fitBounds(bounds, { padding: [10, 10] });
+      }
+    } catch {
+      // getBounds() can throw if no features — silently ignore
+    }
+  }, [map, geoJsonRef]);
+
+  // Invalidate map size when the container resizes (e.g. responsive breakpoints)
+  // so Leaflet recalculates tile/polygon positions correctly.
+  useEffect(() => {
+    const container = map.getContainer();
+    if (!container || typeof ResizeObserver === 'undefined') return;
+
+    const observer = new ResizeObserver(() => {
+      map.invalidateSize();
+    });
+    observer.observe(container);
+
+    return () => observer.disconnect();
+  }, [map]);
+
+  return null;
 }
 
 // ── Legend component ──────────────────────────────────────────────────────────
@@ -181,6 +236,9 @@ export function MapaChoropleth({
   geoJson,
 }: MapaChoroplethProps) {
   const hasFeatures = (geoJson?.features.length ?? 0) > 0;
+
+  // Ref to the Leaflet GeoJSON layer — used by FitBoundsController
+  const geoJsonRef = useRef<LeafletGeoJSON | null>(null);
 
   const valueMap = useMemo(() => buildValueMap(rows, layer), [rows, layer]);
 
@@ -306,19 +364,23 @@ export function MapaChoropleth({
       ) : (
         // Cole Nussbaumer: no OSM basemap — the choropleth IS the data.
         // A plain white/light-gray background keeps focus on the polygons.
+        // h-[300px] on mobile, h-[520px] on md+ screens (Bug #8a responsive fix).
         <MapContainer
           center={MADRID_CENTER}
           zoom={MADRID_ZOOM}
-          className="h-[520px] w-full rounded-lg overflow-hidden border border-border"
+          className="h-[300px] md:h-[520px] w-full rounded-lg overflow-hidden border border-border"
           style={{ background: "#f8fafc" }}
         >
           {/* No TileLayer — intentional per Cole Nussbaumer design principles */}
           <GeoJSON
             key={layer}
+            ref={geoJsonRef}
             data={geoJson as FeatureCollection}
             style={styleFn as (feature?: Feature) => object}
             onEachFeature={onEachFeature as (feature: Feature, layer: Layer) => void}
           />
+          {/* Bug #8a fix: adjust viewport to GeoJSON polygon bounds after load */}
+          <FitBoundsController geoJsonRef={geoJsonRef} />
         </MapContainer>
       )}
 

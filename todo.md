@@ -86,3 +86,11 @@
 - [x] Phase 2: Test RED — 2 tests frontend fallan correctamente; 2 tests backend actualizados
 - [x] Phase 3: Fix GREEN — eliminada condición en frontend + eliminado guard en backend
 - [x] Phase 4: Deep QA — 2775 tests pasan, TypeScript 0 errores, 13 tests deleteRound pasan, product review completo
+
+## Bugs batch 8 (2026-06-06) — Systematic debugging
+- [x] Bug #8a: Map rendering distorted — fix: FitBoundsController (useMap hook) + h-[300px] md:h-[520px] responsivo
+- [x] Bug #8b: Delete reparto error — fix ya en checkpoint ab989543 (batch 7); push + deploy resuelve en producción
+- [x] Bug #8c: Internal server error c984a0e3 — fix: createAdminClient() usa SUPABASE_URL ?? VITE_SUPABASE_URL (no solo VITE_)
+- [x] Bug #8d: Compliance modal carga infinita — fix: createUserImpersonationClient() usa SUPABASE_URL + SUPABASE_ANON_KEY con fallback a VITE_*
+- [x] Tests de regresión: 5 tests nuevos en supabase-server-env-url.test.ts verifican env vars correctas
+- [x] Suite completa: 2780 tests pasan, 0 fallos, TypeScript 0 errores
