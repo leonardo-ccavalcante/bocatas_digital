@@ -80,3 +80,14 @@
 - [x] Eliminar 3 casts `as never` en `rounds-schedule.ts` (rpc call, fail(error), insert payload)
 - [x] TypeScript: 0 errores tras los cambios
 - [x] Suite completa: 2773 tests pasan, 0 fallos
+
+## Tipos TypeScript: eliminar casts `as never` restantes (sesión 2026-06-06 batch 5)
+- [x] Auditar todos los casts `as never` / `as unknown as never` restantes en producción
+- [x] `announcements/bulk-import.ts`: `parsed_rows: valid as unknown as never` → `as unknown as Json` + import `Json`
+- [x] `families/legacy-import.ts`: `parsed_rows: stash as unknown as never` → `as unknown as Json` + import `Json`
+- [x] `families/informes-import.ts`: `parsed_rows: stash as unknown as never` → `as unknown as Json` + import `Json`
+- [x] `announcements/crud.ts`: `.update(updatePayload as never)` → `as AnnouncementsUpdate` + import `Database` + type alias
+- [x] `__tests__/sanitize_audit_error.test.ts`: `createClient<Database>` + eliminar `"sanitize_audit_error" as never` y `{} as never`
+- [x] Añadir test de tipo `server/__tests__/no-never-casts.typecheck.ts` que documenta los casts correctos
+- [x] TypeScript: 0 errores tras los cambios
+- [x] Suite completa: 2773 tests pasan, 0 fallos
