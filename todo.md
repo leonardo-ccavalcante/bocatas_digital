@@ -87,3 +87,10 @@
 - [x] Phase 3: Fix GREEN — eliminada condición en frontend + eliminado guard en backend
 - [x] Phase 4: Deep QA — 2775 tests pasan, TypeScript 0 errores, 13 tests deleteRound pasan, product review completo
 # batch 9 checkpoint trigger
+
+## Bug: Mapa choropleth — MultiPolygon distritos no están completamente coloreados (sesión 2026-06-06 batch 10)
+- [x] Phase 1: Implementar explodeMultiPolygons.ts para aplanar MultiPolygons en Polygons individuales
+- [x] Phase 2: Integrar explodeMultiPolygons en MapaChoropleth.tsx (useMemo + GeoJSON key)
+- [ ] Phase 3: Verificación visual — confirmar que Ciudad Lineal y otros distritos MultiPolygon están completamente coloreados
+- [x] Phase 4: Tests de regresión — verificar que todos los tests pasan (2775+ tests PASS)
+- [ ] Phase 5: QA profundo — hover tooltips, click handlers, leyenda

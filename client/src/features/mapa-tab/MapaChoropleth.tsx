@@ -28,6 +28,7 @@ import "leaflet/dist/leaflet.css";
 import type { Feature, FeatureCollection } from "geojson";
 
 import type { DistritoSlug } from "@shared/madrid/distritos";
+import { explodeMultiPolygons } from "./utils/explodeMultiPolygons";
 import type { DistritoStatRow } from "../../../../server/routers/mapa";
 import { DistritoDataTable } from "./DistritoDataTable";
 
@@ -180,7 +181,14 @@ export function MapaChoropleth({
   onDistritoClick,
   geoJson,
 }: MapaChoroplethProps) {
-  const hasFeatures = (geoJson?.features.length ?? 0) > 0;
+  // Explode MultiPolygons so each polygon is a separate feature
+  // This ensures styleFn can access the slug property for each polygon
+  const explodedGeoJson = useMemo(() => {
+    if (!geoJson) return undefined;
+    return explodeMultiPolygons(geoJson);
+  }, [geoJson]);
+
+  const hasFeatures = (explodedGeoJson?.features.length ?? 0) > 0;
 
   const valueMap = useMemo(() => buildValueMap(rows, layer), [rows, layer]);
 
@@ -324,7 +332,7 @@ export function MapaChoropleth({
            */}
           <GeoJSON
             key={`${layer}-${rows.length}`}
-            data={geoJson as FeatureCollection}
+            data={explodedGeoJson as FeatureCollection}
             style={styleFn as (feature?: Feature) => object}
             onEachFeature={onEachFeature as (feature: Feature, layer: Layer) => void}
           />
