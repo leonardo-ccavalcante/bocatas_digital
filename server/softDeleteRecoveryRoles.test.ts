@@ -8,12 +8,38 @@
  *   2. persons.create admits voluntario, admin, and superadmin, and rejects
  *      beneficiario and unauthenticated callers.
  *
- * DB-free: all tests hit the FORBIDDEN gate before any Supabase call is made.
- * Tests that reach the DB (admin/superadmin) are expected to fail with
- * INTERNAL_SERVER_ERROR (no real DB), NOT with FORBIDDEN.
+ * DB-free: Supabase is mocked (see vi.mock below). admin/superadmin pass the
+ * role gate and resolve instantly against the stub; voluntario/unauthenticated
+ * are rejected at the FORBIDDEN gate before any (mocked) Supabase call. Mocking
+ * is required so these tests don't make a real network call (and time out) when
+ * SUPABASE_* env is present, e.g. in CI.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { TRPCError } from "@trpc/server";
+
+// Stub Supabase so role-gate tests never hit the network (env-independent).
+// soft-delete-recovery.ts calls createClient() directly from @supabase/supabase-js
+// (not the app's createAdminClient wrapper), so we mock the library itself. This
+// also covers persons.create's createAdminClient path (it wraps createClient).
+vi.mock("@supabase/supabase-js", () => {
+  const makeChain = () => {
+    const chain: Record<string, unknown> = {};
+    for (const m of [
+      "select", "insert", "update", "upsert", "delete", "eq", "neq", "is",
+      "in", "or", "not", "gte", "lte", "order", "limit", "range",
+    ]) {
+      chain[m] = () => chain;
+    }
+    chain.then = (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) =>
+      Promise.resolve({ data: [], error: null, count: 0 }).then(resolve, reject);
+    chain.single = () => Promise.resolve({ data: null, error: null });
+    chain.maybeSingle = () => Promise.resolve({ data: null, error: null });
+    return chain;
+  };
+  const client = { from: () => makeChain() };
+  return { createClient: () => client };
+});
+
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
 import { Logger } from "./_core/logger";
