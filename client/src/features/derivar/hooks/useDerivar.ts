@@ -18,7 +18,7 @@ export interface TipoIntervencion {
 }
 
 /** Matches the seed in 20260603000002_create_tipos_intervencion.sql */
-const STATIC_TIPOS: TipoIntervencion[] = [
+export const STATIC_TIPOS: TipoIntervencion[] = [
   { slug: "salud", nombre: "Salud" },
   { slug: "apoyo_logistico", nombre: "Apoyo logístico" },
   { slug: "vivienda", nombre: "Vivienda" },
@@ -30,6 +30,13 @@ const STATIC_TIPOS: TipoIntervencion[] = [
   { slug: "formacion", nombre: "Formación" },
   { slug: "otro", nombre: "Otro" },
 ];
+
+const TIPO_NOMBRE_MAP = new Map(STATIC_TIPOS.map((t) => [t.slug, t.nombre]));
+
+/** Resolve a tipo_slug to its human-readable nombre. Falls back to the slug itself. */
+export function resolveTipoNombre(slug: string): string {
+  return TIPO_NOMBRE_MAP.get(slug) ?? slug;
+}
 
 export function useStartIntervention(
   scope: Scope,

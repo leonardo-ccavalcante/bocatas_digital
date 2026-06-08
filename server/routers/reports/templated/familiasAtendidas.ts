@@ -11,7 +11,7 @@
 import { z } from "zod";
 import { router, adminProcedure } from "../../../_core/trpc";
 import { createAdminClient } from "../../../../client/src/lib/supabase/server";
-import { wrapDbError } from "../_shared";
+import { wrapDbError, logAuditReport } from "../_shared";
 
 const InputSchema = z.object({
   from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Expected ISO date (YYYY-MM-DD)"),
@@ -21,7 +21,7 @@ const InputSchema = z.object({
 export const familiasAtendidasRouter = router({
   familiasAtendidas: adminProcedure
     .input(InputSchema)
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       const db = createAdminClient();
 
       type FamiliaRow = {
@@ -57,6 +57,11 @@ export const familiasAtendidasRouter = router({
         (sum, f) => sum + (f.num_adultos ?? 0) + (f.num_menores_18 ?? 0),
         0,
       );
+
+      logAuditReport(ctx, "reports.familiasAtendidas", totalFamilias, {
+        from: input.from,
+        to: input.to,
+      });
 
       return {
         rows,

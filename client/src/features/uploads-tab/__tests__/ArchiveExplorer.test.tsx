@@ -214,11 +214,11 @@ describe("ArchiveExplorer", () => {
     expect(onReclassify).toHaveBeenCalledWith("d1", "padron_municipal");
   });
 
-  it("10. tipo filter passes the selected slug to useQuery", async () => {
+  it("10. tipo filter passes the selected slug and programaId to useQuery (Fix 1 — scoping)", async () => {
     mockListAllForProgramUseQuery.mockReturnValue({ data: { rows: [], total: 0 }, isLoading: false });
     mockDocTypesUseQuery.mockReturnValue({ data: [TIPO_PADRON], isLoading: false });
 
-    renderExplorer();
+    renderExplorer({ programaId: "prog-1" });
 
     const trigger = screen.getByRole("combobox", { name: /filtrar por tipo/i });
     await userEvent.click(trigger);
@@ -227,7 +227,7 @@ describe("ArchiveExplorer", () => {
 
     await waitFor(() => {
       expect(mockListAllForProgramUseQuery).toHaveBeenCalledWith(
-        expect.objectContaining({ tipoSlug: "padron_municipal", limit: 50, offset: 0 }),
+        expect.objectContaining({ programaId: "prog-1", tipoSlug: "padron_municipal", limit: 50, offset: 0 }),
         expect.anything()
       );
     });
@@ -279,5 +279,16 @@ describe("ArchiveExplorer", () => {
     mockDocTypesUseQuery.mockReturnValue({ data: [], isLoading: false });
     renderExplorer();
     expect(screen.getByRole("combobox", { name: "Filtrar por tipo" })).toBeInTheDocument();
+  });
+
+  it("15. always passes programaId to listAllForProgram (Fix 1 — cross-program data-leak guard)", () => {
+    // Regression lock: programaId must always be forwarded so the server can
+    // scope results to the current program. Without this, all programs' docs leak.
+    mockListAllForProgramUseQuery.mockReturnValue({ data: { rows: [], total: 0 }, isLoading: false });
+    mockDocTypesUseQuery.mockReturnValue({ data: [], isLoading: false });
+    renderExplorer({ programaId: "prog-sentinel" });
+    const calls = mockListAllForProgramUseQuery.mock.calls;
+    const lastCall = calls[calls.length - 1];
+    expect(lastCall[0]).toMatchObject({ programaId: "prog-sentinel" });
   });
 });

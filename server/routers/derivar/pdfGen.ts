@@ -153,7 +153,7 @@ export const pdfGenRouter = router({
   /** Render the hoja as a DOCX buffer, return base64. */
   generateDocx: adminProcedure
     .input(z.object({ hojaId: z.string().uuid() }))
-    .query(async ({ input }) => {
+    .mutation(async ({ input }) => {
       const data = await buildTemplateData(input.hojaId);
       const buf = await renderDerivarHojaDocx(data).catch(toFriendlyTemplateError);
       return {
@@ -166,7 +166,7 @@ export const pdfGenRouter = router({
   /** Render the hoja as a PDF buffer via LibreOffice, return base64. */
   generatePdf: adminProcedure
     .input(z.object({ hojaId: z.string().uuid() }))
-    .query(async ({ input }) => {
+    .mutation(async ({ input }) => {
       const data = await buildTemplateData(input.hojaId);
       const docxBuf = await renderDerivarHojaDocx(data).catch(toFriendlyTemplateError);
       const pdfBuf = await convertDocxToPdf(docxBuf);

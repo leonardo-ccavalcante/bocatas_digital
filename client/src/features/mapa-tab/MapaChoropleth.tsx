@@ -85,8 +85,20 @@ function binIndex(value: number, thresholds: number[]): number {
 
 // ── Color scale helpers ───────────────────────────────────────────────────────
 
-/** Returns a red-gradient fill for a normalised value t ∈ [0, 1] (compliance layer). */
-function redScale(t: number): string {
+/**
+ * Returns a red-gradient fill for a normalised alarm level t ∈ [0, 1]
+ * (compliance layer).
+ *
+ * ENCODING (funder-correct): t=0 → light/pale (reassuring, high compliance)
+ *                             t=1 → dark red  (alarming, low compliance)
+ *
+ * Callers must pass (1 - complianceRatio) so that low compliance → dark red
+ * and high compliance → light. The function itself is a plain low→high alarm
+ * ramp to keep it easy to test in isolation.
+ *
+ * Exported for unit testing only — not part of the public component API.
+ */
+export function redScale(t: number): string {
   const r = Math.round(254 - (254 - 180) * t);
   const g = Math.round(229 - (229 - 30) * t);
   const b = Math.round(217 - (217 - 30) * t);
@@ -256,10 +268,13 @@ export function MapaChoropleth({
   // Legend bins
   const legendBins = useMemo<LegendBin[]>(() => {
     if (layer === "compliance") {
+      // complianceColor(ratio) mirrors the styleFn encoding: low → dark red (alarm),
+      // high → light (reassuring).  Legend ordered best → worst (light → dark red).
+      const complianceColor = (ratio: number) => redScale(1 - ratio);
       return [
-        { color: redScale(0), label: "0% compliance" },
-        { color: redScale(0.5), label: "50%" },
-        { color: redScale(1), label: "100%" },
+        { color: complianceColor(1),   label: "100% documentado" },
+        { color: complianceColor(0.5), label: "50%" },
+        { color: complianceColor(0),   label: "0% documentado" },
       ];
     }
     // Density: label each bin with its threshold range
@@ -291,7 +306,10 @@ export function MapaChoropleth({
 
         let fillColor: string;
         if (layer === "compliance") {
-          const t = maxValue > 0 ? Math.min(1, (value as number) / maxValue) : 0;
+          // compliance is already a ratio in [0, 1].
+          // Invert so that low compliance → dark red (alarming) and
+          // high compliance → light (reassuring). See redScale() doc.
+          const t = 1 - Math.min(1, Math.max(0, value as number));
           fillColor = redScale(t);
         } else {
           const bin = binIndex(value as number, thresholds);
