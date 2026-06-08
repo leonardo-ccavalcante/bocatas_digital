@@ -234,10 +234,23 @@ export const documentsRouter = router({
       };
     }),
 
-  /** GET all current documents in the program, with optional filters. */
+  /** GET all current documents in the program, with optional filters.
+   *
+   * SECURITY: scoped to a single program via the tipo_id → program_document_types
+   * join (migration 20260601000007). Only documents whose tipo_id belongs to the
+   * given programaId are returned. Documents with tipo_id IS NULL (pending /
+   * unclassified) are excluded because they cannot be safely attributed to a
+   * program without a schema migration that adds program_id directly to
+   * family_member_documents.
+   *
+   * FLAG: A proper fix that also scopes unclassified ("pending") rows requires
+   * adding a `program_id` column directly to `family_member_documents`. Until
+   * that migration lands, pending rows are excluded from this view.
+   */
   listAllForProgram: adminProcedure
     .input(
       z.object({
+        programaId: z.string().uuid("programaId es requerido"),
         tipoSlug: familyDocTypeSchema.optional(),
         familyId: z.string().uuid().optional(),
         limit: z.number().int().min(1).max(500).default(100),
@@ -246,14 +259,18 @@ export const documentsRouter = router({
     )
     .query(async ({ input }) => {
       const db = createAdminClient();
-      // Always filter is_current first so conditional filters chain correctly.
+      // Join via tipo_id → program_document_types to scope by programa.
+      // tipo_id IS NULL rows (pending/unclassified) are excluded because they
+      // carry no program attribution. See the FLAG comment above.
       let q = db
         .from("family_member_documents")
         .select(
-          "*, families!inner(id, familia_numero, persons:persons!titular_id(nombre, apellidos))",
+          "*, families!inner(id, familia_numero, persons:persons!titular_id(nombre, apellidos)), program_document_types!inner(id, programa_id, slug)",
           { count: "exact" }
         )
-        .eq("is_current", true);
+        .eq("is_current", true)
+        .not("tipo_id", "is", null)
+        .eq("program_document_types.programa_id", input.programaId);
       if (input.tipoSlug) q = q.eq("documento_tipo", input.tipoSlug);
       if (input.familyId) q = q.eq("family_id", input.familyId);
       const { data, error, count } = await q

@@ -1,15 +1,8 @@
-import { protectedProcedure, router } from "../../_core/trpc";
+import { adminProcedure, router } from "../../_core/trpc";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { createClient } from "@supabase/supabase-js";
 import { restoreWithCascade } from "../../db/soft-delete-cascade";
-
-const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
-  if (ctx.user.role !== "admin") {
-    throw new TRPCError({ code: "FORBIDDEN" });
-  }
-  return next({ ctx });
-});
 
 export const softDeleteRecoveryRouter = router({
   listDeletedFamilies: adminProcedure

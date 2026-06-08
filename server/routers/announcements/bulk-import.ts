@@ -181,21 +181,15 @@ export const bulkImportRouter = router({
       let error_count = 0;
 
       if (rpcErr) {
-        // Reading back the JSONB column we wrote in previewBulkImport above —
-        // shape was validated by validateBulkRow before insert; cast preserves
-        // that contract. (Same pattern as the insert site at line ~114.)
-        const total = (
-          preview.parsed_rows as unknown as ParsedBulkRow[]
-        ).length;
+        // Clean up the preview before throwing so stale previews don't accumulate.
         await db
           .from("bulk_import_previews")
           .delete()
           .eq("token", input.preview_token);
-        return {
-          created_count: 0,
-          error_count: total,
-          failed_rows: [{ row: 0, error: rpcErr.message }],
-        };
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Error al procesar la importación. Por favor, inténtalo de nuevo.",
+        });
       }
 
       const rpcResult = result as

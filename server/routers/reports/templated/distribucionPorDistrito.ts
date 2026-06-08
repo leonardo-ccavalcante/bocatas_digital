@@ -12,7 +12,7 @@
 import { z } from "zod";
 import { router, adminProcedure } from "../../../_core/trpc";
 import { createAdminClient } from "../../../../client/src/lib/supabase/server";
-import { withSoftDeleteFilter, wrapDbError } from "../_shared";
+import { withSoftDeleteFilter, wrapDbError, logAuditReport } from "../_shared";
 
 const InputSchema = z
   .object({
@@ -23,7 +23,7 @@ const InputSchema = z
 export const distribucionPorDistritoRouter = router({
   distribucionPorDistrito: adminProcedure
     .input(InputSchema)
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       const db = createAdminClient();
       const estado = input?.estado ?? "activa";
 
@@ -51,6 +51,10 @@ export const distribucionPorDistritoRouter = router({
       const rows = Array.from(counts.entries())
         .map(([distrito, count]) => ({ distrito, count }))
         .sort((a, b) => b.count - a.count);
+
+      logAuditReport(ctx, "reports.distribucionPorDistrito", rows.length, {
+        estado: input?.estado ?? "activa",
+      });
 
       return { rows };
     }),

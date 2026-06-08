@@ -156,38 +156,51 @@ describe("EnrollmentEstadoSchema", () => {
 });
 
 // ─── ProgramWithCounts data shape ─────────────────────────────────────────────
+// NOTE: migration 20260606000002 changed get_programs_with_counts() to return
+// `nombre` (not `name`) and dropped `icon`/`is_default`. The fixture below
+// mirrors the actual RPC output columns.
 
 describe("ProgramWithCountsSchema", () => {
-  const validProgramWithCounts = {
+  /** Fixture shaped exactly like a get_programs_with_counts() RPC row */
+  const rpcRow = {
     id: "a0000000-0000-0000-0000-000000000001",
+    nombre: "Comedor Social",
     slug: "comedor_social",
-    name: "Comedor Social",
     description: null,
-    icon: "🍽️",
-    is_default: true,
-    is_active: true,
     display_order: 1,
+    is_active: true,
+    requires_fields: null,
     volunteer_can_access: true,
     requires_consents: [],
     fecha_inicio: null,
     fecha_fin: null,
     config: {},
     responsable_id: null,
-    created_at: "2026-01-01T00:00:00Z",
-    updated_at: null,
     active_enrollments: 42,
     total_enrollments: 100,
     new_this_month: 5,
   };
 
-  it("accepts valid ProgramWithCounts object", () => {
-    const result = ProgramWithCountsSchema.safeParse(validProgramWithCounts);
+  it("parses a row shaped like the RPC output (nombre + count fields)", () => {
+    const result = ProgramWithCountsSchema.safeParse(rpcRow);
     expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.nombre).toBe("Comedor Social");
+      expect(result.data.active_enrollments).toBe(42);
+      expect(result.data.new_this_month).toBe(5);
+    }
+  });
+
+  it("rejects a row that still uses the old `name` field instead of `nombre`", () => {
+    const oldShape = { ...rpcRow, nombre: undefined, name: "Comedor Social" };
+    const result = ProgramWithCountsSchema.safeParse(oldShape);
+    // nombre is required — parse must fail when it is absent
+    expect(result.success).toBe(false);
   });
 
   it("active_enrollments must be a number", () => {
     const result = ProgramWithCountsSchema.safeParse({
-      ...validProgramWithCounts,
+      ...rpcRow,
       active_enrollments: "42",
     });
     expect(result.success).toBe(false);
@@ -195,10 +208,25 @@ describe("ProgramWithCountsSchema", () => {
 
   it("new_this_month can be 0", () => {
     const result = ProgramWithCountsSchema.safeParse({
-      ...validProgramWithCounts,
+      ...rpcRow,
       new_this_month: 0,
     });
     expect(result.success).toBe(true);
+  });
+
+  it("page-data mapping via nombre does not crash on a minimal RPC row", () => {
+    // Simulates the mapping code in ProgramCard reading .nombre and .is_active
+    const result = ProgramWithCountsSchema.safeParse(rpcRow);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      const displayName = result.data.nombre;
+      const isArchived = !result.data.is_active;
+      // is_default is not in the RPC output; accessing it must not throw
+      const isDefault = (result.data as { is_default?: boolean }).is_default ?? false;
+      expect(displayName).toBe("Comedor Social");
+      expect(isArchived).toBe(false);
+      expect(isDefault).toBe(false);
+    }
   });
 });
 

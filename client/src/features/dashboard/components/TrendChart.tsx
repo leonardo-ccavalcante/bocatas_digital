@@ -9,6 +9,8 @@ import type { TrendPoint } from "../schemas";
 interface TrendChartProps {
   data: TrendPoint[];
   isLoading?: boolean;
+  isError?: boolean;
+  onRetry?: () => void;
 }
 
 const CHART_HEIGHT = 180;
@@ -28,7 +30,7 @@ function niceMax(value: number): number {
   return 10 * exp;
 }
 
-export function TrendChart({ data, isLoading = false }: TrendChartProps) {
+export function TrendChart({ data, isLoading = false, isError = false, onRetry }: TrendChartProps) {
   const [hovered, setHovered] = useState<number | null>(null);
 
   if (isLoading) {
@@ -45,6 +47,28 @@ export function TrendChart({ data, isLoading = false }: TrendChartProps) {
           {[40, 65, 55, 80].map((h, i) => (
             <div key={i} className="flex-1 rounded-t bg-muted" style={{ height: `${h}%` }} />
           ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="bocatas-card p-4 sm:p-5">
+        <p className="text-eyebrow text-muted-foreground mb-3">
+          Tendencia — últimas 4 semanas
+        </p>
+        <div className="h-[160px] flex flex-col items-center justify-center gap-3">
+          <p className="text-body-sm text-destructive">Error al cargar los datos de tendencia.</p>
+          {onRetry && (
+            <button
+              type="button"
+              onClick={onRetry}
+              className="text-body-sm text-primary underline underline-offset-2 hover:no-underline"
+            >
+              Reintentar
+            </button>
+          )}
         </div>
       </div>
     );

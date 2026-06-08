@@ -60,12 +60,35 @@ export function NuevaIntervencionForm({
     null,
   );
 
-  if (start.isLoading || !start.data) {
+  if (start.isLoading || (!start.data && !start.isError)) {
     return (
       <div className="space-y-2 p-4" aria-busy="true" aria-label="Cargando datos">
         {[...Array(5)].map((_, i) => (
           <Skeleton key={i} className="h-12 w-full" />
         ))}
+      </div>
+    );
+  }
+
+  if (start.isError || !start.data) {
+    return (
+      <div className="p-4 space-y-3">
+        <p className="text-sm text-destructive" role="alert">
+          {start.error instanceof Error
+            ? start.error.message
+            : "No se han podido cargar los datos. Inténtalo de nuevo."}
+        </p>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={onCancel} type="button">
+            Cerrar
+          </Button>
+          <Button
+            type="button"
+            onClick={() => void start.refetch()}
+          >
+            Reintentar
+          </Button>
+        </div>
       </div>
     );
   }

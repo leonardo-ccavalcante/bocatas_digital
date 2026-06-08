@@ -20,6 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Plus, FileText, FileDown, Upload } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
+import { resolveTipoNombre } from "./hooks/useDerivar";
 
 interface HojaDrawerProps {
   hojaId: string | null;
@@ -85,7 +86,8 @@ export function HojaDrawer({
     { hojaId: hojaId ?? "" },
     { enabled },
   );
-  const trpcCtx = trpc.useUtils();
+  const generateDocx = trpc.derivar.generateDocx.useMutation();
+  const generatePdf = trpc.derivar.generatePdf.useMutation();
   const [busy, setBusy] = useState<"docx" | "pdf" | null>(null);
 
   if (!hojaId) return null;
@@ -95,8 +97,8 @@ export function HojaDrawer({
     try {
       const out =
         kind === "docx"
-          ? await trpcCtx.derivar.generateDocx.fetch({ hojaId })
-          : await trpcCtx.derivar.generatePdf.fetch({ hojaId });
+          ? await generateDocx.mutateAsync({ hojaId })
+          : await generatePdf.mutateAsync({ hojaId });
       downloadBase64(out.contentBase64, out.filename, out.mime);
     } catch (e) {
       toast.error(
@@ -171,7 +173,7 @@ export function HojaDrawer({
                   <li key={iv.id} className="border rounded p-2 text-sm">
                     <div className="font-medium">
                       {new Date(iv.fecha).toLocaleDateString("es-ES")}{" "}
-                      · {iv.tipo_slug}
+                      · {resolveTipoNombre(iv.tipo_slug)}
                       {iv.institucion_snapshot?.nombre
                         ? ` · ${iv.institucion_snapshot.nombre}`
                         : ""}

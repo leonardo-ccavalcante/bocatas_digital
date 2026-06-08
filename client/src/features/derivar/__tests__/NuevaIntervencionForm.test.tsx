@@ -112,6 +112,69 @@ afterEach(() => {
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe("NuevaIntervencionForm contract", () => {
+  // 0 ──────────────────────────────────────────────────────────────────────────
+  it("renders error state and retry/close buttons when startIntervention fails", async () => {
+    const user = userEvent.setup();
+    const onCancel = vi.fn();
+    const refetch = vi.fn().mockResolvedValue({});
+
+    mockStartUseQuery.mockReturnValue({
+      isLoading: false,
+      isError: true,
+      data: undefined,
+      error: new Error("Programa no encontrado"),
+      refetch,
+    });
+    defaultAddMock();
+    mockInstSearchUseQuery.mockReturnValue({ data: undefined });
+
+    render(
+      <NuevaIntervencionForm
+        scope="persona"
+        entityId="person-1"
+        programaId="prog-1"
+        onSaved={vi.fn()}
+        onCancel={onCancel}
+      />,
+    );
+
+    // Error message is visible
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    expect(screen.getByText(/programa no encontrado/i)).toBeInTheDocument();
+
+    // Close button calls onCancel
+    await user.click(screen.getByRole("button", { name: /cerrar/i }));
+    expect(onCancel).toHaveBeenCalledOnce();
+  });
+
+  // 0b ─────────────────────────────────────────────────────────────────────────
+  it("shows generic error message when startIntervention error has no message", () => {
+    mockStartUseQuery.mockReturnValue({
+      isLoading: false,
+      isError: true,
+      data: undefined,
+      error: null,
+      refetch: vi.fn(),
+    });
+    defaultAddMock();
+    mockInstSearchUseQuery.mockReturnValue({ data: undefined });
+
+    render(
+      <NuevaIntervencionForm
+        scope="persona"
+        entityId="person-1"
+        programaId="prog-1"
+        onSaved={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    expect(screen.getByText(/inténtalo de nuevo/i)).toBeInTheDocument();
+    // Form inputs must NOT render in error state
+    expect(screen.queryByLabelText(/fecha \*/i)).toBeNull();
+  });
+
   // 1 ──────────────────────────────────────────────────────────────────────────
   it("renders skeletons while startIntervention is loading", () => {
     mockStartUseQuery.mockReturnValue({ isLoading: true, data: undefined });

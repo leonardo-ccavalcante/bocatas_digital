@@ -190,7 +190,7 @@ describe("persons router — input validation", () => {
   it("accepts create with all required fields and valid data", async () => {
     // This will fail at the Supabase level (no real DB in unit tests),
     // but it should NOT fail at the tRPC input validation level.
-    const caller = appRouter.createCaller(createAuthContext());
+    const caller = appRouter.createCaller(createAuthContext("voluntario"));
     const promise = caller.persons.create({
       canal_llegada: "boca_a_boca",
       nombre: "Juan",

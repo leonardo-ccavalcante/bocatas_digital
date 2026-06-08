@@ -139,6 +139,25 @@ beforeEach(() => {
   mockConvertPdf.mockReset();
 });
 
+// ─── 0. Procedure type assertions ─────────────────────────────────────────
+// generateDocx and generatePdf must be mutations (not queries) because they
+// invoke LibreOffice subprocess, write to /tmp, and return megabyte base64.
+// Queries are cached and cannot have safe side effects.
+
+describe("pdfGenRouter — procedure types", () => {
+  it("generateDocx is registered as a mutation, not a query", () => {
+    const def = pdfGenRouter._def.procedures.generateDocx._def;
+    // tRPC stores the procedure type in the _def.type field:
+    // 'query' | 'mutation' | 'subscription'
+    expect(def.type).toBe("mutation");
+  });
+
+  it("generatePdf is registered as a mutation, not a query", () => {
+    const def = pdfGenRouter._def.procedures.generatePdf._def;
+    expect(def.type).toBe("mutation");
+  });
+});
+
 // ─── 1. Role guard ─────────────────────────────────────────────────────────
 
 describe("derivar.generateDocx — role guard", () => {

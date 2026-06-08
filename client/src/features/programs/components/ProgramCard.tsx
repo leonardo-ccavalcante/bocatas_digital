@@ -66,14 +66,14 @@ export function ProgramCard({ program, isAdmin, index }: ProgramCardProps) {
               lang="es"
               className="text-[20px] sm:text-[22px] leading-[1.15] font-semibold text-foreground tracking-[-0.01em] text-wrap-balance"
             >
-              {program.name}
+              {program.nombre}
             </h3>
             {!program.is_active && (
               <Badge variant="secondary" className="text-[9px] tracking-widest uppercase shrink-0 self-start mt-1">
                 Archivado
               </Badge>
             )}
-            {program.is_default && (
+            {(program as { is_default?: boolean }).is_default && (
               <Badge variant="outline" className="text-[9px] tracking-widest uppercase shrink-0 self-start mt-1 border-accent-foreground/20 text-accent-foreground">
                 Por defecto
               </Badge>
@@ -101,10 +101,10 @@ export function ProgramCard({ program, isAdmin, index }: ProgramCardProps) {
         )}
 
         {/* Footer — responsable_id exists but no joined display name in ProgramWithCounts;
-            using program.name as neutral stand-in until backend exposes responsable_nombre */}
+            using program.nombre as neutral stand-in until backend exposes responsable_nombre */}
         <div className="px-6 py-3 flex items-center justify-between border-t border-border bg-background">
           <span className="text-body-sm text-muted-foreground truncate">
-            {program.name}
+            {program.nombre}
           </span>
           <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-foreground transition-all duration-300 group-hover:gap-2 shrink-0">
             Abrir
