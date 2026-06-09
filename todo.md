@@ -118,3 +118,12 @@
 - [x] TDD GREEN: Añadir geoJson prop a DistritoPanel — mini-map con MapContainer+TileLayer+GeoJSON filtrado al distrito seleccionado
 - [x] Pasar geoJson desde index.tsx a DistritoPanel
 - [x] Suite completa: 2803 tests pasan, 0 fallos, TypeScript 0 errores
+
+## Batch 14: Fix "Plantilla de derivación no configurada" error (sesión 2026-06-09)
+- [x] Root cause: Supabase Storage bucket `program-document-templates` no existía
+- [x] Crear DOCX template con 15 placeholders correctos (basado en PDF de referencia)
+- [x] Crear bucket `program-document-templates` en Supabase Storage (privado)
+- [x] Subir `derivacion_hoja_template_v1.docx` a Supabase Storage
+- [x] Actualizar fixture de tests con template completo (37660 bytes, layout completo)
+- [x] docxRender tests: 3 pasan (error paths + happy path con intervenciones en loop)
+- [x] Suite completa: 2803 tests pasan, 0 fallos, TypeScript 0 errores
