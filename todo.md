@@ -138,3 +138,22 @@
 - [x] TDD RED → GREEN: HojaDrawer preview modal — 3 tests (modal aparece al click, Confirmar llama fetch, Cancelar no llama fetch)
 - [x] Añadir modal de vista previa a HojaDrawer.tsx (nombre + conteo de intervenciones + Confirmar/Cancelar)
 - [x] Suite completa: 2809 tests pasan, 0 fallos, TypeScript 0 errores
+
+## Batch 16: Debug y fix — Logos no se inyectaban + Vista previa (sesión 2026-06-09)
+- [x] Phase 1: Root Cause Investigation — rastrear por qué logos no aparecen en DOCX generado
+  - Template v2 usa v1 (sin logos) — cambiar TEMPLATE_FILENAME_DOCX a v2
+  - pdfGen.ts NO pasa logos a renderDerivarHojaDocx() — cargar y pasar bocatasLogo
+  - docxtemplater-image-module-free requiere sintaxis específica, no nombres personalizados
+- [x] Phase 2: Pattern Analysis — comparar implementación correcta vs rota
+  - Identificar que ImageModule no se llamaba porque placeholders no coincidían
+- [x] Phase 3: Hypothesis and Testing — formar hipótesis y probar
+  - Hipótesis: inyectar imágenes ANTES de renderizar template
+  - Reescribir docxRender.ts para inyectar logos directamente en ZIP
+- [x] Phase 4: Implementation — cambios quirúrgicos
+  - Cambiar templatePlaceholders.ts: v1 → v2
+  - Reescribir pdfGen.ts: cargar bocatas-logo.png y pasarlo a renderDerivarHojaDocx()
+  - Reescribir docxRender.ts: inyectar imágenes en ZIP ANTES de renderizar
+  - Crear injectLogos() que reemplaza placeholders de texto con elementos DrawingML
+  - Actualizar relationships y content types en ZIP
+- [x] TDD GREEN: docxRender.logos.test.ts — 3 tests (inyecta logo, genera sin logo, preserva contenido)
+- [x] Suite completa: 2812 tests pasan, 0 fallos, TypeScript 0 errores

@@ -1,10 +1,19 @@
+/**
+ * docxRender.ts — Render Derivar hoja template with data and optional logos
+ *
+ * Strategy:
+ * 1. Inject logos into template ZIP BEFORE rendering
+ * 2. Replace placeholder text with image drawing elements
+ * 3. Add image files to the ZIP media folder
+ * 4. Update relationships and content types
+ * 5. Then render the template with docxtemplater
+ */
+
 import { createRequire } from "node:module";
 import Docxtemplater from "docxtemplater";
 import PizZip from "pizzip";
 
 const _require = createRequire(import.meta.url);
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-const ImageModule = _require("docxtemplater-image-module-free");
 
 import { createAdminClient } from "../../client/src/lib/supabase/server";
 import {
@@ -32,14 +41,6 @@ export interface DerivarLogoOptions {
    * If omitted, placeholder is left blank.
    */
   secondaryLogo?: Buffer;
-  /** Width in EMU for bocatasLogo. Default: 1,200,000 EMU ≈ 1.27 cm */
-  bocatasLogoWidth?: number;
-  /** Height in EMU for bocatasLogo. Default: 1,200,000 EMU ≈ 1.27 cm */
-  bocatasLogoHeight?: number;
-  /** Width in EMU for secondaryLogo. Default: 1,200,000 EMU ≈ 1.27 cm */
-  secondaryLogoWidth?: number;
-  /** Height in EMU for secondaryLogo. Default: 1,200,000 EMU ≈ 1.27 cm */
-  secondaryLogoHeight?: number;
 }
 
 export interface DerivarHojaTemplateData {
@@ -60,13 +61,11 @@ export interface DerivarHojaTemplateData {
   }>;
 }
 
-const DEFAULT_LOGO_SIZE = 1_200_000; // EMU ≈ 1.27 cm
-
 /**
  * Loads the canonical Derivar template from Supabase Storage and fills it
  * with the supplied data. Returns a Buffer containing the .docx bytes.
  *
- * Optionally injects logos via docxtemplater-image-module-free.
+ * Optionally injects logos by replacing placeholder text with image elements.
  * The template uses {%bocatasLogo} and {%secondaryLogo} placeholders.
  */
 export async function renderDerivarHojaDocx(
@@ -85,42 +84,141 @@ export async function renderDerivarHojaDocx(
   const buf = Buffer.from(await file.arrayBuffer());
   const zip = new PizZip(buf);
 
-  // Build image lookup map from logo options
-  const logoMap: Record<string, Buffer | undefined> = {
-    bocatasLogo: logos?.bocatasLogo,
-    secondaryLogo: logos?.secondaryLogo,
-  };
-
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-  const imageModule = new ImageModule({
-    centered: false,
-    fileType: "docx",
-    getImage(_tagValue: string, tagName: string): Buffer | null {
-      const img = logoMap[tagName];
-      return img ?? null;
-    },
-    getSize(_img: Buffer, _tagValue: string, tagName: string): [number, number] {
-      if (tagName === "bocatasLogo") {
-        return [
-          logos?.bocatasLogoWidth ?? DEFAULT_LOGO_SIZE,
-          logos?.bocatasLogoHeight ?? DEFAULT_LOGO_SIZE,
-        ];
-      }
-      return [
-        logos?.secondaryLogoWidth ?? DEFAULT_LOGO_SIZE,
-        logos?.secondaryLogoHeight ?? DEFAULT_LOGO_SIZE,
-      ];
-    },
-  });
+  // Inject logos BEFORE rendering (so docxtemplater doesn't process them)
+  if (logos?.bocatasLogo || logos?.secondaryLogo) {
+    injectLogos(zip, logos);
+  }
 
   const doc = new Docxtemplater(zip, {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    modules: [imageModule],
     paragraphLoop: true,
     linebreaks: true,
     // Render missing placeholders as "" instead of throwing
     nullGetter: () => "",
   });
   doc.render(data);
+
   return doc.toBuffer();
+}
+
+/**
+ * Injects logos into the DOCX BEFORE rendering by:
+ * 1. Finding placeholder text nodes ({%bocatasLogo}, {%secondaryLogo})
+ * 2. Replacing them with image drawing elements
+ * 3. Adding image files to the ZIP
+ * 4. Updating relationships and content types
+ */
+function injectLogos(zip: PizZip, logos: DerivarLogoOptions): void {
+  const docXmlPath = "word/document.xml";
+  const docXml = zip.files[docXmlPath].asText();
+
+  let newDocXml = docXml;
+  let imageCounter = 1;
+  const imageRels: Array<{ id: number; filename: string; type: string }> = [];
+
+  // Process bocatasLogo
+  if (logos.bocatasLogo && docXml.includes("{%bocatasLogo}")) {
+    const imageXml = createImageElement(imageCounter, 1_200_000, 1_200_000);
+    newDocXml = newDocXml.replace(
+      "<w:t>{%bocatasLogo}</w:t>",
+      `<w:r>${imageXml}</w:r>`,
+    );
+    imageRels.push({
+      id: imageCounter,
+      filename: `image${imageCounter}.png`,
+      type: "image/png",
+    });
+    zip.file(`word/media/image${imageCounter}.png`, logos.bocatasLogo);
+    imageCounter++;
+  }
+
+  // Process secondaryLogo
+  if (logos.secondaryLogo && docXml.includes("{%secondaryLogo}")) {
+    const imageXml = createImageElement(imageCounter, 1_200_000, 1_200_000);
+    newDocXml = newDocXml.replace(
+      "<w:t>{%secondaryLogo}</w:t>",
+      `<w:r>${imageXml}</w:r>`,
+    );
+    imageRels.push({
+      id: imageCounter,
+      filename: `image${imageCounter}.png`,
+      type: "image/png",
+    });
+    zip.file(`word/media/image${imageCounter}.png`, logos.secondaryLogo);
+    imageCounter++;
+  }
+
+  // Update document.xml
+  if (imageRels.length > 0) {
+    zip.file(docXmlPath, newDocXml);
+
+    // Update relationships
+    updateRelationships(zip, imageRels);
+
+    // Update content types
+    updateContentTypes(zip, imageRels);
+  }
+}
+
+/**
+ * Creates an inline image drawing element (DrawingML).
+ * This is the inner XML that goes inside <w:r>.
+ */
+function createImageElement(
+  imageId: number,
+  widthEmu: number,
+  heightEmu: number,
+): string {
+  const rId = `rId${imageId + 100}`; // Avoid conflicts with existing rIds
+  return `<w:drawing><wp:inline distT="0" distB="0" distL="114300" distR="114300"><wp:extent cx="${widthEmu}" cy="${heightEmu}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${imageId}" name="Image ${imageId}"/><wp:cNvGraphicFramePr/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${imageId}" name="image${imageId}.png"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${rId}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${widthEmu}" cy="${heightEmu}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></w:drawing>`;
+}
+
+/**
+ * Updates word/_rels/document.xml.rels to add image relationships.
+ */
+function updateRelationships(
+  zip: PizZip,
+  imageRels: Array<{ id: number; filename: string; type: string }>,
+): void {
+  const relsPath = "word/_rels/document.xml.rels";
+  let relsXml = zip.files[relsPath]?.asText() || "";
+
+  if (!relsXml) {
+    // Create rels file if it doesn't exist
+    relsXml =
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>';
+  }
+
+  // Add image relationships before closing </Relationships>
+  for (const img of imageRels) {
+    const relXml = `<Relationship Id="rId${img.id + 100}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${img.filename}"/>`;
+    relsXml = relsXml.replace("</Relationships>", `${relXml}</Relationships>`);
+  }
+
+  zip.file(relsPath, relsXml);
+}
+
+/**
+ * Updates [Content_Types].xml to add image content types.
+ */
+function updateContentTypes(
+  zip: PizZip,
+  imageRels: Array<{ id: number; filename: string; type: string }>,
+): void {
+  const ctPath = "[Content_Types].xml";
+  let ctXml = zip.files[ctPath]?.asText() || "";
+
+  if (!ctXml) {
+    ctXml =
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"></Types>';
+  }
+
+  // Add image override entries
+  for (const img of imageRels) {
+    if (!ctXml.includes(`PartName="word/media/${img.filename}"`)) {
+      const overrideXml = `<Override PartName="word/media/${img.filename}" ContentType="${img.type}"/>`;
+      ctXml = ctXml.replace("</Types>", `${overrideXml}</Types>`);
+    }
+  }
+
+  zip.file(ctPath, ctXml);
 }

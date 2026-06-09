@@ -2,13 +2,16 @@
  * pdfGen.ts — derivar DOCX/PDF generation procedures
  *
  * generateDocx: Builds DerivarHojaTemplateData from a hoja + its
- *   interventions, calls renderDerivarHojaDocx, returns base64 string.
+ *   interventions, calls renderDerivarHojaDocx with Bocatas logo,
+ *   returns base64 string.
  *
  * generatePdf: Same, then converts via convertDocxToPdf, returns base64.
  *
  * Both procedures are adminProcedure (funder-facing strategic data).
  */
 
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
@@ -31,6 +34,20 @@ function toFriendlyTemplateError(e: unknown): never {
     });
   }
   throw e;
+}
+
+/** Load Bocatas logo from client/public/bocatas-logo.png */
+function loadBocatasLogo(): Buffer {
+  try {
+    const logoPath = resolve(process.cwd(), "client/public/bocatas-logo.png");
+    return readFileSync(logoPath);
+  } catch (e) {
+    console.warn(
+      "Could not load Bocatas logo:",
+      e instanceof Error ? e.message : String(e),
+    );
+    return Buffer.alloc(0); // Return empty buffer if logo not found
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -150,12 +167,15 @@ async function buildTemplateData(hojaId: string): Promise<DerivarHojaTemplateDat
 // ---------------------------------------------------------------------------
 
 export const pdfGenRouter = router({
-  /** Render the hoja as a DOCX buffer, return base64. */
+  /** Render the hoja as a DOCX buffer with Bocatas logo, return base64. */
   generateDocx: adminProcedure
     .input(z.object({ hojaId: z.string().uuid() }))
     .query(async ({ input }) => {
       const data = await buildTemplateData(input.hojaId);
-      const buf = await renderDerivarHojaDocx(data).catch(toFriendlyTemplateError);
+      const bocatasLogo = loadBocatasLogo();
+      const buf = await renderDerivarHojaDocx(data, {
+        bocatasLogo: bocatasLogo.length > 0 ? bocatasLogo : undefined,
+      }).catch(toFriendlyTemplateError);
       return {
         contentBase64: buf.toString("base64"),
         filename: `derivacion_hoja_${input.hojaId.slice(0, 8)}.docx`,
@@ -168,7 +188,10 @@ export const pdfGenRouter = router({
     .input(z.object({ hojaId: z.string().uuid() }))
     .query(async ({ input }) => {
       const data = await buildTemplateData(input.hojaId);
-      const docxBuf = await renderDerivarHojaDocx(data).catch(toFriendlyTemplateError);
+      const bocatasLogo = loadBocatasLogo();
+      const docxBuf = await renderDerivarHojaDocx(data, {
+        bocatasLogo: bocatasLogo.length > 0 ? bocatasLogo : undefined,
+      }).catch(toFriendlyTemplateError);
       const pdfBuf = await convertDocxToPdf(docxBuf);
       return {
         contentBase64: pdfBuf.toString("base64"),
