@@ -157,3 +157,17 @@
   - Actualizar relationships y content types en ZIP
 - [x] TDD GREEN: docxRender.logos.test.ts — 3 tests (inyecta logo, genera sin logo, preserva contenido)
 - [x] Suite completa: 2812 tests pasan, 0 fallos, TypeScript 0 errores
+
+## Batch 17: Debug crítico — DOCX en blanco + PDF ENOENT (sesión 2026-06-09)
+
+- [x] Root cause 1: injectLogos() generaba XML corrompido con `<w:r>` anidados
+  - El reemplazo de `<w:t>{%bocatasLogo}</w:t>` por `<w:r>...</w:r>` creaba `<w:r><w:r>...</w:r></w:r>`
+  - Fix: usar indexOf/lastIndexOf para encontrar el `<w:r>` padre y reemplazarlo completo
+- [x] Root cause 2: regex greedy `/s` flag consumía demasiado XML y corrompía el ZIP
+  - Fix: eliminar regex, usar búsqueda de índice (indexOf/lastIndexOf) para localizar el `<w:r>` exacto
+- [x] Root cause 3: pdfGen.ts usaba `convertDocxToPdf` (LibreOffice) en lugar de `convertDocxToPdfPureNode`
+  - Error: `ENOENT: no such file or directory, open '/tmp/derivar-pdf-*/input.pdf'`
+  - Fix: cambiar import en pdfGen.ts a `convertDocxToPdfPureNode` de `pdfFromDocxPureNode`
+- [x] Actualizar mock en derivar.pdfGen.test.ts: `convertDocxToPdf` → `convertDocxToPdfPureNode`
+- [x] TDD: 3 tests nuevos en pdfGen.generatePdf.test.ts (DOCX→PDF sin LibreOffice, sin ENOENT, empty intervenciones)
+- [x] Suite completa: 2815 tests pasan, 0 fallos, TypeScript 0 errores
