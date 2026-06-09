@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, adminProcedure } from "../../_core/trpc";
+import type { Json } from "../../../client/src/lib/database.types";
 import {
   createAdminClient,
   createUserImpersonationClient,
@@ -172,7 +173,8 @@ export const informesImportRouter = router({
       const { data: preview, error: insertErr } = await db
         .from("bulk_import_previews")
         .insert({
-          parsed_rows: stash as unknown as never,
+          // Json is the correct target type (not never) — see bulk-import.ts.
+          parsed_rows: stash as unknown as Json,
           created_by: String(ctx.user.id),
         })
         .select("token")

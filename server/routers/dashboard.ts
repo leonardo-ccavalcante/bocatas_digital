@@ -12,7 +12,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { createAdminClient } from "../../client/src/lib/supabase/server";
-import { protectedProcedure, router } from "../_core/trpc";
+import { adminProcedure, router } from "../_core/trpc";
 
 // UUID-like validator (accepts synthetic seed IDs — RFC 4122 relaxed)
 const uuidLike = z.string().regex(
@@ -48,7 +48,7 @@ export const dashboardRouter = router({
    * getKPIStats — count attendances for a given period, location, and program.
    * Excludes es_demo = true. Includes anonymous (person_id IS NULL).
    */
-  getKPIStats: protectedProcedure
+  getKPIStats: adminProcedure
     .input(
       z.object({
         period: PeriodEnum,
@@ -86,7 +86,7 @@ export const dashboardRouter = router({
    * getTrendData — weekly attendance for last 4 ISO weeks.
    * Supports programa filter.
    */
-  getTrendData: protectedProcedure
+  getTrendData: adminProcedure
     .input(
       z.object({
         locationId: z.union([z.literal("all"), uuidLike]),
@@ -150,7 +150,7 @@ export const dashboardRouter = router({
    * getCSVExport — zero-PII CSV data for funder reports.
    * Supports programa filter.
    */
-  getCSVExport: protectedProcedure
+  getCSVExport: adminProcedure
     .input(
       z.object({
         dateFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format"),
@@ -215,7 +215,7 @@ export const dashboardRouter = router({
    * Returns list of { personId, nombre, apellidos, diasAusente, ultimoCheckin, programa }
    * Only considers non-demo check-ins. Excludes persons with no check-ins ever (new registrations).
    */
-  getAbsenceAlerts: protectedProcedure
+  getAbsenceAlerts: adminProcedure
     .input(
       z.object({
         locationId: z.union([z.literal("all"), uuidLike]).optional().default("all"),
@@ -321,7 +321,7 @@ export const dashboardRouter = router({
    * getPrograms — list of active programs for ProgramFilter dropdown.
    * Returns { id, name, slug, is_default }[]
    */
-  getPrograms: protectedProcedure
+  getPrograms: adminProcedure
     .query(async () => {
       const supabase = createAdminClient();
       const { data, error } = await supabase
