@@ -127,3 +127,14 @@
 - [x] Actualizar fixture de tests con template completo (37660 bytes, layout completo)
 - [x] docxRender tests: 3 pasan (error paths + happy path con intervenciones en loop)
 - [x] Suite completa: 2803 tests pasan, 0 fallos, TypeScript 0 errores
+
+## Batch 15: Logos DOCX + Preview modal + PDF sin LibreOffice (sesión 2026-06-09)
+- [x] Fix docxRender.ts: ESM/CJS require() issue — usar createRequire(import.meta.url) para importar docxtemplater-image-module-free
+- [x] Añadir soporte de logos al template DOCX: {%bocatasLogo} (izquierda) y {%secondaryLogo} (derecha) via ImageModule
+- [x] Generar derivacion_hoja_template_v2.docx con placeholders de imagen en cabecera
+- [x] Subir derivacion_hoja_template_v2.docx a Supabase Storage bucket program-document-templates
+- [x] Copiar derivacion_hoja_template_v2.docx a server/_core/__fixtures__/
+- [x] TDD RED → GREEN: pdfFromDocxPureNode.ts — 3 tests (retorna Buffer %PDF, metadata título, no lanza con DOCX válido)
+- [x] TDD RED → GREEN: HojaDrawer preview modal — 3 tests (modal aparece al click, Confirmar llama fetch, Cancelar no llama fetch)
+- [x] Añadir modal de vista previa a HojaDrawer.tsx (nombre + conteo de intervenciones + Confirmar/Cancelar)
+- [x] Suite completa: 2809 tests pasan, 0 fallos, TypeScript 0 errores
