@@ -118,10 +118,17 @@ function injectLogos(zip: PizZip, logos: DerivarLogoOptions): void {
   // Process bocatasLogo
   if (logos.bocatasLogo && docXml.includes("{%bocatasLogo}")) {
     const imageXml = createImageElement(imageCounter, 1_200_000, 1_200_000);
-    newDocXml = newDocXml.replace(
-      "<w:t>{%bocatasLogo}</w:t>",
-      `<w:r>${imageXml}</w:r>`,
-    );
+    // Find and replace the exact placeholder text
+    const bocatasIdx = newDocXml.indexOf("{%bocatasLogo}");
+    if (bocatasIdx >= 0) {
+      // Find the opening <w:r> before this text
+      const wrStart = newDocXml.lastIndexOf("<w:r", bocatasIdx);
+      // Find the closing </w:r> after this text
+      const wrEnd = newDocXml.indexOf("</w:r>", bocatasIdx) + "</w:r>".length;
+      if (wrStart >= 0 && wrEnd > wrStart) {
+        newDocXml = newDocXml.substring(0, wrStart) + `<w:r>${imageXml}</w:r>` + newDocXml.substring(wrEnd);
+      }
+    }
     imageRels.push({
       id: imageCounter,
       filename: `image${imageCounter}.png`,
@@ -134,10 +141,17 @@ function injectLogos(zip: PizZip, logos: DerivarLogoOptions): void {
   // Process secondaryLogo
   if (logos.secondaryLogo && docXml.includes("{%secondaryLogo}")) {
     const imageXml = createImageElement(imageCounter, 1_200_000, 1_200_000);
-    newDocXml = newDocXml.replace(
-      "<w:t>{%secondaryLogo}</w:t>",
-      `<w:r>${imageXml}</w:r>`,
-    );
+    // Find and replace the exact placeholder text
+    const secondaryIdx = newDocXml.indexOf("{%secondaryLogo}");
+    if (secondaryIdx >= 0) {
+      // Find the opening <w:r> before this text
+      const wrStart = newDocXml.lastIndexOf("<w:r", secondaryIdx);
+      // Find the closing </w:r> after this text
+      const wrEnd = newDocXml.indexOf("</w:r>", secondaryIdx) + "</w:r>".length;
+      if (wrStart >= 0 && wrEnd > wrStart) {
+        newDocXml = newDocXml.substring(0, wrStart) + `<w:r>${imageXml}</w:r>` + newDocXml.substring(wrEnd);
+      }
+    }
     imageRels.push({
       id: imageCounter,
       filename: `image${imageCounter}.png`,
@@ -169,7 +183,8 @@ function createImageElement(
   heightEmu: number,
 ): string {
   const rId = `rId${imageId + 100}`; // Avoid conflicts with existing rIds
-  return `<w:drawing><wp:inline distT="0" distB="0" distL="114300" distR="114300"><wp:extent cx="${widthEmu}" cy="${heightEmu}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${imageId}" name="Image ${imageId}"/><wp:cNvGraphicFramePr/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${imageId}" name="image${imageId}.png"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${rId}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${widthEmu}" cy="${heightEmu}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></w:drawing>`;
+  // Return just the drawing element (will be wrapped in <w:r> by caller)
+  return `<w:rPr><w:sz w:val="2"/></w:rPr><w:drawing><wp:inline distT="0" distB="0" distL="114300" distR="114300"><wp:extent cx="${widthEmu}" cy="${heightEmu}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${imageId}" name="Image ${imageId}"/><wp:cNvGraphicFramePr/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${imageId}" name="image${imageId}.png"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${rId}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${widthEmu}" cy="${heightEmu}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></w:drawing>`;
 }
 
 /**

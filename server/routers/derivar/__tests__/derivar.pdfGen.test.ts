@@ -34,18 +34,18 @@ vi.mock("../../../_core/docxRender", () => ({
   renderDerivarHojaDocx: vi.fn(),
 }));
 
-vi.mock("../../../_core/pdfFromDocx", () => ({
-  convertDocxToPdf: vi.fn(),
+vi.mock("../../../_core/pdfFromDocxPureNode", () => ({
+  convertDocxToPdfPureNode: vi.fn(),
 }));
 
 // Import AFTER vi.mock.
 import { renderDerivarHojaDocx } from "../../../_core/docxRender";
-import { convertDocxToPdf } from "../../../_core/pdfFromDocx";
+import { convertDocxToPdfPureNode } from "../../../_core/pdfFromDocxPureNode";
 import { pdfGenRouter } from "../pdfGen";
 
 // Typed handles to the mocked functions.
 const mockRenderDocx = vi.mocked(renderDerivarHojaDocx);
-const mockConvertPdf = vi.mocked(convertDocxToPdf);
+const mockConvertPdf = vi.mocked(convertDocxToPdfPureNode);
 
 // ---------------------------------------------------------------------------
 // Context factory
@@ -223,7 +223,7 @@ describe("derivar.generateDocx — behavior", () => {
 // ─── 3. generatePdf calls both render and convert ─────────────────────────
 
 describe("derivar.generatePdf — behavior", () => {
-  it("calls renderDerivarHojaDocx then convertDocxToPdf and returns base64 PDF", async () => {
+  it("calls renderDerivarHojaDocx then convertDocxToPdfPureNode and returns base64 PDF", async () => {
     setupBuildDataMocks();
     const fakeDocxBuf = Buffer.from("fake-docx");
     const fakePdfBuf = Buffer.from("fake-pdf");
@@ -235,7 +235,7 @@ describe("derivar.generatePdf — behavior", () => {
 
     expect(mockRenderDocx).toHaveBeenCalledTimes(1);
     expect(mockConvertPdf).toHaveBeenCalledTimes(1);
-    expect(mockConvertPdf).toHaveBeenCalledWith(fakeDocxBuf);
+    expect(mockConvertPdf).toHaveBeenCalledWith(fakeDocxBuf, expect.any(Object));
 
     expect(result.contentBase64).toBe(fakePdfBuf.toString("base64"));
     expect(result.mime).toBe("application/pdf");

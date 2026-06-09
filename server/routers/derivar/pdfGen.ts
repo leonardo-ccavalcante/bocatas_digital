@@ -21,7 +21,7 @@ import {
   DerivarTemplateError,
   type DerivarHojaTemplateData,
 } from "../../_core/docxRender";
-import { convertDocxToPdf } from "../../_core/pdfFromDocx";
+import { convertDocxToPdfPureNode } from "../../_core/pdfFromDocxPureNode";
 import { router, adminProcedure } from "../../_core/trpc";
 
 /** Maps a missing-template error to a friendly, PII-free BAD_REQUEST. */
@@ -192,7 +192,9 @@ export const pdfGenRouter = router({
       const docxBuf = await renderDerivarHojaDocx(data, {
         bocatasLogo: bocatasLogo.length > 0 ? bocatasLogo : undefined,
       }).catch(toFriendlyTemplateError);
-      const pdfBuf = await convertDocxToPdf(docxBuf);
+      const pdfBuf = await convertDocxToPdfPureNode(docxBuf, {
+        title: `Hoja de Derivaciones — ${data.nombre}`,
+      });
       return {
         contentBase64: pdfBuf.toString("base64"),
         filename: `derivacion_hoja_${input.hojaId.slice(0, 8)}.pdf`,
