@@ -35,17 +35,18 @@ vi.mock("../../../_core/docxRender", () => ({
 }));
 
 vi.mock("../../../_core/pdfFromDocxPureNode", () => ({
+  renderDerivarHojaPdf: vi.fn(),
   convertDocxToPdfPureNode: vi.fn(),
 }));
 
 // Import AFTER vi.mock.
 import { renderDerivarHojaDocx } from "../../../_core/docxRender";
-import { convertDocxToPdfPureNode } from "../../../_core/pdfFromDocxPureNode";
+import { renderDerivarHojaPdf } from "../../../_core/pdfFromDocxPureNode";
 import { pdfGenRouter } from "../pdfGen";
 
 // Typed handles to the mocked functions.
 const mockRenderDocx = vi.mocked(renderDerivarHojaDocx);
-const mockConvertPdf = vi.mocked(convertDocxToPdfPureNode);
+const mockRenderPdf = vi.mocked(renderDerivarHojaPdf);
 
 // ---------------------------------------------------------------------------
 // Context factory
@@ -136,7 +137,7 @@ function setupBuildDataMocks() {
 beforeEach(() => {
   fromMock.mockReset();
   mockRenderDocx.mockReset();
-  mockConvertPdf.mockReset();
+  mockRenderPdf.mockReset();
 });
 
 // ─── 1. Role guard ─────────────────────────────────────────────────────────
@@ -223,19 +224,17 @@ describe("derivar.generateDocx — behavior", () => {
 // ─── 3. generatePdf calls both render and convert ─────────────────────────
 
 describe("derivar.generatePdf — behavior", () => {
-  it("calls renderDerivarHojaDocx then convertDocxToPdfPureNode and returns base64 PDF", async () => {
+  it("calls renderDerivarHojaPdf directly and returns base64 PDF", async () => {
     setupBuildDataMocks();
-    const fakeDocxBuf = Buffer.from("fake-docx");
     const fakePdfBuf = Buffer.from("fake-pdf");
-    mockRenderDocx.mockResolvedValue(fakeDocxBuf);
-    mockConvertPdf.mockResolvedValue(fakePdfBuf);
+    mockRenderPdf.mockResolvedValue(fakePdfBuf);
 
     const caller = pdfGenRouter.createCaller(ctxWithRole("admin"));
     const result = await caller.generatePdf({ hojaId: TEST_HOJA_ID });
 
-    expect(mockRenderDocx).toHaveBeenCalledTimes(1);
-    expect(mockConvertPdf).toHaveBeenCalledTimes(1);
-    expect(mockConvertPdf).toHaveBeenCalledWith(fakeDocxBuf, expect.any(Object));
+    expect(mockRenderPdf).toHaveBeenCalledTimes(1);
+    // renderDerivarHojaDocx is NOT called for PDF (PDF uses its own renderer)
+    expect(mockRenderDocx).not.toHaveBeenCalled();
 
     expect(result.contentBase64).toBe(fakePdfBuf.toString("base64"));
     expect(result.mime).toBe("application/pdf");
@@ -249,4 +248,30 @@ describe("derivar.generatePdf — behavior", () => {
   it.todo(
     "(integration) converts a known-good .docx to PDF when libreoffice is available",
   );
+});
+
+// ─── 4. previewPdf procedure ──────────────────────────────────────────────
+
+describe("derivar.previewPdf — behavior", () => {
+  it("calls renderDerivarHojaPdf and returns base64 PDF with application/pdf mime", async () => {
+    setupBuildDataMocks();
+    const fakePdfBuf = Buffer.from("%PDF-1.4 fake");
+    mockRenderPdf.mockResolvedValue(fakePdfBuf);
+
+    const caller = pdfGenRouter.createCaller(ctxWithRole("admin"));
+    const result = await caller.previewPdf({ hojaId: TEST_HOJA_ID });
+
+    expect(mockRenderPdf).toHaveBeenCalledTimes(1);
+    expect(result.contentBase64).toBe(fakePdfBuf.toString("base64"));
+    expect(result.mime).toBe("application/pdf");
+    // previewPdf does NOT return a filename (it's for display only)
+    expect(result).not.toHaveProperty("filename");
+  });
+
+  it("rejects non-admin callers with FORBIDDEN", async () => {
+    const caller = pdfGenRouter.createCaller(ctxWithRole("user"));
+    await expect(
+      caller.previewPdf({ hojaId: TEST_HOJA_ID }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
 });
