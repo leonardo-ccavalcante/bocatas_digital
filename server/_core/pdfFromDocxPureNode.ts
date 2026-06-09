@@ -3,58 +3,75 @@
  *
  * Pure Node.js PDF generation for Derivar Hoja.
  * Does NOT require LibreOffice — uses pdfkit to render a visual layout
- * that mirrors the DOCX template (red table header, colors, logos).
+ * that mirrors the reference document (Bocatas + Comunidad de Madrid logos,
+ * red table header, RGPD clause).
  *
- * Two exports:
- *   - renderDerivarHojaPdf(data, logos?) → Buffer  [primary, visual layout]
- *   - convertDocxToPdfPureNode(docxBuf, options?) → Buffer  [legacy text fallback]
+ * Primary export: renderDerivarHojaPdf(data, logos?) → Buffer
+ * Legacy export:  convertDocxToPdfPureNode(docxBuf, options?) → Buffer
  */
 
 import PDFDocument from "pdfkit";
 import PizZip from "pizzip";
 import type { DerivarHojaTemplateData, DerivarLogoOptions } from "./docxRender";
 
-// ── Color palette (mirrors DOCX template) ────────────────────────────────────
-const COLOR_RED = "#C0392B"; // Table header background
-const COLOR_RED_TITLE = "#8B0000"; // Document title
+// ── Color palette ─────────────────────────────────────────────────────────────
+const COLOR_RED = "#C0392B";
+const COLOR_RED_TITLE = "#8B0000";
 const COLOR_WHITE = "#FFFFFF";
-const COLOR_DARK = "#222222";
-const COLOR_GRAY = "#666666";
-const COLOR_ROW_ALT = "#F9F0F0"; // Alternating row background
+const COLOR_DARK = "#1A1A1A";
+const COLOR_GRAY = "#555555";
+const COLOR_LIGHT_GRAY = "#AAAAAA";
+const COLOR_ROW_ALT = "#F5F5F5";
 
-// ── Page layout ───────────────────────────────────────────────────────────────
-const MARGIN = 50;
-const PAGE_WIDTH = 595.28; // A4 points
-const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2;
+// ── Page layout (A4 = 595.28 x 841.89 pt) ────────────────────────────────────
+const PAGE_WIDTH = 595.28;
+const PAGE_HEIGHT = 841.89;
+const MARGIN_H = 45; // horizontal margin
+const MARGIN_TOP = 40;
+const MARGIN_BOTTOM = 45;
+const CONTENT_WIDTH = PAGE_WIDTH - MARGIN_H * 2;
 
-// ── Table column widths (proportional to DOCX template) ──────────────────────
-const COL_FECHA = 65;
-const COL_TIPO = 90;
-const COL_DESC = 115;
-const COL_RECURSO = 115;
+// ── Table column widths ───────────────────────────────────────────────────────
+// 6 columns: Fecha | Tipo | Descripción | Recurso | Observaciones | Firma
+const COL_FECHA = 58;
+const COL_TIPO = 80;
+const COL_DESC = 110;
+const COL_RECURSO = 110;
 const COL_OBS = 80;
 const COL_FIRMA = CONTENT_WIDTH - COL_FECHA - COL_TIPO - COL_DESC - COL_RECURSO - COL_OBS;
-
-const TABLE_HEADERS = ["Fecha", "Tipo", "Descripción", "Recurso", "Obs.", "Firma"];
 const COL_WIDTHS = [COL_FECHA, COL_TIPO, COL_DESC, COL_RECURSO, COL_OBS, COL_FIRMA];
+const TABLE_HEADERS = [
+  "Fecha",
+  "Tipo de\nintervención",
+  "Descripción de la\nactuación realizada",
+  "Recurso al que\nse deriva",
+  "Observaciones",
+  "Firma",
+];
 
-const FOOTER_TEXT =
-  "CLÁUSULA DE PROTECCIÓN DE DATOS: Los datos personales recogidos en este documento serán tratados por Todos Los Bocatas Saben Igual con la finalidad de gestionar el programa de ayuda social. Base legal: consentimiento del interesado (RGPD Art. 6.1.a). Puede ejercer sus derechos de acceso, rectificación, supresión y portabilidad contactando con el responsable del tratamiento.";
+// ── Official RGPD clause ──────────────────────────────────────────────────────
+const RGPD_TITLE = "CLÁUSULA DE PROTECCIÓN DE DATOS";
+const RGPD_TEXT =
+  "De conformidad con el Reglamento (UE) 2016/679 de Protección de Datos (RGPD), se informa que los datos " +
+  "recogidos en este documento serán tratados por Asociación/Fundación Pasión por el Hombre–Bocatas con la " +
+  "finalidad de gestionar el seguimiento de las intervenciones sociales. Las personas interesadas podrán " +
+  "ejercer sus derechos dirigiéndose a bocatas@bocatas.io.";
+
+const TABLE_NOTE =
+  "Añadir nuevas filas según sea necesario durante el año. Cuando se añade un nuevo registro volver a imprimir y firmar las anteriores.";
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export interface PdfFromDocxOptions {
-  /** Optional title to embed in PDF metadata. */
   title?: string;
-  /** Font size for body text. Default: 11 */
   fontSize?: number;
-  /** Line gap between paragraphs in points. Default: 6 */
   paragraphGap?: number;
 }
 
 /**
  * Renders a Derivar Hoja as a styled PDF using pdfkit.
- * Mirrors the visual layout of the DOCX template.
+ * Mirrors the visual layout of the reference document.
+ * Fits in a single A4 page for typical use (≤ 10 interventions).
  */
 export async function renderDerivarHojaPdf(
   data: DerivarHojaTemplateData,
@@ -63,7 +80,7 @@ export async function renderDerivarHojaPdf(
   return new Promise<Buffer>((resolve, reject) => {
     const doc = new PDFDocument({
       size: "A4",
-      margins: { top: MARGIN, bottom: MARGIN + 40, left: MARGIN, right: MARGIN },
+      margins: { top: MARGIN_TOP, bottom: MARGIN_BOTTOM, left: MARGIN_H, right: MARGIN_H },
       info: {
         Title: `Hoja de Derivaciones — ${data.nombre}`,
         Author: "Bocatas Digital",
@@ -78,48 +95,63 @@ export async function renderDerivarHojaPdf(
     doc.on("error", reject);
 
     // ── Header: logos ─────────────────────────────────────────────────────────
-    const logoHeight = 40;
-    const logoWidth = 40;
+    const LOGO_H = 50;
+    const LOGO_W = 50;
 
     if (logos?.bocatasLogo && logos.bocatasLogo.length > 0) {
       try {
-        doc.image(logos.bocatasLogo, MARGIN, MARGIN, {
-          width: logoWidth,
-          height: logoHeight,
-          fit: [logoWidth, logoHeight],
+        doc.image(logos.bocatasLogo, MARGIN_H, MARGIN_TOP, {
+          fit: [LOGO_W, LOGO_H],
         });
       } catch {
-        // Logo failed to load — skip silently
+        // skip
       }
     }
 
     if (logos?.secondaryLogo && logos.secondaryLogo.length > 0) {
       try {
-        doc.image(logos.secondaryLogo, PAGE_WIDTH - MARGIN - logoWidth, MARGIN, {
-          width: logoWidth,
-          height: logoHeight,
-          fit: [logoWidth, logoHeight],
+        doc.image(logos.secondaryLogo, PAGE_WIDTH - MARGIN_H - LOGO_W, MARGIN_TOP, {
+          fit: [LOGO_W, LOGO_H],
         });
       } catch {
-        // Secondary logo failed to load — skip silently
+        // skip
       }
     }
 
-    // ── Title ─────────────────────────────────────────────────────────────────
-    const titleY = MARGIN + logoHeight + 12;
+    // ── Subtitle ──────────────────────────────────────────────────────────────
+    let y = MARGIN_TOP + LOGO_H + 8;
     doc
       .font("Helvetica-Bold")
-      .fontSize(13)
-      .fillColor(COLOR_RED_TITLE)
-      .text("HOJA DE REGISTRO DE DERIVACIONES E INTERVENCIONES", MARGIN, titleY, {
+      .fontSize(9)
+      .fillColor(COLOR_DARK)
+      .text("ASOCIACIÓN PASIÓN POR EL HOMBRE – BOCATAS", MARGIN_H, y, {
         width: CONTENT_WIDTH,
         align: "center",
       });
+    y += 14;
 
-    // ── Patient/family info ───────────────────────────────────────────────────
-    let y = titleY + 28;
-    const labelWidth = 160;
+    // ── Title ─────────────────────────────────────────────────────────────────
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(11)
+      .fillColor(COLOR_RED_TITLE)
+      .text("HOJA DE REGISTRO DE DERIVACIONES E INTERVENCIONES", MARGIN_H, y, {
+        width: CONTENT_WIDTH,
+        align: "center",
+        underline: true,
+      });
+    y += 18;
 
+    // ── Section 1 header ──────────────────────────────────────────────────────
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(9)
+      .fillColor(COLOR_DARK)
+      .text("1. DATOS DE LA PERSONA / FAMILIA ATENDIDA", MARGIN_H, y);
+    y += 13;
+
+    // ── Patient info fields ───────────────────────────────────────────────────
+    const LABEL_W = 170;
     const infoRows: [string, string][] = [
       ["Nombre y apellidos:", data.nombre],
       ["Nº Unidad familiar:", data.numUnidadFamiliar],
@@ -131,146 +163,167 @@ export async function renderDerivarHojaPdf(
     for (const [label, value] of infoRows) {
       doc
         .font("Helvetica-Bold")
-        .fontSize(9)
+        .fontSize(8.5)
         .fillColor(COLOR_DARK)
-        .text(label, MARGIN, y, { width: labelWidth, continued: false });
+        .text(label, MARGIN_H, y, { continued: true, width: LABEL_W });
       doc
         .font("Helvetica")
-        .fontSize(9)
+        .fontSize(8.5)
         .fillColor(COLOR_DARK)
-        .text(value, MARGIN + labelWidth, y, { width: CONTENT_WIDTH - labelWidth });
-      y += 14;
+        .text(` ${value}`, { width: CONTENT_WIDTH - LABEL_W });
+      y += 13;
     }
 
-    y += 8;
+    y += 6;
+
+    // ── Section 2 header ──────────────────────────────────────────────────────
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(9)
+      .fillColor(COLOR_DARK)
+      .text("2. TABLA DE REGISTRO DE INTERVENCIONES Y DERIVACIONES", MARGIN_H, y);
+    y += 12;
 
     // ── Table ─────────────────────────────────────────────────────────────────
-    const ROW_HEIGHT = 18;
-    const HEADER_HEIGHT = 22;
-    const FONT_SIZE_TABLE = 7.5;
+    const HEADER_H = 24;
+    const ROW_H = 20;
+    const FONT_TABLE = 7;
 
-    // Table header
-    let x = MARGIN;
-    doc.rect(MARGIN, y, CONTENT_WIDTH, HEADER_HEIGHT).fill(COLOR_RED);
+    // Table header background
+    doc.rect(MARGIN_H, y, CONTENT_WIDTH, HEADER_H).fill(COLOR_RED);
 
+    // Table header text
+    let x = MARGIN_H;
     for (let i = 0; i < TABLE_HEADERS.length; i++) {
       doc
         .font("Helvetica-Bold")
-        .fontSize(FONT_SIZE_TABLE)
+        .fontSize(FONT_TABLE)
         .fillColor(COLOR_WHITE)
-        .text(TABLE_HEADERS[i], x + 3, y + 6, {
-          width: COL_WIDTHS[i] - 6,
+        .text(TABLE_HEADERS[i], x + 2, y + 4, {
+          width: COL_WIDTHS[i] - 4,
           align: "center",
-          lineBreak: false,
+          lineBreak: true,
         });
       x += COL_WIDTHS[i];
     }
-    y += HEADER_HEIGHT;
+    y += HEADER_H;
 
     // Table rows
+    const tableStartY = y;
     if (data.intervenciones.length === 0) {
       doc
         .font("Helvetica")
-        .fontSize(FONT_SIZE_TABLE)
-        .fillColor(COLOR_GRAY)
-        .text("Sin intervenciones registradas", MARGIN + 4, y + 5, {
+        .fontSize(FONT_TABLE)
+        .fillColor(COLOR_LIGHT_GRAY)
+        .text("Sin intervenciones registradas", MARGIN_H + 4, y + 6, {
           width: CONTENT_WIDTH - 8,
           align: "center",
         });
-      y += ROW_HEIGHT;
+      y += ROW_H;
     } else {
       for (let rowIdx = 0; rowIdx < data.intervenciones.length; rowIdx++) {
         const interv = data.intervenciones[rowIdx];
 
-        // Check if we need a new page
-        if (y + ROW_HEIGHT > doc.page.height - MARGIN - 60) {
+        // New page if needed
+        if (y + ROW_H > PAGE_HEIGHT - MARGIN_BOTTOM - 60) {
           doc.addPage();
-          y = MARGIN;
-          // Redraw table header on new page
-          x = MARGIN;
-          doc.rect(MARGIN, y, CONTENT_WIDTH, HEADER_HEIGHT).fill(COLOR_RED);
+          y = MARGIN_TOP;
+          // Redraw header on new page
+          doc.rect(MARGIN_H, y, CONTENT_WIDTH, HEADER_H).fill(COLOR_RED);
+          x = MARGIN_H;
           for (let i = 0; i < TABLE_HEADERS.length; i++) {
             doc
               .font("Helvetica-Bold")
-              .fontSize(FONT_SIZE_TABLE)
+              .fontSize(FONT_TABLE)
               .fillColor(COLOR_WHITE)
-              .text(TABLE_HEADERS[i], x + 3, y + 6, {
-                width: COL_WIDTHS[i] - 6,
+              .text(TABLE_HEADERS[i], x + 2, y + 4, {
+                width: COL_WIDTHS[i] - 4,
                 align: "center",
-                lineBreak: false,
+                lineBreak: true,
               });
             x += COL_WIDTHS[i];
           }
-          y += HEADER_HEIGHT;
+          y += HEADER_H;
         }
 
         // Alternating row background
         if (rowIdx % 2 === 1) {
-          doc.rect(MARGIN, y, CONTENT_WIDTH, ROW_HEIGHT).fill(COLOR_ROW_ALT);
+          doc.rect(MARGIN_H, y, CONTENT_WIDTH, ROW_H).fill(COLOR_ROW_ALT);
         }
 
         const cells = [
           interv.fecha,
           interv.tipo,
           interv.descripcion,
-          interv.recursoNombre,
+          `${interv.recursoNombre ?? ""}${interv.recursoDireccion ? "\n" + interv.recursoDireccion : ""}${interv.recursoTelefono ? "\nTel. " + interv.recursoTelefono : ""}`,
           interv.observaciones,
-          interv.firmaPlaceholder,
+          interv.firmaPlaceholder ?? "",
         ];
 
-        x = MARGIN;
+        x = MARGIN_H;
         for (let i = 0; i < cells.length; i++) {
           doc
             .font("Helvetica")
-            .fontSize(FONT_SIZE_TABLE)
+            .fontSize(FONT_TABLE)
             .fillColor(COLOR_DARK)
-            .text(cells[i] ?? "", x + 3, y + 5, {
-              width: COL_WIDTHS[i] - 6,
+            .text(cells[i] ?? "", x + 2, y + 4, {
+              width: COL_WIDTHS[i] - 4,
               lineBreak: false,
               ellipsis: true,
             });
           x += COL_WIDTHS[i];
         }
 
-        // Row border
+        // Row bottom border
         doc
-          .moveTo(MARGIN, y + ROW_HEIGHT)
-          .lineTo(MARGIN + CONTENT_WIDTH, y + ROW_HEIGHT)
+          .moveTo(MARGIN_H, y + ROW_H)
+          .lineTo(MARGIN_H + CONTENT_WIDTH, y + ROW_H)
           .strokeColor("#DDDDDD")
           .lineWidth(0.3)
           .stroke();
 
-        y += ROW_HEIGHT;
+        y += ROW_H;
       }
     }
 
     // Table outer border
     doc
-      .rect(MARGIN, titleY + 28 + infoRows.length * 14 + 8, CONTENT_WIDTH, y - (titleY + 28 + infoRows.length * 14 + 8))
+      .rect(MARGIN_H, tableStartY - HEADER_H, CONTENT_WIDTH, y - (tableStartY - HEADER_H))
       .strokeColor(COLOR_RED)
       .lineWidth(0.5)
       .stroke();
 
-    // ── Footer: data protection clause ───────────────────────────────────────
-    const footerY = doc.page.height - MARGIN - 35;
+    y += 5;
+
+    // ── Table note ────────────────────────────────────────────────────────────
     doc
       .font("Helvetica")
-      .fontSize(6)
+      .fontSize(7)
       .fillColor(COLOR_GRAY)
-      .text(FOOTER_TEXT, MARGIN, footerY, {
-        width: CONTENT_WIDTH,
-        align: "justify",
-      });
+      .text(TABLE_NOTE, MARGIN_H, y, { width: CONTENT_WIDTH });
+    y += 16;
+
+    // ── RGPD clause ───────────────────────────────────────────────────────────
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(7)
+      .fillColor(COLOR_DARK)
+      .text(RGPD_TITLE, MARGIN_H, y, { width: CONTENT_WIDTH });
+    y += 10;
+
+    doc
+      .font("Helvetica")
+      .fontSize(7)
+      .fillColor(COLOR_DARK)
+      .text(RGPD_TEXT, MARGIN_H, y, { width: CONTENT_WIDTH, align: "justify" });
 
     doc.end();
   });
 }
 
+// ── Legacy fallback ───────────────────────────────────────────────────────────
+
 /**
- * Legacy: Converts a .docx Buffer to a PDF Buffer using pdfkit.
- * Extracts text from the DOCX and renders it as plain text.
- * Does NOT require LibreOffice.
- *
  * @deprecated Use renderDerivarHojaPdf(data, logos) for visual output.
  */
 export async function convertDocxToPdfPureNode(
@@ -287,11 +340,7 @@ export async function convertDocxToPdfPureNode(
     const doc = new PDFDocument({
       size: "A4",
       margins: { top: 72, bottom: 72, left: 72, right: 72 },
-      info: {
-        Title: title,
-        Author: "Bocatas Digital",
-        Creator: "Bocatas Digital — pdfFromDocxPureNode",
-      },
+      info: { Title: title, Author: "Bocatas Digital" },
     });
 
     const chunks: Buffer[] = [];
@@ -314,10 +363,7 @@ export async function convertDocxToPdfPureNode(
           .fontSize(fontSize)
           .font("Helvetica");
       } else if (para.isBold) {
-        doc
-          .font("Helvetica-Bold")
-          .text(para.text, { paragraphGap })
-          .font("Helvetica");
+        doc.font("Helvetica-Bold").text(para.text, { paragraphGap }).font("Helvetica");
       } else {
         doc.font("Helvetica").text(para.text, { paragraphGap });
       }
@@ -358,8 +404,7 @@ function extractParagraphsFromDocXml(xml: string): ParsedParagraph[] {
 
     while ((runMatch = runRegex.exec(paraXml)) !== null) {
       const runXml = runMatch[0];
-      const isBold =
-        /<w:b\/>/.test(runXml) || /<w:b w:val="true"/.test(runXml);
+      const isBold = /<w:b\/>/.test(runXml) || /<w:b w:val="true"/.test(runXml);
       if (isBold) anyBold = true;
       const textRegex = /<w:t[^>]*>([^<]*)<\/w:t>/g;
       let textMatch: RegExpExecArray | null;

@@ -25,9 +25,7 @@ class ResizeObserverStub {
 }
 global.ResizeObserver = global.ResizeObserver ?? ResizeObserverStub;
 
-// Stub URL.createObjectURL for jsdom
-global.URL.createObjectURL = vi.fn(() => "blob:fake-url");
-global.URL.revokeObjectURL = vi.fn();
+// No blob URL stubs needed — component now uses data: URLs directly
 
 // ── tRPC mock ─────────────────────────────────────────────────────────────────
 const { mockGetHojaUseQuery, mockGenerateDocxFetch, mockPreviewPdfFetch } =
@@ -44,12 +42,19 @@ vi.mock("@/lib/trpc", () => ({
       generateDocx: { fetch: mockGenerateDocxFetch },
       generatePdf: { fetch: vi.fn() },
       previewPdf: { fetch: mockPreviewPdfFetch },
+      listTemplates: {
+        useQuery: vi.fn(() => ({ data: [], isLoading: false, error: null })),
+      },
+      uploadTemplate: {
+        useMutation: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+      },
     },
     useUtils: vi.fn(() => ({
       derivar: {
         generateDocx: { fetch: mockGenerateDocxFetch },
         generatePdf: { fetch: vi.fn() },
         previewPdf: { fetch: mockPreviewPdfFetch },
+        listTemplates: { invalidate: vi.fn() },
       },
     })),
   },
@@ -162,9 +167,10 @@ describe("HojaDrawer — PDF preview modal before document generation", () => {
       expect(screen.getByTitle(/vista previa del documento/i)).toBeInTheDocument(),
     );
 
-    // iframe should have the blob URL
+    // iframe should have a data: URL (not blob: which Chrome blocks in iframes)
     const iframe = screen.getByTitle(/vista previa del documento/i);
-    expect(iframe).toHaveAttribute("src", "blob:fake-url");
+    expect(iframe.getAttribute("src")).toMatch(/^data:application\/pdf;base64,/);
+    expect(iframe.getAttribute("src")).toContain(fakePdfBase64);
   });
 
   it("calls generateDocx.fetch only after confirming in the preview modal", async () => {

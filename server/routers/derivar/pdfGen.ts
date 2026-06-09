@@ -213,4 +213,80 @@ export const pdfGenRouter = router({
         mime: "application/pdf",
       };
     }),
+
+  /**
+   * Upload a custom DOCX template to Supabase Storage.
+   * Receives a base64-encoded DOCX file and stores it under a versioned name.
+   * Returns the new filename so the caller can update TEMPLATE_FILENAME_DOCX.
+   */
+  uploadTemplate: adminProcedure
+    .input(
+      z.object({
+        /** Base64-encoded .docx file content */
+        fileBase64: z.string().min(1),
+        /** Original filename for display purposes */
+        originalName: z.string().min(1).max(200),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      const { createAdminClient: createSupa } = await import(
+        "../../../client/src/lib/supabase/server"
+      );
+      const db = createSupa();
+
+      const buf = Buffer.from(input.fileBase64, "base64");
+
+      // Validate it looks like a DOCX (ZIP magic bytes: PK\x03\x04)
+      if (buf.length < 4 || buf[0] !== 0x50 || buf[1] !== 0x4b) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "El archivo no parece un DOCX válido.",
+        });
+      }
+
+      const timestamp = Date.now();
+      const safeName = input.originalName
+        .replace(/[^a-zA-Z0-9._-]/g, "_")
+        .replace(/\.docx$/i, "");
+      const filename = `derivacion_hoja_template_custom_${timestamp}_${safeName}.docx`;
+
+      const { error } = await db.storage
+        .from("program-document-templates")
+        .upload(filename, buf, {
+          contentType:
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          upsert: false,
+        });
+
+      if (error) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: `Error al subir la plantilla: ${error.message}`,
+        });
+      }
+
+      return { filename, message: "Plantilla subida correctamente." };
+    }),
+
+  /** List available templates in Supabase Storage. */
+  listTemplates: adminProcedure.query(async () => {
+    const { createAdminClient: createSupa } = await import(
+      "../../../client/src/lib/supabase/server"
+    );
+    const db = createSupa();
+    const { data, error } = await db.storage
+      .from("program-document-templates")
+      .list();
+    if (error) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: `Error al listar plantillas: ${error.message}`,
+      });
+    }
+    return (data ?? []).map((f) => ({
+      name: f.name,
+      size: f.metadata?.size ?? 0,
+      updatedAt: f.updated_at ?? f.created_at ?? "",
+    }));
+  }),
 });

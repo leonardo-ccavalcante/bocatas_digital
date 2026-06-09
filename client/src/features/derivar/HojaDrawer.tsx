@@ -7,6 +7,7 @@
  *   in an iframe before the user confirms the download.
  * - "Añadir intervención" delegates back to the parent via onAddIntervention.
  * - "Subir hoja firmada" is stubbed (disabled) pending v2 per-row signatures.
+ * - "Cambiar plantilla" (gear icon) opens a template management modal.
  */
 
 import { useState, useEffect, useRef } from "react";
@@ -26,7 +27,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, FileText, FileDown, Upload, Loader2 } from "lucide-react";
+import { Plus, FileText, FileDown, Upload, Loader2, Settings, CheckCircle2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 
@@ -100,19 +101,48 @@ export function HojaDrawer({
   // Preview modal state
   const [previewKind, setPreviewKind] = useState<"docx" | "pdf" | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
-  const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
-  const prevBlobRef = useRef<string | null>(null);
+  // Use data: URL to avoid Chrome blocking blob: URLs in iframes
+  const [previewDataUrl, setPreviewDataUrl] = useState<string | null>(null);
 
-  // Revoke blob URL when modal closes or changes
+  // Template management modal state
+  const [templateModalOpen, setTemplateModalOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Clear data URL when modal closes
   useEffect(() => {
     if (!previewKind) {
-      if (prevBlobRef.current) {
-        URL.revokeObjectURL(prevBlobRef.current);
-        prevBlobRef.current = null;
-        setPreviewBlobUrl(null);
-      }
+      setPreviewDataUrl(null);
     }
   }, [previewKind]);
+
+  // Reset file selection when template modal closes
+  useEffect(() => {
+    if (!templateModalOpen) {
+      setSelectedFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  }, [templateModalOpen]);
+
+  // tRPC queries/mutations for template management
+  const listTemplatesQuery = trpc.derivar.listTemplates.useQuery(undefined, {
+    enabled: templateModalOpen,
+  });
+  const uploadTemplateMutation = trpc.derivar.uploadTemplate.useMutation({
+    onSuccess: (data) => {
+      toast.success(data.message ?? "Plantilla subida correctamente.");
+      setSelectedFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      void trpcCtx.derivar.listTemplates.invalidate();
+    },
+    onError: (err) => {
+      toast.error(err.message ?? "Error al subir la plantilla.");
+    },
+  });
 
   if (!hojaId) return null;
 
@@ -135,18 +165,14 @@ export function HojaDrawer({
   const handleGenerateClick = async (kind: "docx" | "pdf") => {
     setPreviewKind(kind);
     setPreviewLoading(true);
-    setPreviewBlobUrl(null);
+    setPreviewDataUrl(null);
 
     try {
       // Always generate PDF preview (even for DOCX, to show visual representation)
       const preview = await trpcCtx.derivar.previewPdf.fetch({ hojaId });
-      const blob = new Blob(
-        [Uint8Array.from(atob(preview.contentBase64), (c) => c.charCodeAt(0))],
-        { type: "application/pdf" },
-      );
-      const url = URL.createObjectURL(blob);
-      prevBlobRef.current = url;
-      setPreviewBlobUrl(url);
+      // Use data: URL — Chrome blocks blob: URLs in iframes in some security contexts
+      const dataUrl = `data:application/pdf;base64,${preview.contentBase64}`;
+      setPreviewDataUrl(dataUrl);
     } catch (e) {
       toast.error(
         e instanceof Error ? e.message : "Error al generar la vista previa",
@@ -180,6 +206,32 @@ export function HojaDrawer({
 
   const onCancelPreview = () => {
     setPreviewKind(null);
+  };
+
+  /** Handle file selection in template modal */
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    setSelectedFile(file);
+  };
+
+  /** Upload the selected template file */
+  const handleUploadTemplate = async () => {
+    if (!selectedFile) return;
+    const arrayBuffer = await selectedFile.arrayBuffer();
+    const base64 = btoa(
+      String.fromCharCode(...new Uint8Array(arrayBuffer)),
+    );
+    uploadTemplateMutation.mutate({
+      fileBase64: base64,
+      originalName: selectedFile.name,
+    });
+  };
+
+  /** Format file size for display */
+  const formatSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
   return (
@@ -293,6 +345,16 @@ export function HojaDrawer({
                   <Upload className="h-4 w-4 mr-1" aria-hidden="true" />
                   Subir hoja firmada
                 </Button>
+                <Button
+                  variant="outline"
+                  type="button"
+                  onClick={() => setTemplateModalOpen(true)}
+                  title="Gestionar plantilla DOCX"
+                  aria-label="Cambiar plantilla"
+                >
+                  <Settings className="h-4 w-4 mr-1" aria-hidden="true" />
+                  Cambiar plantilla
+                </Button>
               </div>
             </>
           ) : (
@@ -330,9 +392,9 @@ export function HojaDrawer({
                   Generando vista previa…
                 </span>
               </div>
-            ) : previewBlobUrl ? (
+            ) : previewDataUrl ? (
               <iframe
-                src={previewBlobUrl}
+                src={previewDataUrl}
                 title="Vista previa del documento"
                 className="w-full h-full rounded border"
                 aria-label="Vista previa PDF"
@@ -350,6 +412,119 @@ export function HojaDrawer({
               disabled={previewLoading}
             >
               {previewKind === "docx" ? "Descargar Word" : "Descargar PDF"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Template management modal */}
+      <Dialog
+        open={templateModalOpen}
+        onOpenChange={(open) => setTemplateModalOpen(open)}
+      >
+        <DialogContent
+          className="max-w-xl w-full"
+          aria-label="Gestión de plantillas"
+        >
+          <DialogHeader>
+            <DialogTitle>Gestión de plantillas DOCX</DialogTitle>
+            <DialogDescription>
+              Sube una nueva plantilla DOCX para las hojas de derivaciones. La
+              plantilla debe contener los marcadores de posición correctos
+              (p.&nbsp;ej. {"{"}nombre{"}"}&#44; {"{"}fecha_apertura{"}"}&#44; etc.).
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* List of existing templates */}
+          <div className="mt-2">
+            <p className="text-sm font-medium mb-2">Plantillas disponibles</p>
+            {listTemplatesQuery.isLoading ? (
+              <div className="space-y-2">
+                {[...Array(3)].map((_, i) => (
+                  <Skeleton key={i} className="h-8 w-full" />
+                ))}
+              </div>
+            ) : listTemplatesQuery.error ? (
+              <p className="text-sm text-destructive">
+                Error al cargar plantillas: {listTemplatesQuery.error.message}
+              </p>
+            ) : (listTemplatesQuery.data ?? []).length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No hay plantillas disponibles.
+              </p>
+            ) : (
+              <ul
+                className="space-y-1 max-h-48 overflow-y-auto border rounded p-2"
+                aria-label="Lista de plantillas"
+              >
+                {(listTemplatesQuery.data ?? []).map((tpl) => (
+                  <li
+                    key={tpl.name}
+                    className="flex items-center justify-between text-sm py-1 px-1 rounded hover:bg-muted/50"
+                  >
+                    <span className="flex items-center gap-2 truncate">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                      <span className="truncate" title={tpl.name}>
+                        {tpl.name}
+                      </span>
+                    </span>
+                    <span className="text-muted-foreground ml-2 shrink-0 text-xs">
+                      {formatSize(tpl.size)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/* Upload new template */}
+          <div className="mt-4 space-y-3">
+            <p className="text-sm font-medium">Subir nueva plantilla</p>
+            <div className="flex items-center gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                onChange={handleFileChange}
+                className="block text-sm text-muted-foreground file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer"
+                aria-label="Seleccionar archivo DOCX"
+                data-testid="template-file-input"
+              />
+            </div>
+            {selectedFile && (
+              <p className="text-xs text-muted-foreground">
+                Archivo seleccionado:{" "}
+                <span className="font-medium">{selectedFile.name}</span>{" "}
+                ({formatSize(selectedFile.size)})
+              </p>
+            )}
+            <Button
+              type="button"
+              onClick={() => void handleUploadTemplate()}
+              disabled={!selectedFile || uploadTemplateMutation.isPending}
+              aria-label="Subir plantilla"
+              data-testid="upload-template-btn"
+            >
+              {uploadTemplateMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  Subiendo…
+                </>
+              ) : (
+                <>
+                  <Upload className="h-4 w-4 mr-1" />
+                  Subir plantilla
+                </>
+              )}
+            </Button>
+          </div>
+
+          <DialogFooter className="mt-4">
+            <Button
+              variant="outline"
+              type="button"
+              onClick={() => setTemplateModalOpen(false)}
+            >
+              Cerrar
             </Button>
           </DialogFooter>
         </DialogContent>
