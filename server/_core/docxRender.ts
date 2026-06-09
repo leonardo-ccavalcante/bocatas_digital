@@ -1,5 +1,10 @@
+import { createRequire } from "node:module";
 import Docxtemplater from "docxtemplater";
 import PizZip from "pizzip";
+
+const _require = createRequire(import.meta.url);
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+const ImageModule = _require("docxtemplater-image-module-free");
 
 import { createAdminClient } from "../../client/src/lib/supabase/server";
 import {
@@ -17,6 +22,24 @@ export class DerivarTemplateError extends Error {
     super(message);
     this.name = "DerivarTemplateError";
   }
+}
+
+export interface DerivarLogoOptions {
+  /** PNG/JPEG bytes for the left logo (Bocatas). If omitted, placeholder is left blank. */
+  bocatasLogo?: Buffer;
+  /**
+   * PNG/JPEG bytes for the right logo (e.g. Comunidad de Madrid or a partner).
+   * If omitted, placeholder is left blank.
+   */
+  secondaryLogo?: Buffer;
+  /** Width in EMU for bocatasLogo. Default: 1,200,000 EMU ≈ 1.27 cm */
+  bocatasLogoWidth?: number;
+  /** Height in EMU for bocatasLogo. Default: 1,200,000 EMU ≈ 1.27 cm */
+  bocatasLogoHeight?: number;
+  /** Width in EMU for secondaryLogo. Default: 1,200,000 EMU ≈ 1.27 cm */
+  secondaryLogoWidth?: number;
+  /** Height in EMU for secondaryLogo. Default: 1,200,000 EMU ≈ 1.27 cm */
+  secondaryLogoHeight?: number;
 }
 
 export interface DerivarHojaTemplateData {
@@ -37,16 +60,18 @@ export interface DerivarHojaTemplateData {
   }>;
 }
 
+const DEFAULT_LOGO_SIZE = 1_200_000; // EMU ≈ 1.27 cm
+
 /**
  * Loads the canonical Derivar template from Supabase Storage and fills it
  * with the supplied data. Returns a Buffer containing the .docx bytes.
  *
- * The template (`derivacion_hoja_template_v1.docx`) is a Bocatas-authored
- * asset uploaded to the `program-document-templates` bucket; its placeholder
- * names must match shared/derivar/templatePlaceholders.ts byte-for-byte.
+ * Optionally injects logos via docxtemplater-image-module-free.
+ * The template uses {%bocatasLogo} and {%secondaryLogo} placeholders.
  */
 export async function renderDerivarHojaDocx(
   data: DerivarHojaTemplateData,
+  logos?: DerivarLogoOptions,
 ): Promise<Buffer> {
   const db = createAdminClient();
   const { data: file, error } = await db.storage
@@ -59,11 +84,41 @@ export async function renderDerivarHojaDocx(
   }
   const buf = Buffer.from(await file.arrayBuffer());
   const zip = new PizZip(buf);
+
+  // Build image lookup map from logo options
+  const logoMap: Record<string, Buffer | undefined> = {
+    bocatasLogo: logos?.bocatasLogo,
+    secondaryLogo: logos?.secondaryLogo,
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+  const imageModule = new ImageModule({
+    centered: false,
+    fileType: "docx",
+    getImage(_tagValue: string, tagName: string): Buffer | null {
+      const img = logoMap[tagName];
+      return img ?? null;
+    },
+    getSize(_img: Buffer, _tagValue: string, tagName: string): [number, number] {
+      if (tagName === "bocatasLogo") {
+        return [
+          logos?.bocatasLogoWidth ?? DEFAULT_LOGO_SIZE,
+          logos?.bocatasLogoHeight ?? DEFAULT_LOGO_SIZE,
+        ];
+      }
+      return [
+        logos?.secondaryLogoWidth ?? DEFAULT_LOGO_SIZE,
+        logos?.secondaryLogoHeight ?? DEFAULT_LOGO_SIZE,
+      ];
+    },
+  });
+
   const doc = new Docxtemplater(zip, {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    modules: [imageModule],
     paragraphLoop: true,
     linebreaks: true,
-    // Render missing placeholders as "" instead of throwing (matches E1's
-    // documentService); a stale template tag must not 500 the whole render.
+    // Render missing placeholders as "" instead of throwing
     nullGetter: () => "",
   });
   doc.render(data);
