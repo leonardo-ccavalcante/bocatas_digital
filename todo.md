@@ -179,3 +179,22 @@
 - [x] Add tRPC procedure `derivar.previewPdf` that returns base64 PDF for preview
 - [x] Update HojaDrawer modal to show PDF iframe preview (blob URL from base64)
 - [x] TDD tests for PDF visual render and modal preview iframe (4 tests HojaDrawer + 4 tests pdfGen)
+
+## Batch 19: Modal de gestión de plantillas + uploadTemplate/listTemplates (sesión 2026-06-09)
+- [x] Reescribir pdfFromDocxPureNode.ts con texto RGPD oficial y layout A4 de una sola página
+- [x] Añadir procedimiento `uploadTemplate` a pdfGenRouter (recibe base64 DOCX, valida magic bytes, sube a Supabase Storage)
+- [x] Añadir procedimiento `listTemplates` a pdfGenRouter (lista archivos del bucket program-document-templates)
+- [x] Añadir modal de gestión de plantillas a HojaDrawer.tsx (botón "Cambiar plantilla" con icono Settings)
+  - Lista de plantillas disponibles (listTemplates.useQuery)
+  - File input para seleccionar .docx
+  - Botón "Subir plantilla" (uploadTemplate.useMutation)
+  - Toast de éxito/error
+  - Botón "Cerrar"
+- [x] TDD RED → GREEN: HojaDrawer.templateModal.test.tsx — 5 tests
+  - Abre modal al click "Cambiar plantilla"
+  - Lista plantillas disponibles
+  - Botón deshabilitado sin archivo seleccionado
+  - Llama uploadTemplate.mutate con base64 + originalName correctos
+  - Cierra modal al click "Cerrar"
+- [x] Actualizar mock en HojaDrawer.test.tsx para incluir listTemplates y uploadTemplate
+- [x] Suite completa: 2828 tests pasan, 0 fallos, TypeScript 0 errores
