@@ -171,3 +171,11 @@
 - [x] Actualizar mock en derivar.pdfGen.test.ts: `convertDocxToPdf` → `convertDocxToPdfPureNode`
 - [x] TDD: 3 tests nuevos en pdfGen.generatePdf.test.ts (DOCX→PDF sin LibreOffice, sin ENOENT, empty intervenciones)
 - [x] Suite completa: 2815 tests pasan, 0 fallos, TypeScript 0 errores
+
+## Batch 18: PDF visual template + modal preview iframe (sesión 2026-06-09)
+
+- [x] Fix DOCX XML corruption (lastIndexOf "<w:r>" bug — found <w:rPr> instead of <w:r>)
+- [x] Rewrite pdfFromDocxPureNode to render visual template (red table, colors, logos via pdfkit)
+- [x] Add tRPC procedure `derivar.previewPdf` that returns base64 PDF for preview
+- [x] Update HojaDrawer modal to show PDF iframe preview (blob URL from base64)
+- [x] TDD tests for PDF visual render and modal preview iframe (4 tests HojaDrawer + 4 tests pdfGen)

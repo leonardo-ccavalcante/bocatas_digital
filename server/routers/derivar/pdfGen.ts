@@ -21,7 +21,7 @@ import {
   DerivarTemplateError,
   type DerivarHojaTemplateData,
 } from "../../_core/docxRender";
-import { convertDocxToPdfPureNode } from "../../_core/pdfFromDocxPureNode";
+import { renderDerivarHojaPdf } from "../../_core/pdfFromDocxPureNode";
 import { router, adminProcedure } from "../../_core/trpc";
 
 /** Maps a missing-template error to a friendly, PII-free BAD_REQUEST. */
@@ -183,21 +183,33 @@ export const pdfGenRouter = router({
       };
     }),
 
-  /** Render the hoja as a PDF buffer via LibreOffice, return base64. */
+  /** Render the hoja as a PDF buffer with visual layout, return base64. */
   generatePdf: adminProcedure
     .input(z.object({ hojaId: z.string().uuid() }))
     .query(async ({ input }) => {
       const data = await buildTemplateData(input.hojaId);
       const bocatasLogo = loadBocatasLogo();
-      const docxBuf = await renderDerivarHojaDocx(data, {
+      const pdfBuf = await renderDerivarHojaPdf(data, {
         bocatasLogo: bocatasLogo.length > 0 ? bocatasLogo : undefined,
-      }).catch(toFriendlyTemplateError);
-      const pdfBuf = await convertDocxToPdfPureNode(docxBuf, {
-        title: `Hoja de Derivaciones — ${data.nombre}`,
       });
       return {
         contentBase64: pdfBuf.toString("base64"),
         filename: `derivacion_hoja_${input.hojaId.slice(0, 8)}.pdf`,
+        mime: "application/pdf",
+      };
+    }),
+
+  /** Generate a PDF preview (same as generatePdf but named for modal use). */
+  previewPdf: adminProcedure
+    .input(z.object({ hojaId: z.string().uuid() }))
+    .query(async ({ input }) => {
+      const data = await buildTemplateData(input.hojaId);
+      const bocatasLogo = loadBocatasLogo();
+      const pdfBuf = await renderDerivarHojaPdf(data, {
+        bocatasLogo: bocatasLogo.length > 0 ? bocatasLogo : undefined,
+      });
+      return {
+        contentBase64: pdfBuf.toString("base64"),
         mime: "application/pdf",
       };
     }),

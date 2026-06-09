@@ -3,13 +3,13 @@
  *
  * Features:
  * - Lists all interventions for the entity in this programa.
- * - "Generar Word" / "Generar PDF" show a preview modal (nombre + intervention count)
- *   before triggering server-side generation and download.
+ * - "Generar Word" / "Generar PDF" open a preview modal that renders the PDF
+ *   in an iframe before the user confirms the download.
  * - "Añadir intervención" delegates back to the parent via onAddIntervention.
  * - "Subir hoja firmada" is stubbed (disabled) pending v2 per-row signatures.
  */
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Sheet,
   SheetContent,
@@ -22,10 +22,11 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, FileText, FileDown, Upload } from "lucide-react";
+import { Plus, FileText, FileDown, Upload, Loader2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 
@@ -98,6 +99,20 @@ export function HojaDrawer({
 
   // Preview modal state
   const [previewKind, setPreviewKind] = useState<"docx" | "pdf" | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
+  const prevBlobRef = useRef<string | null>(null);
+
+  // Revoke blob URL when modal closes or changes
+  useEffect(() => {
+    if (!previewKind) {
+      if (prevBlobRef.current) {
+        URL.revokeObjectURL(prevBlobRef.current);
+        prevBlobRef.current = null;
+        setPreviewBlobUrl(null);
+      }
+    }
+  }, [previewKind]);
 
   if (!hojaId) return null;
 
@@ -116,9 +131,30 @@ export function HojaDrawer({
       ? `${titular.nombre ?? ""} ${titular.apellidos ?? ""}`.trim()
       : `Familia #${hoja?.familia?.familia_numero ?? ""}`;
 
-  /** Called when user clicks "Generar Word" or "Generar PDF" — shows preview modal. */
-  const handleGenerateClick = (kind: "docx" | "pdf") => {
+  /** Called when user clicks "Generar Word" or "Generar PDF" — shows preview modal with PDF. */
+  const handleGenerateClick = async (kind: "docx" | "pdf") => {
     setPreviewKind(kind);
+    setPreviewLoading(true);
+    setPreviewBlobUrl(null);
+
+    try {
+      // Always generate PDF preview (even for DOCX, to show visual representation)
+      const preview = await trpcCtx.derivar.previewPdf.fetch({ hojaId });
+      const blob = new Blob(
+        [Uint8Array.from(atob(preview.contentBase64), (c) => c.charCodeAt(0))],
+        { type: "application/pdf" },
+      );
+      const url = URL.createObjectURL(blob);
+      prevBlobRef.current = url;
+      setPreviewBlobUrl(url);
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? e.message : "Error al generar la vista previa",
+      );
+      setPreviewKind(null);
+    } finally {
+      setPreviewLoading(false);
+    }
   };
 
   /** Called when user confirms in the preview modal. */
@@ -231,7 +267,7 @@ export function HojaDrawer({
                 <Button
                   variant="outline"
                   type="button"
-                  onClick={() => handleGenerateClick("docx")}
+                  onClick={() => void handleGenerateClick("docx")}
                   disabled={busy !== null}
                   aria-busy={busy === "docx"}
                 >
@@ -241,7 +277,7 @@ export function HojaDrawer({
                 <Button
                   variant="outline"
                   type="button"
-                  onClick={() => handleGenerateClick("pdf")}
+                  onClick={() => void handleGenerateClick("pdf")}
                   disabled={busy !== null}
                   aria-busy={busy === "pdf"}
                 >
@@ -265,38 +301,55 @@ export function HojaDrawer({
         </SheetContent>
       </Sheet>
 
-      {/* Preview modal — shown before document generation */}
+      {/* Preview modal — shows PDF preview before download */}
       <Dialog
         open={previewKind !== null}
         onOpenChange={(open) => !open && onCancelPreview()}
       >
-        <DialogContent aria-label="Vista previa">
+        <DialogContent
+          className="max-w-3xl w-full"
+          aria-label="Vista previa del documento"
+        >
           <DialogHeader>
             <DialogTitle>Vista previa del documento</DialogTitle>
+            <DialogDescription>
+              {previewKind === "docx"
+                ? "Vista previa del Word (.docx) — descarga el archivo tras confirmar."
+                : "Vista previa del PDF (.pdf) — descarga el archivo tras confirmar."}
+            </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-2 text-sm">
-            <div>
-              <span className="font-medium">Persona / Familia: </span>
-              {nombre}
-            </div>
-            <div>
-              <span className="font-medium">Intervenciones: </span>
-              {intervenciones.length}{" "}
-              {intervenciones.length === 1 ? "intervención" : "intervenciones"}
-            </div>
-            <div>
-              <span className="font-medium">Formato: </span>
-              {previewKind === "docx" ? "Word (.docx)" : "PDF (.pdf)"}
-            </div>
+          <div className="w-full" style={{ height: "60vh" }}>
+            {previewLoading ? (
+              <div
+                className="flex items-center justify-center h-full"
+                aria-label="Cargando vista previa"
+              >
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                <span className="ml-2 text-muted-foreground text-sm">
+                  Generando vista previa…
+                </span>
+              </div>
+            ) : previewBlobUrl ? (
+              <iframe
+                src={previewBlobUrl}
+                title="Vista previa del documento"
+                className="w-full h-full rounded border"
+                aria-label="Vista previa PDF"
+              />
+            ) : null}
           </div>
 
           <DialogFooter className="gap-2">
             <Button variant="outline" type="button" onClick={onCancelPreview}>
               Cancelar
             </Button>
-            <Button type="button" onClick={() => void onConfirmGenerate()}>
-              Confirmar
+            <Button
+              type="button"
+              onClick={() => void onConfirmGenerate()}
+              disabled={previewLoading}
+            >
+              {previewKind === "docx" ? "Descargar Word" : "Descargar PDF"}
             </Button>
           </DialogFooter>
         </DialogContent>

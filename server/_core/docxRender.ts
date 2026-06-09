@@ -121,8 +121,8 @@ function injectLogos(zip: PizZip, logos: DerivarLogoOptions): void {
     // Find and replace the exact placeholder text
     const bocatasIdx = newDocXml.indexOf("{%bocatasLogo}");
     if (bocatasIdx >= 0) {
-      // Find the opening <w:r> before this text
-      const wrStart = newDocXml.lastIndexOf("<w:r", bocatasIdx);
+      // Find the opening <w:r> before this text (use "<w:r>" not "<w:r" to avoid matching <w:rPr>)
+      const wrStart = newDocXml.lastIndexOf("<w:r>", bocatasIdx);
       // Find the closing </w:r> after this text
       const wrEnd = newDocXml.indexOf("</w:r>", bocatasIdx) + "</w:r>".length;
       if (wrStart >= 0 && wrEnd > wrStart) {
@@ -144,8 +144,8 @@ function injectLogos(zip: PizZip, logos: DerivarLogoOptions): void {
     // Find and replace the exact placeholder text
     const secondaryIdx = newDocXml.indexOf("{%secondaryLogo}");
     if (secondaryIdx >= 0) {
-      // Find the opening <w:r> before this text
-      const wrStart = newDocXml.lastIndexOf("<w:r", secondaryIdx);
+      // Find the opening <w:r> before this text (use "<w:r>" not "<w:r" to avoid matching <w:rPr>)
+      const wrStart = newDocXml.lastIndexOf("<w:r>", secondaryIdx);
       // Find the closing </w:r> after this text
       const wrEnd = newDocXml.indexOf("</w:r>", secondaryIdx) + "</w:r>".length;
       if (wrStart >= 0 && wrEnd > wrStart) {

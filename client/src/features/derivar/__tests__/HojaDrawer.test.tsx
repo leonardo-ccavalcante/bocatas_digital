@@ -1,12 +1,13 @@
 /**
  * HojaDrawer.test.tsx
  *
- * Contract tests for <HojaDrawer /> preview modal before document generation.
+ * Contract tests for <HojaDrawer /> PDF preview modal before document generation.
  *
- * Key contracts:
- *   - Clicking "Generar Word" shows a preview modal with nombre + intervention count
- *   - Clicking "Confirmar" in the modal triggers the actual generation
- *   - Clicking "Cancelar" in the modal does NOT trigger generation
+ * New contract (Batch 18):
+ *   - Clicking "Generar Word" or "Generar PDF" calls previewPdf.fetch and shows a
+ *     loading spinner, then an iframe with the PDF preview.
+ *   - Clicking "Descargar Word/PDF" in the modal triggers the actual generation.
+ *   - Clicking "Cancelar" in the modal does NOT trigger generation.
  *
  * Iron Law: these tests define the contract. Fix the component, never the test.
  */
@@ -24,11 +25,17 @@ class ResizeObserverStub {
 }
 global.ResizeObserver = global.ResizeObserver ?? ResizeObserverStub;
 
+// Stub URL.createObjectURL for jsdom
+global.URL.createObjectURL = vi.fn(() => "blob:fake-url");
+global.URL.revokeObjectURL = vi.fn();
+
 // ── tRPC mock ─────────────────────────────────────────────────────────────────
-const { mockGetHojaUseQuery, mockGenerateDocxFetch } = vi.hoisted(() => ({
-  mockGetHojaUseQuery: vi.fn(),
-  mockGenerateDocxFetch: vi.fn(),
-}));
+const { mockGetHojaUseQuery, mockGenerateDocxFetch, mockPreviewPdfFetch } =
+  vi.hoisted(() => ({
+    mockGetHojaUseQuery: vi.fn(),
+    mockGenerateDocxFetch: vi.fn(),
+    mockPreviewPdfFetch: vi.fn(),
+  }));
 
 vi.mock("@/lib/trpc", () => ({
   trpc: {
@@ -36,11 +43,13 @@ vi.mock("@/lib/trpc", () => ({
       getHoja: { useQuery: mockGetHojaUseQuery },
       generateDocx: { fetch: mockGenerateDocxFetch },
       generatePdf: { fetch: vi.fn() },
+      previewPdf: { fetch: mockPreviewPdfFetch },
     },
     useUtils: vi.fn(() => ({
       derivar: {
         generateDocx: { fetch: mockGenerateDocxFetch },
         generatePdf: { fetch: vi.fn() },
+        previewPdf: { fetch: mockPreviewPdfFetch },
       },
     })),
   },
@@ -82,18 +91,23 @@ const sampleHoja = {
   ],
 };
 
+// Fake PDF base64 (minimal valid-ish base64 string)
+const fakePdfBase64 = btoa("%PDF-1.4 fake");
+
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
 });
 
-describe("HojaDrawer — preview modal before document generation", () => {
-  it("shows a preview modal when 'Generar Word' is clicked", async () => {
+describe("HojaDrawer — PDF preview modal before document generation", () => {
+  it("shows a preview modal with loading spinner when 'Generar Word' is clicked", async () => {
     mockGetHojaUseQuery.mockReturnValue({
       data: sampleHoja,
       isLoading: false,
       error: null,
     });
+    // previewPdf never resolves in this test (we check loading state)
+    mockPreviewPdfFetch.mockReturnValue(new Promise(() => {}));
 
     const user = userEvent.setup();
     render(
@@ -107,10 +121,50 @@ describe("HojaDrawer — preview modal before document generation", () => {
     const generateBtn = screen.getByRole("button", { name: /generar word/i });
     await user.click(generateBtn);
 
-    // Preview modal should appear with nombre and intervention count
-    expect(screen.getByRole("dialog", { name: /vista previa/i })).toBeInTheDocument();
-    expect(screen.getByText(/Raúl Uzcategui/i)).toBeInTheDocument();
-    expect(screen.getByText(/2 intervenciones/i)).toBeInTheDocument();
+    // Preview modal should appear
+    expect(
+      screen.getByRole("dialog", { name: /vista previa/i }),
+    ).toBeInTheDocument();
+
+    // Loading spinner should be visible while previewPdf is pending
+    expect(
+      screen.getByLabelText(/cargando vista previa/i),
+    ).toBeInTheDocument();
+
+    // previewPdf.fetch should have been called
+    expect(mockPreviewPdfFetch).toHaveBeenCalledWith({ hojaId: "hoja-1" });
+  });
+
+  it("shows PDF iframe after previewPdf resolves", async () => {
+    mockGetHojaUseQuery.mockReturnValue({
+      data: sampleHoja,
+      isLoading: false,
+      error: null,
+    });
+    mockPreviewPdfFetch.mockResolvedValue({
+      contentBase64: fakePdfBase64,
+      mime: "application/pdf",
+    });
+
+    const user = userEvent.setup();
+    render(
+      <HojaDrawer
+        hojaId="hoja-1"
+        onClose={vi.fn()}
+        onAddIntervention={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /generar word/i }));
+
+    // Wait for iframe to appear
+    await waitFor(() =>
+      expect(screen.getByTitle(/vista previa del documento/i)).toBeInTheDocument(),
+    );
+
+    // iframe should have the blob URL
+    const iframe = screen.getByTitle(/vista previa del documento/i);
+    expect(iframe).toHaveAttribute("src", "blob:fake-url");
   });
 
   it("calls generateDocx.fetch only after confirming in the preview modal", async () => {
@@ -118,6 +172,10 @@ describe("HojaDrawer — preview modal before document generation", () => {
       data: sampleHoja,
       isLoading: false,
       error: null,
+    });
+    mockPreviewPdfFetch.mockResolvedValue({
+      contentBase64: fakePdfBase64,
+      mime: "application/pdf",
     });
     mockGenerateDocxFetch.mockResolvedValue({
       contentBase64: btoa("fake-docx"),
@@ -134,13 +192,20 @@ describe("HojaDrawer — preview modal before document generation", () => {
       />,
     );
 
-    // Click "Generar Word" — should show modal, NOT call fetch yet
+    // Click "Generar Word" — should show modal, NOT call generateDocx.fetch yet
     await user.click(screen.getByRole("button", { name: /generar word/i }));
     expect(mockGenerateDocxFetch).not.toHaveBeenCalled();
 
-    // Confirm in modal — should call fetch
-    await user.click(screen.getByRole("button", { name: /confirmar/i }));
-    await waitFor(() => expect(mockGenerateDocxFetch).toHaveBeenCalledTimes(1));
+    // Wait for iframe to appear (previewPdf resolved)
+    await waitFor(() =>
+      expect(screen.getByTitle(/vista previa del documento/i)).toBeInTheDocument(),
+    );
+
+    // Confirm in modal — should call generateDocx.fetch
+    await user.click(screen.getByRole("button", { name: /descargar word/i }));
+    await waitFor(() =>
+      expect(mockGenerateDocxFetch).toHaveBeenCalledTimes(1),
+    );
   });
 
   it("does NOT call generateDocx.fetch when 'Cancelar' is clicked in the modal", async () => {
@@ -148,6 +213,10 @@ describe("HojaDrawer — preview modal before document generation", () => {
       data: sampleHoja,
       isLoading: false,
       error: null,
+    });
+    mockPreviewPdfFetch.mockResolvedValue({
+      contentBase64: fakePdfBase64,
+      mime: "application/pdf",
     });
 
     const user = userEvent.setup();
@@ -160,10 +229,16 @@ describe("HojaDrawer — preview modal before document generation", () => {
     );
 
     await user.click(screen.getByRole("button", { name: /generar word/i }));
+    await waitFor(() =>
+      expect(screen.getByTitle(/vista previa del documento/i)).toBeInTheDocument(),
+    );
+
     await user.click(screen.getByRole("button", { name: /cancelar/i }));
 
     expect(mockGenerateDocxFetch).not.toHaveBeenCalled();
     // Modal should be closed
-    expect(screen.queryByRole("dialog", { name: /vista previa/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("dialog", { name: /vista previa/i }),
+    ).not.toBeInTheDocument();
   });
 });
