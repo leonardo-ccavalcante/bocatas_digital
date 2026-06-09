@@ -29,5 +29,5 @@ export const TEMPLATE_PLACEHOLDERS = {
   rowFirmaPlaceholder: "firmaPlaceholder", // intentionally blank for ink signature
 } as const;
 
-export const TEMPLATE_FILENAME_DOCX = "derivacion_hoja_template_v1.docx";
+export const TEMPLATE_FILENAME_DOCX = "derivacion_hoja_template_v2.docx";
 export const TEMPLATE_BUCKET = "program-document-templates";
