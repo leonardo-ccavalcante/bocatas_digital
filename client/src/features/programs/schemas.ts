@@ -25,13 +25,12 @@ export const ProgramSchema = z.object({
 export type Program = z.infer<typeof ProgramSchema>;
 
 // ─── ProgramWithCounts (from get_programs_with_counts RPC) ────────────────────
-// NOTE: migration 20260606000002 renamed `name` → `nombre` and dropped
-// `icon`/`is_default` from the RPC RETURNS TABLE. This schema matches the RPC
-// output, not the `programs` table shape. Use ProgramSchema for table rows
-// (e.g. from getAll), and ProgramWithCountsSchema for the counts RPC.
+// The RPC returns `name` (not `nombre`) — the DB column was never renamed.
+// Use ProgramSchema for table rows (e.g. from getAll),
+// and ProgramWithCountsSchema for the counts RPC.
 export const ProgramWithCountsSchema = z.object({
   id: z.string(),
-  nombre: z.string(),
+  name: z.string(),
   slug: z.string(),
   description: z.string().nullable().optional(),
   display_order: z.number(),

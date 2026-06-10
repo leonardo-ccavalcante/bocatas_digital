@@ -38,7 +38,7 @@ export default function Programas() {
   const filtered = (programs as ProgramWithCounts[]).filter(
     (p: ProgramWithCounts) =>
       !search ||
-      p.nombre.toLowerCase().includes(search.toLowerCase()) ||
+      p.name.toLowerCase().includes(search.toLowerCase()) ||
       p.slug.includes(search.toLowerCase())
   );
 

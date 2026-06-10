@@ -40,12 +40,12 @@ const EnrollmentInputSchema = z.object({
 });
 
 /** Validates shape of get_programs_with_counts RPC response.
- * NOTE: migration 20260606000002 renamed `name` → `nombre` and dropped `icon`/`is_default`
- * from the RETURNS TABLE. This schema must match that RPC output exactly.
+ * The RPC returns `name` (not `nombre`) — the DB column was never renamed.
+ * This schema must match the RPC output exactly.
  */
 const ProgramWithCountsSchema = z.object({
   id: z.string(),
-  nombre: z.string(),
+  name: z.string(),
   slug: z.string(),
   description: z.string().nullable().optional(),
   display_order: z.number(),

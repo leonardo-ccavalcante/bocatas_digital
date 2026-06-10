@@ -156,15 +156,14 @@ describe("EnrollmentEstadoSchema", () => {
 });
 
 // ─── ProgramWithCounts data shape ─────────────────────────────────────────────
-// NOTE: migration 20260606000002 changed get_programs_with_counts() to return
-// `nombre` (not `name`) and dropped `icon`/`is_default`. The fixture below
-// mirrors the actual RPC output columns.
+// The RPC returns `name` (not `nombre`) — the DB column was never renamed.
+// The fixture below mirrors the actual RPC output columns.
 
 describe("ProgramWithCountsSchema", () => {
   /** Fixture shaped exactly like a get_programs_with_counts() RPC row */
   const rpcRow = {
     id: "a0000000-0000-0000-0000-000000000001",
-    nombre: "Comedor Social",
+    name: "Comedor Social",
     slug: "comedor_social",
     description: null,
     display_order: 1,
@@ -181,20 +180,20 @@ describe("ProgramWithCountsSchema", () => {
     new_this_month: 5,
   };
 
-  it("parses a row shaped like the RPC output (nombre + count fields)", () => {
+  it("parses a row shaped like the RPC output (name + count fields)", () => {
     const result = ProgramWithCountsSchema.safeParse(rpcRow);
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.nombre).toBe("Comedor Social");
+      expect(result.data.name).toBe("Comedor Social");
       expect(result.data.active_enrollments).toBe(42);
       expect(result.data.new_this_month).toBe(5);
     }
   });
 
-  it("rejects a row that still uses the old `name` field instead of `nombre`", () => {
-    const oldShape = { ...rpcRow, nombre: undefined, name: "Comedor Social" };
-    const result = ProgramWithCountsSchema.safeParse(oldShape);
-    // nombre is required — parse must fail when it is absent
+  it("rejects a row missing the `name` field", () => {
+    const { name: _omit, ...noName } = rpcRow;
+    const result = ProgramWithCountsSchema.safeParse(noName);
+    // name is required — parse must fail when it is absent
     expect(result.success).toBe(false);
   });
 
@@ -214,12 +213,12 @@ describe("ProgramWithCountsSchema", () => {
     expect(result.success).toBe(true);
   });
 
-  it("page-data mapping via nombre does not crash on a minimal RPC row", () => {
-    // Simulates the mapping code in ProgramCard reading .nombre and .is_active
+  it("page-data mapping via name does not crash on a minimal RPC row", () => {
+    // Simulates the mapping code in ProgramCard reading .name and .is_active
     const result = ProgramWithCountsSchema.safeParse(rpcRow);
     expect(result.success).toBe(true);
     if (result.success) {
-      const displayName = result.data.nombre;
+      const displayName = result.data.name;
       const isArchived = !result.data.is_active;
       // is_default is not in the RPC output; accessing it must not throw
       const isDefault = (result.data as { is_default?: boolean }).is_default ?? false;
