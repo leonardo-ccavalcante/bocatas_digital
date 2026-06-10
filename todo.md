@@ -236,3 +236,10 @@
 - [x] Márgenes UI: px-6 py-6 en SheetContent, bg-muted/40 en header info, spacing consistente
 - [x] DB migration: excluded_at/excluded_by/excluded_reason en derivacion_intervenciones; firmado_url/firmado_at en derivacion_hojas
 - [x] Tests TDD: 2837 tests pasan, 0 fallos, TypeScript 0 errores
+
+## Batch 21: DOCX/PDF Bug Fixes
+- [x] Bug 1: Fix missing </wp:inline> before </w:drawing> in createImageElement (docxRender.ts)
+- [x] Bug 1b: Add <Default Extension="png"> to Content_Types.xml when injecting PNG logos
+- [x] Bug 2: Fix "Programa de referencia" wrapping onto next line in PDF (use explicit X coords)
+- [x] TDD: docxRender.xmlStructure.test.ts (4 tests - wp:inline balance, ordering, Content_Types, XML validity)
+- [x] TDD: pdfInfoRows.layout.test.ts (5 tests - no throw, long values, empty values, determinism)
