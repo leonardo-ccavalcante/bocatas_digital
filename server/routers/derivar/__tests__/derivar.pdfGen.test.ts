@@ -32,6 +32,8 @@ vi.mock("../../../../client/src/lib/supabase/server", () => ({
 
 vi.mock("../../../_core/docxRender", () => ({
   renderDerivarHojaDocx: vi.fn(),
+  loadBocatasLogo: vi.fn(() => Buffer.from("fake-logo")),
+  loadSecondaryLogo: vi.fn(() => null),
 }));
 
 vi.mock("../../../_core/pdfFromDocxPureNode", () => ({
@@ -97,6 +99,7 @@ function listChain<T>(rows: T[]) {
   return {
     select: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
+    is: vi.fn().mockReturnThis(),
     order: vi.fn().mockResolvedValue({ data: rows, error: null }),
   };
 }

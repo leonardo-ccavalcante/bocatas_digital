@@ -8,6 +8,12 @@
  *
  * Primary export: renderDerivarHojaPdf(data, logos?) → Buffer
  * Legacy export:  convertDocxToPdfPureNode(docxBuf, options?) → Buffer
+ *
+ * FIX (Batch 20):
+ * - Removed `lineBreak: false` + `ellipsis: true` which truncated cell text.
+ * - Added dynamic row height calculation so long descriptions wrap properly.
+ * - Ensured RGPD clause always fits on the same page (force new page if needed).
+ * - Increased column widths for Descripción and Recurso.
  */
 
 import PDFDocument from "pdfkit";
@@ -26,17 +32,18 @@ const COLOR_ROW_ALT = "#F5F5F5";
 // ── Page layout (A4 = 595.28 x 841.89 pt) ────────────────────────────────────
 const PAGE_WIDTH = 595.28;
 const PAGE_HEIGHT = 841.89;
-const MARGIN_H = 45; // horizontal margin
+const MARGIN_H = 36; // horizontal margin (reduced from 45 to give more table space)
 const MARGIN_TOP = 40;
 const MARGIN_BOTTOM = 45;
 const CONTENT_WIDTH = PAGE_WIDTH - MARGIN_H * 2;
 
 // ── Table column widths ───────────────────────────────────────────────────────
 // 6 columns: Fecha | Tipo | Descripción | Recurso | Observaciones | Firma
-const COL_FECHA = 58;
-const COL_TIPO = 80;
-const COL_DESC = 110;
-const COL_RECURSO = 110;
+// FIX: Increased Descripción and Recurso columns, reduced Firma (it's blank anyway)
+const COL_FECHA = 52;
+const COL_TIPO = 72;
+const COL_DESC = 130;   // was 110 — most text goes here
+const COL_RECURSO = 120; // was 110
 const COL_OBS = 80;
 const COL_FIRMA = CONTENT_WIDTH - COL_FECHA - COL_TIPO - COL_DESC - COL_RECURSO - COL_OBS;
 const COL_WIDTHS = [COL_FECHA, COL_TIPO, COL_DESC, COL_RECURSO, COL_OBS, COL_FIRMA];
@@ -60,12 +67,32 @@ const RGPD_TEXT =
 const TABLE_NOTE =
   "Añadir nuevas filas según sea necesario durante el año. Cuando se añade un nuevo registro volver a imprimir y firmar las anteriores.";
 
+// ── Font size constants ───────────────────────────────────────────────────────
+const FONT_TABLE = 7;
+const CELL_PADDING = 3;
+const MIN_ROW_H = 18;
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export interface PdfFromDocxOptions {
   title?: string;
   fontSize?: number;
   paragraphGap?: number;
+}
+
+/**
+ * Estimates the height needed for a text string in a given column width.
+ * Uses a rough character-per-line estimate based on font size.
+ */
+function estimateTextHeight(text: string, colWidth: number, fontSize: number): number {
+  if (!text || !text.trim()) return MIN_ROW_H;
+  // Approximate characters per line at this font size and column width
+  // pdfkit uses ~0.55 * fontSize as average char width for Helvetica
+  const charsPerLine = Math.max(1, Math.floor((colWidth - CELL_PADDING * 2) / (fontSize * 0.55)));
+  const lines = text.split("\n").reduce((acc, line) => {
+    return acc + Math.max(1, Math.ceil(line.length / charsPerLine));
+  }, 0);
+  return Math.max(MIN_ROW_H, lines * (fontSize + 2) + CELL_PADDING * 2);
 }
 
 /**
@@ -95,8 +122,8 @@ export async function renderDerivarHojaPdf(
     doc.on("error", reject);
 
     // ── Header: logos ─────────────────────────────────────────────────────────
-    const LOGO_H = 50;
-    const LOGO_W = 50;
+    const LOGO_H = 48;
+    const LOGO_W = 48;
 
     if (logos?.bocatasLogo && logos.bocatasLogo.length > 0) {
       try {
@@ -185,31 +212,31 @@ export async function renderDerivarHojaPdf(
     y += 12;
 
     // ── Table ─────────────────────────────────────────────────────────────────
-    const HEADER_H = 24;
-    const ROW_H = 20;
-    const FONT_TABLE = 7;
+    const HEADER_H = 26;
 
-    // Table header background
-    doc.rect(MARGIN_H, y, CONTENT_WIDTH, HEADER_H).fill(COLOR_RED);
+    // Helper: draw table header at position y
+    const drawTableHeader = (atY: number) => {
+      doc.rect(MARGIN_H, atY, CONTENT_WIDTH, HEADER_H).fill(COLOR_RED);
+      let x = MARGIN_H;
+      for (let i = 0; i < TABLE_HEADERS.length; i++) {
+        doc
+          .font("Helvetica-Bold")
+          .fontSize(FONT_TABLE)
+          .fillColor(COLOR_WHITE)
+          .text(TABLE_HEADERS[i], x + CELL_PADDING, atY + CELL_PADDING, {
+            width: COL_WIDTHS[i] - CELL_PADDING * 2,
+            align: "center",
+            lineBreak: true,
+          });
+        x += COL_WIDTHS[i];
+      }
+    };
 
-    // Table header text
-    let x = MARGIN_H;
-    for (let i = 0; i < TABLE_HEADERS.length; i++) {
-      doc
-        .font("Helvetica-Bold")
-        .fontSize(FONT_TABLE)
-        .fillColor(COLOR_WHITE)
-        .text(TABLE_HEADERS[i], x + 2, y + 4, {
-          width: COL_WIDTHS[i] - 4,
-          align: "center",
-          lineBreak: true,
-        });
-      x += COL_WIDTHS[i];
-    }
+    drawTableHeader(y);
+    const tableStartY = y;
     y += HEADER_H;
 
     // Table rows
-    const tableStartY = y;
     if (data.intervenciones.length === 0) {
       doc
         .font("Helvetica")
@@ -219,76 +246,80 @@ export async function renderDerivarHojaPdf(
           width: CONTENT_WIDTH - 8,
           align: "center",
         });
-      y += ROW_H;
+      y += MIN_ROW_H;
     } else {
       for (let rowIdx = 0; rowIdx < data.intervenciones.length; rowIdx++) {
         const interv = data.intervenciones[rowIdx];
 
-        // New page if needed
-        if (y + ROW_H > PAGE_HEIGHT - MARGIN_BOTTOM - 60) {
-          doc.addPage();
-          y = MARGIN_TOP;
-          // Redraw header on new page
-          doc.rect(MARGIN_H, y, CONTENT_WIDTH, HEADER_H).fill(COLOR_RED);
-          x = MARGIN_H;
-          for (let i = 0; i < TABLE_HEADERS.length; i++) {
-            doc
-              .font("Helvetica-Bold")
-              .fontSize(FONT_TABLE)
-              .fillColor(COLOR_WHITE)
-              .text(TABLE_HEADERS[i], x + 2, y + 4, {
-                width: COL_WIDTHS[i] - 4,
-                align: "center",
-                lineBreak: true,
-              });
-            x += COL_WIDTHS[i];
-          }
-          y += HEADER_H;
-        }
-
-        // Alternating row background
-        if (rowIdx % 2 === 1) {
-          doc.rect(MARGIN_H, y, CONTENT_WIDTH, ROW_H).fill(COLOR_ROW_ALT);
-        }
+        const recursoText = [
+          interv.recursoNombre ?? "",
+          interv.recursoDireccion ?? "",
+          interv.recursoTelefono ? `Tel. ${interv.recursoTelefono}` : "",
+        ]
+          .filter(Boolean)
+          .join("\n");
 
         const cells = [
           interv.fecha,
           interv.tipo,
           interv.descripcion,
-          `${interv.recursoNombre ?? ""}${interv.recursoDireccion ? "\n" + interv.recursoDireccion : ""}${interv.recursoTelefono ? "\nTel. " + interv.recursoTelefono : ""}`,
-          interv.observaciones,
+          recursoText,
+          interv.observaciones ?? "",
           interv.firmaPlaceholder ?? "",
         ];
 
-        x = MARGIN_H;
+        // FIX: Calculate dynamic row height based on actual content
+        const rowH = Math.max(
+          MIN_ROW_H,
+          ...cells.map((cell, i) =>
+            estimateTextHeight(cell ?? "", COL_WIDTHS[i], FONT_TABLE),
+          ),
+        );
+
+        // New page if needed — reserve space for RGPD (≈ 55pt)
+        const RGPD_RESERVE = 60;
+        if (y + rowH > PAGE_HEIGHT - MARGIN_BOTTOM - RGPD_RESERVE) {
+          doc.addPage();
+          y = MARGIN_TOP;
+          drawTableHeader(y);
+          y += HEADER_H;
+        }
+
+        // Alternating row background
+        if (rowIdx % 2 === 1) {
+          doc.rect(MARGIN_H, y, CONTENT_WIDTH, rowH).fill(COLOR_ROW_ALT);
+        }
+
+        let x = MARGIN_H;
         for (let i = 0; i < cells.length; i++) {
+          // FIX: Use lineBreak: true so text wraps instead of being truncated
           doc
             .font("Helvetica")
             .fontSize(FONT_TABLE)
             .fillColor(COLOR_DARK)
-            .text(cells[i] ?? "", x + 2, y + 4, {
-              width: COL_WIDTHS[i] - 4,
-              lineBreak: false,
-              ellipsis: true,
+            .text(cells[i] ?? "", x + CELL_PADDING, y + CELL_PADDING, {
+              width: COL_WIDTHS[i] - CELL_PADDING * 2,
+              lineBreak: true,
+              height: rowH - CELL_PADDING * 2,
             });
           x += COL_WIDTHS[i];
         }
 
         // Row bottom border
         doc
-          .moveTo(MARGIN_H, y + ROW_H)
-          .lineTo(MARGIN_H + CONTENT_WIDTH, y + ROW_H)
+          .moveTo(MARGIN_H, y + rowH)
+          .lineTo(MARGIN_H + CONTENT_WIDTH, y + rowH)
           .strokeColor("#DDDDDD")
           .lineWidth(0.3)
           .stroke();
 
-        y += ROW_H;
+        y += rowH;
       }
     }
 
     // Table outer border
     doc
-      .rect(MARGIN_H, tableStartY - HEADER_H, CONTENT_WIDTH, y - (tableStartY - HEADER_H))
+      .rect(MARGIN_H, tableStartY, CONTENT_WIDTH, y - tableStartY)
       .strokeColor(COLOR_RED)
       .lineWidth(0.5)
       .stroke();
@@ -301,9 +332,15 @@ export async function renderDerivarHojaPdf(
       .fontSize(7)
       .fillColor(COLOR_GRAY)
       .text(TABLE_NOTE, MARGIN_H, y, { width: CONTENT_WIDTH });
-    y += 16;
+    y += 18;
 
-    // ── RGPD clause ───────────────────────────────────────────────────────────
+    // ── RGPD clause — ensure it fits on the current page ─────────────────────
+    const RGPD_HEIGHT = 45; // approximate height for RGPD block
+    if (y + RGPD_HEIGHT > PAGE_HEIGHT - MARGIN_BOTTOM) {
+      doc.addPage();
+      y = MARGIN_TOP;
+    }
+
     doc
       .font("Helvetica-Bold")
       .fontSize(7)
@@ -404,16 +441,24 @@ function extractParagraphsFromDocXml(xml: string): ParsedParagraph[] {
 
     while ((runMatch = runRegex.exec(paraXml)) !== null) {
       const runXml = runMatch[0];
-      const isBold = /<w:b\/>/.test(runXml) || /<w:b w:val="true"/.test(runXml);
+      const isBold = /<w:b(?:\s[^/]*)?\/?>/.test(runXml);
       if (isBold) anyBold = true;
-      const textRegex = /<w:t[^>]*>([^<]*)<\/w:t>/g;
-      let textMatch: RegExpExecArray | null;
-      while ((textMatch = textRegex.exec(runXml)) !== null) {
-        paraText += textMatch[1];
+
+      const tMatches = runXml.match(/<w:t(?:\s[^>]*)?>([^<]*)<\/w:t>/g);
+      if (tMatches) {
+        for (const tMatch of tMatches) {
+          const textContent = tMatch.replace(/<[^>]+>/g, "");
+          paraText += textContent;
+        }
       }
     }
 
-    paragraphs.push({ text: paraText, isBold: anyBold, isHeading, headingLevel });
+    paragraphs.push({
+      text: paraText,
+      isBold: anyBold,
+      isHeading,
+      headingLevel,
+    });
   }
 
   return paragraphs;

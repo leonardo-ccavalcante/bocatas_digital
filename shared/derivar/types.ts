@@ -64,8 +64,13 @@ export type Hoja = z.infer<typeof HojaSchema>;
 
 export const InterventionInsertSchema = z.object({
   scope: ScopeEnum,
-  entityId: z.string().uuid(), // persona_id or familia_id
+  entityId: z.string(), // persona_id or familia_id (empty string allowed when existingHojaId is provided)
   programaId: z.string().uuid(),
+  /**
+   * When provided, the intervention is appended to this existing hoja.
+   * entityId is ignored in this case.
+   */
+  existingHojaId: z.string().uuid().optional(),
   fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   tipoSlug: z.string().min(1),
   descripcion: z.string().min(1).max(2000),

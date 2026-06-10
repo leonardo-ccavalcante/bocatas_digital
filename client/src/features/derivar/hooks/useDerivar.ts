@@ -53,11 +53,13 @@ export function useTipos(): { data: TipoIntervencion[]; isLoading: boolean } {
 export function useAddIntervention() {
   const utils = trpc.useUtils();
   return trpc.derivar.addIntervention.useMutation({
-    onSuccess: () => {
+    onSuccess: (data) => {
       // Refresh the derivar list so a newly added intervention/hoja appears
-      // without a manual reload. (CM-7 compliance invalidation is added when
-      // that metric ships.)
+      // without a manual reload.
       void utils.derivar.list.invalidate();
+      // Also refresh the specific hoja so the drawer shows the new intervention
+      // immediately (important for the "append to same document" flow).
+      void utils.derivar.getHoja.invalidate({ hojaId: data.hojaId });
     },
   });
 }

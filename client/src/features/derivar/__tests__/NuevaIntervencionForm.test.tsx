@@ -47,12 +47,14 @@ const { mockStartUseQuery, mockAddMutation, mockInstSearchUseQuery } =
 
 vi.mock("@/lib/trpc", () => ({
   trpc: {
-    useUtils: () => ({ derivar: { list: { invalidate: vi.fn() } } }),
+    useUtils: () => ({ derivar: { list: { invalidate: vi.fn() }, getHoja: { invalidate: vi.fn() } } }),
     derivar: {
       startIntervention: { useQuery: mockStartUseQuery },
       addIntervention: {
         useMutation: mockAddMutation,
       },
+      // getHoja is used in append mode (existingHojaId provided)
+      getHoja: { useQuery: vi.fn(() => ({ data: undefined, isLoading: false })) },
     },
     instituciones: {
       search: { useQuery: mockInstSearchUseQuery },

@@ -345,3 +345,99 @@ describe("derivar.addIntervention — concurrent hoja create race", () => {
     expect(result.intervencionId).toBe(TEST_INTERV_ID);
   });
 });
+
+// ─── 5. existingHojaId — append to existing hoja ──────────────────────────────
+
+const TEST_EXISTING_HOJA_ID = "ffffffff-ffff-4fff-8fff-ffffffffffff";
+
+describe("derivar.addIntervention — existingHojaId (append to existing hoja)", () => {
+  it("accepts existingHojaId with empty entityId in schema", () => {
+    const r = InterventionInsertSchema.safeParse({
+      scope: "persona",
+      entityId: "", // empty string allowed when existingHojaId is provided
+      programaId: TEST_PROGRAMA_ID,
+      existingHojaId: TEST_EXISTING_HOJA_ID,
+      fecha: "2026-06-10",
+      tipoSlug: "salud",
+      descripcion: "Intervención adicional",
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it("skips hoja find/create when existingHojaId is provided", async () => {
+    // Only 2 from() calls expected: hojas(verify) + intervenciones(insert)
+    fromMock
+      // 1. Verify existing hoja — found and active
+      .mockReturnValueOnce({
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: { id: TEST_EXISTING_HOJA_ID, estado: "activa" },
+          error: null,
+        }),
+      })
+      // 2. Insert intervention
+      .mockReturnValueOnce(singleInsertChain({ id: TEST_INTERV_ID }));
+
+    const caller = intervencionesRouter.createCaller(ctxWithRole("admin"));
+    const result = await caller.addIntervention({
+      scope: "persona",
+      entityId: "",
+      programaId: TEST_PROGRAMA_ID,
+      existingHojaId: TEST_EXISTING_HOJA_ID,
+      fecha: "2026-06-10",
+      tipoSlug: "salud",
+      descripcion: "Intervención adicional al mismo documento",
+    });
+
+    expect(result.hojaId).toBe(TEST_EXISTING_HOJA_ID);
+    expect(result.intervencionId).toBe(TEST_INTERV_ID);
+    // Only 2 from() calls (no entity search, no hoja create)
+    expect(fromMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("throws NOT_FOUND when existingHojaId does not exist", async () => {
+    fromMock.mockReturnValueOnce({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+    });
+
+    const caller = intervencionesRouter.createCaller(ctxWithRole("admin"));
+    await expect(
+      caller.addIntervention({
+        scope: "persona",
+        entityId: "",
+        programaId: TEST_PROGRAMA_ID,
+        existingHojaId: TEST_EXISTING_HOJA_ID,
+        fecha: "2026-06-10",
+        tipoSlug: "salud",
+        descripcion: "Test",
+      }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  it("throws BAD_REQUEST when existingHojaId points to a closed hoja", async () => {
+    fromMock.mockReturnValueOnce({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: { id: TEST_EXISTING_HOJA_ID, estado: "cerrada" },
+        error: null,
+      }),
+    });
+
+    const caller = intervencionesRouter.createCaller(ctxWithRole("admin"));
+    await expect(
+      caller.addIntervention({
+        scope: "persona",
+        entityId: "",
+        programaId: TEST_PROGRAMA_ID,
+        existingHojaId: TEST_EXISTING_HOJA_ID,
+        fecha: "2026-06-10",
+        tipoSlug: "salud",
+        descripcion: "Test",
+      }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
+});

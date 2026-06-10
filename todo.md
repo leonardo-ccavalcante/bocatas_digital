@@ -198,3 +198,41 @@
   - Cierra modal al click "Cerrar"
 - [x] Actualizar mock en HojaDrawer.test.tsx para incluir listTemplates y uploadTemplate
 - [x] Suite completa: 2828 tests pasan, 0 fallos, TypeScript 0 errores
+
+## Batch 20: Fix críticos módulo Derivar (sesión 2026-06-10)
+- [ ] DB: ALTER derivacion_intervenciones ADD excluded_at, excluded_by
+- [ ] DB: ALTER derivacion_hojas ADD firmado_url, firmado_at
+- [ ] DB: INSERT app_settings derivar_active_template + derivar_secondary_logo_key
+- [ ] DB: Crear bucket derivaciones-firmadas
+- [ ] Fix docxRender.ts: leer template activo desde app_settings (no hardcoded)
+- [ ] Fix pdfFromDocxPureNode.ts: RGPD en misma página, lineBreak:true en celdas
+- [ ] Fix preview modal: Blob URL para PDF (no data: URI), mensaje informativo para DOCX
+- [ ] Fix flujo Añadir Intervención: dialog confirmación "mismo doc vs nuevo doc" + skip Step 1
+- [ ] Fix márgenes UI: p-4→p-6 en DerivarTab, p-2→p-3 en items intervención
+- [ ] Nuevo procedimiento: setActiveTemplate (pdfGenRouter)
+- [ ] Nuevo procedimiento: uploadSecondaryLogo (pdfGenRouter)
+- [ ] Nuevo procedimiento: uploadSignedHoja (pdfGenRouter)
+- [ ] Nuevo procedimiento: excludeIntervention (intervencionesRouter) con logAudit
+- [ ] Fix getHoja: filtrar excluded_at IS NULL por defecto
+- [ ] UI: botón "Usar esta plantilla" en modal de plantillas
+- [ ] UI: sección "Logo secundario" en modal de plantillas
+- [ ] UI: botón "Subir hoja firmada" habilitado con file input PDF
+- [ ] UI: botón "Excluir" en cada fila de intervención con confirmación + motivo
+- [ ] TDD: tests para setActiveTemplate, uploadSecondaryLogo, uploadSignedHoja, excludeIntervention
+- [ ] Suite completa: 0 fallos, TypeScript 0 errores
+- [ ] QA product review completo
+
+## Batch 20: Fixes críticos módulo Derivar
+- [x] Fix preview PDF: reemplazar iframe (bloqueado por Chrome CSP) por <object> con blob URL
+- [x] Fix preview DOCX: usa previewPdf + descarga DOCX separada (no hay preview nativo DOCX en browser)
+- [x] Fix formato DOCX: injectLogos XML parsing corregido (regex <w:r[^>]*> en lugar de <w:r>)
+- [x] Fix formato PDF: line breaks habilitados, row height dinámico, márgenes correctos
+- [x] Fix flujo "Añadir Intervención": dialog mismo/nuevo documento + append a hoja existente con existingHojaId
+- [x] Fix NuevaIntervencionForm: modo append usa getHoja en lugar de startIntervention (evita skeleton infinito)
+- [x] Activar plantilla: botón "Usar esta" en modal de plantillas llama activateTemplate tRPC
+- [x] Logo secundario: sección en modal para subir PNG/JPG, se usa en generación DOCX/PDF
+- [x] Subir hoja firmada: modal con file input, sube a S3, actualiza firmado_url en DB
+- [x] Excluir intervención: botón Trash2 en cada fila, dialog con campo reason, audit log en DB
+- [x] Márgenes UI: px-6 py-6 en SheetContent, bg-muted/40 en header info, spacing consistente
+- [x] DB migration: excluded_at/excluded_by/excluded_reason en derivacion_intervenciones; firmado_url/firmado_at en derivacion_hojas
+- [x] Tests TDD: 2837 tests pasan, 0 fallos, TypeScript 0 errores
