@@ -38,14 +38,14 @@ export function RepartoList({ programId, onSelect }: Props) {
     <>
       <ul className="space-y-2">
         {data.map((r) => (
-          <li key={r.id} className="flex items-center justify-between rounded-lg border p-3">
-            <div>
-              <p className="text-sm font-medium">{r.nombre}</p>
+          <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium">{r.nombre}</p>
               <p className="text-xs text-muted-foreground">
                 {r.fecha_inicio} · {r.dias_reparto} día{r.dias_reparto === 1 ? "" : "s"}
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex shrink-0 items-center gap-2">
               <Badge variant={ESTADO_VARIANT[r.estado] ?? "secondary"}>{r.estado}</Badge>
               <Button variant="ghost" size="sm" onClick={() => onSelect(r.id)}>
                 Abrir

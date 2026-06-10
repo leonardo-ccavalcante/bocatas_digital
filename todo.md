@@ -243,3 +243,18 @@
 - [x] Bug 2: Fix "Programa de referencia" wrapping onto next line in PDF (use explicit X coords)
 - [x] TDD: docxRender.xmlStructure.test.ts (4 tests - wp:inline balance, ordering, Content_Types, XML validity)
 - [x] TDD: pdfInfoRows.layout.test.ts (5 tests - no throw, long values, empty values, determinism)
+
+## Batch 22: Map z-index + Mobile Responsiveness
+- [ ] Bug 1: MapaChoropleth container needs isolation:isolate to contain Leaflet z-index layers
+- [ ] Bug 2a: TabsList needs overflow-x-auto + w-full for mobile tab strip scrolling
+- [ ] Bug 2b: FamiliasList table needs min-w-[640px] for horizontal scroll on mobile
+- [ ] Bug 2c: RepartoList rows need flex-wrap + min-w-0 for mobile layout
+- [ ] TDD: tests for map isolation and responsive tab strip
+
+## Batch 22: Map z-index + Responsive tables
+- [x] Fix Bug 1: MapaChoropleth wraps MapContainer in isolation:isolate div to prevent Leaflet z-index escaping stacking context
+- [x] Fix Bug 2a: TabsList gets overflow-x-auto + max-w-full for horizontal scroll on mobile
+- [x] Fix Bug 2b: FamiliasList table gets min-w-[640px] + overflow-x-auto wrapper for mobile scroll
+- [x] Fix Bug 2c: RepartoList rows get flex-wrap + min-w-0 for responsive layout
+- [x] TDD: 5 new tests (MapaChoropleth.isolation + FamiliasList.responsive) — all GREEN
+- [x] Full suite: 2851 tests pass, 0 failures, TypeScript 0 errors
