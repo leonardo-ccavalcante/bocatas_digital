@@ -200,27 +200,27 @@
 - [x] Suite completa: 2828 tests pasan, 0 fallos, TypeScript 0 errores
 
 ## Batch 20: Fix críticos módulo Derivar (sesión 2026-06-10)
-- [ ] DB: ALTER derivacion_intervenciones ADD excluded_at, excluded_by
-- [ ] DB: ALTER derivacion_hojas ADD firmado_url, firmado_at
-- [ ] DB: INSERT app_settings derivar_active_template + derivar_secondary_logo_key
-- [ ] DB: Crear bucket derivaciones-firmadas
-- [ ] Fix docxRender.ts: leer template activo desde app_settings (no hardcoded)
-- [ ] Fix pdfFromDocxPureNode.ts: RGPD en misma página, lineBreak:true en celdas
-- [ ] Fix preview modal: Blob URL para PDF (no data: URI), mensaje informativo para DOCX
-- [ ] Fix flujo Añadir Intervención: dialog confirmación "mismo doc vs nuevo doc" + skip Step 1
-- [ ] Fix márgenes UI: p-4→p-6 en DerivarTab, p-2→p-3 en items intervención
-- [ ] Nuevo procedimiento: setActiveTemplate (pdfGenRouter)
-- [ ] Nuevo procedimiento: uploadSecondaryLogo (pdfGenRouter)
-- [ ] Nuevo procedimiento: uploadSignedHoja (pdfGenRouter)
-- [ ] Nuevo procedimiento: excludeIntervention (intervencionesRouter) con logAudit
-- [ ] Fix getHoja: filtrar excluded_at IS NULL por defecto
-- [ ] UI: botón "Usar esta plantilla" en modal de plantillas
-- [ ] UI: sección "Logo secundario" en modal de plantillas
-- [ ] UI: botón "Subir hoja firmada" habilitado con file input PDF
-- [ ] UI: botón "Excluir" en cada fila de intervención con confirmación + motivo
-- [ ] TDD: tests para setActiveTemplate, uploadSecondaryLogo, uploadSignedHoja, excludeIntervention
-- [ ] Suite completa: 0 fallos, TypeScript 0 errores
-- [ ] QA product review completo
+- [x] DB: ALTER derivacion_intervenciones ADD excluded_at, excluded_by
+- [x] DB: ALTER derivacion_hojas ADD firmado_url, firmado_at
+- [x] DB: INSERT app_settings derivar_active_template + derivar_secondary_logo_key
+- [x] DB: Crear bucket derivaciones-firmadas
+- [x] Fix docxRender.ts: leer template activo desde app_settings (no hardcoded)
+- [x] Fix pdfFromDocxPureNode.ts: RGPD en misma página, lineBreak:true en celdas
+- [x] Fix preview modal: Blob URL para PDF (no data: URI), mensaje informativo para DOCX
+- [x] Fix flujo Añadir Intervención: dialog confirmación "mismo doc vs nuevo doc" + skip Step 1
+- [x] Fix márgenes UI: p-4→p-6 en DerivarTab, p-2→p-3 en items intervención
+- [x] Nuevo procedimiento: setActiveTemplate (pdfGenRouter)
+- [x] Nuevo procedimiento: uploadSecondaryLogo (pdfGenRouter)
+- [x] Nuevo procedimiento: uploadSignedHoja (pdfGenRouter)
+- [x] Nuevo procedimiento: excludeIntervention (intervencionesRouter) con logAudit
+- [x] Fix getHoja: filtrar excluded_at IS NULL por defecto
+- [x] UI: botón "Usar esta plantilla" en modal de plantillas
+- [x] UI: sección "Logo secundario" en modal de plantillas
+- [x] UI: botón "Subir hoja firmada" habilitado con file input PDF
+- [x] UI: botón "Excluir" en cada fila de intervención con confirmación + motivo
+- [x] TDD: tests para setActiveTemplate, uploadSecondaryLogo, uploadSignedHoja, excludeIntervention
+- [x] Suite completa: 0 fallos, TypeScript 0 errores
+- [x] QA product review completo
 
 ## Batch 20: Fixes críticos módulo Derivar
 - [x] Fix preview PDF: reemplazar iframe (bloqueado por Chrome CSP) por <object> con blob URL
