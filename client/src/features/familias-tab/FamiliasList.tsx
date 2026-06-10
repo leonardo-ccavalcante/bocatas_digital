@@ -96,7 +96,7 @@ export function FamiliasList({ onRowClick }: FamiliasListProps) {
       ) : (
         <div className="bocatas-card overflow-hidden rounded-2xl p-0">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm" aria-label="Lista de familias">
+            <table className="w-full min-w-[640px] text-sm" aria-label="Lista de familias">
               <thead className="bg-muted/60 text-eyebrow text-muted-foreground">
                 <tr>
                   <th className="w-10 px-2 py-3" aria-label="Expandir"></th>

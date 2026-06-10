@@ -312,8 +312,10 @@ export function MapaChoropleth({
       {!hasFeatures ? (
         <MapaEmptyState />
       ) : (
-        // Cole Nussbaumer: no OSM basemap — the choropleth IS the data.
-        // A plain white/light-gray background keeps focus on the polygons.
+        // isolation-isolate creates a new stacking context so Leaflet's internal
+        // z-index layers (400-600) cannot escape and cover the Sheet side panel.
+        // The Sheet portal (z-50) will always render above this isolated context.
+        <div className="isolate">
         <MapContainer
           center={MADRID_CENTER}
           zoom={MADRID_ZOOM}
@@ -335,6 +337,7 @@ export function MapaChoropleth({
             onEachFeature={onEachFeature as (feature: Feature, layer: Layer) => void}
           />
         </MapContainer>
+        </div>
       )}
 
       {/* Legend — always rendered when map is visible */}
