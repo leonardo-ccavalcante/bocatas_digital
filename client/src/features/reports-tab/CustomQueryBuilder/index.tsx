@@ -210,6 +210,7 @@ export function CustomQueryBuilder({ initialSpec }: CustomQueryBuilderProps) {
         isLoading={executeQuery.isLoading}
         error={executeQuery.error}
         filename={`bocatas_${entity}_consulta.csv`}
+        suppressedCount={executeQuery.data?.suppressedCount ?? 0}
       />
     </div>
   );

@@ -117,8 +117,16 @@ export function useCheckin() {
       return;
     }
 
+    // Pass the raw QR string when it came from a QR scan so the server
+    // can verify the HMAC signature. Manual-search and demo paths omit
+    // qrValue: demo QR payloads are unsigned seed values, and manual
+    // search never produces a signed QR string.
+    const qrValue =
+      !isDemoMode && state.context.rawQrValue
+        ? state.context.rawQrValue
+        : undefined;
     verifyMutation.mutate(
-      { personId, locationId, programa, metodo, isDemoMode },
+      { personId, locationId, programa, metodo, isDemoMode, qrValue },
       {
         onSuccess: (result) => {
           if (!isDemoMode) {

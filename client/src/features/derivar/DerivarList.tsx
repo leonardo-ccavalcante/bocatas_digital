@@ -9,6 +9,7 @@
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { resolveTipoNombre } from "./hooks/useDerivar";
 
 interface DerivarListProps {
   programaId: string;
@@ -117,7 +118,7 @@ export function DerivarList({ programaId, onRowClick }: DerivarListProps) {
                   <td className="p-2">
                     {familiaNum ? `#${familiaNum}` : "—"}
                   </td>
-                  <td className="p-2">{row.tipo_slug}</td>
+                  <td className="p-2">{resolveTipoNombre(row.tipo_slug)}</td>
                   <td className="p-2">{instNombre ?? "—"}</td>
                   <td className="p-2">
                     {row.fecha

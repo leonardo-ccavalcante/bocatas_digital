@@ -39,6 +39,7 @@ vi.mock("@/lib/trpc", () => ({
 
 // Import AFTER mocks are registered.
 import { DerivarList } from "../DerivarList";
+import { STATIC_TIPOS } from "../hooks/useDerivar";
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 const sampleRows = [
@@ -107,15 +108,15 @@ describe("DerivarList contract", () => {
 
     render(<DerivarList programaId="prog-1" onRowClick={noop} />);
 
-    // Persona row
+    // Persona row — tipo renders as human label, not raw slug
     expect(screen.getByText("Ana García López")).toBeInTheDocument();
-    expect(screen.getByText("salud")).toBeInTheDocument();
+    expect(screen.getByText("Salud")).toBeInTheDocument();
     expect(screen.getByText("Cruz Roja Madrid")).toBeInTheDocument();
 
-    // Familia row
+    // Familia row — tipo renders as human label, not raw slug
     expect(screen.getByText("Bilal Mansour")).toBeInTheDocument();
     expect(screen.getByText("#42")).toBeInTheDocument();
-    expect(screen.getByText("vivienda")).toBeInTheDocument();
+    expect(screen.getByText("Vivienda")).toBeInTheDocument();
   });
 
   // 4 ──────────────────────────────────────────────────────────────────────────
@@ -174,6 +175,52 @@ describe("DerivarList contract", () => {
   });
 
   // 8 ──────────────────────────────────────────────────────────────────────────
+  it("renders human-readable tipo nombre instead of raw slug", () => {
+    mockListUseQuery.mockReturnValue({ data: sampleRows, isLoading: false });
+
+    render(<DerivarList programaId="prog-1" onRowClick={noop} />);
+
+    // "salud" slug must render as its label, not the raw slug
+    const saludTipo = STATIC_TIPOS.find((t) => t.slug === "salud");
+    expect(saludTipo).toBeDefined();
+    expect(screen.getByText(saludTipo!.nombre)).toBeInTheDocument();
+
+    // "vivienda" slug must also render as its label
+    const viviendaTipo = STATIC_TIPOS.find((t) => t.slug === "vivienda");
+    expect(viviendaTipo).toBeDefined();
+    expect(screen.getByText(viviendaTipo!.nombre)).toBeInTheDocument();
+
+    // Raw slugs must NOT appear in the table body
+    // (the text "salud" is the label for slug "salud" so we can only assert
+    // that at least the label is used; raw-slug assertion is covered by the
+    // label being a distinct string for slugs like "apoyo_logistico")
+  });
+
+  // 9 ──────────────────────────────────────────────────────────────────────────
+  it("falls back to raw slug when slug is not in STATIC_TIPOS", () => {
+    const rowsWithUnknown = [
+      {
+        id: "iv-99",
+        tipo_slug: "unknown_future_type",
+        fecha: "2026-06-01",
+        institucion_snapshot: null,
+        hoja: {
+          id: "hoja-99",
+          scope: "persona",
+          persona: { nombre: "Test", apellidos: "User" },
+          familia: null,
+        },
+      },
+    ];
+    mockListUseQuery.mockReturnValue({ data: rowsWithUnknown, isLoading: false });
+
+    render(<DerivarList programaId="prog-1" onRowClick={noop} />);
+
+    // Unknown slug renders as-is (graceful degradation)
+    expect(screen.getByText("unknown_future_type")).toBeInTheDocument();
+  });
+
+  // 10 ─────────────────────────────────────────────────────────────────────────
   it("passes programaId to the tRPC query", () => {
     mockListUseQuery.mockReturnValue({ data: [], isLoading: false });
 

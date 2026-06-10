@@ -218,6 +218,9 @@ export function HojaDrawer({
     },
   });
 
+  const generateDocxMutation = trpc.derivar.generateDocx.useMutation();
+  const generatePdfMutation = trpc.derivar.generatePdf.useMutation();
+
   const uploadSignedHojaMutation = trpc.derivar.uploadSignedHoja.useMutation({
     onSuccess: () => {
       toast.success("Hoja firmada subida correctamente.");
@@ -282,8 +285,8 @@ export function HojaDrawer({
     try {
       const out =
         kind === "docx"
-          ? await trpcCtx.derivar.generateDocx.fetch({ hojaId })
-          : await trpcCtx.derivar.generatePdf.fetch({ hojaId });
+          ? await generateDocxMutation.mutateAsync({ hojaId })
+          : await generatePdfMutation.mutateAsync({ hojaId });
       downloadBase64(out.contentBase64, out.filename, out.mime);
     } catch (e) {
       toast.error(

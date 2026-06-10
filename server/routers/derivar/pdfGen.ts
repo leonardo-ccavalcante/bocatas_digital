@@ -177,7 +177,7 @@ export const pdfGenRouter = router({
   /** Render the hoja as a DOCX buffer with Bocatas logo, return base64. */
   generateDocx: adminProcedure
     .input(z.object({ hojaId: z.string().uuid() }))
-    .query(async ({ input }) => {
+    .mutation(async ({ input }) => {
       const data = await buildTemplateData(input.hojaId);
       const bocatasLogo = loadBocatasLogo();
       const secondaryLogo = await loadSecondaryLogo();
@@ -195,7 +195,7 @@ export const pdfGenRouter = router({
   /** Render the hoja as a PDF buffer with visual layout, return base64. */
   generatePdf: adminProcedure
     .input(z.object({ hojaId: z.string().uuid() }))
-    .query(async ({ input }) => {
+    .mutation(async ({ input }) => {
       const data = await buildTemplateData(input.hojaId);
       const bocatasLogo = loadBocatasLogo();
       const secondaryLogo = await loadSecondaryLogo();

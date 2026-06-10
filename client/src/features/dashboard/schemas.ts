@@ -10,6 +10,7 @@ export const KPIStatsSchema = z.object({
   count: z.number(),
   period: PeriodSchema,
   locationId: z.string(),
+  programa: z.string().optional().default("all"),
 });
 export type KPIStats = z.infer<typeof KPIStatsSchema>;
 

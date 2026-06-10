@@ -244,6 +244,13 @@
   .tabular-stat { font-variant-numeric: tabular-nums; }
 }
 
+/* ─── Leaflet map background override ───────────────────────────────────────
+   Leaflet's default .leaflet-container background is #dde (blue-green).
+   Override to match the app's light neutral background. */
+.leaflet-container {
+  background: #f8fafc;
+}
+
 /* ─── QR Scanner viewfinder animation ───────────────────────────────────────
    Mirrors the prototype's scanline keyframe (checkin.jsx line 177).
    Uses alternate so it sweeps top→bottom, then bottom→top continuously.    */

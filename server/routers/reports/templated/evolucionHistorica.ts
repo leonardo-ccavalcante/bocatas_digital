@@ -12,7 +12,7 @@
 import { z } from "zod";
 import { router, adminProcedure } from "../../../_core/trpc";
 import { createAdminClient } from "../../../../client/src/lib/supabase/server";
-import { withSoftDeleteFilter, wrapDbError } from "../_shared";
+import { withSoftDeleteFilter, wrapDbError, logAuditReport } from "../_shared";
 
 const InputSchema = z
   .object({
@@ -23,7 +23,7 @@ const InputSchema = z
 export const evolucionHistoricaRouter = router({
   evolucionHistorica: adminProcedure
     .input(InputSchema)
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       const db = createAdminClient();
       const numMonths = input?.months ?? 12;
 
@@ -62,6 +62,10 @@ export const evolucionHistoricaRouter = router({
       const months = Array.from(buckets.entries())
         .map(([bucket, count]) => ({ bucket, count }))
         .sort((a, b) => a.bucket.localeCompare(b.bucket));
+
+      logAuditReport(ctx, "reports.evolucionHistorica", months.length, {
+        months: numMonths,
+      });
 
       return { months };
     }),
