@@ -255,7 +255,8 @@ function createImageElement(
 ): string {
   const rId = `rId${imageId + 100}`; // Avoid conflicts with existing rIds
   // Return just the drawing element (will be wrapped in <w:r> by caller)
-  return `<w:rPr><w:sz w:val="2"/></w:rPr><w:drawing><wp:inline distT="0" distB="0" distL="114300" distR="114300"><wp:extent cx="${widthEmu}" cy="${heightEmu}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${imageId}" name="Image ${imageId}"/><wp:cNvGraphicFramePr/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${imageId}" name="image${imageId}.png"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${rId}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${widthEmu}" cy="${heightEmu}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></w:drawing>`;
+  // FIX Bug 1: </wp:inline> must appear BEFORE </w:drawing> (was missing)
+  return `<w:rPr><w:sz w:val="2"/></w:rPr><w:drawing><wp:inline distT="0" distB="0" distL="114300" distR="114300"><wp:extent cx="${widthEmu}" cy="${heightEmu}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${imageId}" name="Image ${imageId}"/><wp:cNvGraphicFramePr/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${imageId}" name="image${imageId}.png"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${rId}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${widthEmu}" cy="${heightEmu}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing>`;
 }
 
 /**
@@ -298,7 +299,16 @@ function updateContentTypes(
       '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"></Types>';
   }
 
-  // Add image override entries
+  // FIX Bug 1b: Ensure <Default Extension="png"> is declared at the top level.
+  // Without this, Word/LibreOffice cannot resolve PNG images embedded in the DOCX.
+  if (!ctXml.includes('Extension="png"')) {
+    ctXml = ctXml.replace(
+      "</Types>",
+      `<Default Extension="png" ContentType="image/png"/></Types>`,
+    );
+  }
+
+  // Add image override entries (per-file Override for precise content type)
   for (const img of imageRels) {
     if (!ctXml.includes(`PartName="word/media/${img.filename}"`)) {
       const overrideXml = `<Override PartName="word/media/${img.filename}" ContentType="${img.type}"/>`;

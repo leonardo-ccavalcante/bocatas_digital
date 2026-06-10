@@ -178,7 +178,18 @@ export async function renderDerivarHojaPdf(
     y += 13;
 
     // ── Patient info fields ───────────────────────────────────────────────────
-    const LABEL_W = 170;
+    // FIX Bug 2: Use explicit X coordinate for the value instead of `continued: true`.
+    // pdfkit's `continued: true` + `width: LABEL_W` does NOT guarantee the cursor
+    // stays on the same Y line when the label text approaches LABEL_W. For example,
+    // "Programa de referencia:" at 8.5pt is ~155pt wide — close enough to LABEL_W=170
+    // that rounding causes pdfkit to wrap the value to the next line.
+    //
+    // The correct approach: draw label at (MARGIN_H, y), then draw value at
+    // (MARGIN_H + LABEL_W, y) with an explicit y coordinate. This is fully
+    // deterministic and immune to label width variations.
+    const LABEL_W = 160; // Reduced slightly to give breathing room
+    const VALUE_X = MARGIN_H + LABEL_W;
+    const VALUE_W = CONTENT_WIDTH - LABEL_W;
     const infoRows: [string, string][] = [
       ["Nombre y apellidos:", data.nombre],
       ["Nº Unidad familiar:", data.numUnidadFamiliar],
@@ -188,16 +199,18 @@ export async function renderDerivarHojaPdf(
     ];
 
     for (const [label, value] of infoRows) {
+      // Draw label at fixed position — no `continued` to avoid cursor drift
       doc
         .font("Helvetica-Bold")
         .fontSize(8.5)
         .fillColor(COLOR_DARK)
-        .text(label, MARGIN_H, y, { continued: true, width: LABEL_W });
+        .text(label, MARGIN_H, y, { width: LABEL_W, lineBreak: false });
+      // Draw value at explicit X — guaranteed to be on the same line
       doc
         .font("Helvetica")
         .fontSize(8.5)
         .fillColor(COLOR_DARK)
-        .text(` ${value}`, { width: CONTENT_WIDTH - LABEL_W });
+        .text(value ?? "", VALUE_X, y, { width: VALUE_W, lineBreak: false });
       y += 13;
     }
 
