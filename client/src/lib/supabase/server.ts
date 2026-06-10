@@ -50,7 +50,10 @@ export function createServerClient(authorizationHeader?: string) {
  * In tRPC procedures, access via process.env.SUPABASE_SERVICE_ROLE_KEY.
  */
 export function createAdminClient() {
-  const supabaseUrl = process.env.VITE_SUPABASE_URL ?? "";
+  // IMPORTANT: Use SUPABASE_URL (not VITE_SUPABASE_URL) — VITE_ vars are only
+  // injected into the browser bundle by Vite; they are undefined in Node.js.
+  // Fallback to VITE_SUPABASE_URL for environments that only expose the Vite-prefixed form.
+  const supabaseUrl = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? "";
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
 
   if (!serviceRoleKey) {
@@ -89,8 +92,11 @@ export async function createUserImpersonationClient(
   actorId: string,
   role: string
 ) {
-  const supabaseUrl = process.env.VITE_SUPABASE_URL ?? "";
-  const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY ?? "";
+  // IMPORTANT: Use SUPABASE_URL / SUPABASE_ANON_KEY (not VITE_* variants) —
+  // VITE_ vars are only injected into the browser bundle; they are undefined in Node.js.
+  // Fallback to VITE_* for environments that only expose the Vite-prefixed form.
+  const supabaseUrl = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? "";
+  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY ?? "";
   const jwtSecret = process.env.SUPABASE_JWT_SECRET ?? "";
 
   if (!jwtSecret) {

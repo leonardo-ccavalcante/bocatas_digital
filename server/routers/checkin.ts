@@ -8,8 +8,10 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { createAdminClient } from "../../client/src/lib/supabase/server";
-import { protectedProcedure, router } from "../_core/trpc";
+import { voluntarioProcedure, router } from "../_core/trpc";
 import { logProcedureAction, logProcedureError } from "../_core/logging-middleware";
+import { ENV } from "../_core/env";
+import { parseQrPayload, verifySig } from "../../shared/qr/payload";
 
 // UUID-like validator that accepts any 8-4-4-4-12 hex string (including synthetic seed IDs)
 const uuidLike = z.string().regex(
@@ -38,7 +40,7 @@ export const checkinRouter = router({
    *   { status: 'duplicate', lastCheckinTime: string }
    *   { status: 'not_found' }
    */
-  verifyAndInsert: protectedProcedure
+  verifyAndInsert: voluntarioProcedure
     .input(
       z.object({
         personId: uuidLike,
@@ -47,9 +49,53 @@ export const checkinRouter = router({
         metodo: MetodoEnum.default("qr_scan"),
         isDemoMode: z.boolean().default(false),
         clientId: uuidLike.optional(), // for idempotent offline sync
+        /**
+         * Raw scanned QR string (e.g. "bocatas://person/<uuid>?sig=<hmac8>").
+         * When present, the server VERIFIES the HMAC signature before
+         * processing. Absent → manual-search / anonymous / demo path (no sig
+         * required — those flows never produce a signed payload).
+         */
+        qrValue: z.string().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
+      // ── QR signature verification (when a raw QR string is supplied) ──────
+      // This activates only when the QR-scan path passes qrValue.
+      // Manual-search, anonymous, and demo paths omit qrValue → bypass.
+      if (input.qrValue !== undefined) {
+        const parsed = parseQrPayload(input.qrValue);
+        if (!parsed) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Formato de QR inválido",
+          });
+        }
+        // Ensure the UUID in the payload matches what the client claims.
+        if (parsed.uuid.toLowerCase() !== input.personId.toLowerCase()) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "El QR no corresponde a la persona indicada",
+          });
+        }
+        const secret = ENV.qrSigningSecret;
+        if (!secret || secret.length < 32) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "QR signing secret not configured",
+          });
+        }
+        const valid = await verifySig(parsed.uuid, parsed.sig, secret);
+        if (!valid) {
+          logProcedureAction(ctx, "Checkin: Invalid QR signature rejected", {
+            personId: input.personId,
+          });
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Firma del QR inválida o adulterada",
+          });
+        }
+      }
+
       const supabase = createAdminClient();
       const startTime = Date.now();
 
@@ -158,7 +204,7 @@ export const checkinRouter = router({
   /**
    * anonymousCheckin — insert attendance with person_id = NULL.
    */
-  anonymousCheckin: protectedProcedure
+  anonymousCheckin: voluntarioProcedure
     .input(
       z.object({
         locationId: uuidLike,
@@ -190,7 +236,7 @@ export const checkinRouter = router({
   /**
    * searchPersons — fuzzy search by nombre/apellidos for manual fallback.
    */
-  searchPersons: protectedProcedure
+  searchPersons: voluntarioProcedure
     .input(
       z.object({
         query: z.string().min(3).max(100),
@@ -222,7 +268,7 @@ export const checkinRouter = router({
   /**
    * getLocations — list active locations.
    */
-  getLocations: protectedProcedure.query(async () => {
+  getLocations: voluntarioProcedure.query(async () => {
     const supabase = createAdminClient();
     const { data, error } = await supabase
       .from("locations")
@@ -241,7 +287,7 @@ export const checkinRouter = router({
   /**
    * getPrograms — list active programs for the program selector.
    */
-  getPrograms: protectedProcedure.query(async () => {
+  getPrograms: voluntarioProcedure.query(async () => {
     const supabase = createAdminClient();
     const { data, error } = await supabase
       .from("programs")
@@ -270,7 +316,7 @@ export const checkinRouter = router({
    * comparing each input's composite key against the rows the DB
    * actually inserted (returned in `data`).
    */
-  syncOfflineQueue: protectedProcedure
+  syncOfflineQueue: voluntarioProcedure
     .input(
       z.array(
         z.object({

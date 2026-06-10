@@ -1,20 +1,21 @@
 /**
- * _TEMPLATE.ts.skeleton — Copy this file when adding a 10th templated report.
+ * _TEMPLATE.ts.skeleton — Copy this file when adding an 11th templated report.
  *
  * Steps:
  *  1. Copy to server/routers/reports/templated/<yourReport>.ts
  *  2. Replace all YOUR_PROC_NAME / YourInputSchema placeholders.
  *  3. Fill in the DB query body. Keep withSoftDeleteFilter + wrapDbError.
- *  4. Import + merge in server/routers/reports/index.ts.
- *  5. Add a shape contract test in server/__tests__/reports/templated-shape.test.ts.
- *  6. Update CODEMAP.md.
+ *  4. Call logAuditReport after the successful DB fetch (RGPD Art. 30).
+ *  5. Import + merge in server/routers/reports/index.ts.
+ *  6. Add a shape contract test in server/__tests__/reports/templated-shape.test.ts.
+ *  7. Update CODEMAP.md.
  */
 
 import { z } from "zod";
-import { TRPCError } from "@trpc/server";
+// Import TRPCError from "@trpc/server" only if you add a custom throw; wrapDbError handles DB errors.
 import { router, adminProcedure } from "../../../_core/trpc";
 import { createAdminClient } from "../../../../client/src/lib/supabase/server";
-import { withSoftDeleteFilter, wrapDbError } from "../_shared";
+import { withSoftDeleteFilter, wrapDbError, logAuditReport } from "../_shared";
 
 const YourInputSchema = z.object({
   // TODO: define inputs
@@ -23,7 +24,7 @@ const YourInputSchema = z.object({
 export const yourReportRouter = router({
   YOUR_PROC_NAME: adminProcedure
     .input(YourInputSchema)
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       const db = createAdminClient();
 
       const { data, error } = await withSoftDeleteFilter(
@@ -37,9 +38,17 @@ export const yourReportRouter = router({
         throw wrapDbError("reports.YOUR_PROC_NAME", error);
       }
 
+      const rows = data ?? [];
+
+      // RGPD Art. 30: audit trail — non-PII params only (year, dates, UUIDs).
+      // NEVER log names, phone numbers, or document values.
+      logAuditReport(ctx, "reports.YOUR_PROC_NAME", rows.length, {
+        // TODO: add non-PII input params, e.g.: year: input.year
+      });
+
       // TODO: transform data into output shape
       return {
-        rows: data ?? [],
+        rows,
         meta: {},
       };
     }),

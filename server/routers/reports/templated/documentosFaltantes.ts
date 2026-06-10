@@ -15,7 +15,7 @@
 import { z } from "zod";
 import { router, adminProcedure } from "../../../_core/trpc";
 import { createAdminClient } from "../../../../client/src/lib/supabase/server";
-import { withSoftDeleteFilter, wrapDbError } from "../_shared";
+import { withSoftDeleteFilter, wrapDbError, logAuditReport } from "../_shared";
 
 const uuidSchema = z
   .string()
@@ -26,7 +26,7 @@ const InputSchema = z.object({ programaId: uuidSchema });
 export const documentosFaltantesRouter = router({
   documentosFaltantes: adminProcedure
     .input(InputSchema)
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       const db = createAdminClient();
 
       // 1. Fetch required document types for this programa.
@@ -100,6 +100,11 @@ export const documentosFaltantesRouter = router({
       }
 
       rows.sort((a, b) => a.familia_numero - b.familia_numero);
+
+      // programaId is a UUID — safe to log (not PII).
+      logAuditReport(ctx, "reports.documentosFaltantes", rows.length, {
+        programaId: input.programaId,
+      });
 
       return { rows };
     }),

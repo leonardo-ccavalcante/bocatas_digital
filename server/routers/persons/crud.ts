@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { createAdminClient } from "../../../client/src/lib/supabase/server";
-import { adminProcedure, protectedProcedure, router } from "../../_core/trpc";
+import { adminProcedure, protectedProcedure, voluntarioProcedure, router } from "../../_core/trpc";
 import { logProcedureAction, logProcedureError } from "../../_core/logging-middleware";
 import { redactHighRiskFields } from "../../_core/rlsRedaction";
 import { PersonCreateInput } from "./_shared";
@@ -67,7 +67,7 @@ export const crudRouter = router({
    * Create a new person record.
    * Uses service role key to bypass RLS (Manus OAuth users have no Supabase JWT).
    */
-  create: protectedProcedure
+  create: voluntarioProcedure
     .input(PersonCreateInput)
     .mutation(async ({ ctx, input }) => {
       const supabase = createAdminClient();
