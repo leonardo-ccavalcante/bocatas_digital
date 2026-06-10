@@ -55,8 +55,12 @@ vi.mock("@/lib/trpc", () => ({
   trpc: {
     derivar: {
       getHoja: { useQuery: mockGetHojaUseQuery },
-      generateDocx: { fetch: vi.fn() },
-      generatePdf: { fetch: vi.fn() },
+      generateDocx: {
+        useMutation: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
+      },
+      generatePdf: {
+        useMutation: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
+      },
       previewPdf: { fetch: mockPreviewPdfFetch },
       listTemplates: {
         useQuery: mockListTemplatesUseQuery,
@@ -79,8 +83,6 @@ vi.mock("@/lib/trpc", () => ({
     },
     useUtils: vi.fn(() => ({
       derivar: {
-        generateDocx: { fetch: vi.fn() },
-        generatePdf: { fetch: vi.fn() },
         previewPdf: { fetch: mockPreviewPdfFetch },
         listTemplates: { invalidate: mockListTemplatesInvalidate },
         getHoja: { invalidate: vi.fn() },

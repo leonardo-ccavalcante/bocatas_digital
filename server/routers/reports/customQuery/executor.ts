@@ -84,6 +84,8 @@ function applyFilter<
 
 type GroupAggRow = { group: string; value: number };
 
+type GroupAggResult = { rows: GroupAggRow[]; suppressedCount: number };
+
 function applyGroupByAggregate(
   rows: Record<string, unknown>[],
   groupBy: string,
@@ -94,7 +96,7 @@ function applyGroupByAggregate(
   // aggregate value — avg/sum over a single record is just as re-identifying
   // as count=1.
   kAnonFloor?: number,
-): GroupAggRow[] {
+): GroupAggResult {
   const groups = new Map<string, Record<string, unknown>[]>();
 
   for (const row of rows) {
@@ -105,9 +107,11 @@ function applyGroupByAggregate(
   }
 
   const out: GroupAggRow[] = [];
+  let suppressedCount = 0;
 
   for (const [group, bucket] of groups) {
     if (kAnonFloor !== undefined && bucket.length < kAnonFloor) {
+      suppressedCount += 1;
       continue; // suppress small groups entirely
     }
 
@@ -141,7 +145,7 @@ function applyGroupByAggregate(
     }
   }
 
-  return out;
+  return { rows: out, suppressedCount };
 }
 
 // ─── Router ──────────────────────────────────────────────────────────────────
@@ -209,16 +213,20 @@ export const customQueryRouter = router({
       // Group + aggregate in JS (plan §10 explicit comment: SQL aggregation is
       // a future TODO; JS-side is fine for limit-capped row sets).
       if (input.groupBy && input.aggregate) {
-        const grouped = applyGroupByAggregate(
+        const { rows: grouped, suppressedCount } = applyGroupByAggregate(
           rawRows,
           input.groupBy,
           input.aggregate,
           input.kAnonymize ? K_ANONYMITY_FLOOR : undefined,
         );
-        return { rows: grouped as unknown[], total: grouped.length };
+        return {
+          rows: grouped as unknown[],
+          total: grouped.length,
+          suppressedCount,
+        };
       }
 
-      return { rows: rawRows as unknown[], total: count ?? rawRows.length };
+      return { rows: rawRows as unknown[], total: count ?? rawRows.length, suppressedCount: 0 };
     }),
 });
 

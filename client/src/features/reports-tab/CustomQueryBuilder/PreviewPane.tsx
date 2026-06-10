@@ -27,6 +27,11 @@ interface PreviewPaneProps {
   // but is not exactly `Error`. Use the wider `unknown` and narrow at render time.
   error: unknown;
   filename?: string;
+  /**
+   * Number of groups suppressed by k-anonymity. When > 0 an amber banner is
+   * shown, matching the wording in IrpfDemograficoModal.
+   */
+  suppressedCount?: number;
 }
 
 const REDACT_FIELDS = [...HIGH_RISK_PII_FIELDS];
@@ -37,6 +42,7 @@ export function PreviewPane({
   isLoading,
   error,
   filename = "bocatas_informe.csv",
+  suppressedCount = 0,
 }: PreviewPaneProps) {
   if (isLoading) {
     return (
@@ -84,6 +90,14 @@ export function PreviewPane({
 
   return (
     <div className="space-y-3">
+      {suppressedCount > 0 && (
+        <div
+          role="alert"
+          className="rounded-md border border-amber-400 bg-amber-50 px-3 py-2 text-xs text-amber-800"
+        >
+          Algunas filas se ocultaron por privacidad (k-anonimato).
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <p className="text-xs text-muted-foreground">
           {rows.length} filas{total !== undefined && total !== rows.length ? ` de ${total}` : ""}

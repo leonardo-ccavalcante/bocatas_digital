@@ -28,14 +28,7 @@ import { createAdminClient } from "../../../client/src/lib/supabase/server";
 import { InterventionInsertSchema } from "../../../shared/derivar/types";
 import { router, adminProcedure } from "../../_core/trpc";
 import { TEMPLATE_BUCKET } from "../../../shared/derivar/templatePlaceholders";
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function resolveProfesionalNombre(user: { id: number; name: string | null }): string {
-  return user.name ?? `Usuario ${String(user.id)}`;
-}
+import { resolveProfesionalNombre } from "./_shared";
 
 // ---------------------------------------------------------------------------
 // Router

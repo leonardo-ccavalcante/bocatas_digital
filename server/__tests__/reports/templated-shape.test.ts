@@ -4,6 +4,7 @@
  * Each test asserts:
  *   1. adminProcedure role guard — voluntario gets FORBIDDEN.
  *   2. Output shape — the procedure returns the documented shape (rows + meta or rows).
+ *   3. (RGPD Art. 30) logAudit is called on every successful execution.
  *
  * All DB calls are mocked via vi.mock (same pattern as mapa-router.test.ts).
  */
@@ -39,6 +40,14 @@ vi.mock("../../routers/families/compliance", async (importOriginal) => {
       createCaller: mod.complianceRouter.createCaller,
     },
   };
+});
+
+// Hoist logAuditSpy so it is initialized before vi.mock factories run
+// (vitest hoists vi.mock calls to the top of the file, before const declarations).
+const { logAuditSpy } = vi.hoisted(() => ({ logAuditSpy: vi.fn() }));
+vi.mock("../../_core/logging-middleware", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("../../_core/logging-middleware")>();
+  return { ...mod, logAudit: logAuditSpy };
 });
 
 // Import templated routers AFTER vi.mock
@@ -105,13 +114,7 @@ function emptyChain() {
 
 beforeEach(() => {
   fromMock.mockReset();
-  rpcMock.mockReset();
-  rpcMock.mockImplementation(async (name: string, args: unknown) => {
-    rpcCalls.push({ name, args });
-    return { data: rpcResults[name] ?? [], error: null };
-  });
-  for (const k of Object.keys(rpcResults)) delete rpcResults[k];
-  rpcCalls.length = 0;
+  logAuditSpy.mockReset();
 });
 
 // ─── 1. familiasAtendidas ────────────────────────────────────────────────
@@ -404,5 +407,53 @@ describe("reports.informeIrpfDemografico", () => {
     await expect(
       caller.informeIrpfDemografico({ year: 2025 }),
     ).rejects.toMatchObject({ code: "INTERNAL_SERVER_ERROR" });
+  });
+});
+
+// ─── 11. RGPD Art. 30 — logAudit called on every templated procedure ─────
+//
+// Verifies that the audit trail (Fix 1) fires for the two most critical
+// procedures: the funder IRPF demographic report (explicitly flagged in the
+// audit-gap report) and familiasAtendidas (representative date-range report).
+// The spy intercepts logAudit at the logging-middleware module boundary, so
+// the test is DB-free and independent of Logger internals.
+
+describe("reports templated — RGPD Art. 30 audit trail (logAudit called on success)", () => {
+  it("informeIrpfDemografico invokes logAudit with the report key and year", async () => {
+    fromMock.mockReturnValueOnce(emptyChain());
+    const caller = informeIrpfDemograficoRouter.createCaller(ctxWithRole("admin"));
+    await caller.informeIrpfDemografico({ year: 2025 });
+
+    expect(logAuditSpy).toHaveBeenCalledOnce();
+    const [_ctx, action, meta] = logAuditSpy.mock.calls[0] as [unknown, string, Record<string, unknown>];
+    expect(action).toBe("reports.informeIrpfDemografico");
+    expect(meta).toMatchObject({ rowCount: 0, params: { year: 2025 } });
+    // Must NOT include PII: names, phone numbers, document numbers
+    expect(JSON.stringify(meta)).not.toMatch(/nombre|telefono|documento/i);
+  });
+
+  it("familiasAtendidas invokes logAudit with the report key and date range", async () => {
+    fromMock.mockReturnValueOnce(emptyChain());
+    const caller = familiasAtendidasRouter.createCaller(ctxWithRole("admin"));
+    await caller.familiasAtendidas({ from: "2024-01-01", to: "2024-12-31" });
+
+    expect(logAuditSpy).toHaveBeenCalledOnce();
+    const [_ctx, action, meta] = logAuditSpy.mock.calls[0] as [unknown, string, Record<string, unknown>];
+    expect(action).toBe("reports.familiasAtendidas");
+    expect(meta).toMatchObject({
+      rowCount: 0,
+      params: { from: "2024-01-01", to: "2024-12-31" },
+    });
+  });
+
+  it("logAudit is NOT called when DB throws (audit only on success)", async () => {
+    const errorChain = {
+      ...emptyChain(),
+      returns: vi.fn().mockResolvedValue({ data: null, error: { message: "db down" } }),
+    };
+    fromMock.mockReturnValueOnce(errorChain);
+    const caller = informeIrpfDemograficoRouter.createCaller(ctxWithRole("admin"));
+    await expect(caller.informeIrpfDemografico({ year: 2025 })).rejects.toThrow();
+    expect(logAuditSpy).not.toHaveBeenCalled();
   });
 });
