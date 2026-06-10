@@ -816,6 +816,8 @@ export type Database = {
           estado: string
           familia_id: string | null
           fecha_apertura: string
+          firmado_at: string | null
+          firmado_url: string | null
           id: string
           persona_id: string | null
           profesional_id: string
@@ -828,6 +830,8 @@ export type Database = {
           estado?: string
           familia_id?: string | null
           fecha_apertura?: string
+          firmado_at?: string | null
+          firmado_url?: string | null
           id?: string
           persona_id?: string | null
           profesional_id: string
@@ -840,6 +844,8 @@ export type Database = {
           estado?: string
           familia_id?: string | null
           fecha_apertura?: string
+          firmado_at?: string | null
+          firmado_url?: string | null
           id?: string
           persona_id?: string | null
           profesional_id?: string
@@ -883,6 +889,9 @@ export type Database = {
           created_at: string
           created_by: string
           descripcion: string
+          excluded_at: string | null
+          excluded_by: string | null
+          excluded_reason: string | null
           fecha: string
           firmado_at: string | null
           firmado_url: string | null
@@ -897,6 +906,9 @@ export type Database = {
           created_at?: string
           created_by: string
           descripcion: string
+          excluded_at?: string | null
+          excluded_by?: string | null
+          excluded_reason?: string | null
           fecha: string
           firmado_at?: string | null
           firmado_url?: string | null
@@ -911,6 +923,9 @@ export type Database = {
           created_at?: string
           created_by?: string
           descripcion?: string
+          excluded_at?: string | null
+          excluded_by?: string | null
+          excluded_reason?: string | null
           fecha?: string
           firmado_at?: string | null
           firmado_url?: string | null

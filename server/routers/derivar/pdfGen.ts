@@ -5,9 +5,14 @@
  *   interventions, calls renderDerivarHojaDocx with Bocatas logo,
  *   returns base64 string.
  *
- * generatePdf: Same, then converts via convertDocxToPdf, returns base64.
+ * generatePdf: Same, then converts via renderDerivarHojaPdf, returns base64.
  *
  * Both procedures are adminProcedure (funder-facing strategic data).
+ *
+ * Batch 20 fixes:
+ * - buildTemplateData now filters excluded_at IS NULL
+ * - Loads secondary logo from app_settings if configured
+ * - previewPdf returns base64 (no iframe — client uses blob URL)
  */
 
 import { readFileSync } from "node:fs";
@@ -19,10 +24,12 @@ import { createAdminClient } from "../../../client/src/lib/supabase/server";
 import {
   renderDerivarHojaDocx,
   DerivarTemplateError,
+  loadSecondaryLogo,
   type DerivarHojaTemplateData,
 } from "../../_core/docxRender";
 import { renderDerivarHojaPdf } from "../../_core/pdfFromDocxPureNode";
 import { router, adminProcedure } from "../../_core/trpc";
+import { TEMPLATE_BUCKET } from "../../../shared/derivar/templatePlaceholders";
 
 /** Maps a missing-template error to a friendly, PII-free BAD_REQUEST. */
 function toFriendlyTemplateError(e: unknown): never {
@@ -114,14 +121,14 @@ async function buildTemplateData(hojaId: string): Promise<DerivarHojaTemplateDat
     .single();
   if (hErr || !hojaRaw) throw new TRPCError({ code: "NOT_FOUND" });
 
-  // Cast through known shape — supabase-js returns joined relations as typed
-  // objects; we annotate rather than assert with `as unknown as`.
   const hoja = hojaRaw as unknown as HojaWithJoins;
 
+  // FIX: Filter out excluded interventions (excluded_at IS NULL)
   const { data: rowsRaw } = await db
     .from("derivacion_intervenciones")
     .select("fecha, tipo_slug, descripcion, institucion_snapshot, observaciones")
     .eq("hoja_id", hojaId)
+    .is("excluded_at", null)
     .order("fecha", { ascending: true });
 
   const rows = (rowsRaw ?? []) as RawIntervencion[];
@@ -173,8 +180,10 @@ export const pdfGenRouter = router({
     .query(async ({ input }) => {
       const data = await buildTemplateData(input.hojaId);
       const bocatasLogo = loadBocatasLogo();
+      const secondaryLogo = await loadSecondaryLogo();
       const buf = await renderDerivarHojaDocx(data, {
         bocatasLogo: bocatasLogo.length > 0 ? bocatasLogo : undefined,
+        secondaryLogo,
       }).catch(toFriendlyTemplateError);
       return {
         contentBase64: buf.toString("base64"),
@@ -189,8 +198,10 @@ export const pdfGenRouter = router({
     .query(async ({ input }) => {
       const data = await buildTemplateData(input.hojaId);
       const bocatasLogo = loadBocatasLogo();
+      const secondaryLogo = await loadSecondaryLogo();
       const pdfBuf = await renderDerivarHojaPdf(data, {
         bocatasLogo: bocatasLogo.length > 0 ? bocatasLogo : undefined,
+        secondaryLogo,
       });
       return {
         contentBase64: pdfBuf.toString("base64"),
@@ -199,14 +210,16 @@ export const pdfGenRouter = router({
       };
     }),
 
-  /** Generate a PDF preview (same as generatePdf but named for modal use). */
+  /** Generate a PDF preview — returns base64 (client renders via blob URL). */
   previewPdf: adminProcedure
     .input(z.object({ hojaId: z.string().uuid() }))
     .query(async ({ input }) => {
       const data = await buildTemplateData(input.hojaId);
       const bocatasLogo = loadBocatasLogo();
+      const secondaryLogo = await loadSecondaryLogo();
       const pdfBuf = await renderDerivarHojaPdf(data, {
         bocatasLogo: bocatasLogo.length > 0 ? bocatasLogo : undefined,
+        secondaryLogo,
       });
       return {
         contentBase64: pdfBuf.toString("base64"),
@@ -217,22 +230,17 @@ export const pdfGenRouter = router({
   /**
    * Upload a custom DOCX template to Supabase Storage.
    * Receives a base64-encoded DOCX file and stores it under a versioned name.
-   * Returns the new filename so the caller can update TEMPLATE_FILENAME_DOCX.
+   * Returns the new filename so the caller can activate it.
    */
   uploadTemplate: adminProcedure
     .input(
       z.object({
-        /** Base64-encoded .docx file content */
         fileBase64: z.string().min(1),
-        /** Original filename for display purposes */
         originalName: z.string().min(1).max(200),
       }),
     )
     .mutation(async ({ input }) => {
-      const { createAdminClient: createSupa } = await import(
-        "../../../client/src/lib/supabase/server"
-      );
-      const db = createSupa();
+      const db = createAdminClient();
 
       const buf = Buffer.from(input.fileBase64, "base64");
 
@@ -251,7 +259,7 @@ export const pdfGenRouter = router({
       const filename = `derivacion_hoja_template_custom_${timestamp}_${safeName}.docx`;
 
       const { error } = await db.storage
-        .from("program-document-templates")
+        .from(TEMPLATE_BUCKET)
         .upload(filename, buf, {
           contentType:
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -270,12 +278,9 @@ export const pdfGenRouter = router({
 
   /** List available templates in Supabase Storage. */
   listTemplates: adminProcedure.query(async () => {
-    const { createAdminClient: createSupa } = await import(
-      "../../../client/src/lib/supabase/server"
-    );
-    const db = createSupa();
+    const db = createAdminClient();
     const { data, error } = await db.storage
-      .from("program-document-templates")
+      .from(TEMPLATE_BUCKET)
       .list();
     if (error) {
       throw new TRPCError({
@@ -283,10 +288,25 @@ export const pdfGenRouter = router({
         message: `Error al listar plantillas: ${error.message}`,
       });
     }
-    return (data ?? []).map((f) => ({
-      name: f.name,
-      size: f.metadata?.size ?? 0,
-      updatedAt: f.updated_at ?? f.created_at ?? "",
-    }));
+
+    // Get active template from app_settings
+    const { data: setting } = await db
+      .from("app_settings")
+      .select("value")
+      .eq("key", "derivar_active_template")
+      .maybeSingle();
+    const activeTemplate = setting?.value ?? null;
+
+    return {
+      templates: (data ?? [])
+        .filter((f) => f.name.endsWith(".docx"))
+        .map((f) => ({
+          name: f.name,
+          size: f.metadata?.size ?? 0,
+          updatedAt: f.updated_at ?? f.created_at ?? "",
+          isActive: f.name === activeTemplate,
+        })),
+      activeTemplate,
+    };
   }),
 });

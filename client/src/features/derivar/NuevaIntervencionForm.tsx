@@ -30,11 +30,17 @@ import {
   useAddIntervention,
 } from "./hooks/useDerivar";
 import type { Scope } from "@shared/derivar/types";
+import { trpc } from "@/lib/trpc";
 
 interface NuevaIntervencionFormProps {
   scope: Scope;
   entityId: string;
   programaId: string;
+  /**
+   * When provided, the form appends to an existing hoja instead of creating a new one.
+   * The entity search step is skipped and startIntervention is called with this hojaId.
+   */
+  existingHojaId?: string;
   onSaved: (hojaId: string) => void;
   onCancel: () => void;
 }
@@ -43,10 +49,16 @@ export function NuevaIntervencionForm({
   scope,
   entityId,
   programaId,
+  existingHojaId,
   onSaved,
   onCancel,
 }: NuevaIntervencionFormProps) {
-  const start = useStartIntervention(scope, entityId, programaId, true);
+  const start = useStartIntervention(scope, entityId, programaId, !existingHojaId);
+  // When appending to an existing hoja, load the hoja data to build the header
+  const hojaQuery = trpc.derivar.getHoja.useQuery(
+    { hojaId: existingHojaId ?? "" },
+    { enabled: !!existingHojaId },
+  );
   const tipos = useTipos();
   const add = useAddIntervention();
 
@@ -60,7 +72,13 @@ export function NuevaIntervencionForm({
     null,
   );
 
-  if (start.isLoading || !start.data) {
+  // In append mode: wait for getHoja; in create mode: wait for startIntervention
+  const isAppend = !!existingHojaId;
+  const isLoadingData = isAppend
+    ? hojaQuery.isLoading || !hojaQuery.data
+    : start.isLoading || !start.data;
+
+  if (isLoadingData) {
     return (
       <div className="space-y-2 p-4" aria-busy="true" aria-label="Cargando datos">
         {[...Array(5)].map((_, i) => (
@@ -70,7 +88,28 @@ export function NuevaIntervencionForm({
     );
   }
 
-  const { header } = start.data;
+  // Build header from either startIntervention or getHoja data
+  type Header = { nombre: string; numUnidadFamiliar?: number | null; programaNombre: string; profesionalNombre: string; fechaAperturaISO: string };
+  let header: Header;
+  if (isAppend && hojaQuery.data) {
+    const h = hojaQuery.data.hoja as { scope: string; fecha_apertura: string; profesional_nombre: string; persona?: { nombre?: string; apellidos?: string } | null; familia?: { familia_numero?: number | null; titular?: { nombre?: string; apellidos?: string } | null } | null; programa?: { name?: string } | null };
+    const isPersona = h.scope === "persona";
+    const titular = h.familia?.titular;
+    const nombre = isPersona
+      ? `${h.persona?.nombre ?? ""} ${h.persona?.apellidos ?? ""}`.trim()
+      : titular
+        ? `${titular.nombre ?? ""} ${titular.apellidos ?? ""}`.trim()
+        : `Familia #${h.familia?.familia_numero ?? ""}`;
+    header = {
+      nombre,
+      numUnidadFamiliar: h.familia?.familia_numero ?? null,
+      programaNombre: h.programa?.name ?? "",
+      profesionalNombre: h.profesional_nombre,
+      fechaAperturaISO: h.fecha_apertura,
+    };
+  } else {
+    header = (start.data as { header: Header }).header;
+  }
 
   const onSubmit = async () => {
     if (!tipoSlug) {
@@ -84,8 +123,9 @@ export function NuevaIntervencionForm({
     try {
       const r = await add.mutateAsync({
         scope,
-        entityId,
+        entityId: existingHojaId ? "" : entityId,
         programaId,
+        existingHojaId,
         fecha,
         tipoSlug,
         descripcion: descripcion.trim(),

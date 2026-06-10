@@ -2,11 +2,12 @@
  * docxRender.ts — Render Derivar hoja template with data and optional logos
  *
  * Strategy:
- * 1. Inject logos into template ZIP BEFORE rendering
- * 2. Replace placeholder text with image drawing elements
- * 3. Add image files to the ZIP media folder
- * 4. Update relationships and content types
- * 5. Then render the template with docxtemplater
+ * 1. Load the active template from Supabase Storage (respects app_settings)
+ * 2. Inject logos into template ZIP BEFORE rendering
+ * 3. Replace placeholder text with image drawing elements
+ * 4. Add image files to the ZIP media folder
+ * 5. Update relationships and content types
+ * 6. Then render the template with docxtemplater
  */
 
 import { createRequire } from "node:module";
@@ -62,6 +63,51 @@ export interface DerivarHojaTemplateData {
 }
 
 /**
+ * Resolves the active template filename from app_settings.
+ * Falls back to the default constant if not configured.
+ */
+async function resolveActiveTemplate(): Promise<string> {
+  try {
+    const db = createAdminClient();
+    const { data } = await db
+      .from("app_settings")
+      .select("value")
+      .eq("key", "derivar_active_template")
+      .maybeSingle();
+    if (data?.value && typeof data.value === "string" && data.value.trim()) {
+      return data.value.trim();
+    }
+  } catch {
+    // Ignore — fall back to default
+  }
+  return TEMPLATE_FILENAME_DOCX;
+}
+
+/**
+ * Loads the secondary logo bytes from Supabase Storage if configured.
+ */
+export async function loadSecondaryLogo(): Promise<Buffer | undefined> {
+  try {
+    const db = createAdminClient();
+    const { data: setting } = await db
+      .from("app_settings")
+      .select("value")
+      .eq("key", "derivar_secondary_logo_key")
+      .maybeSingle();
+    const key = setting?.value;
+    if (!key || typeof key !== "string" || !key.trim()) return undefined;
+
+    const { data: file, error } = await db.storage
+      .from(TEMPLATE_BUCKET)
+      .download(key.trim());
+    if (error || !file) return undefined;
+    return Buffer.from(await file.arrayBuffer());
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Loads the canonical Derivar template from Supabase Storage and fills it
  * with the supplied data. Returns a Buffer containing the .docx bytes.
  *
@@ -73,9 +119,11 @@ export async function renderDerivarHojaDocx(
   logos?: DerivarLogoOptions,
 ): Promise<Buffer> {
   const db = createAdminClient();
+  const templateFilename = await resolveActiveTemplate();
+
   const { data: file, error } = await db.storage
     .from(TEMPLATE_BUCKET)
-    .download(TEMPLATE_FILENAME_DOCX);
+    .download(templateFilename);
   if (error || !file) {
     throw new DerivarTemplateError(
       `Could not load Derivar template: ${error?.message ?? "no file"}`,
@@ -106,6 +154,9 @@ export async function renderDerivarHojaDocx(
  * 2. Replacing them with image drawing elements
  * 3. Adding image files to the ZIP
  * 4. Updating relationships and content types
+ *
+ * FIX: The XML parser must handle `<w:r ` (with attributes) as well as `<w:r>`
+ * (without attributes). We use a regex to find the opening run tag.
  */
 function injectLogos(zip: PizZip, logos: DerivarLogoOptions): void {
   const docXmlPath = "word/document.xml";
@@ -116,19 +167,9 @@ function injectLogos(zip: PizZip, logos: DerivarLogoOptions): void {
   const imageRels: Array<{ id: number; filename: string; type: string }> = [];
 
   // Process bocatasLogo
-  if (logos.bocatasLogo && docXml.includes("{%bocatasLogo}")) {
+  if (logos.bocatasLogo && logos.bocatasLogo.length > 0 && docXml.includes("{%bocatasLogo}")) {
     const imageXml = createImageElement(imageCounter, 1_200_000, 1_200_000);
-    // Find and replace the exact placeholder text
-    const bocatasIdx = newDocXml.indexOf("{%bocatasLogo}");
-    if (bocatasIdx >= 0) {
-      // Find the opening <w:r> before this text (use "<w:r>" not "<w:r" to avoid matching <w:rPr>)
-      const wrStart = newDocXml.lastIndexOf("<w:r>", bocatasIdx);
-      // Find the closing </w:r> after this text
-      const wrEnd = newDocXml.indexOf("</w:r>", bocatasIdx) + "</w:r>".length;
-      if (wrStart >= 0 && wrEnd > wrStart) {
-        newDocXml = newDocXml.substring(0, wrStart) + `<w:r>${imageXml}</w:r>` + newDocXml.substring(wrEnd);
-      }
-    }
+    newDocXml = replacePlaceholderWithImage(newDocXml, "{%bocatasLogo}", imageXml);
     imageRels.push({
       id: imageCounter,
       filename: `image${imageCounter}.png`,
@@ -139,19 +180,9 @@ function injectLogos(zip: PizZip, logos: DerivarLogoOptions): void {
   }
 
   // Process secondaryLogo
-  if (logos.secondaryLogo && docXml.includes("{%secondaryLogo}")) {
+  if (logos.secondaryLogo && logos.secondaryLogo.length > 0 && docXml.includes("{%secondaryLogo}")) {
     const imageXml = createImageElement(imageCounter, 1_200_000, 1_200_000);
-    // Find and replace the exact placeholder text
-    const secondaryIdx = newDocXml.indexOf("{%secondaryLogo}");
-    if (secondaryIdx >= 0) {
-      // Find the opening <w:r> before this text (use "<w:r>" not "<w:r" to avoid matching <w:rPr>)
-      const wrStart = newDocXml.lastIndexOf("<w:r>", secondaryIdx);
-      // Find the closing </w:r> after this text
-      const wrEnd = newDocXml.indexOf("</w:r>", secondaryIdx) + "</w:r>".length;
-      if (wrStart >= 0 && wrEnd > wrStart) {
-        newDocXml = newDocXml.substring(0, wrStart) + `<w:r>${imageXml}</w:r>` + newDocXml.substring(wrEnd);
-      }
-    }
+    newDocXml = replacePlaceholderWithImage(newDocXml, "{%secondaryLogo}", imageXml);
     imageRels.push({
       id: imageCounter,
       filename: `image${imageCounter}.png`,
@@ -171,6 +202,46 @@ function injectLogos(zip: PizZip, logos: DerivarLogoOptions): void {
     // Update content types
     updateContentTypes(zip, imageRels);
   }
+}
+
+/**
+ * Replaces a placeholder text inside a DOCX XML run with an image element.
+ *
+ * The DOCX XML structure for a text run is:
+ *   <w:r [optional attributes]><w:rPr>...</w:rPr><w:t>{%placeholder}</w:t></w:r>
+ *
+ * We find the placeholder, then walk backwards to find the opening <w:r> tag
+ * (which may have attributes), and forward to find the closing </w:r> tag.
+ *
+ * ROOT CAUSE FIX: Previous code used `lastIndexOf("<w:r>")` which only matches
+ * runs WITHOUT attributes. Real DOCX files often have `<w:r w:rsidRPr="...">`.
+ * We now use a regex to find the last `<w:r` tag before the placeholder.
+ */
+function replacePlaceholderWithImage(
+  xml: string,
+  placeholder: string,
+  imageXml: string,
+): string {
+  const placeholderIdx = xml.indexOf(placeholder);
+  if (placeholderIdx < 0) return xml;
+
+  // Find the last opening <w:r (with or without attributes) before the placeholder
+  const xmlBefore = xml.substring(0, placeholderIdx);
+  const wrOpenMatch = xmlBefore.match(/<w:r(?:\s[^>]*)?>(?!.*<w:r(?:\s[^>]*)?>)/s);
+
+  // Find the closing </w:r> after the placeholder
+  const wrEndIdx = xml.indexOf("</w:r>", placeholderIdx);
+
+  if (!wrOpenMatch || wrOpenMatch.index === undefined || wrEndIdx < 0) {
+    // Fallback: just remove the placeholder text
+    return xml.replace(placeholder, "");
+  }
+
+  const wrStart = wrOpenMatch.index;
+  const wrEnd = wrEndIdx + "</w:r>".length;
+
+  // Replace the entire run with a new run containing only the image
+  return xml.substring(0, wrStart) + `<w:r>${imageXml}</w:r>` + xml.substring(wrEnd);
 }
 
 /**

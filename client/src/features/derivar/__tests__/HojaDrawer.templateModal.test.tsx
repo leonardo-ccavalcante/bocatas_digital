@@ -64,6 +64,18 @@ vi.mock("@/lib/trpc", () => ({
       uploadTemplate: {
         useMutation: mockUploadTemplateMutation,
       },
+      activateTemplate: {
+        useMutation: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+      },
+      uploadSecondaryLogo: {
+        useMutation: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+      },
+      excludeIntervention: {
+        useMutation: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+      },
+      uploadSignedHoja: {
+        useMutation: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+      },
     },
     useUtils: vi.fn(() => ({
       derivar: {
@@ -71,6 +83,7 @@ vi.mock("@/lib/trpc", () => ({
         generatePdf: { fetch: vi.fn() },
         previewPdf: { fetch: mockPreviewPdfFetch },
         listTemplates: { invalidate: mockListTemplatesInvalidate },
+        getHoja: { invalidate: vi.fn() },
       },
     })),
   },
@@ -112,7 +125,7 @@ describe("HojaDrawer — template management modal", () => {
       error: null,
     });
     mockListTemplatesUseQuery.mockReturnValue({
-      data: [],
+      data: { templates: [], activeTemplate: null },
       isLoading: false,
       error: null,
     });
@@ -146,7 +159,7 @@ describe("HojaDrawer — template management modal", () => {
       error: null,
     });
     mockListTemplatesUseQuery.mockReturnValue({
-      data: sampleTemplates,
+      data: { templates: sampleTemplates, activeTemplate: null },
       isLoading: false,
       error: null,
     });
@@ -182,7 +195,7 @@ describe("HojaDrawer — template management modal", () => {
       error: null,
     });
     mockListTemplatesUseQuery.mockReturnValue({
-      data: [],
+      data: { templates: [], activeTemplate: null },
       isLoading: false,
       error: null,
     });
@@ -213,7 +226,7 @@ describe("HojaDrawer — template management modal", () => {
       error: null,
     });
     mockListTemplatesUseQuery.mockReturnValue({
-      data: [],
+      data: { templates: [], activeTemplate: null },
       isLoading: false,
       error: null,
     });
@@ -267,7 +280,7 @@ describe("HojaDrawer — template management modal", () => {
       error: null,
     });
     mockListTemplatesUseQuery.mockReturnValue({
-      data: [],
+      data: { templates: [], activeTemplate: null },
       isLoading: false,
       error: null,
     });
