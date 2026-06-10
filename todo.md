@@ -245,11 +245,11 @@
 - [x] TDD: pdfInfoRows.layout.test.ts (5 tests - no throw, long values, empty values, determinism)
 
 ## Batch 22: Map z-index + Mobile Responsiveness
-- [ ] Bug 1: MapaChoropleth container needs isolation:isolate to contain Leaflet z-index layers
-- [ ] Bug 2a: TabsList needs overflow-x-auto + w-full for mobile tab strip scrolling
-- [ ] Bug 2b: FamiliasList table needs min-w-[640px] for horizontal scroll on mobile
-- [ ] Bug 2c: RepartoList rows need flex-wrap + min-w-0 for mobile layout
-- [ ] TDD: tests for map isolation and responsive tab strip
+- [x] Bug 1: MapaChoropleth container needs isolation:isolate to contain Leaflet z-index layers
+- [x] Bug 2a: TabsList needs overflow-x-auto + w-full for mobile tab strip scrolling
+- [x] Bug 2b: FamiliasList table needs min-w-[640px] for horizontal scroll on mobile
+- [x] Bug 2c: RepartoList rows need flex-wrap + min-w-0 for mobile layout
+- [x] TDD: tests for map isolation and responsive tab strip
 
 ## Batch 22: Map z-index + Responsive tables
 - [x] Fix Bug 1: MapaChoropleth wraps MapContainer in isolation:isolate div to prevent Leaflet z-index escaping stacking context

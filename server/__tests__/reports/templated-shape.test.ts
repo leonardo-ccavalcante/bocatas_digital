@@ -17,9 +17,15 @@ import { Logger } from "../../_core/logger";
 // ─── vi.mock — must precede all imports ──────────────────────────────────
 
 const fromMock = vi.fn();
+const rpcCalls: Array<{ name: string; args: unknown }> = [];
+const rpcResults: Record<string, unknown> = {};
+const rpcMock = vi.fn(async (name: string, args: unknown) => {
+  rpcCalls.push({ name, args });
+  return { data: rpcResults[name] ?? [], error: null };
+});
 
 vi.mock("../../../client/src/lib/supabase/server", () => ({
-  createAdminClient: vi.fn(() => ({ from: fromMock })),
+  createAdminClient: vi.fn(() => ({ from: fromMock, rpc: rpcMock })),
   createServerClient: vi.fn(),
 }));
 
@@ -99,6 +105,13 @@ function emptyChain() {
 
 beforeEach(() => {
   fromMock.mockReset();
+  rpcMock.mockReset();
+  rpcMock.mockImplementation(async (name: string, args: unknown) => {
+    rpcCalls.push({ name, args });
+    return { data: rpcResults[name] ?? [], error: null };
+  });
+  for (const k of Object.keys(rpcResults)) delete rpcResults[k];
+  rpcCalls.length = 0;
 });
 
 // ─── 1. familiasAtendidas ────────────────────────────────────────────────
@@ -216,16 +229,77 @@ describe("reports.documentosFaltantes", () => {
     expect(fromMock).not.toHaveBeenCalled();
   });
 
-  it("returns { rows } shape for admin with programaId", async () => {
-    // documentosFaltantes makes 3 DB calls: program_document_types, families, family_member_documents
-    fromMock.mockReturnValueOnce(emptyChain()); // program_document_types
-    fromMock.mockReturnValueOnce(emptyChain()); // families
-    fromMock.mockReturnValueOnce(emptyChain()); // family_member_documents
+  it("returns { rows } shape for admin — 2 DB calls when families is empty (early return)", async () => {
+    // documentosFaltantes makes: 1 docTypes query + 1 families query, then early-returns
+    fromMock.mockReturnValueOnce(emptyChain()); // program_document_types (returns [])
+    fromMock.mockReturnValueOnce(emptyChain()); // families (empty → early return)
     const caller = documentosFaltantesRouter.createCaller(ctxWithRole("admin"));
     const result = await caller.documentosFaltantes({
       programaId: "00000000-0000-0000-0000-000000000001",
     });
     expect(Array.isArray(result.rows)).toBe(true);
+    expect(result.rows).toHaveLength(0);
+    // docTypes returns [] → early return at step 1 (only 1 fromMock call)
+    expect(fromMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("identifies missing docs correctly across families", async () => {
+    const FAM_A = "aaaa0000-0000-0000-0000-000000000001";
+    const FAM_B = "bbbb0000-0000-0000-0000-000000000002";
+
+    // docTypes chain: returns 2 required slugs
+    const docTypesChain = {
+      ...emptyChain(),
+      then: (resolve: (v: { data: unknown; error: null; count: number }) => unknown) =>
+        resolve({
+          data: [
+            { id: "dt1", slug: "padron", nombre: "Padrón", scope: "familia" },
+            { id: "dt2", slug: "identidad", nombre: "DNI", scope: "familia" },
+          ],
+          error: null,
+          count: 2,
+        }),
+    };
+    // families chain: returns 2 families
+    const familiesChain = {
+      ...emptyChain(),
+      then: (resolve: (v: { data: unknown; error: null; count: number }) => unknown) =>
+        resolve({
+          data: [
+            { id: FAM_A, familia_numero: 1 },
+            { id: FAM_B, familia_numero: 2 },
+          ],
+          error: null,
+          count: 2,
+        }),
+    };
+    // docs chunk chain: FAM_A has padron uploaded; FAM_B has nothing
+    const docsChain = {
+      ...emptyChain(),
+      then: (resolve: (v: { data: unknown; error: null; count: number }) => unknown) =>
+        resolve({
+          data: [{ family_id: FAM_A, documento_tipo: "padron" }],
+          error: null,
+          count: 1,
+        }),
+    };
+
+    fromMock
+      .mockReturnValueOnce(docTypesChain)  // program_document_types
+      .mockReturnValueOnce(familiesChain)  // families
+      .mockReturnValueOnce(docsChain);     // docs chunk (both families fit in 1 chunk)
+
+    const caller = documentosFaltantesRouter.createCaller(ctxWithRole("admin"));
+    const result = await caller.documentosFaltantes({
+      programaId: "00000000-0000-0000-0000-000000000001",
+    });
+
+    // FAM_A is missing identidad; FAM_B is missing both
+    expect(result.rows).toHaveLength(2);
+    const rowA = result.rows.find((r) => r.family_id === FAM_A);
+    const rowB = result.rows.find((r) => r.family_id === FAM_B);
+    expect(rowA?.missing).toEqual(["identidad"]);
+    expect(rowB?.missing).toEqual(["padron", "identidad"]);
   });
 });
 
