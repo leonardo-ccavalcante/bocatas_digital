@@ -16,8 +16,12 @@ export interface MapaDataResult {
   error?: Error | null;
 }
 
+/** Mapa data is stable within a session — 5-minute stale window avoids
+ *  unnecessary refetches on every tab switch. */
+const MAPA_STALE_TIME_MS = 5 * 60_000;
+
 export function useMapaData(layer: "densidad" | "compliance"): MapaDataResult {
-  const query = trpc.mapa.distritoStats.useQuery({ layer });
+  const query = trpc.mapa.distritoStats.useQuery({ layer }, { staleTime: MAPA_STALE_TIME_MS });
 
   return {
     rows: query.data?.rows ?? [],

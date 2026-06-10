@@ -73,7 +73,7 @@ export function ProgramCard({ program, isAdmin, index }: ProgramCardProps) {
                 Archivado
               </Badge>
             )}
-            {program.is_default && (
+            {(program as { is_default?: boolean }).is_default && (
               <Badge variant="outline" className="text-[9px] tracking-widest uppercase shrink-0 self-start mt-1 border-accent-foreground/20 text-accent-foreground">
                 Por defecto
               </Badge>
@@ -100,8 +100,7 @@ export function ProgramCard({ program, isAdmin, index }: ProgramCardProps) {
           </div>
         )}
 
-        {/* Footer — responsable_id exists but no joined display name in ProgramWithCounts;
-            using program.name as neutral stand-in until backend exposes responsable_nombre */}
+        {/* Footer */}
         <div className="px-6 py-3 flex items-center justify-between border-t border-border bg-background">
           <span className="text-body-sm text-muted-foreground truncate">
             {program.name}

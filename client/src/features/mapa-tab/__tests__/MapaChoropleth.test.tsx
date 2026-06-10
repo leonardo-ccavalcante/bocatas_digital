@@ -30,6 +30,12 @@ global.ResizeObserver = global.ResizeObserver ?? ResizeObserverStub;
 
 // Mock react-leaflet — jsdom has no canvas/map support
 vi.mock("react-leaflet", () => ({
+  // useMap: returns a no-op map stub so FitBoundsController doesn't throw
+  useMap: () => ({
+    fitBounds: vi.fn(),
+    invalidateSize: vi.fn(),
+    getContainer: () => document.createElement('div'),
+  }),
   MapContainer: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="map-container">{children}</div>
   ),

@@ -9,10 +9,47 @@
  *   wrapDbError(procedureName, error) — wraps a Supabase error into a TRPCError.
  *     Includes procedureName + correlationId context; NEVER includes raw input or PII.
  *     All DB error paths in this router family use this helper (DX-T2 requirement).
+ *
+ *   logAuditReport(ctx, reportKey, rowCount, params) — RGPD Art. 30 audit trail for
+ *     templated report procedures. Records report name, row count, and non-PII input
+ *     params. MUST NOT include PII values (names, phone numbers, document numbers).
+ *     All 10 templated procedures call this helper after a successful DB fetch.
  */
 
 import { TRPCError } from "@trpc/server";
 import { randomUUID } from "crypto";
+import { logAudit } from "../../_core/logging-middleware";
+import type { TrpcContext } from "../../_core/context";
+
+// ─── logAuditReport ──────────────────────────────────────────────────────────
+
+/**
+ * RGPD Art. 30 audit trail for templated report procedures.
+ *
+ * Records: report key, row count returned, and any non-PII input params
+ * (e.g. year, quarter, daysAhead, dateRange).
+ *
+ * Compliance (CLAUDE.md §3):
+ *   - NEVER pass PII values (names, phone numbers, document numbers, emails).
+ *   - Only pass stable, non-identifying params: numeric years, date ranges,
+ *     UUID program IDs, boolean flags, row counts.
+ *
+ * @param ctx       — tRPC context (carries actorId + correlationId)
+ * @param reportKey — stable identifier, e.g. "reports.familiasAtendidas"
+ * @param rowCount  — number of rows returned by the procedure
+ * @param params    — non-PII input params (year, filters, dateRange, etc.)
+ */
+export function logAuditReport(
+  ctx: TrpcContext,
+  reportKey: string,
+  rowCount: number,
+  params?: Record<string, unknown>,
+): void {
+  logAudit(ctx, reportKey, {
+    rowCount,
+    ...(params !== undefined ? { params } : {}),
+  });
+}
 
 // ─── withSoftDeleteFilter ────────────────────────────────────────────────────
 

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, adminProcedure } from "../../_core/trpc";
 import { createAdminClient, createUserImpersonationClient } from "../../../client/src/lib/supabase/server";
+import type { Json } from "../../../client/src/lib/database.types";
 import { parseRow } from "../../csvLegacyFamiliasMapper";
 import {
   parseCSVDocument,
@@ -257,7 +258,8 @@ export const legacyImportRouter = router({
         .insert({
           // Cast through unknown — see announcements/bulk-import.ts for the
           // pattern; runtime correctness is preserved by the Zod stash schema.
-          parsed_rows: stash as unknown as never,
+          // Json is the correct target type (not never).
+          parsed_rows: stash as unknown as Json,
           created_by: String(ctx.user.id),
         })
         .select("token")

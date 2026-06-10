@@ -20,7 +20,7 @@
 import { z } from "zod";
 import { router, adminProcedure } from "../../../_core/trpc";
 import { createAdminClient } from "../../../../client/src/lib/supabase/server";
-import { withSoftDeleteFilter, wrapDbError } from "../_shared";
+import { withSoftDeleteFilter, wrapDbError, logAuditReport } from "../_shared";
 import {
   bucketRows,
   applyKAnonymityToIrpf,
@@ -86,7 +86,7 @@ const InputSchema = z.object({
 export const informeIrpfDemograficoRouter = router({
   informeIrpfDemografico: adminProcedure
     .input(InputSchema)
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       const { year } = input;
       const db = createAdminClient();
 
@@ -111,6 +111,12 @@ export const informeIrpfDemograficoRouter = router({
         bucketRows(normalized, year),
       );
       const { marginals, totalSuppressedMarginal } = computeMarginals(normalized, year);
+
+      logAuditReport(ctx, "reports.informeIrpfDemografico", rawRows.length, {
+        year,
+        totalSuppressed,
+        totalSuppressedMarginal,
+      });
 
       return {
         year,

@@ -82,7 +82,7 @@ function binIndex(value: number, thresholds: number[]): number {
 // ── Color scale helpers ───────────────────────────────────────────────────────
 
 /** Returns a red-gradient fill for a normalised value t ∈ [0, 1] (compliance layer). */
-function redScale(t: number): string {
+export function redScale(t: number): string {
   const r = Math.round(254 - (254 - 180) * t);
   const g = Math.round(229 - (229 - 30) * t);
   const b = Math.round(217 - (217 - 30) * t);

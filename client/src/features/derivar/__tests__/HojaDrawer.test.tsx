@@ -38,14 +38,14 @@ global.URL.revokeObjectURL = vi.fn();
 // ── tRPC mock ─────────────────────────────────────────────────────────────────
 const {
   mockGetHojaUseQuery,
-  mockGenerateDocxFetch,
+  mockGenerateDocxMutateAsync,
   mockPreviewPdfFetch,
   mockActivateTemplateMutate,
   mockExcludeInterventionMutate,
   mockUploadSignedHojaMutate,
 } = vi.hoisted(() => ({
   mockGetHojaUseQuery: vi.fn(),
-  mockGenerateDocxFetch: vi.fn(),
+  mockGenerateDocxMutateAsync: vi.fn(),
   mockPreviewPdfFetch: vi.fn(),
   mockActivateTemplateMutate: vi.fn(),
   mockExcludeInterventionMutate: vi.fn(),
@@ -56,8 +56,18 @@ vi.mock("@/lib/trpc", () => ({
   trpc: {
     derivar: {
       getHoja: { useQuery: mockGetHojaUseQuery },
-      generateDocx: { fetch: mockGenerateDocxFetch },
-      generatePdf: { fetch: vi.fn() },
+      generateDocx: {
+        useMutation: vi.fn(() => ({
+          mutateAsync: mockGenerateDocxMutateAsync,
+          isPending: false,
+        })),
+      },
+      generatePdf: {
+        useMutation: vi.fn(() => ({
+          mutateAsync: vi.fn(),
+          isPending: false,
+        })),
+      },
       previewPdf: { fetch: mockPreviewPdfFetch },
       listTemplates: {
         useQuery: vi.fn(() => ({
@@ -93,8 +103,6 @@ vi.mock("@/lib/trpc", () => ({
     },
     useUtils: vi.fn(() => ({
       derivar: {
-        generateDocx: { fetch: mockGenerateDocxFetch },
-        generatePdf: { fetch: vi.fn() },
         previewPdf: { fetch: mockPreviewPdfFetch },
         listTemplates: { invalidate: vi.fn() },
         getHoja: { invalidate: vi.fn() },
@@ -235,7 +243,7 @@ describe("HojaDrawer — PDF preview modal (Batch 20: blob URL via <object>)", (
       contentBase64: fakePdfBase64,
       mime: "application/pdf",
     });
-    mockGenerateDocxFetch.mockResolvedValue({
+    mockGenerateDocxMutateAsync.mockResolvedValue({
       contentBase64: btoa("fake-docx"),
       filename: "test.docx",
       mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -250,19 +258,19 @@ describe("HojaDrawer — PDF preview modal (Batch 20: blob URL via <object>)", (
       />,
     );
 
-    // Click "Generar Word" — should show modal, NOT call generateDocx.fetch yet
+    // Click "Generar Word" — should show modal, NOT call generateDocx.mutateAsync yet
     await user.click(screen.getByRole("button", { name: /generar word/i }));
-    expect(mockGenerateDocxFetch).not.toHaveBeenCalled();
+    expect(mockGenerateDocxMutateAsync).not.toHaveBeenCalled();
 
     // Wait for <object> to appear (previewPdf resolved)
     await waitFor(() =>
       expect(screen.getByLabelText(/vista previa pdf/i)).toBeInTheDocument(),
     );
 
-    // Confirm in modal — should call generateDocx.fetch
+    // Confirm in modal — should call generateDocx.mutateAsync
     await user.click(screen.getByRole("button", { name: /descargar word/i }));
     await waitFor(() =>
-      expect(mockGenerateDocxFetch).toHaveBeenCalledTimes(1),
+      expect(mockGenerateDocxMutateAsync).toHaveBeenCalledTimes(1),
     );
   });
 
@@ -291,9 +299,8 @@ describe("HojaDrawer — PDF preview modal (Batch 20: blob URL via <object>)", (
       expect(screen.getByLabelText(/vista previa pdf/i)).toBeInTheDocument(),
     );
 
-    await user.click(screen.getByRole("button", { name: /cancelar/i }));
-
-    expect(mockGenerateDocxFetch).not.toHaveBeenCalled();
+        await user.click(screen.getByRole("button", { name: /cancelar/i }));
+    expect(mockGenerateDocxMutateAsync).not.toHaveBeenCalled();
     // Modal should be closed
     expect(
       screen.queryByRole("dialog", { name: /vista previa/i }),

@@ -1,12 +1,15 @@
 import { z } from "zod";
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
+// Values aligned to the server/DB enum motivo_baja_familia
+// (migrations/20260411081827_20260410120001_create_enums.sql).
+// The previous 6-value set (solicitud_propia, cambio_domicilio, …) was stale.
+// DeactivationForm uses the server enum directly — this schema must stay in sync.
 export const MotivoBajaSchema = z.enum([
-  "solicitud_propia",
-  "cambio_domicilio",
-  "mejora_economica",
-  "fallecimiento",
-  "incumplimiento_normas",
+  "no_recogida_consecutiva",
+  "voluntaria",
+  "fraude",
+  "cambio_circunstancias",
   "otros",
 ]);
 export type MotivoBaja = z.infer<typeof MotivoBajaSchema>;

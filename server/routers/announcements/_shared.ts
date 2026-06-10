@@ -114,12 +114,16 @@ export async function fireUrgentWebhook(payload: WebhookPayload): Promise<void> 
     });
     return;
   }
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
   try {
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
     const body = await res.text().catch(() => "");
     await db.from("announcement_webhook_log").insert({
       announcement_id: payload.announcement_id,
@@ -129,12 +133,14 @@ export async function fireUrgentWebhook(payload: WebhookPayload): Promise<void> 
       error: res.ok ? null : `HTTP ${res.status}`,
     });
   } catch (err: unknown) {
+    clearTimeout(timeoutId);
+    const isTimeout = err instanceof Error && err.name === "AbortError";
     await db.from("announcement_webhook_log").insert({
       announcement_id: payload.announcement_id,
       attempted_at: new Date().toISOString(),
       status_code: null,
       response_body: null,
-      error: err instanceof Error ? err.message : String(err),
+      error: isTimeout ? "webhook timeout (10s)" : (err instanceof Error ? err.message : String(err)),
     });
   }
 }

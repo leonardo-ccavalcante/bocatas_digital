@@ -47,6 +47,7 @@ export function ArchiveExplorer({ programaId, onReclassify }: ArchiveExplorerPro
 
   const { data, isLoading } = trpc.families.listAllForProgram.useQuery(
     {
+      programaId,
       tipoSlug: activeSlug,
       limit: 50,
       offset: 0,

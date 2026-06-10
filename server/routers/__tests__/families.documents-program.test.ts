@@ -17,50 +17,26 @@ vi.mock("../../../client/src/lib/supabase/server", () => ({
     from: (table: string) => {
       if (table === "family_member_documents") {
         return {
-          select: () => ({
-            eq: (col: string, val: unknown) => {
-              capturedListFilters[col] = val;
-              return {
-                eq: (col2: string, val2: unknown) => {
-                  capturedListFilters[col2] = val2;
-                  return {
-                    is: (col3: string, val3: unknown) => {
-                      capturedListFilters[col3] = val3;
-                      return {
-                        order: () => ({
-                          range: async () => listResult,
-                        }),
-                      };
-                    },
-                  };
-                },
-                is: (col2: string, val2: unknown) => {
-                  capturedListFilters[col2] = val2;
-                  return {
-                    order: () => ({
-                      range: async () => listResult,
-                    }),
-                  };
-                },
-              };
-            },
-            is: (col: string, val: unknown) => {
-              capturedListFilters[col] = val;
-              return {
-                eq: (col2: string, val2: unknown) => {
-                  capturedListFilters[col2] = val2;
-                  return {
-                    order: () => ({
-                      range: async () => listResult,
-                    }),
-                  };
-                },
-                order: () => ({
-                  range: async () => listResult,
-                }),
-              };
-            },
-          }),
+          // Flexible chainable mock: supports the scoped query shape
+          // (select(inner-join) → eq → not → eq → [eq] → is → order → range).
+          select: () => {
+            const chain: Record<string, (...args: unknown[]) => unknown> = {};
+            chain.eq = (col: unknown, val: unknown) => {
+              capturedListFilters[String(col)] = val;
+              return chain;
+            };
+            chain.is = (col: unknown, val: unknown) => {
+              capturedListFilters[String(col)] = val;
+              return chain;
+            };
+            chain.not = (col: unknown, _op: unknown, val: unknown) => {
+              capturedListFilters[`not:${String(col)}`] = val;
+              return chain;
+            };
+            chain.order = () => chain;
+            chain.range = async () => listResult;
+            return chain;
+          },
           update: (payload: Record<string, unknown>) => ({
             eq: (col1: string, val1: unknown) => ({
               select: () => ({
@@ -104,6 +80,8 @@ function buildCtx(user: User | null): TrpcContext {
   };
 }
 
+const PROG_ID = "11111111-1111-4111-8111-111111111111";
+
 describe("families.listAllForProgram", () => {
   beforeEach(() => {
     capturedListFilters = {};
@@ -127,33 +105,33 @@ describe("families.listAllForProgram", () => {
   it("admin caller can list with no filters and gets default pagination", async () => {
     const caller = familiesRouter.createCaller(buildCtx(buildUser("admin")));
     listResult = { data: [{ id: "d1" }], error: null, count: 1 };
-    const result = await caller.listAllForProgram({});
+    const result = await caller.listAllForProgram({ programaId: PROG_ID });
     expect(result).toEqual({ rows: [{ id: "d1" }], total: 1 });
   });
 
   it("filters by is_current=true and deleted_at IS NULL by default", async () => {
     const caller = familiesRouter.createCaller(buildCtx(buildUser("admin")));
-    await caller.listAllForProgram({});
+    await caller.listAllForProgram({ programaId: PROG_ID });
     expect(capturedListFilters.is_current).toBe(true);
     expect(capturedListFilters.deleted_at).toBe(null);
   });
 
   it("applies tipoSlug filter when provided", async () => {
     const caller = familiesRouter.createCaller(buildCtx(buildUser("admin")));
-    await caller.listAllForProgram({ tipoSlug: "padron_municipal" });
+    await caller.listAllForProgram({ programaId: PROG_ID, tipoSlug: "padron_municipal" });
     expect(capturedListFilters.documento_tipo).toBe("padron_municipal");
   });
 
   it("applies familyId filter when provided", async () => {
     const caller = familiesRouter.createCaller(buildCtx(buildUser("admin")));
     const fid = "550e8400-e29b-41d4-a716-446655440001";
-    await caller.listAllForProgram({ familyId: fid });
+    await caller.listAllForProgram({ programaId: PROG_ID, familyId: fid });
     expect(capturedListFilters.family_id).toBe(fid);
   });
 
   it("rejects invalid tipoSlug (not in familyDocTypeSchema)", async () => {
     const caller = familiesRouter.createCaller(buildCtx(buildUser("admin")));
-    await expect(caller.listAllForProgram({ tipoSlug: "evil_type" as never }))
+    await expect(caller.listAllForProgram({ programaId: PROG_ID, tipoSlug: "evil_type" as never }))
       .rejects.toThrow();
   });
 
