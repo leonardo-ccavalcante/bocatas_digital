@@ -380,7 +380,10 @@ export const legacyImportRouter = router({
           p_token: input.preview_token,
           p_src_filename: safeName ?? undefined,
           p_mode: input.mode,
-          p_excluded_numbers: input.excluded_family_numbers ?? null,
+          // RPC arg is optional (text[] DEFAULT NULL in the migration); omit it
+          // when absent (undefined) rather than passing null — the generated
+          // type is string[] | undefined, and the SQL DEFAULT already yields NULL.
+          p_excluded_numbers: input.excluded_family_numbers ?? undefined,
         }
       );
       if (rpcErr) {
