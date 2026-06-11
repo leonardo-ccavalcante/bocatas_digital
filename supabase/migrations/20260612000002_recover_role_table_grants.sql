@@ -26,6 +26,19 @@
 -- what prod already grants, and RLS (enabled on the sensitive tables) remains the
 -- per-row boundary.
 
+-- PREREQUISITE for the anon grant below (cassandra CAS-01/CAS-02, P0).
+-- The repo migration chain left `familia_miembros` and `program_sessions` with
+-- RLS DISABLED — their policies (5 and 1) exist but are INERT. Prod has RLS
+-- ENABLED on both (verified via MCP), so prod's anon grant is gated. Without
+-- enabling RLS here FIRST, `GRANT ... TO anon` below would expose
+-- familia_miembros PII (nombre/apellidos/documento/fecha_nacimiento) and
+-- program_sessions writes to the public anon key with NO authentication
+-- (confirmed at runtime: `SET ROLE anon; SELECT FROM familia_miembros` returns
+-- rows). Recovering prod's RLS-enabled state activates the existing policies and
+-- closes the exposure. service_role (the app's client) bypasses RLS, unaffected.
+ALTER TABLE public.familia_miembros ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.program_sessions ENABLE ROW LEVEL SECURITY;
+
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public
   TO anon, authenticated, service_role;
 
