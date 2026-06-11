@@ -7,31 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       announcement_audiences: {
@@ -337,18 +312,21 @@ export type Database = {
           created_at: string
           created_by: string
           parsed_rows: Json
+          src_filename: string | null
           token: string
         }
         Insert: {
           created_at?: string
           created_by: string
           parsed_rows: Json
+          src_filename?: string | null
           token?: string
         }
         Update: {
           created_at?: string
           created_by?: string
           parsed_rows?: Json
+          src_filename?: string | null
           token?: string
         }
         Relationships: []
@@ -1631,6 +1609,48 @@ export type Database = {
         }
         Relationships: []
       }
+      legacy_import_sessions: {
+        Row: {
+          actor_id: string
+          actor_name: string | null
+          created_count: number
+          error_count: number
+          id: string
+          preview_token: string | null
+          report_url: string | null
+          skipped_count: number
+          src_filename: string | null
+          ts: string
+          updated_count: number
+        }
+        Insert: {
+          actor_id: string
+          actor_name?: string | null
+          created_count?: number
+          error_count?: number
+          id?: string
+          preview_token?: string | null
+          report_url?: string | null
+          skipped_count?: number
+          src_filename?: string | null
+          ts?: string
+          updated_count?: number
+        }
+        Update: {
+          actor_id?: string
+          actor_name?: string | null
+          created_count?: number
+          error_count?: number
+          id?: string
+          preview_token?: string | null
+          report_url?: string | null
+          skipped_count?: number
+          src_filename?: string | null
+          ts?: string
+          updated_count?: number
+        }
+        Relationships: []
+      }
       locations: {
         Row: {
           activo: boolean
@@ -2333,7 +2353,12 @@ export type Database = {
         Returns: Json
       }
       confirm_legacy_familias_import: {
-        Args: { p_mode?: string; p_src_filename?: string; p_token: string }
+        Args: {
+          p_excluded_numbers?: string[]
+          p_mode?: string
+          p_src_filename?: string
+          p_token: string
+        }
         Returns: Json
       }
       enrich_families_from_informes: {
@@ -2349,6 +2374,14 @@ export type Database = {
           id: string
           nombre: string
           similarity: number
+        }[]
+      }
+      get_documentos_faltantes: {
+        Args: { p_programa_id: string }
+        Returns: {
+          familia_numero: number
+          family_id: string
+          missing_slugs: string[]
         }[]
       }
       get_eligible_families_for_reparto: {
@@ -2653,9 +2686,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       canal_llegada: [
