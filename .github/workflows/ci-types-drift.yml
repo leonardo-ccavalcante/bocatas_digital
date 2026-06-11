@@ -21,7 +21,11 @@ jobs:
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # Pinned (was `latest` — non-deterministic): a newer CLI regressed
+          # `gen types --local` to require SUPABASE_ACCESS_TOKEN, failing this
+          # gate on infra grounds rather than real drift. 2.106.0 is verified to
+          # gen types from a local stack without a token. (Mythos: DIO/types gate.)
+          version: 2.106.0
 
       # The supabase/migrations/EXPORTED/ subdirectory holds the foundational
       # schema re-exported from production on 2026-05-05 (see
