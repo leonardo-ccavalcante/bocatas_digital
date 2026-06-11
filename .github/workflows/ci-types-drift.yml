@@ -54,14 +54,18 @@ jobs:
         run: supabase start
 
       - name: Generate types from local schema
-        # `gen types --local` requires a linked project / SUPABASE_ACCESS_TOKEN in
-        # current CLI versions (the repo commits no supabase/config.toml — CAS-07),
-        # so in CI it fails on infra grounds ("Access token not provided"), NOT on
-        # real drift. Generate directly from the running local DB URL — no token,
-        # no config dependency. Output is byte-identical to `--local` (verified).
-        # `supabase status -o env` parsing is unreliable in CI, so fall back to the
-        # default local DB URL (port 54322 — `supabase start` uses defaults here,
-        # no config.toml). The schema, hence the generated types, is port-independent.
+        # Current supabase CLI (2.106.0) refuses `gen types` unless SOME access
+        # token is PRESENT — even for a purely-local generation. It only checks
+        # presence, not validity (verified: a dummy token + --db-url generates the
+        # exact same types as a real session). So this failed in CI on infra
+        # grounds ("Access token not provided"), never reaching the drift diff —
+        # the gate has not actually verified drift since the CLI bumped past the
+        # June-5 version. Generate from the local DB URL (no remote, no real
+        # credential) with a dummy token to satisfy the presence check.
+        env:
+          # NOT a credential — a non-empty placeholder to clear the CLI's token
+          # presence check. Generation is fully local (--db-url); no remote call.
+          SUPABASE_ACCESS_TOKEN: ci-local-no-remote-call
         run: |
           DB_URL=$(supabase status -o env 2>/dev/null | grep '^DB_URL=' | cut -d= -f2- | tr -d '"' || true)
           : "${DB_URL:=postgresql://postgres:postgres@127.0.0.1:54322/postgres}"
