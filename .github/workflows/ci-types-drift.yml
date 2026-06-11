@@ -58,9 +58,14 @@ jobs:
         # current CLI versions (the repo commits no supabase/config.toml — CAS-07),
         # so in CI it fails on infra grounds ("Access token not provided"), NOT on
         # real drift. Generate directly from the running local DB URL — no token,
-        # no config dependency. Verified byte-identical to `--local` output.
+        # no config dependency. Output is byte-identical to `--local` (verified).
+        # `supabase status -o env` parsing is unreliable in CI, so fall back to the
+        # default local DB URL (port 54322 — `supabase start` uses defaults here,
+        # no config.toml). The schema, hence the generated types, is port-independent.
         run: |
-          DB_URL=$(supabase status -o env | grep '^DB_URL=' | cut -d= -f2- | tr -d '"')
+          DB_URL=$(supabase status -o env 2>/dev/null | grep '^DB_URL=' | cut -d= -f2- | tr -d '"' || true)
+          : "${DB_URL:=postgresql://postgres:postgres@127.0.0.1:54322/postgres}"
+          echo "Generating types from ${DB_URL%%:*}://<redacted>@${DB_URL##*@}"
           supabase gen types typescript --db-url "$DB_URL" > /tmp/types.ts
 
       - name: Diff against committed types
