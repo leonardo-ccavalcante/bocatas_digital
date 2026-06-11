@@ -70,7 +70,10 @@ jobs:
           DB_URL=$(supabase status -o env 2>/dev/null | grep '^DB_URL=' | cut -d= -f2- | tr -d '"' || true)
           : "${DB_URL:=postgresql://postgres:postgres@127.0.0.1:54322/postgres}"
           echo "Generating types from ${DB_URL%%:*}://<redacted>@${DB_URL##*@}"
-          supabase gen types typescript --db-url "$DB_URL" > /tmp/types.ts
+          # --schema public explicitly: the committed file is public-only, and a
+          # config-less CLI defaults to public anyway — be deterministic about it
+          # (graphql_public is unused GraphQL-extension boilerplate).
+          supabase gen types typescript --db-url "$DB_URL" --schema public > /tmp/types.ts
 
       - name: Diff against committed types
         run: |
