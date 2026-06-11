@@ -15,13 +15,14 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import type { Feature, FeatureCollection } from "geojson";
 import { explodeMultiPolygons } from "../utils/explodeMultiPolygons";
+import type { DistritoStatRow } from "../../../../../server/routers/mapa";
 // Note: DistritoStatRow uses 'distrito' (not 'slug') and 'count' (not 'familias_atendidas')
 // The slug property comes from GeoJSON features, not from DistritoStatRow
 
 describe("MapaChoropleth — Interaction & Rendering", () => {
   // Mock data setup
   let mockGeoJson: FeatureCollection;
-  let mockRows: any[];
+  let mockRows: DistritoStatRow[];
 
   beforeEach(() => {
     // Create a minimal GeoJSON with two districts
@@ -62,7 +63,7 @@ describe("MapaChoropleth — Interaction & Rendering", () => {
         count: 30,
         compliance: 0.5,
       },
-    ] as any;
+    ] as DistritoStatRow[];
   });
 
   describe("GeoJSON explosion for MultiPolygon support", () => {
@@ -214,7 +215,7 @@ describe("MapaChoropleth — Interaction & Rendering", () => {
     });
 
     it("should render MapaEmptyState when rows is empty", () => {
-      const emptyRows: any[] = [];
+      const emptyRows: DistritoStatRow[] = [];
       // Component checks: (geoJson?.features.length ?? 0) > 0
       expect(emptyRows.length).toBe(0);
     });

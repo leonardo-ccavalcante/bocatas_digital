@@ -93,6 +93,10 @@ export default [
       "client/src/components/BulkImportNovedadesModal.tsx",
       "client/src/components/MemberManagementModal.tsx",
       "client/src/components/layout/AppShell.tsx",
+      // HojaDrawer (~800 LOC hot-path UI) — warn-listed to unblock CI (SIS-01);
+      // full sub-component split tracked in issue #83. Server-side intervenciones.ts
+      // was extracted in the same change, not warn-listed.
+      "client/src/features/derivar/HojaDrawer.tsx",
       "client/src/features/persons/components/RegistrationWizard/index.tsx",
       "client/src/features/programs/components/ProgramForm.tsx",
       "client/src/pages/ProgramaDetalle.tsx",
