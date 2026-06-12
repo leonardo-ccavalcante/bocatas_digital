@@ -106,7 +106,7 @@ export function Step7Consent({
                           </div>
                         )}
                         {templateLang && templateLang.idioma !== "es" && (
-                          <div className="rounded bg-muted p-2">
+                          <div className="rounded bg-muted p-2" lang={templateLang.idioma}>
                             <p className="text-xs font-medium mb-1">🌐 {templateLang.idioma.toUpperCase()}</p>
                             <p className="text-xs text-muted-foreground">{templateLang.text_content}</p>
                           </div>
@@ -152,7 +152,7 @@ export function Step7Consent({
                         </div>
                       )}
                       {templateLang && templateLang.idioma !== "es" && (
-                        <div className="rounded bg-muted p-2">
+                        <div className="rounded bg-muted p-2" lang={templateLang.idioma}>
                           <p className="text-xs font-medium mb-1">🌐 {templateLang.idioma.toUpperCase()}</p>
                           <p className="text-xs text-muted-foreground">{templateLang.text_content}</p>
                         </div>
@@ -197,7 +197,7 @@ export function Step7Consent({
                         </div>
                       )}
                       {templateLang && templateLang.idioma !== "es" && (
-                        <div className="rounded bg-muted p-2">
+                        <div className="rounded bg-muted p-2" lang={templateLang.idioma}>
                           <p className="text-xs font-medium mb-1">🌐 {templateLang.idioma.toUpperCase()}</p>
                           <p className="text-xs text-muted-foreground">{templateLang.text_content}</p>
                         </div>

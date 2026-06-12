@@ -21,8 +21,10 @@ export function Step0Canal({ register, watch, setValue, errors }: Step0CanalProp
         onChange={(v) => setValue("canal_llegada", v as PersonCreate["canal_llegada"])}
         options={CANAL_LLEGADA_LABELS}
         required
+        aria-describedby={errors.canal_llegada ? "canal_llegada-error" : undefined}
+        aria-invalid={!!errors.canal_llegada}
       />
-      <FieldError message={errors.canal_llegada?.message} />
+      <FieldError id="canal_llegada-error" message={errors.canal_llegada?.message} />
       <div className="space-y-1">
         <Label htmlFor="entidad_derivadora">Entidad derivadora (opcional)</Label>
         <Input id="entidad_derivadora" {...register("entidad_derivadora")} placeholder="Cruz Roja, Servicios Sociales..." />

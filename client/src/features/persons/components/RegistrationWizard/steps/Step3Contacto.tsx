@@ -19,8 +19,10 @@ export function Step3Contacto({ register, errors }: Step3ContactoProps) {
         </div>
         <div className="space-y-1">
           <Label htmlFor="email">Email</Label>
-          <Input id="email" type="email" {...register("email")} placeholder="correo@ejemplo.com" />
-          <FieldError message={errors.email?.message} />
+          <Input id="email" type="email" {...register("email")} placeholder="correo@ejemplo.com"
+            aria-describedby={errors.email ? "email-error" : undefined}
+            aria-invalid={!!errors.email} />
+          <FieldError id="email-error" message={errors.email?.message} />
         </div>
       </div>
       <div className="space-y-1">
@@ -36,12 +38,13 @@ export function Step3Contacto({ register, errors }: Step3ContactoProps) {
             maxLength={5}
             {...register("codigo_postal")}
             placeholder="28012"
-            aria-describedby="codigo_postal_help"
+            aria-describedby={errors.codigo_postal ? "codigo_postal_help codigo_postal-error" : "codigo_postal_help"}
+            aria-invalid={!!errors.codigo_postal}
           />
           <p id="codigo_postal_help" className="text-body-sm text-muted-foreground">
             5 dígitos. Determina el distrito automáticamente.
           </p>
-          <FieldError message={errors.codigo_postal?.message} />
+          <FieldError id="codigo_postal-error" message={errors.codigo_postal?.message} />
         </div>
         <div className="space-y-1">
           <Label htmlFor="municipio">Municipio</Label>

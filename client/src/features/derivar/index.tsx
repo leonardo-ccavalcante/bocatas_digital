@@ -238,7 +238,7 @@ export default function DerivarTab({ programaId }: DerivarTabProps) {
                             type="button"
                             role="option"
                             aria-selected={false}
-                            className="w-full text-left p-2 hover:bg-muted text-sm focus:outline-none focus:bg-muted"
+                            className="w-full text-left p-2 hover:bg-muted text-sm focus:outline-none focus:bg-muted focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset"
                             onClick={() => setEntityId(p.id)}
                           >
                             {p.nombre} {p.apellidos}
@@ -261,7 +261,7 @@ export default function DerivarTab({ programaId }: DerivarTabProps) {
                             type="button"
                             role="option"
                             aria-selected={false}
-                            className="w-full text-left p-2 hover:bg-muted text-sm focus:outline-none focus:bg-muted"
+                            className="w-full text-left p-2 hover:bg-muted text-sm focus:outline-none focus:bg-muted focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset"
                             onClick={() => setEntityId(f.id)}
                           >
                             {f.familia_numero ? `#${f.familia_numero} · ` : ""}

@@ -105,7 +105,7 @@ export function DerivarList({ programaId, onRowClick }: DerivarListProps) {
                   role="button"
                   tabIndex={hojaId ? 0 : -1}
                   aria-label={`Abrir hoja de ${personaName}`}
-                  className="border-t hover:bg-muted/40 cursor-pointer focus:outline-none focus:bg-muted/60"
+                  className="border-t hover:bg-muted/40 cursor-pointer focus:outline-none focus:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset"
                   onClick={() => hojaId && onRowClick(hojaId)}
                   onKeyDown={(e) => {
                     if (hojaId && (e.key === "Enter" || e.key === " ")) {
