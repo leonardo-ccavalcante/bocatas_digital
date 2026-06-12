@@ -327,7 +327,9 @@ export const checkinRouter = router({
           programa: ProgramaEnum,
           metodo: MetodoEnum,
           isDemoMode: z.boolean().default(false),
-          queuedAt: z.string(),
+          // ISO-8601 instant the check-in was captured ON THE DEVICE. Validated
+          // here so the date/timestamp derivation below can't be fed garbage.
+          queuedAt: z.string().datetime(),
         })
       )
     )
@@ -335,17 +337,24 @@ export const checkinRouter = router({
       if (input.length === 0) return [];
       const supabase = createAdminClient();
 
-      // Pin the date server-side so the result-mapping key matches what
-      // the unique constraint sees. Anonymous (person_id null) check-ins
-      // bypass the partial unique index → always insert (no key collision).
-      const today = new Date().toISOString().slice(0, 10);
-      const rows = input.map((item) => ({
+      // ARG-02: derive checked_in_date + checked_in_at from the per-item capture
+      // moment (queuedAt), NOT the server flush time. A check-in made at 23:55
+      // offline and flushed after midnight must record the day it actually
+      // happened — both for the funder-facing date and for the unique-constraint
+      // key the result mapping compares against. Anonymous (person_id null)
+      // check-ins bypass the arbiter (NULL <> NULL) → always insert.
+      const enriched = input.map((item) => {
+        const iso = new Date(item.queuedAt).toISOString();
+        return { item, checkedInAt: iso, checkedInDate: iso.slice(0, 10) };
+      });
+      const rows = enriched.map(({ item, checkedInAt, checkedInDate }) => ({
         person_id: item.personId,
         location_id: item.locationId,
         programa: item.programa,
         metodo: item.metodo,
         es_demo: item.isDemoMode,
-        checked_in_date: today,
+        checked_in_at: checkedInAt,
+        checked_in_date: checkedInDate,
       }));
 
       const { data, error } = await supabase
@@ -380,11 +389,11 @@ export const checkinRouter = router({
       // For anonymous rows the unique constraint doesn't apply, so every
       // anonymous input is "synced" by definition. For non-anon, status is
       // derived from membership in insertedKeys.
-      return input.map((item) => {
+      return enriched.map(({ item, checkedInDate }) => {
         if (item.personId === null) {
           return { clientId: item.clientId, status: "synced" as const };
         }
-        const key = `${item.personId}|${item.locationId}|${item.programa}|${today}`;
+        const key = `${item.personId}|${item.locationId}|${item.programa}|${checkedInDate}`;
         return {
           clientId: item.clientId,
           status: insertedKeys.has(key) ? ("synced" as const) : ("duplicate" as const),
