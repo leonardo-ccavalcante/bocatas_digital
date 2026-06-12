@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { createClient } from "@supabase/supabase-js";
 import { restoreWithCascade } from "../../db/soft-delete-cascade";
+import { ilikeForOr } from "../../_core/postgrestFilter";
 
 export const softDeleteRecoveryRouter = router({
   listDeletedFamilies: adminProcedure
@@ -29,7 +30,7 @@ export const softDeleteRecoveryRouter = router({
 
       if (input.search) {
         query = query.or(
-          `familia_numero.ilike.%${input.search}%,estado.ilike.%${input.search}%`
+          `familia_numero.ilike.${ilikeForOr(input.search)},estado.ilike.${ilikeForOr(input.search)}`
         );
       }
 
