@@ -5,7 +5,7 @@
  * familia_numero,estado,miembro_nombre,miembro_rol,miembro_relacion,miembro_fecha_nacimiento
  */
 
-import { escapeCsvField } from '../shared/csvSafe';
+import { escapeCsvField, unescapeCsvField } from '../shared/csvSafe';
 
 export type MergeStrategy = 'overwrite' | 'merge' | 'skip';
 
@@ -58,7 +58,10 @@ export function generateFamiliesWithMembersCSV(data: FamilyWithMembersRow[]): st
 }
 
 /**
- * Parse CSV line (handle quoted fields)
+ * Parse CSV line (handle quoted fields).
+ * Reverses the formula-injection sentinel escapeCsvField adds on export (a
+ * leading `'` before a formula trigger) so an export → re-import round-trip is
+ * lossless — e.g. a member name exported as `'=evil` reads back as `=evil`.
  */
 function parseCSVLine(line: string): string[] {
   const result: string[] = [];
@@ -80,14 +83,14 @@ function parseCSVLine(line: string): string[] {
       }
     } else if (char === ',' && !inQuotes) {
       // Field separator
-      result.push(current);
+      result.push(unescapeCsvField(current));
       current = '';
     } else {
       current += char;
     }
   }
 
-  result.push(current);
+  result.push(unescapeCsvField(current));
   return result;
 }
 

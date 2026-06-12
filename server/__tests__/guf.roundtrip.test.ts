@@ -54,34 +54,15 @@ interface RoundTripFamilyWithMembers {
 }
 
 /**
- * Reverse the exporter's CSV formula-injection neutralization (CAS-01 / THE-02).
- *
- * `escapeCsvField` (shared/csvSafe.ts) prefixes a single quote to any STRING
- * cell that begins with a formula trigger (`= + - @` / TAB / CR) so spreadsheets
- * treat it as literal text. A value such as `+34-600-001-000` (a phone number)
- * therefore round-trips through CSV as `'+34-600-001-000`.
- *
- * The sentinel is a *display-layer* artifact; a faithful importer must strip it
- * to recover the original datum. The production importer
- * (server/csvImportWithMembers.ts) does NOT yet do this — see the round-trip
- * gap flagged in the CSV-injection fix. Here we strip it ourselves so the
- * round-trip asserts the *intended* lossless contract, removing ONLY the exact
- * sentinel pattern the exporter adds (a leading `'` immediately followed by a
- * formula trigger) — never a legitimate apostrophe in user data.
+ * The exporter neutralizes CSV formula injection (CAS-01 / THE-02): a STRING
+ * cell beginning with a formula trigger (`= + - @` / TAB / CR) is prefixed with
+ * a single quote so spreadsheets treat it as literal text — e.g. a phone
+ * `+34-600-001-000` is written as `'+34-600-001-000`. The production importer
+ * (parseFamiliesWithMembersCSV → unescapeCsvField) now reverses that sentinel,
+ * so values read back below carry NO leading `'`; the round-trip assertions
+ * exercise the real importer directly (no test-side stripping that would mask
+ * an importer gap).
  */
-function stripFormulaSentinel(value: string): string {
-  // The importer (parseFamiliesWithMembersCSV → unescapeCsvField) now strips the
-  // export sentinel itself, so a value read back from the importer must NEVER
-  // still carry one. This asserts that contract instead of stripping test-side
-  // (which previously MASKED the importer gap), then returns the value unchanged
-  // so the round-trip comparisons test the real importer output.
-  expect(
-    /^'[=+\-@\t\r]/.test(value),
-    `parsed value retained an unescaped formula sentinel: ${value}`,
-  ).toBe(false);
-  return value;
-}
-
 function deterministicUuid(prefix: string, n: number): string {
   // Build a fixed-length UUID v4-like string from a prefix + counter so tests
   // are reproducible across machines.
@@ -179,7 +160,7 @@ function reconstructFromCSV(csv: string): Map<string, ReconstructedFamily> {
       byFamilia.set(familiaId, {
         familia_id: familiaId,
         familia_numero: String(row.familia_numero ?? ''),
-        telefono: stripFormulaSentinel(String(row.telefono ?? '')),
+        telefono: String(row.telefono ?? ''),
         alta_en_guf: row.alta_en_guf === true,
         fecha_alta_guf:
           typeof row.fecha_alta_guf === 'string' ? row.fecha_alta_guf : null,
@@ -247,12 +228,13 @@ describe('GUF CSV round-trip (export -> import)', () => {
           family: {
             id: familiaId,
             familia_numero: String(row.familia_numero ?? ''),
-            // Free-text columns the exporter formula-neutralizes; strip the
-            // sentinel on read-back so the re-export is idempotent (lossless).
-            nombre_familia: stripFormulaSentinel(String(row.nombre_familia ?? '')),
-            contacto_principal: stripFormulaSentinel(String(row.contacto_principal ?? '')),
-            telefono: stripFormulaSentinel(String(row.telefono ?? '')),
-            direccion: stripFormulaSentinel(String(row.direccion ?? '')),
+            // Free-text columns the exporter formula-neutralizes; the importer
+            // (unescapeCsvField) already removed the sentinel, so read-back is
+            // the original value and the re-export is idempotent (lossless).
+            nombre_familia: String(row.nombre_familia ?? ''),
+            contacto_principal: String(row.contacto_principal ?? ''),
+            telefono: String(row.telefono ?? ''),
+            direccion: String(row.direccion ?? ''),
             estado: String(row.estado ?? 'activo'),
             fecha_creacion: String(row.fecha_creacion ?? ''),
             miembros_count: Number(row.miembros_count ?? 0),
@@ -288,11 +270,11 @@ describe('GUF CSV round-trip (export -> import)', () => {
         entry.members.push({
           id: miembroId,
           familia_id: familiaId,
-          nombre: stripFormulaSentinel(String(row.miembro_nombre ?? '')),
+          nombre: String(row.miembro_nombre ?? ''),
           rol: String(row.miembro_rol ?? ''),
           relacion:
             typeof row.miembro_relacion === 'string'
-              ? stripFormulaSentinel(row.miembro_relacion)
+              ? row.miembro_relacion
               : null,
           fecha_nacimiento:
             typeof row.miembro_fecha_nacimiento === 'string'
@@ -311,6 +293,28 @@ describe('GUF CSV round-trip (export -> import)', () => {
     const csv2 = generateFamiliesCSVWithMembers(reconstructed, 'update');
 
     expect(csv2).toBe(csv1);
+  });
+
+  it('round-trips a +-leading telefono without the formula-injection sentinel', () => {
+    // A real Spanish phone number starts with `+`, a formula trigger. The
+    // exporter writes it as `'+34-600-100-001` (CAS-01 / THE-02); the importer
+    // must strip that sentinel so the re-imported datum equals the original —
+    // otherwise the apostrophe persists into the non-recoverable GUF families
+    // data on re-import. RED before the importer reversed the sentinel; GREEN now.
+    const families = buildFamilies(1);
+    families[0].family.telefono = '+34-600-100-001';
+
+    const csv = generateFamiliesCSVWithMembers(families, 'update');
+    // The on-disk cell is neutralized (sentinel + force-quote) as expected.
+    expect(csv).toContain('"\'+34-600-100-001"');
+
+    const records = parseFamiliesWithMembersCSV(csv);
+    const familiaId = families[0].family.id;
+    const familyRow = records.find((r) => String(r.familia_id ?? '') === familiaId);
+
+    expect(familyRow).toBeDefined();
+    expect(familyRow?.telefono).toBe('+34-600-100-001');
+    expect(String(familyRow?.telefono ?? '').startsWith("'")).toBe(false);
   });
 
   // TODO(B.3 exit): once `idioma_principal` is added to the families schema and

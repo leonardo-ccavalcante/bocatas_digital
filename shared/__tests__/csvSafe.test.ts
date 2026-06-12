@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { escapeCsvField } from "../csvSafe";
+import { escapeCsvField, unescapeCsvField } from "../csvSafe";
 
 describe("escapeCsvField — formula injection (CAS-01 / THE-02)", () => {
   it("prefixes and quotes a leading '=' formula trigger (string)", () => {
@@ -77,5 +77,40 @@ describe("escapeCsvField — RFC 4180 quoting", () => {
 
   it("wraps a value containing a carriage return", () => {
     expect(escapeCsvField("a\rb")).toBe('"a\rb"');
+  });
+});
+
+describe("unescapeCsvField — reverses the formula-injection sentinel", () => {
+  it("strips the sentinel before each formula trigger", () => {
+    expect(unescapeCsvField("'+34-600-100-001")).toBe("+34-600-100-001");
+    expect(unescapeCsvField("'=1+1")).toBe("=1+1");
+    expect(unescapeCsvField("'@SUM(A1)")).toBe("@SUM(A1)");
+    expect(unescapeCsvField("'-2+3")).toBe("-2+3");
+    expect(unescapeCsvField("'\t=evil")).toBe("\t=evil");
+    expect(unescapeCsvField("'\r=evil")).toBe("\r=evil");
+  });
+
+  it("leaves a legitimate apostrophe untouched when not a sentinel", () => {
+    expect(unescapeCsvField("O'Brien")).toBe("O'Brien");
+    expect(unescapeCsvField("'hola")).toBe("'hola"); // ' not followed by a trigger
+    expect(unescapeCsvField("''")).toBe("''");
+    expect(unescapeCsvField("")).toBe("");
+  });
+
+  it("only removes ONE leading sentinel (idempotent on already-clean values)", () => {
+    // The exporter prepends at most one '; a clean value is returned as-is.
+    expect(unescapeCsvField("+34-600-100-001")).toBe("+34-600-100-001");
+    expect(unescapeCsvField(unescapeCsvField("'+34"))).toBe("+34");
+  });
+
+  it("recovers the original value after escape→tokenize (round-trip)", () => {
+    // Simulates the importer: escapeCsvField writes a force-quoted sentinel cell;
+    // the CSV tokenizer strips the RFC-4180 quotes, then unescapeCsvField undoes
+    // the sentinel. Net result is the original datum.
+    for (const original of ["+34-600-100-001", "=cmd|calc", "@SUM(A1)", "-2+3"]) {
+      const cell = escapeCsvField(original); // e.g. "'+34-600-100-001"
+      const tokenized = cell.replace(/^"(.*)"$/s, "$1").replace(/""/g, '"');
+      expect(unescapeCsvField(tokenized)).toBe(original);
+    }
   });
 });
