@@ -10,6 +10,28 @@ import {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// DB CHECK-allowed enum values (verified live in prod). Held here at the write
+// site so a GUF CSV carrying free-text / Spanish / capitalized enum cells cannot
+// abort the import with a raw 23514 CHECK violation — which the per-row catch
+// turned into a silently dropped family/member. (MYTHOS TES-08)
+const FAMILY_ESTADO = ["activa", "baja"] as const; // families.estado CHECK
+const MEMBER_ROL = ["head_of_household", "dependent", "other"] as const; // familia_miembros.rol CHECK (NOT NULL)
+const MEMBER_RELACION = [
+  "parent", "child", "sibling", "other",
+  "esposo_a", "hijo_a", "madre", "padre", "suegro_a", "hermano_a", "abuelo_a", "otro",
+] as const; // familia_miembros.relacion CHECK
+const MEMBER_ESTADO = ["activo", "inactivo"] as const; // familia_miembros.estado CHECK
+
+/**
+ * Coerce a raw CSV cell to a DB CHECK-valid enum value (case-insensitive, trimmed).
+ * Falls back to a valid default when the cell is absent or unrecognized, so the row
+ * imports as a known-good value instead of failing the CHECK and being dropped.
+ */
+function coerceEnum<T extends string>(raw: unknown, allowed: readonly T[], fallback: T): T {
+  const v = String(raw ?? "").trim().toLowerCase();
+  return (allowed as readonly string[]).includes(v) ? (v as T) : fallback;
+}
+
 export const csvImportRouter = router({
   // ─── Job 10: CSV Import Validation ──────────────────────────────────────
   /** POST validate CSV before import */
@@ -190,7 +212,9 @@ export const csvImportRouter = router({
             const newFamilyData: any = {
               familia_numero: familyRow.familia_numero,
               persona_recoge: familyRow.contacto_principal ?? "",
-              estado: familyRow.estado ?? "activo",
+              // families.estado CHECK is ('activa','baja') — the previous "activo"
+              // default was itself an invalid value (member spelling). (TES-08)
+              estado: coerceEnum(familyRow.estado, FAMILY_ESTADO, "activa"),
             };
             if (familiaId && UUID_RE.test(familiaId)) {
               newFamilyData.id = familiaId;
@@ -220,10 +244,15 @@ export const csvImportRouter = router({
                   id: miembroId,
                   familia_id: familiaId,
                   nombre: row.miembro_nombre,
-                  rol: row.miembro_rol,
-                  relacion: row.miembro_relacion ?? null,
+                  // rol is NOT NULL + CHECK; relacion/estado are CHECK-constrained.
+                  // Coerce raw CSV cells to DB-valid values so a bad GUF value imports
+                  // (rol→other, relacion→otro, estado→activo) instead of 23514. (TES-08)
+                  rol: coerceEnum(row.miembro_rol, MEMBER_ROL, "other"),
+                  relacion: row.miembro_relacion
+                    ? coerceEnum(row.miembro_relacion, MEMBER_RELACION, "otro")
+                    : null,
                   fecha_nacimiento: row.miembro_fecha_nacimiento ?? null,
-                  estado: row.miembro_estado ?? "activo",
+                  estado: coerceEnum(row.miembro_estado, MEMBER_ESTADO, "activo"),
                 });
                 if (error) throw error;
               }

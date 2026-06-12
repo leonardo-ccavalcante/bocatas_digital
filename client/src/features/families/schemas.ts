@@ -14,7 +14,11 @@ export const MotivoBajaSchema = z.enum([
 ]);
 export type MotivoBaja = z.infer<typeof MotivoBajaSchema>;
 
-export const EstadoFamiliaSchema = z.enum(["activa", "baja", "suspendida"]);
+// Mirrors the DB CHECK `families.estado IN ('activa','baja')` (verified in prod).
+// 'suspendida' was a stale third value never present in the CHECK and used nowhere
+// in the app — it would be rejected at write time (23514). Aligned down to the DB
+// so the filter/validation can't accept a state the table can't store. (MYTHOS TES-06)
+export const EstadoFamiliaSchema = z.enum(["activa", "baja"]);
 export type EstadoFamilia = z.infer<typeof EstadoFamiliaSchema>;
 
 // ─── Member (linked to persons registry) ─────────────────────────────────────
