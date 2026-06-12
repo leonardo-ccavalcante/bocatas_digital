@@ -70,7 +70,16 @@ interface RoundTripFamilyWithMembers {
  * formula trigger) — never a legitimate apostrophe in user data.
  */
 function stripFormulaSentinel(value: string): string {
-  return /^'[=+\-@\t\r]/.test(value) ? value.slice(1) : value;
+  // The importer (parseFamiliesWithMembersCSV → unescapeCsvField) now strips the
+  // export sentinel itself, so a value read back from the importer must NEVER
+  // still carry one. This asserts that contract instead of stripping test-side
+  // (which previously MASKED the importer gap), then returns the value unchanged
+  // so the round-trip comparisons test the real importer output.
+  expect(
+    /^'[=+\-@\t\r]/.test(value),
+    `parsed value retained an unescaped formula sentinel: ${value}`,
+  ).toBe(false);
+  return value;
 }
 
 function deterministicUuid(prefix: string, n: number): string {

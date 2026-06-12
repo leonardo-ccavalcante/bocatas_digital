@@ -54,3 +54,15 @@ export function escapeCsvField(value: unknown): string {
 
   return str;
 }
+
+/**
+ * Inverse of escapeCsvField's formula-injection guard. Strips a single leading
+ * `'` sentinel ONLY when it directly precedes a formula trigger — i.e. the exact
+ * marker escapeCsvField prepended — so a value this module exported (e.g. a phone
+ * `'+34-600-...`) re-imports losslessly. A `'` not followed by a trigger is never
+ * a sentinel we wrote, so genuine data like `'hola` is left untouched. RFC-4180
+ * quotes are already stripped by the CSV row parser before this runs.
+ */
+export function unescapeCsvField(value: string): string {
+  return value.replace(/^'(?=[=+\-@\t\r])/, "");
+}

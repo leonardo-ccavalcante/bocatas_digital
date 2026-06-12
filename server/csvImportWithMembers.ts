@@ -1,3 +1,5 @@
+import { unescapeCsvField } from "../shared/csvSafe";
+
 export interface ImportValidationResult {
   isValid: boolean;
   errors: string[];
@@ -298,7 +300,10 @@ export function parseFamiliesWithMembersCSV(csv: string): ParsedRow[] {
       } else if (!isNaN(Number(value)) && value !== '') {
         record[header] = Number(value);
       } else {
-        record[header] = value;
+        // Strip the formula-injection sentinel escapeCsvField may have prepended
+        // on export, so export→re-import is lossless (e.g. a phone `'+34-...` →
+        // `+34-...`). Only string cells reach here; numeric coercion is unaffected.
+        record[header] = unescapeCsvField(value);
       }
     }
 
