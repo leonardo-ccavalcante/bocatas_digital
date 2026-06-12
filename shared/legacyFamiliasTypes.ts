@@ -98,6 +98,9 @@ export const warningCodeEnum = z.enum([
   "country_unknown",
   "date_ambiguous",
   "date_invalid",
+  // A bare 5-digit numeric in a date cell is converted as an Excel serial but
+  // flagged: it overlaps the postal-code space, so it may be a CP, not a date.
+  "date_serial_ambiguous",
   "dni_unparseable",
   "sexo_unknown",
   "colectivo_unknown",
