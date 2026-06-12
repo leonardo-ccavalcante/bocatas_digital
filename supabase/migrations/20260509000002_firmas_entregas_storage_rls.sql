@@ -1,7 +1,11 @@
 -- ============================================================================
 -- 20260509000002_firmas_entregas_storage_rls.sql
 --
--- PENDING REVIEW — DO NOT APPLY WITHOUT RGPD LAWYER SIGNOFF.
+-- APPLIES — platform-readiness decision ADR-0008 (2026-06-12, Leo): the bucket
+-- lockdown ships so the platform is ready for the lawyer to review a working
+-- system. RGPD-lawyer signoff is a GO-LIVE gate before production signature
+-- bitmaps are stored here, NOT a migration/build blocker. The checklist below
+-- must clear before go-live; track it in the EIPD register.
 --
 -- Required signoff: CARTA_ABOGADO_RGPD.md item — confirm that bucket
 -- privacy + voluntario INSERT-only + no-DELETE-anywhere semantics meet
@@ -18,7 +22,7 @@
 --     - UPDATE  → no role.
 --     - DELETE  → no role (append-only retention).
 --
--- WHY THIS IS NOT APPLIED YET
+-- GO-LIVE COMPLIANCE CHECKLIST (clear before production signature bitmaps are stored)
 --   1. Object name format contract (`firmas-entregas/{uuid}/{YYYY-MM-DD}.png`)
 --      is enforced by the application layer (Zod refinement in
 --      server/routers/families/deliveries.ts). Confirm with counsel that
