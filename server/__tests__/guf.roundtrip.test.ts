@@ -53,6 +53,26 @@ interface RoundTripFamilyWithMembers {
   members: RoundTripMember[];
 }
 
+/**
+ * Reverse the exporter's CSV formula-injection neutralization (CAS-01 / THE-02).
+ *
+ * `escapeCsvField` (shared/csvSafe.ts) prefixes a single quote to any STRING
+ * cell that begins with a formula trigger (`= + - @` / TAB / CR) so spreadsheets
+ * treat it as literal text. A value such as `+34-600-001-000` (a phone number)
+ * therefore round-trips through CSV as `'+34-600-001-000`.
+ *
+ * The sentinel is a *display-layer* artifact; a faithful importer must strip it
+ * to recover the original datum. The production importer
+ * (server/csvImportWithMembers.ts) does NOT yet do this — see the round-trip
+ * gap flagged in the CSV-injection fix. Here we strip it ourselves so the
+ * round-trip asserts the *intended* lossless contract, removing ONLY the exact
+ * sentinel pattern the exporter adds (a leading `'` immediately followed by a
+ * formula trigger) — never a legitimate apostrophe in user data.
+ */
+function stripFormulaSentinel(value: string): string {
+  return /^'[=+\-@\t\r]/.test(value) ? value.slice(1) : value;
+}
+
 function deterministicUuid(prefix: string, n: number): string {
   // Build a fixed-length UUID v4-like string from a prefix + counter so tests
   // are reproducible across machines.
@@ -150,7 +170,7 @@ function reconstructFromCSV(csv: string): Map<string, ReconstructedFamily> {
       byFamilia.set(familiaId, {
         familia_id: familiaId,
         familia_numero: String(row.familia_numero ?? ''),
-        telefono: String(row.telefono ?? ''),
+        telefono: stripFormulaSentinel(String(row.telefono ?? '')),
         alta_en_guf: row.alta_en_guf === true,
         fecha_alta_guf:
           typeof row.fecha_alta_guf === 'string' ? row.fecha_alta_guf : null,
@@ -218,10 +238,12 @@ describe('GUF CSV round-trip (export -> import)', () => {
           family: {
             id: familiaId,
             familia_numero: String(row.familia_numero ?? ''),
-            nombre_familia: String(row.nombre_familia ?? ''),
-            contacto_principal: String(row.contacto_principal ?? ''),
-            telefono: String(row.telefono ?? ''),
-            direccion: String(row.direccion ?? ''),
+            // Free-text columns the exporter formula-neutralizes; strip the
+            // sentinel on read-back so the re-export is idempotent (lossless).
+            nombre_familia: stripFormulaSentinel(String(row.nombre_familia ?? '')),
+            contacto_principal: stripFormulaSentinel(String(row.contacto_principal ?? '')),
+            telefono: stripFormulaSentinel(String(row.telefono ?? '')),
+            direccion: stripFormulaSentinel(String(row.direccion ?? '')),
             estado: String(row.estado ?? 'activo'),
             fecha_creacion: String(row.fecha_creacion ?? ''),
             miembros_count: Number(row.miembros_count ?? 0),
@@ -257,11 +279,11 @@ describe('GUF CSV round-trip (export -> import)', () => {
         entry.members.push({
           id: miembroId,
           familia_id: familiaId,
-          nombre: String(row.miembro_nombre ?? ''),
+          nombre: stripFormulaSentinel(String(row.miembro_nombre ?? '')),
           rol: String(row.miembro_rol ?? ''),
           relacion:
             typeof row.miembro_relacion === 'string'
-              ? row.miembro_relacion
+              ? stripFormulaSentinel(row.miembro_relacion)
               : null,
           fecha_nacimiento:
             typeof row.miembro_fecha_nacimiento === 'string'
