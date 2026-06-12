@@ -41,7 +41,8 @@ describeDb(
 
     afterAll(async () => {
       if (!db) return;
-      if (personId) await db.from("attendances").delete().eq("person_id", personId);
+      // delete by location_id to also clean the anonymous (NULL person_id) rows.
+      if (locationId) await db.from("attendances").delete().eq("location_id", locationId);
       if (personId) await db.from("persons").delete().eq("id", personId);
       if (locationId) await db.from("locations").delete().eq("id", locationId);
     });
@@ -100,6 +101,33 @@ describeDb(
         .eq("checked_in_date", today);
       expect(selErr).toBeNull();
       expect(rows).toHaveLength(1);
+
+      // Anonymous (NULL person_id) check-ins must NOT deduplicate: the arbiter
+      // index covers NULL rows, but NULL <> NULL in Postgres, so two anonymous
+      // flushes at the same location/programa/date both insert (matches
+      // syncOfflineQueue's "anonymous always synced" behavior).
+      const anonRow = { ...row, person_id: null };
+      const a1 = await db!
+        .from("attendances")
+        .upsert([anonRow], {
+          onConflict: "person_id,location_id,programa,checked_in_date",
+          ignoreDuplicates: true,
+        });
+      expect(a1.error).toBeNull();
+      const a2 = await db!
+        .from("attendances")
+        .upsert([anonRow], {
+          onConflict: "person_id,location_id,programa,checked_in_date",
+          ignoreDuplicates: true,
+        });
+      expect(a2.error).toBeNull();
+      const { data: anonRows } = await db!
+        .from("attendances")
+        .select("id")
+        .is("person_id", null)
+        .eq("location_id", locationId)
+        .eq("checked_in_date", today);
+      expect(anonRows).toHaveLength(2);
     });
   },
 );
