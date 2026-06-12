@@ -410,6 +410,76 @@ describe("reports.informeIrpfDemografico", () => {
   });
 });
 
+// ─── k-anonymity floor (CAS-05 / RGPD re-identification) ─────────────────
+//
+// Aggregate per-distrito counts must not surface a count below
+// K_ANONYMITY_FLOOR (=3), per the EIPD principle that aggregate dashboards
+// must not enable re-identification of an individual family. A distrito with
+// 1–2 families is individually re-identifiable, so its count is suppressed
+// (set to null) while counts ≥ 3 pass through unchanged.
+//
+// Both reports reuse the SAME floor as mapa.distritoStats
+// (server/_core/mapaAggregation.ts → K_ANONYMITY_FLOOR).
+
+// Build a families chain whose distrito column produces counts of:
+//   "chamberi"     → 3 (≥ floor, passes through)
+//   "retiro"       → 2 (< floor, suppressed → null)
+//   "salamanca"    → 1 (< floor, suppressed → null)
+function familiesDistritoChain(extraCols: Record<string, unknown> = {}) {
+  const rows = [
+    { distrito: "chamberi", ...extraCols },
+    { distrito: "chamberi", ...extraCols },
+    { distrito: "chamberi", ...extraCols },
+    { distrito: "retiro", ...extraCols },
+    { distrito: "retiro", ...extraCols },
+    { distrito: "salamanca", ...extraCols },
+  ];
+  return {
+    ...emptyChain(),
+    then: (resolve: (v: { data: unknown; error: null; count: number }) => unknown) =>
+      resolve({ data: rows, error: null, count: rows.length }),
+  };
+}
+
+describe("k-anonymity floor — distribucionPorDistrito (CAS-05)", () => {
+  it("suppresses (count=null) distritos below the floor, passes ≥3 through", async () => {
+    fromMock.mockReturnValueOnce(familiesDistritoChain());
+    const caller = distribucionPorDistritoRouter.createCaller(ctxWithRole("admin"));
+    const result = await caller.distribucionPorDistrito({});
+
+    const byDistrito = new Map(result.rows.map((r) => [r.distrito, r.count]));
+    // ≥ floor → passes through unchanged.
+    expect(byDistrito.get("chamberi")).toBe(3);
+    // < floor → suppressed to null (not 2, not 1, not dropped).
+    expect(byDistrito.get("retiro")).toBeNull();
+    expect(byDistrito.get("salamanca")).toBeNull();
+    // No raw small count must ever survive.
+    expect(result.rows.some((r) => r.count !== null && r.count < 3)).toBe(false);
+  });
+});
+
+describe("k-anonymity floor — resumenTrimestral (CAS-05)", () => {
+  it("suppresses (count=null) per-distrito counts below the floor", async () => {
+    // 1st DB call: families (drives distribucionPorDistrito); 2nd: deliveries.
+    fromMock.mockReturnValueOnce(familiesDistritoChain({ id: "x" }));
+    fromMock.mockReturnValueOnce(emptyChain());
+    const caller = resumenTrimestralRouter.createCaller(ctxWithRole("admin"));
+    const result = await caller.resumenTrimestral({ year: 2024, quarter: 1 });
+
+    const byDistrito = new Map(
+      result.distribucionPorDistrito.map((r) => [r.distrito, r.count]),
+    );
+    expect(byDistrito.get("chamberi")).toBe(3);
+    expect(byDistrito.get("retiro")).toBeNull();
+    expect(byDistrito.get("salamanca")).toBeNull();
+    expect(
+      result.distribucionPorDistrito.some((r) => r.count !== null && r.count < 3),
+    ).toBe(false);
+    // nuevasFamilias is a non-distrito aggregate total → not suppressed.
+    expect(result.nuevasFamilias).toBe(6);
+  });
+});
+
 // ─── 11. RGPD Art. 30 — logAudit called on every templated procedure ─────
 //
 // Verifies that the audit trail (Fix 1) fires for the two most critical
