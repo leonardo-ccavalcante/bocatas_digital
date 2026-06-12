@@ -100,4 +100,26 @@ describe("resolveCookieSecret — fail-fast guard", () => {
       ""
     );
   });
+
+  // Wave 4: the Lighthouse CI step sets a dummy JWT_SECRET that is PUBLIC in
+  // .github/workflows/ci.yml. Production must refuse that exact value — a
+  // deployment that copy-pasted it would have forgeable sessions AND QR
+  // signatures (qrSigningSecret falls back to JWT_SECRET).
+  it("THROWS in production when JWT_SECRET is the public CI dummy", () => {
+    expect(() =>
+      resolveCookieSecret({
+        jwtSecret: "ci-lighthouse-only-not-a-real-secret",
+        isProduction: true,
+      })
+    ).toThrow(/CI-only dummy/);
+  });
+
+  it("accepts the CI dummy in non-production (the Lighthouse step itself)", () => {
+    expect(
+      resolveCookieSecret({
+        jwtSecret: "ci-lighthouse-only-not-a-real-secret",
+        isProduction: false,
+      })
+    ).toBe("ci-lighthouse-only-not-a-real-secret");
+  });
 });

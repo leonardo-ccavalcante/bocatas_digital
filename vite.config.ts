@@ -212,10 +212,23 @@ const reactPlugin = reactCompilerEnabled
     })
   : react();
 
-const plugins = [reactPlugin, tailwindcss(), jsxLocPlugin(), vitePluginManusRuntime(), vitePluginManusDebugCollector(), pwa];
+// vitePluginManusRuntime injects the Manus editor/inspector runtime (~366KB raw
+// / ~105KB gzip, bundling its own React copy) INLINE into index.html — on every
+// page, uncacheable, re-parsed on each load. End users never use the inspector;
+// on the Moto G4 target it was the single largest LCP cost (ATL: Wave 4). Keep
+// it for `vite dev`/`pnpm dev` (Manus IDE preview), drop it from production
+// builds. If the Manus host ever requires it in prod, re-add unconditionally.
+const pluginsFor = (command: "build" | "serve") => [
+  reactPlugin,
+  tailwindcss(),
+  jsxLocPlugin(),
+  ...(command === "serve" ? [vitePluginManusRuntime()] : []),
+  vitePluginManusDebugCollector(),
+  pwa,
+];
 
-export default defineConfig({
-  plugins,
+export default defineConfig(({ command }) => ({
+  plugins: pluginsFor(command),
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "client", "src"),
@@ -234,7 +247,10 @@ export default defineConfig({
       output: {
         manualChunks: {
           "vendor-react": ["react", "react-dom"],
-          "vendor-supabase": ["@supabase/supabase-js", "@supabase/ssr"],
+          // @supabase/* intentionally NOT manual-chunked: the object form forces
+          // an eager cross-chunk edge (vendor-ui imported shared helpers hoisted
+          // into vendor-supabase, so EVERY page preloaded 53KB gzip of Supabase).
+          // Natural splitting loads it only on routes that use it (ATL-06).
           "vendor-qrcode": ["qrcode"],
           "vendor-ui": ["@radix-ui/react-dialog", "@radix-ui/react-select", "@radix-ui/react-dropdown-menu", "lucide-react"],
           "vendor-query": ["@tanstack/react-query", "@trpc/client", "@trpc/react-query"],
@@ -278,4 +294,4 @@ export default defineConfig({
       deny: ["**/.*"],
     },
   },
-});
+}));

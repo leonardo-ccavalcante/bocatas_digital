@@ -1,5 +1,6 @@
 import "dotenv/config";
 import express from "express";
+import compression from "compression";
 import { createServer } from "http";
 import net from "net";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
@@ -57,6 +58,17 @@ const authLimiter = rateLimit({
 async function startServer() {
   const app = express();
   const server = createServer(app);
+
+  // ATL (Wave 4): gzip responses — the node server served 384KB-raw JS chunks
+  // uncompressed (117KB gzipped). Applies to static assets AND JSON API
+  // payloads (persons/families lists). Host-agnostic: keeps working after any
+  // move off a compressing edge/proxy.
+  // SECURITY INVARIANT (BREACH-class): keep it true that no response BODY
+  // co-locates a stable secret with attacker-reflected input (session JWT is
+  // header-only, signed URLs go in Location headers). If a future endpoint
+  // returns a long-lived token alongside echoed caller input in one JSON body,
+  // set Cache-Control: no-transform on it or exclude it from compression.
+  app.use(compression());
 
     // Body parsers: routes that carry large payloads (base64 images, CSV exports)
   // get 10MB; everything else gets the safe 1MB default.
