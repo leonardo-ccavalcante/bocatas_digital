@@ -40,13 +40,18 @@ interface ConsentState {
 }
 
 // TEMPLATE_LANGUAGES (consent_language enum) is the single source in
-// ./RegistrationWizard/_shared — anything outside it triggers the
-// verbal-translation fallback banner. RTL languages live here so the body
-// wrapper can flip dir="rtl".
+// ./RegistrationWizard/_shared. A non-Spanish person triggers the verbal-
+// translation fallback banner when their language is outside that set OR the
+// `templates` for their language are empty (active-but-empty lane) — never
+// silently render Spanish (THE-04). RTL languages live here so the body wrapper
+// can flip dir="rtl".
 const RTL_LANGUAGES = new Set(["ar"]);
 
 export function ConsentModal({ open, personId, templates, onClose, onSaved, personLanguage }: ConsentModalProps) {
-  const needsVerbalFallback = !!personLanguage && !TEMPLATE_LANGUAGES.has(personLanguage);
+  const needsVerbalFallback =
+    !!personLanguage &&
+    personLanguage !== "es" &&
+    (!TEMPLATE_LANGUAGES.has(personLanguage) || templates.length === 0);
   const dir = personLanguage && RTL_LANGUAGES.has(personLanguage) ? "rtl" : "ltr";
   const supabase = createClient();
   const [consents, setConsents] = useState<Record<string, ConsentState>>({});
