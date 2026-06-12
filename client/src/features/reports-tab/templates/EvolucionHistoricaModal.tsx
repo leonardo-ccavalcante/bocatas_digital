@@ -27,7 +27,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Download } from "lucide-react";
 import { HIGH_RISK_PII_FIELDS } from "@shared/reports/entities";
-import { exportRowsAsCsv } from "../utils/exportCsv";
+import { exportRowsAsCsv, labelSuppressedCounts } from "../utils/exportCsv";
 import { useEvolucionHistorica } from "../hooks/useTemplatedReports";
 
 const REDACT = [...HIGH_RISK_PII_FIELDS];
@@ -44,13 +44,19 @@ export function EvolucionHistoricaModal({ open, onClose }: Props) {
   const buckets = data?.months ?? [];
 
   function handleExport() {
-    exportRowsAsCsv(buckets, {
+    // Suppressed months (count === null) export as the explicit "<3" marker so
+    // a shared artifact is self-documenting, not silently blank (themis: a blank
+    // invites a reader to backfill it).
+    exportRowsAsCsv(labelSuppressedCounts(buckets), {
       filename: `bocatas_evolucion_${months}m.csv`,
       redactFields: REDACT,
     });
   }
 
-  const maxCount = buckets.reduce((m, b) => Math.max(m, b.count), 0);
+  // null = suppressed (count 1–2 below the k-anonymity floor). Treat as
+  // "suppressed", NOT 0, in the chart math so a hidden month does not skew the
+  // max or render a misleading 0%-width bar.
+  const maxCount = buckets.reduce((m, b) => Math.max(m, b.count ?? 0), 0);
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -107,17 +113,32 @@ export function EvolucionHistoricaModal({ open, onClose }: Props) {
               </TableHeader>
               <TableBody>
                 {buckets.map((b) => {
-                  const pct = maxCount > 0 ? Math.round((b.count / maxCount) * 100) : 0;
+                  const suppressed = b.count === null;
+                  const pct =
+                    !suppressed && maxCount > 0
+                      ? Math.round(((b.count as number) / maxCount) * 100)
+                      : 0;
                   return (
                     <TableRow key={b.bucket}>
                       <TableCell className="text-xs font-medium">{b.bucket}</TableCell>
-                      <TableCell className="text-xs text-right">{b.count}</TableCell>
+                      <TableCell
+                        className="text-xs text-right"
+                        title={suppressed ? "Menos de 3 — ocultado por privacidad" : undefined}
+                      >
+                        {suppressed ? "<3" : b.count}
+                      </TableCell>
                       <TableCell className="text-xs w-32">
-                        <div
-                          className="h-2 rounded-full bg-primary/70"
-                          style={{ width: `${pct}%` }}
-                          aria-label={`${pct}% del máximo`}
-                        />
+                        {suppressed ? (
+                          <span className="text-muted-foreground" aria-label="Mes ocultado por privacidad">
+                            —
+                          </span>
+                        ) : (
+                          <div
+                            className="h-2 rounded-full bg-primary/70"
+                            style={{ width: `${pct}%` }}
+                            aria-label={`${pct}% del máximo`}
+                          />
+                        )}
                       </TableCell>
                     </TableRow>
                   );

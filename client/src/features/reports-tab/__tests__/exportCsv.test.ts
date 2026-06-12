@@ -11,6 +11,8 @@ import {
   buildCsvString,
   redactRow,
   flattenRow,
+  labelSuppressedCounts,
+  SUPPRESSED_LABEL,
 } from "../utils/exportCsv";
 
 describe("escapeCsvCell", () => {
@@ -186,5 +188,40 @@ describe("buildCsvString", () => {
     expect(csv).not.toContain("irregular");
     expect(csv).toContain("[REDACTED]");
     expect(csv).toContain("Ana");
+  });
+});
+
+// ─── labelSuppressedCounts (CAS-05 / themis: self-documenting "<3") ───────────
+
+describe("labelSuppressedCounts", () => {
+  it("replaces a null count with the explicit <3 marker", () => {
+    const out = labelSuppressedCounts([
+      { distrito: "centro", count: 5 },
+      { distrito: "retiro", count: null },
+    ]);
+    expect(out[0].count).toBe(5);
+    expect(out[1].count).toBe(SUPPRESSED_LABEL);
+    expect(SUPPRESSED_LABEL).toBe("<3");
+  });
+
+  it("leaves non-count fields untouched and does not mutate the input", () => {
+    const input = [{ distrito: "centro", count: null, extra: "keep" }];
+    const out = labelSuppressedCounts(input);
+    expect(out[0].extra).toBe("keep");
+    expect(input[0].count).toBeNull(); // original not mutated
+  });
+
+  it("labels a renamed count column when specified", () => {
+    const out = labelSuppressedCounts(
+      [{ distrito: "centro", nuevas_familias: null }],
+      ["nuevas_familias"],
+    );
+    expect(out[0].nuevas_familias).toBe("<3");
+  });
+
+  it("a suppressed cell serialises as <3 (not a blank) in the CSV", () => {
+    const rows = labelSuppressedCounts([{ distrito: "retiro", count: null }]);
+    const csv = buildCsvString(rows);
+    expect(csv).toContain("<3");
   });
 });

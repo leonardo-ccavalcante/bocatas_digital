@@ -21,6 +21,33 @@ export interface ExportCsvOptions {
   redactFields?: string[];
 }
 
+/**
+ * Marker for a count cell suppressed by k-anonymity (CAS-05 / themis follow-up).
+ * In a SHARED CSV artifact a blank cell is ambiguous — it invites a reader to
+ * backfill it. "<3" states the disclosure policy explicitly and self-documents.
+ */
+export const SUPPRESSED_LABEL = "<3";
+
+/**
+ * Map the named count columns from `null` (suppressed) to the explicit "<3"
+ * label, leaving every other field untouched. Use on report rows whose `count`
+ * field is `number | null` BEFORE handing them to exportRowsAsCsv, so the
+ * exported artifact is self-documenting rather than silently blank.
+ */
+export function labelSuppressedCounts<T extends Record<string, unknown>>(
+  rows: ReadonlyArray<T>,
+  countFields: string[] = ["count"],
+): Record<string, unknown>[] {
+  const fields = new Set(countFields);
+  return rows.map((row) => {
+    const out: Record<string, unknown> = { ...row };
+    for (const f of fields) {
+      if (out[f] === null) out[f] = SUPPRESSED_LABEL;
+    }
+    return out;
+  });
+}
+
 // Leading characters that trigger formula evaluation in Excel/Sheets/LibreOffice.
 const FORMULA_TRIGGERS = /^[=+\-@\t\r]/;
 

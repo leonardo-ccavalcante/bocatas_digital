@@ -32,7 +32,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Download } from "lucide-react";
 import { HIGH_RISK_PII_FIELDS } from "@shared/reports/entities";
-import { exportRowsAsCsv } from "../utils/exportCsv";
+import { exportRowsAsCsv, labelSuppressedCounts } from "../utils/exportCsv";
 import { useDistribucionPorDistrito } from "../hooks/useTemplatedReports";
 
 const REDACT = [...HIGH_RISK_PII_FIELDS];
@@ -49,7 +49,8 @@ export function DistribucionPorDistritoModal({ open, onClose }: Props) {
   const rows = data?.rows ?? [];
 
   function handleExport() {
-    exportRowsAsCsv(rows, {
+    // Suppressed counts (null) export as the explicit "<3" marker, not a blank.
+    exportRowsAsCsv(labelSuppressedCounts(rows), {
       filename: `bocatas_distribucion_distrito.csv`,
       redactFields: REDACT,
     });
@@ -111,7 +112,12 @@ export function DistribucionPorDistritoModal({ open, onClose }: Props) {
                 {rows.map((r) => (
                   <TableRow key={r.distrito}>
                     <TableCell className="text-xs">{r.distrito}</TableCell>
-                    <TableCell className="text-xs text-right font-medium">{r.count}</TableCell>
+                    <TableCell
+                      className="text-xs text-right font-medium"
+                      title={r.count === null ? "Menos de 3 — ocultado por privacidad" : undefined}
+                    >
+                      {r.count === null ? "<3" : r.count}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

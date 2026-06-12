@@ -9,8 +9,10 @@ export {
   ENTITY_FIELDS,
   ENTITY_TO_TABLE,
   HIGH_RISK_PII_FIELDS,
+  QUASI_IDENTIFIER_FIELDS,
   REPORT_ENTITIES,
   isFieldAllowed,
+  isQuasiIdentifier,
   type ReportEntity,
   type FieldDef,
 } from "../../../../shared/reports/entities";

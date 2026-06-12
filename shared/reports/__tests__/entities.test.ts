@@ -16,7 +16,13 @@
 
 import { describe, it, expect } from "vitest";
 
-import { ENTITY_FIELDS, ENTITY_TO_TABLE, HIGH_RISK_PII_FIELDS } from "../entities";
+import {
+  ENTITY_FIELDS,
+  ENTITY_TO_TABLE,
+  HIGH_RISK_PII_FIELDS,
+  QUASI_IDENTIFIER_FIELDS,
+  isQuasiIdentifier,
+} from "../entities";
 
 // Build sets by listing string column names. Column names are enumerated
 // explicitly so any rename in the DB schema is immediately visible as a test failure.
@@ -212,5 +218,36 @@ describe("entities.ts drift guard (DX-T3)", () => {
         });
       }
     }
+  });
+
+  // ─── Quasi-identifier set (CAS-05 / themis BLOCKER 3) ────────────────────
+
+  describe("QUASI_IDENTIFIER_FIELDS — forced-floor dimensions", () => {
+    it("matches the agreed demographic/geographic quasi-identifier set", () => {
+      expect([...QUASI_IDENTIFIER_FIELDS].sort()).toEqual(
+        ["canal_llegada", "distrito", "fase_itinerario", "genero", "idioma_principal", "pais_origen"],
+      );
+    });
+
+    it("every quasi-identifier is a GROUPABLE field somewhere in the allowlist", () => {
+      // The forced floor only fires on groupBy, so each QI must be groupable —
+      // otherwise the set has drifted from the allowlist it is meant to cover.
+      const groupable = new Set<string>();
+      for (const fields of Object.values(ENTITY_FIELDS)) {
+        for (const f of fields) if (f.groupable) groupable.add(f.name);
+      }
+      for (const qi of QUASI_IDENTIFIER_FIELDS) {
+        expect(groupable.has(qi), `'${qi}' must be a groupable allowlist field`).toBe(true);
+      }
+    });
+
+    it("isQuasiIdentifier discriminates QI from non-identifying groupable flags", () => {
+      expect(isQuasiIdentifier("distrito")).toBe(true);
+      expect(isQuasiIdentifier("pais_origen")).toBe(true);
+      // Operational flags are groupable but NOT quasi-identifiers.
+      expect(isQuasiIdentifier("alta_en_guf")).toBe(false);
+      expect(isQuasiIdentifier("is_current")).toBe(false);
+      expect(isQuasiIdentifier("unknown_field")).toBe(false);
+    });
   });
 });

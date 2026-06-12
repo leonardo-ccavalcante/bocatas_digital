@@ -17,7 +17,12 @@ import { logAudit } from "../../../_core/logging-middleware";
 import { K_ANONYMITY_FLOOR } from "../../../_core/mapaAggregation";
 import { withSoftDeleteFilter, wrapDbError } from "../_shared";
 import { SavedQuerySpecSchema, type ParsedFilterRow } from "./allowlist";
-import { ENTITY_FIELDS, ENTITY_TO_TABLE, type ReportEntity } from "./allowlist";
+import {
+  ENTITY_FIELDS,
+  ENTITY_TO_TABLE,
+  isQuasiIdentifier,
+  type ReportEntity,
+} from "./allowlist";
 
 /**
  * Build the SELECT projection for an entity from its allowlist.
@@ -213,11 +218,19 @@ export const customQueryRouter = router({
       // Group + aggregate in JS (plan §10 explicit comment: SQL aggregation is
       // a future TODO; JS-side is fine for limit-capped row sets).
       if (input.groupBy && input.aggregate) {
+        // SDC (themis BLOCKER 3): the floor is FORCED whenever the groupBy
+        // dimension is a quasi-identifier (distrito, pais_origen, genero,
+        // idioma_principal, fase_itinerario, canal_llegada) — a sub-floor group
+        // over a QI re-identifies an individual, so the kAnonymize toggle must
+        // not be able to disable it. For non-identifying dimensions the toggle
+        // still governs (preserves the internal-analysis default).
+        const enforceFloor =
+          input.kAnonymize || isQuasiIdentifier(input.groupBy);
         const { rows: grouped, suppressedCount } = applyGroupByAggregate(
           rawRows,
           input.groupBy,
           input.aggregate,
-          input.kAnonymize ? K_ANONYMITY_FLOOR : undefined,
+          enforceFloor ? K_ANONYMITY_FLOOR : undefined,
         );
         return {
           rows: grouped as unknown[],

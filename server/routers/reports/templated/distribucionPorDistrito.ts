@@ -6,10 +6,12 @@
  *
  * groupBy + aggregate in JS (plan §10) over limit-capped rows from DB.
  *
- * K-anonymity (CAS-05 / EIPD): any distrito with count < K_ANONYMITY_FLOOR is
- * suppressed (count → null) so a district with 1–2 families is not individually
- * re-identifiable. Reuses the SAME floor as mapa.distritoStats — no parallel
- * mechanism, no hardcoded threshold.
+ * K-anonymity / SDC (CAS-05 / EIPD): any distrito with count < K_ANONYMITY_FLOOR
+ * is suppressed (count → null) so a district with 1–2 families is not
+ * individually re-identifiable. Routed through the SAME shared SDC helper as
+ * every other report. This report publishes NO grand total, so complementary
+ * (secondary) suppression is a no-op here — but centralising the policy means
+ * the moment a total is ever added, differencing protection comes for free.
  *
  * Compliance: adminProcedure. withSoftDeleteFilter. wrapDbError.
  */
@@ -17,7 +19,7 @@
 import { z } from "zod";
 import { router, adminProcedure } from "../../../_core/trpc";
 import { createAdminClient } from "../../../../client/src/lib/supabase/server";
-import { K_ANONYMITY_FLOOR } from "../../../_core/mapaAggregation";
+import { applySdc } from "../../../_core/statisticalDisclosure";
 import { withSoftDeleteFilter, wrapDbError, logAuditReport } from "../_shared";
 
 const InputSchema = z
@@ -54,12 +56,16 @@ export const distribucionPorDistritoRouter = router({
         counts.set(key, (counts.get(key) ?? 0) + 1);
       }
 
-      // K-anonymity floor (CAS-05): suppress counts below the floor to null.
-      const rows = Array.from(counts.entries())
-        .map(([distrito, count]) => ({
-          distrito,
-          count: count < K_ANONYMITY_FLOOR ? null : count,
-        }))
+      // SDC (CAS-05): primary floor via the shared helper. No published total
+      // here ⇒ complementary suppression is a no-op, but the policy is one
+      // code path (Karpathy: no parallel mechanism).
+      const rows = applySdc(
+        Array.from(counts.entries()).map(([distrito, count]) => ({
+          label: distrito,
+          count,
+        })),
+      )
+        .map((c) => ({ distrito: c.label, count: c.count }))
         .sort((a, b) => (b.count ?? 0) - (a.count ?? 0));
 
       logAuditReport(ctx, "reports.distribucionPorDistrito", rows.length, {

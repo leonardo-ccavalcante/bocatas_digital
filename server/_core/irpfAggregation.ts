@@ -8,6 +8,7 @@
  */
 
 import { K_ANONYMITY_FLOOR } from "./mapaAggregation";
+import { applySdc } from "./statisticalDisclosure";
 
 // ─── Constants & types ───────────────────────────────────────────────────────
 
@@ -254,4 +255,129 @@ export function computeMarginals(
     },
     totalSuppressedMarginal,
   };
+}
+
+// ─── SDC-aware marginals + crosstab (themis BLOCKER 1: differencing) ─────────
+//
+// The plain computeMarginals / applyKAnonymityToIrpf above apply ONLY the
+// primary per-cell floor. When the report ALSO publishes the exact
+// `totalMiembros` (which every marginal and the crosstab partition exactly), a
+// single below-floor cell is recovered by differencing. These wrappers route
+// each table through the shared SDC helper with the published total so
+// complementary (secondary) suppression closes that channel — one policy,
+// reused (no parallel mechanism).
+
+/** A raw (ordered, unsuppressed) marginal row going into SDC. */
+interface RawMarginalRow { key: string; count: number; }
+
+/** Compute the five marginals as ordered RAW rows (no suppression yet). */
+function computeRawOrderedMarginals(
+  rows: ReadonlyArray<NormalizedMiembroRow>,
+  reportYear: number,
+): Record<keyof IrpfMarginals, RawMarginalRow[]> {
+  const ageMap = new Map<AgeBracket, number>();
+  const generoMap = new Map<GenderKey, number>();
+  const estudiosMap = new Map<EstudiosKey, number>();
+  const laboralMap = new Map<LaboralKey, number>();
+  const paisMap = new Map<string, number>();
+
+  for (const r of rows) {
+    const ab = computeAgeBracket(r.fecha_nacimiento, reportYear);
+    const ge = normalizeGender(r.genero);
+    const es = normalizeEstudios(r.nivel_estudios);
+    const la = normalizeLaboral(r.situacion_laboral);
+    const pa = normalizeCountryKey(r.pais_origen);
+    ageMap.set(ab, (ageMap.get(ab) ?? 0) + 1);
+    generoMap.set(ge, (generoMap.get(ge) ?? 0) + 1);
+    estudiosMap.set(es, (estudiosMap.get(es) ?? 0) + 1);
+    laboralMap.set(la, (laboralMap.get(la) ?? 0) + 1);
+    paisMap.set(pa, (paisMap.get(pa) ?? 0) + 1);
+  }
+
+  const ordered = (m: Map<string, number>, keys: readonly string[]): RawMarginalRow[] =>
+    keys.filter((k) => m.has(k)).map((k) => ({ key: k, count: m.get(k) as number }));
+
+  const pais: RawMarginalRow[] = [...paisMap.entries()]
+    .sort(([ka, ca], [kb, cb]) => cb - ca || ka.localeCompare(kb))
+    .map(([key, count]) => ({ key, count }));
+
+  return {
+    age:      ordered(ageMap, AGE_BRACKETS),
+    genero:   ordered(generoMap, GENDER_ORDER),
+    estudios: ordered(estudiosMap, ESTUDIOS_ORDER),
+    laboral:  ordered(laboralMap, LABORAL_ORDER),
+    pais,
+  };
+}
+
+/** Route one ordered raw marginal through SDC; tally suppressed cells. */
+function sdcMarginal(
+  raw: RawMarginalRow[],
+  total: number,
+): { rows: MarginalRow[]; suppressed: number } {
+  const out = applySdc(
+    raw.map((r) => ({ label: r.key, count: r.count })),
+    { publishedTotal: total },
+  );
+  const rows = out.map((c) => ({ key: c.label, count: c.count }));
+  const suppressed = rows.filter((r) => r.count === null).length;
+  return { rows, suppressed };
+}
+
+/**
+ * Compute all five marginals with PRIMARY floor + COMPLEMENTARY suppression
+ * against `totalMiembros`. Ordering matches computeMarginals.
+ */
+export function computeMarginalsWithSdc(
+  rows: ReadonlyArray<NormalizedMiembroRow>,
+  reportYear: number,
+  totalMiembros: number,
+): MarginalsResult {
+  const raw = computeRawOrderedMarginals(rows, reportYear);
+  const age = sdcMarginal(raw.age, totalMiembros);
+  const genero = sdcMarginal(raw.genero, totalMiembros);
+  const estudios = sdcMarginal(raw.estudios, totalMiembros);
+  const laboral = sdcMarginal(raw.laboral, totalMiembros);
+  const pais = sdcMarginal(raw.pais, totalMiembros);
+
+  return {
+    marginals: {
+      age: age.rows,
+      genero: genero.rows,
+      estudios: estudios.rows,
+      laboral: laboral.rows,
+      pais: pais.rows,
+    },
+    totalSuppressedMarginal:
+      age.suppressed + genero.suppressed + estudios.suppressed +
+      laboral.suppressed + pais.suppressed,
+  };
+}
+
+/**
+ * Apply PRIMARY floor + COMPLEMENTARY suppression to the cross-tab against
+ * `totalMiembros` (the crosstab partitions the total exactly). Buckets are
+ * keyed by a stable composite label so SDC's index-based widening is
+ * deterministic; suppressed buckets are RETAINED with count=null.
+ */
+export function applyKAnonymityToIrpfWithSdc(
+  raw: ReadonlyArray<RawIrpfBucket>,
+  totalMiembros: number,
+): CrossTabResult {
+  const keyed = raw.map((b, i) => ({
+    label: `${i}|${b.age_bracket}|${b.genero}|${b.nivel_estudios}|${b.situacion_laboral}|${b.pais_origen}`,
+    count: b.count,
+    bucket: b,
+  }));
+  const out = applySdc(
+    keyed.map((k) => ({ label: k.label, count: k.count })),
+    { publishedTotal: totalMiembros },
+  );
+  let totalSuppressed = 0;
+  const buckets: IrpfBucket[] = out.map((c, i) => {
+    if (c.count === null) totalSuppressed += 1;
+    const b = keyed[i].bucket;
+    return { ...b, count: c.count };
+  });
+  return { buckets, totalSuppressed };
 }

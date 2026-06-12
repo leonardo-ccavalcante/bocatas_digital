@@ -6,12 +6,19 @@
  *
  * Bucketing is done in JS over the returned rows (plan §10 — JS-side aggregation).
  *
+ * K-anonymity (CAS-05 / themis BLOCKER 2): a monthly new-family count of 1–2
+ * composes with the distrito breakdown to re-identify, so any non-zero count
+ * below K_ANONYMITY_FLOOR is suppressed to null. A 0-count month stays 0 — a
+ * zero reveals nobody (and the chart needs the empty month visible). Reuses the
+ * SAME floor constant as every other report — no parallel mechanism.
+ *
  * Compliance: adminProcedure. withSoftDeleteFilter. wrapDbError.
  */
 
 import { z } from "zod";
 import { router, adminProcedure } from "../../../_core/trpc";
 import { createAdminClient } from "../../../../client/src/lib/supabase/server";
+import { K_ANONYMITY_FLOOR } from "../../../_core/mapaAggregation";
 import { withSoftDeleteFilter, wrapDbError, logAuditReport } from "../_shared";
 
 const InputSchema = z
@@ -59,8 +66,15 @@ export const evolucionHistoricaRouter = router({
         }
       }
 
-      const months = Array.from(buckets.entries())
-        .map(([bucket, count]) => ({ bucket, count }))
+      // K-anonymity floor: suppress non-zero counts below the floor to null;
+      // 0 stays 0 (reveals nobody). count is number | null on the wire.
+      const months: { bucket: string; count: number | null }[] = Array.from(
+        buckets.entries(),
+      )
+        .map(([bucket, count]) => ({
+          bucket,
+          count: count > 0 && count < K_ANONYMITY_FLOOR ? null : count,
+        }))
         .sort((a, b) => a.bucket.localeCompare(b.bucket));
 
       logAuditReport(ctx, "reports.evolucionHistorica", months.length, {

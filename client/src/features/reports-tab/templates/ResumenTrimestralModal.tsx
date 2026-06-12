@@ -34,7 +34,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Download } from "lucide-react";
 import { HIGH_RISK_PII_FIELDS } from "@shared/reports/entities";
-import { exportRowsAsCsv } from "../utils/exportCsv";
+import { exportRowsAsCsv, labelSuppressedCounts } from "../utils/exportCsv";
 import { useResumenTrimestral } from "../hooks/useTemplatedReports";
 
 const REDACT = [...HIGH_RISK_PII_FIELDS];
@@ -57,7 +57,8 @@ export function ResumenTrimestralModal({ open, onClose }: Props) {
       distrito: d.distrito,
       nuevas_familias: d.count,
     }));
-    exportRowsAsCsv(rows, {
+    // Suppressed counts (null) export as the explicit "<3" marker, not a blank.
+    exportRowsAsCsv(labelSuppressedCounts(rows, ["nuevas_familias"]), {
       filename: `bocatas_resumen_T${quarter}_${year}.csv`,
       redactFields: REDACT,
     });
@@ -156,7 +157,12 @@ export function ResumenTrimestralModal({ open, onClose }: Props) {
                       {data.distribucionPorDistrito.map((d) => (
                         <TableRow key={d.distrito}>
                           <TableCell className="text-xs">{d.distrito}</TableCell>
-                          <TableCell className="text-xs">{d.count}</TableCell>
+                          <TableCell
+                            className="text-xs"
+                            title={d.count === null ? "Menos de 3 — ocultado por privacidad" : undefined}
+                          >
+                            {d.count === null ? "<3" : d.count}
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>

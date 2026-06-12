@@ -364,6 +364,53 @@ describe("reports.evolucionHistorica", () => {
   });
 });
 
+// ─── BLOCKER 2: evolucionHistorica monthly counts un-floored ─────────────────
+//
+// evolucionHistorica returns exact monthly new-family counts incl. 1–2, which
+// compose with the distrito breakdown to re-identify. Monthly counts < floor
+// must be suppressed to null (0-count months stay 0 — a 0 reveals nobody).
+
+describe("k-anonymity floor — evolucionHistorica (themis BLOCKER 2)", () => {
+  it("suppresses monthly counts of 1–2 to null; keeps ≥3 and 0 intact", async () => {
+    // Build created_at timestamps within the last few months so they bucket.
+    const now = new Date();
+    const monthKey = (offset: number) =>
+      new Date(now.getFullYear(), now.getMonth() - offset, 15).toISOString();
+    // current month: 3 families (≥ floor); last month: 2 (< floor → null);
+    // 2 months ago: 1 (< floor → null). Other months: 0 (stay 0).
+    const rows = [
+      { created_at: monthKey(0) },
+      { created_at: monthKey(0) },
+      { created_at: monthKey(0) },
+      { created_at: monthKey(1) },
+      { created_at: monthKey(1) },
+      { created_at: monthKey(2) },
+    ];
+    const chain = {
+      ...emptyChain(),
+      then: (resolve: (v: { data: unknown; error: null; count: number }) => unknown) =>
+        resolve({ data: rows, error: null, count: rows.length }),
+    };
+    fromMock.mockReturnValueOnce(chain);
+    const caller = evolucionHistoricaRouter.createCaller(ctxWithRole("admin"));
+    const result = await caller.evolucionHistorica({ months: 6 });
+
+    const byBucket = (offset: number) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - offset, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      return result.months.find((m) => m.bucket === key)?.count;
+    };
+
+    expect(byBucket(0)).toBe(3); // ≥ floor passes through
+    expect(byBucket(1)).toBeNull(); // 2 < floor → suppressed
+    expect(byBucket(2)).toBeNull(); // 1 < floor → suppressed
+    // No raw small count survives.
+    expect(result.months.some((m) => m.count !== null && m.count < 3 && m.count > 0)).toBe(false);
+    // A 0-count month stays 0 (reveals nobody — not suppressed).
+    expect(result.months.some((m) => m.count === 0)).toBe(true);
+  });
+});
+
 // ─── 10. informeIrpfDemografico ──────────────────────────────────────────
 
 describe("reports.informeIrpfDemografico", () => {
@@ -477,6 +524,158 @@ describe("k-anonymity floor — resumenTrimestral (CAS-05)", () => {
     ).toBe(false);
     // nuevasFamilias is a non-distrito aggregate total → not suppressed.
     expect(result.nuevasFamilias).toBe(6);
+  });
+});
+
+// ─── BLOCKER 1: DIFFERENCING (themis follow-up) ──────────────────────────────
+//
+// resumenTrimestral co-publishes the exact grand total `nuevasFamilias` over
+// the SAME row set as distribucionPorDistrito. With a single distrito below the
+// floor, an attacker recovers it exactly:
+//   suppressed = nuevasFamilias − Σ(visible distrito counts).
+// Complementary suppression must widen the suppressed set so the hidden cells
+// are no longer uniquely recoverable from the total.
+
+// chamberi:3, centro:3, retiro:2  → total 8; ONE cell (retiro=2) below the
+// floor. Naive floor: visible {chamberi:3, centro:3}=6, suppressed=8−6=2 →
+// retiro recovered EXACTLY. SDC must hide a second (smallest visible) cell.
+function familiesSingleSuppressedChain(extraCols: Record<string, unknown> = {}) {
+  const rows = [
+    { distrito: "chamberi", ...extraCols },
+    { distrito: "chamberi", ...extraCols },
+    { distrito: "chamberi", ...extraCols },
+    { distrito: "centro", ...extraCols },
+    { distrito: "centro", ...extraCols },
+    { distrito: "centro", ...extraCols },
+    { distrito: "retiro", ...extraCols },
+    { distrito: "retiro", ...extraCols },
+  ];
+  return {
+    ...emptyChain(),
+    then: (resolve: (v: { data: unknown; error: null; count: number }) => unknown) =>
+      resolve({ data: rows, error: null, count: rows.length }),
+  };
+}
+
+/** Attacker oracle: which suppressed distritos are uniquely recoverable from total. */
+function recoverableFromTotal(
+  rows: ReadonlyArray<{ distrito: string; count: number | null }>,
+  total: number,
+): string[] {
+  const FLOOR = 3;
+  const suppressed = rows.filter((r) => r.count === null).map((r) => r.distrito);
+  const visibleSum = rows.reduce((a, r) => a + (r.count ?? 0), 0);
+  const S = total - visibleSum;
+  if (suppressed.length === 1) return suppressed; // residual = exact value
+  const n = suppressed.length;
+  const perPos: Array<Set<number>> = Array.from({ length: n }, () => new Set<number>());
+  const cur: number[] = [];
+  let valid = 0;
+  (function rec(pos: number, rem: number) {
+    if (pos === n) {
+      if (rem === 0) { valid += 1; for (let i = 0; i < n; i++) perPos[i].add(cur[i]); }
+      return;
+    }
+    for (let v = 1; v <= FLOOR - 1; v++) { if (v > rem) break; cur[pos] = v; rec(pos + 1, rem - v); }
+  })(0, S);
+  if (valid === 0) return [];
+  const out: string[] = [];
+  for (let i = 0; i < n; i++) if (perPos[i].size === 1) out.push(suppressed[i]);
+  return out;
+}
+
+describe("differencing — resumenTrimestral (themis BLOCKER 1)", () => {
+  it("a single below-floor distrito is NOT uniquely recoverable from nuevasFamilias", async () => {
+    fromMock.mockReturnValueOnce(familiesSingleSuppressedChain({ id: "x" }));
+    fromMock.mockReturnValueOnce(emptyChain());
+    const caller = resumenTrimestralRouter.createCaller(ctxWithRole("admin"));
+    const result = await caller.resumenTrimestral({ year: 2024, quarter: 1 });
+
+    // The grand total is co-published.
+    expect(result.nuevasFamilias).toBe(8);
+    // retiro (the only sub-floor cell) is hidden.
+    const byDistrito = new Map(
+      result.distribucionPorDistrito.map((r) => [r.distrito, r.count]),
+    );
+    expect(byDistrito.get("retiro")).toBeNull();
+    // ATTACKER: differencing against nuevasFamilias recovers NOTHING.
+    expect(
+      recoverableFromTotal(result.distribucionPorDistrito, result.nuevasFamilias),
+    ).toEqual([]);
+    // Complementary suppression widened the set: ≥2 cells hidden now.
+    expect(
+      result.distribucionPorDistrito.filter((r) => r.count === null).length,
+    ).toBeGreaterThanOrEqual(2);
+  });
+});
+
+// ─── BLOCKER 1 (IRPF differencing): totalMiembros + marginal recovery ────────
+//
+// informeIrpfDemografico publishes the exact `totalMiembros` total alongside
+// marginals/crosstab that each PARTITION that total. A marginal with one
+// below-floor cell is recoverable: total − Σ(visible) = the hidden cell. The
+// SAME complementary-suppression helper must cover these reports.
+
+// genero marginal: masculino×5 (visible) + femenino×2 (single sub-floor cell).
+// totalMiembros = 7 → naive: 7 − 5 = 2 → femenino recovered exactly.
+function irpfGeneroChain() {
+  const mk = (genero: string) => ({
+    id: `m-${Math.random()}`,
+    fecha_nacimiento: "1985-06-15",
+    persons: { genero, nivel_estudios: "primaria", situacion_laboral: "desempleado", pais_origen: "ES" },
+  });
+  const rows = [
+    mk("masculino"), mk("masculino"), mk("masculino"), mk("masculino"), mk("masculino"),
+    mk("femenino"), mk("femenino"),
+  ];
+  return {
+    ...emptyChain(),
+    returns: vi.fn().mockResolvedValue({ data: rows, error: null }),
+  };
+}
+
+/** Attacker oracle over a marginal (MarginalRow[]) vs the published total. */
+function recoverableMarginal(
+  rows: ReadonlyArray<{ key: string; count: number | null }>,
+  total: number,
+): string[] {
+  const FLOOR = 3;
+  const suppressed = rows.filter((r) => r.count === null).map((r) => r.key);
+  const visibleSum = rows.reduce((a, r) => a + (r.count ?? 0), 0);
+  const S = total - visibleSum;
+  if (suppressed.length === 1) return suppressed;
+  const n = suppressed.length;
+  const perPos: Array<Set<number>> = Array.from({ length: n }, () => new Set<number>());
+  const cur: number[] = [];
+  let valid = 0;
+  (function rec(pos: number, rem: number) {
+    if (pos === n) {
+      if (rem === 0) { valid += 1; for (let i = 0; i < n; i++) perPos[i].add(cur[i]); }
+      return;
+    }
+    for (let v = 1; v <= FLOOR - 1; v++) { if (v > rem) break; cur[pos] = v; rec(pos + 1, rem - v); }
+  })(0, S);
+  if (valid === 0) return [];
+  const out: string[] = [];
+  for (let i = 0; i < n; i++) if (perPos[i].size === 1) out.push(suppressed[i]);
+  return out;
+}
+
+describe("differencing — informeIrpfDemografico (themis BLOCKER 1)", () => {
+  it("a single below-floor genero marginal cell is NOT recoverable from totalMiembros", async () => {
+    fromMock.mockReturnValueOnce(irpfGeneroChain());
+    const caller = informeIrpfDemograficoRouter.createCaller(ctxWithRole("admin"));
+    const result = await caller.informeIrpfDemografico({ year: 2025 });
+
+    expect(result.totalMiembros).toBe(7);
+    // femenino (single sub-floor cell) must be hidden.
+    const g = Object.fromEntries(result.marginals.genero.map((r) => [r.key, r.count]));
+    expect(g["femenino"]).toBeNull();
+    // ATTACKER: differencing the genero marginal against totalMiembros → NOTHING.
+    expect(recoverableMarginal(result.marginals.genero, result.totalMiembros)).toEqual([]);
+    // Complementary suppression widened the genero marginal to ≥2 hidden cells.
+    expect(result.marginals.genero.filter((r) => r.count === null).length)
+      .toBeGreaterThanOrEqual(2);
   });
 });
 

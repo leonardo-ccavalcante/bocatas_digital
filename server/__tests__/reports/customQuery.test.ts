@@ -286,9 +286,11 @@ describe("customQuery.execute — column projection is allowlist-only (no PII le
 });
 
 // ─── 5b. k-anonymity toggle on aggregate (SAT P2-1) ──────────────────────
-// kAnonymize default false = no suppression (internal admin analysis).
+// kAnonymize default false = no suppression FOR NON-IDENTIFYING dimensions
+//   (internal admin analysis). For quasi-identifier dimensions the floor is
+//   ALWAYS forced — see 5c (themis BLOCKER 3).
 // kAnonymize true = groups with bucket size < K_ANONYMITY_FLOOR (3) are
-// dropped entirely from the aggregate output (external-export safe).
+//   dropped entirely from the aggregate output (external-export safe).
 
 describe("customQuery.execute — k-anonymity toggle on grouped aggregate", () => {
   // 3× centro, 2× salamanca, 1× retiro → only centro survives a floor of 3.
@@ -301,20 +303,30 @@ describe("customQuery.execute — k-anonymity toggle on grouped aggregate", () =
     { distrito: "retiro", id: "f" },
   ];
 
-  it("keeps all groups when kAnonymize is false (default)", async () => {
+  it("keeps all groups when kAnonymize is false over a NON-identifying dimension", async () => {
+    // alta_en_guf is an operational boolean flag, NOT a quasi-identifier, so the
+    // toggle-off default (no suppression) applies. 3× true, 2× false.
+    const gufRows = [
+      { alta_en_guf: true, id: "a" },
+      { alta_en_guf: true, id: "b" },
+      { alta_en_guf: true, id: "c" },
+      { alta_en_guf: false, id: "d" },
+      { alta_en_guf: false, id: "e" },
+    ];
     fromMock.mockReturnValueOnce(
-      mockSelectChain({ data: groupedRows, error: null, count: 6 }),
+      mockSelectChain({ data: gufRows, error: null, count: 5 }),
     );
     const caller = customQueryRouter.createCaller(ctxWithRole("admin"));
     const result = await caller.execute({
       entity: "families",
       filters: [],
-      groupBy: "distrito",
+      groupBy: "alta_en_guf",
       aggregate: { op: "count", field: "id" },
       limit: 1000,
     });
     const groups = (result.rows as { group: string; value: number }[]).map((r) => r.group);
-    expect(groups.sort()).toEqual(["centro", "retiro", "salamanca"]);
+    // Both survive — the sub-floor "false" group (count 2) is NOT suppressed.
+    expect(groups.sort()).toEqual(["false", "true"]);
   });
 
   it("drops groups below the k-anonymity floor when kAnonymize is true", async () => {
@@ -352,6 +364,65 @@ describe("customQuery.execute — k-anonymity toggle on grouped aggregate", () =
     const groups = (result.rows as { group: string }[]).map((r) => r.group);
     expect(groups).not.toContain("retiro");
     expect(groups).not.toContain("salamanca");
+  });
+});
+
+// ─── 5c. FORCED floor over quasi-identifiers (themis BLOCKER 3) ──────────────
+// The kAnonymize toggle defaults OFF. Over a QUASI-IDENTIFIER groupBy dimension
+// (distrito, pais_origen, genero, idioma_principal, fase_itinerario,
+// canal_llegada) the floor MUST be enforced server-side REGARDLESS of the
+// toggle — a sub-floor group over a quasi-identifier is re-identifying. The
+// toggle only governs NON-identifying dimensions.
+
+describe("customQuery.execute — forced floor over quasi-identifiers (BLOCKER 3)", () => {
+  // 3× centro, 2× salamanca, 1× retiro grouped by distrito.
+  const distritoRows = [
+    { distrito: "centro", id: "a" },
+    { distrito: "centro", id: "b" },
+    { distrito: "centro", id: "c" },
+    { distrito: "salamanca", id: "d" },
+    { distrito: "salamanca", id: "e" },
+    { distrito: "retiro", id: "f" },
+  ];
+
+  it("FORCES the floor when grouping by distrito even with kAnonymize=false", async () => {
+    fromMock.mockReturnValueOnce(mockSelectChain({ data: distritoRows, error: null, count: 6 }));
+    const caller = customQueryRouter.createCaller(ctxWithRole("admin"));
+    const result = await caller.execute({
+      entity: "families",
+      filters: [],
+      groupBy: "distrito",
+      aggregate: { op: "count", field: "id" },
+      limit: 1000,
+      kAnonymize: false, // toggle OFF — must NOT defeat the floor on a QI dim.
+    });
+    const groups = (result.rows as { group: string; value: number }[]).map((r) => r.group);
+    // Only centro (3) survives; salamanca (2) and retiro (1) are suppressed.
+    expect(groups.sort()).toEqual(["centro"]);
+    expect(groups).not.toContain("salamanca");
+    expect(groups).not.toContain("retiro");
+  });
+
+  it("FORCES the floor when grouping by pais_origen even with kAnonymize=false", async () => {
+    const paisRows = [
+      { pais_origen: "ES", id: "a" },
+      { pais_origen: "ES", id: "b" },
+      { pais_origen: "ES", id: "c" },
+      { pais_origen: "MA", id: "d" },
+      { pais_origen: "MA", id: "e" },
+    ];
+    fromMock.mockReturnValueOnce(mockSelectChain({ data: paisRows, error: null, count: 5 }));
+    const caller = customQueryRouter.createCaller(ctxWithRole("admin"));
+    const result = await caller.execute({
+      entity: "persons",
+      filters: [],
+      groupBy: "pais_origen",
+      aggregate: { op: "count", field: "id" },
+      limit: 1000,
+      kAnonymize: false,
+    });
+    const groups = (result.rows as { group: string }[]).map((r) => r.group);
+    expect(groups).toEqual(["ES"]); // MA (2) suppressed despite toggle off.
   });
 });
 

@@ -8,10 +8,13 @@
  *   Q1: Jan-Mar (01-03), Q2: Apr-Jun (04-06)
  *   Q3: Jul-Sep (07-09), Q4: Oct-Dec (10-12)
  *
- * K-anonymity (CAS-05 / EIPD): the per-distrito map suppresses any distrito
- * with count < K_ANONYMITY_FLOOR (count → null) so a district with 1–2 new
- * families is not individually re-identifiable. Reuses the SAME floor as
- * mapa.distritoStats — no parallel mechanism, no hardcoded threshold.
+ * K-anonymity + statistical disclosure control (CAS-05 / EIPD, themis follow-up):
+ * the per-distrito map is run through the shared SDC helper, which applies the
+ * primary floor AND complementary (secondary) suppression against the exact
+ * `nuevasFamilias` total co-published here. Without complementary suppression a
+ * single below-floor distrito is recovered by differencing
+ * (nuevasFamilias − Σ visible). Reuses the SAME helper/floor as every other
+ * report — no parallel mechanism, no hardcoded threshold.
  *
  * Compliance: adminProcedure. withSoftDeleteFilter. wrapDbError.
  * PII: No high-risk fields selected.
@@ -20,7 +23,7 @@
 import { z } from "zod";
 import { router, adminProcedure } from "../../../_core/trpc";
 import { createAdminClient } from "../../../../client/src/lib/supabase/server";
-import { K_ANONYMITY_FLOOR } from "../../../_core/mapaAggregation";
+import { applySdc } from "../../../_core/statisticalDisclosure";
 import { withSoftDeleteFilter, wrapDbError, logAuditReport } from "../_shared";
 
 const QUARTER_MONTHS: Record<1 | 2 | 3 | 4, { start: string; end: string }> = {
@@ -93,18 +96,22 @@ export const resumenTrimestralRouter = router({
         distCounts.set(key, (distCounts.get(key) ?? 0) + 1);
       }
 
-      // K-anonymity floor (CAS-05): suppress per-distrito counts below the
-      // floor to null. nuevasFamilias (below) is a non-distrito total and is
-      // therefore not subject to suppression.
-      const distribucionPorDistrito = Array.from(distCounts.entries())
-        .map(([distrito, count]) => ({
-          distrito,
-          count: count < K_ANONYMITY_FLOOR ? null : count,
-        }))
-        .sort((a, b) => (b.count ?? 0) - (a.count ?? 0));
-
       const nuevasFamilias = (newFamilies ?? []).length;
       const totalEntregas = (entregas ?? []).length;
+
+      // SDC (CAS-05 + themis BLOCKER 1): primary floor + complementary
+      // suppression against the co-published `nuevasFamilias` grand total — the
+      // breakdown partitions exactly that total, so without secondary
+      // suppression a single below-floor distrito is recovered by differencing.
+      const distribucionPorDistrito = applySdc(
+        Array.from(distCounts.entries()).map(([distrito, count]) => ({
+          label: distrito,
+          count,
+        })),
+        { publishedTotal: nuevasFamilias },
+      )
+        .map((c) => ({ distrito: c.label, count: c.count }))
+        .sort((a, b) => (b.count ?? 0) - (a.count ?? 0));
 
       logAuditReport(
         ctx,

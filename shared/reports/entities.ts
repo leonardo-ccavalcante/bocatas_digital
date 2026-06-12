@@ -292,6 +292,36 @@ export const HIGH_RISK_PII_FIELDS = [
   "recorrido_migratorio",
 ] as const;
 
+/**
+ * Quasi-identifiers (CAS-05 / themis BLOCKER 3): demographic/geographic groupable
+ * dimensions whose small groups are re-identifying. When a customQuery groups by
+ * ANY of these, the k-anonymity floor is FORCED server-side regardless of the
+ * user's kAnonymize toggle (a sub-floor group over a quasi-identifier leaks an
+ * individual). Non-identifying groupable flags (e.g. alta_en_guf, informe_social,
+ * is_current, es_autorizado, relacion, documento_tipo, fecha_entrega) keep the
+ * user-facing default (toggle governs them).
+ *
+ * Single source of truth — keep aligned with the groupable demographic fields in
+ * ENTITY_FIELDS. quasi-identifiers.test.ts pins membership against the allowlist.
+ */
+export const QUASI_IDENTIFIER_FIELDS = [
+  "distrito",
+  "pais_origen",
+  "genero",
+  "idioma_principal",
+  "fase_itinerario",
+  "canal_llegada",
+] as const;
+
+export type QuasiIdentifierField = (typeof QUASI_IDENTIFIER_FIELDS)[number];
+
+const QUASI_IDENTIFIER_SET: ReadonlySet<string> = new Set(QUASI_IDENTIFIER_FIELDS);
+
+/** True when `fieldName` is a quasi-identifier (floor is forced when grouping by it). */
+export function isQuasiIdentifier(fieldName: string): boolean {
+  return QUASI_IDENTIFIER_SET.has(fieldName);
+}
+
 /** Helper: return true if a field name is in the ENTITY_FIELDS allowlist for the given entity. */
 export function isFieldAllowed(entity: ReportEntity, fieldName: string): boolean {
   return ENTITY_FIELDS[entity].some((f) => f.name === fieldName);

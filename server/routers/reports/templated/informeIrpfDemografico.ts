@@ -15,6 +15,12 @@
  * Compliance: adminProcedure only. withSoftDeleteFilter applied. wrapDbError on failure.
  * PII: NEVER includes situacion_legal, foto_documento_url, recorrido_migratorio.
  *      Output is aggregate-only; no row-level person data leaves the server.
+ *
+ * SDC (themis BLOCKER 1): the report publishes the exact `totalMiembros` total,
+ * which every marginal and the crosstab partition exactly. A single below-floor
+ * cell would be recovered by differencing (total − Σ visible), so marginals AND
+ * crosstab are routed through the shared SDC helper (primary floor +
+ * complementary suppression) — the SAME helper used by the distrito reports.
  */
 
 import { z } from "zod";
@@ -23,8 +29,8 @@ import { createAdminClient } from "../../../../client/src/lib/supabase/server";
 import { withSoftDeleteFilter, wrapDbError, logAuditReport } from "../_shared";
 import {
   bucketRows,
-  applyKAnonymityToIrpf,
-  computeMarginals,
+  applyKAnonymityToIrpfWithSdc,
+  computeMarginalsWithSdc,
 } from "../../../_core/irpfAggregation";
 import type { NormalizedMiembroRow } from "../../../_core/irpfAggregation";
 
@@ -107,10 +113,16 @@ export const informeIrpfDemograficoRouter = router({
 
       const rawRows = data ?? [];
       const normalized = rawRows.map(flattenPersonFields);
-      const { buckets: crossTab, totalSuppressed } = applyKAnonymityToIrpf(
+      const totalMiembros = rawRows.length;
+      const { buckets: crossTab, totalSuppressed } = applyKAnonymityToIrpfWithSdc(
         bucketRows(normalized, year),
+        totalMiembros,
       );
-      const { marginals, totalSuppressedMarginal } = computeMarginals(normalized, year);
+      const { marginals, totalSuppressedMarginal } = computeMarginalsWithSdc(
+        normalized,
+        year,
+        totalMiembros,
+      );
 
       logAuditReport(ctx, "reports.informeIrpfDemografico", rawRows.length, {
         year,
@@ -120,7 +132,7 @@ export const informeIrpfDemograficoRouter = router({
 
       return {
         year,
-        totalMiembros: rawRows.length,
+        totalMiembros,
         marginals,
         crossTab,
         totalSuppressed,
