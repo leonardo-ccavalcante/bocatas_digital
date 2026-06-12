@@ -145,11 +145,26 @@ export function parseDate(input: string | undefined): ParsedDate {
   //    (≈ 1927-05-18) stays above any 4-digit "year only" (max 9999, e.g.
   //    "1985"), which must fall through to invalid, while still accepting the
   //    serials of elderly beneficiaries born in the 1920s-30s.
+  //    A bare 5-digit integer here is AMBIGUOUS: it fully overlaps the Spanish
+  //    postal-code space (e.g. 28012 → 1976-09-13), so a CP that landed in a date
+  //    column would otherwise become a plausible-but-bogus date with no signal.
+  //    Magnitude can't tell a serial from a CP, so we still convert (some exports
+  //    emit serial dates) but NEVER silently — honoring this module's contract
+  //    that every non-trivial coercion emits a RowWarning for operator review. (ARG-15)
   if (/^\d{4,6}$/.test(raw)) {
     const n = Number(raw);
     if (n >= 10_000 && n <= 80_000) {
       const iso = excelSerialToISO(n);
-      return iso ? { value: iso, warning: null } : invalidDate(raw);
+      return iso
+        ? {
+            value: iso,
+            warning: {
+              field: "fecha",
+              code: "date_serial_ambiguous",
+              message: `Número "${clip(raw)}" interpretado como fecha serial Excel (${iso}); verifique que no sea un código postal u otro número.`,
+            },
+          }
+        : invalidDate(raw);
     }
     return invalidDate(raw);
   }
