@@ -1,4 +1,4 @@
-import { createHmac } from "node:crypto";
+import { createHmac, randomBytes } from "node:crypto";
 
 /**
  * HMAC context string used when expanding short secrets.
@@ -35,9 +35,56 @@ export function expandSecret(secret: string): string {
   return createHmac("sha256", secret).update(QR_KEY_CONTEXT).digest("hex");
 }
 
+/**
+ * Resolves the HS256 session-cookie signing secret with a fail-fast guard.
+ *
+ * ⚠️  ROOT-CAUSE FIX (CAS-02 follow-up): the old `process.env.JWT_SECRET ?? ""`
+ * meant the session cookie was signed AND verified (see sdk.ts
+ * getSessionSecret → signSession/verifySession) with an EMPTY HS256 key when
+ * JWT_SECRET was unset. An empty key lets an attacker forge a valid session
+ * for any user/role, bypassing ALL app auth.
+ *
+ * - Production + empty/whitespace secret → THROW a clear startup error
+ *   (mirrors the createUserImpersonationClient guard in
+ *   client/src/lib/supabase/server.ts). Prod MUST set JWT_SECRET.
+ * - Non-production + empty secret → generate a loud-warned ephemeral random
+ *   64-hex-char secret. This keeps dev/CI/test green without threading
+ *   JWT_SECRET into every harness, while still guaranteeing the secret is
+ *   never "" — so an empty-key-forged token can never verify. The secret is
+ *   per-process: restarting dev re-rolls it (existing dev cookies are dropped),
+ *   which is acceptable in non-production.
+ */
+export function resolveCookieSecret(opts: {
+  jwtSecret: string;
+  isProduction: boolean;
+}): string {
+  const secret = opts.jwtSecret.trim();
+  if (secret) return opts.jwtSecret;
+
+  if (opts.isProduction) {
+    throw new Error(
+      "[Auth] JWT_SECRET is not set. It is required in production to sign and " +
+        "verify session cookies; an empty secret would let an attacker forge a " +
+        "valid session for any user. Set JWT_SECRET (e.g. `openssl rand -base64 64`)."
+    );
+  }
+
+  const ephemeral = randomBytes(32).toString("hex");
+  console.warn(
+    "[Auth] JWT_SECRET is not set — generated an EPHEMERAL random session " +
+      "secret for this process. Sessions will not survive a restart and this " +
+      "secret is per-process. Set JWT_SECRET for stable dev sessions. This " +
+      "fallback is REFUSED in production."
+  );
+  return ephemeral;
+}
+
 export const ENV = {
   appId: process.env.VITE_APP_ID ?? "",
-  cookieSecret: process.env.JWT_SECRET ?? "",
+  cookieSecret: resolveCookieSecret({
+    jwtSecret: process.env.JWT_SECRET ?? "",
+    isProduction: process.env.NODE_ENV === "production",
+  }),
   databaseUrl: process.env.DATABASE_URL ?? "",
   oAuthServerUrl: process.env.OAUTH_SERVER_URL ?? "",
   ownerOpenId: process.env.OWNER_OPEN_ID ?? "",
