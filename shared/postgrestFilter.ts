@@ -87,8 +87,11 @@ function escapeLikeBody(input: string, backslashes: "single" | "double"): string
  */
 export function ilikeForOr(input: string): string {
   const escaped = escapeLikeBody(input, "double")
-    // Transport-level: an embedded double quote is escaped by doubling.
-    .replace(/"/g, '""');
+    // Transport-level: PostgREST's quoted-value grammar escapes an embedded
+    // double quote with a BACKSLASH (\"), which the parser consumes to a literal
+    // `"` — NOT by SQL-style doubling (`""`, which early-closes the token and
+    // breaks the search). Verified empirically against live PostgREST. (CAS-04)
+    .replace(/"/g, '\\"');
   // Outer % are genuine wildcards (substring); whole token quoted for safety.
   return `"%${escaped}%"`;
 }

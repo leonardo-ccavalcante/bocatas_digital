@@ -32,8 +32,8 @@ describe("ilikeForOr — .or() filter-list token", () => {
     expect(out).not.toMatch(/(?<![\\])%x/);
   });
 
-  it("doubles an embedded double quote per PostgREST quoting rules", () => {
-    expect(ilikeForOr('a"b')).toBe('"%a""b%"');
+  it("backslash-escapes an embedded double quote (PostgREST consumes one \\ → literal \"); doubling early-closes the token — verified vs live PostgREST", () => {
+    expect(ilikeForOr('a"b')).toBe('"%a\\"b%"');
   });
 
   it("strips * (PostgREST aliases it to %; no transport-safe escape exists)", () => {

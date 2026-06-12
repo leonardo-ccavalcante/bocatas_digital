@@ -41,7 +41,8 @@ const LITERAL_PERCENT = `${TAG}100%lit`; // literal '%'
 const PERCENT_DECOY = `${TAG}100x`; // would be hit if '%' acted as a wildcard
 const LITERAL_UNDER = `${TAG}a_b`; // literal '_'
 const UNDER_DECOY = `${TAG}axb`; // would be hit if '_' acted as a wildcard
-const ROWS = [LITERAL_PERCENT, PERCENT_DECOY, LITERAL_UNDER, UNDER_DECOY];
+const QUOTE_ROW = `${TAG}qa"bq`; // contains a literal double-quote (the escape-grammar case)
+const ROWS = [LITERAL_PERCENT, PERCENT_DECOY, LITERAL_UNDER, UNDER_DECOY, QUOTE_ROW];
 
 function names(data: { nombre: string | null }[] | null): string[] {
   return (data ?? []).map((r) => r.nombre ?? "").sort();
@@ -102,6 +103,19 @@ describeDb("PostgREST ilike escaping — CAS-04 (real transport)", () => {
     expect(names(data)).toEqual([]);
   });
 
+  it('(a) .or(): a literal double-quote search matches its row (backslash-escape, not doubling)', async () => {
+    // Regression for the quoted-token escape grammar: doubling (`""`) early-closes
+    // the token and returns nothing; backslash (`\"`) is consumed to a literal `"`.
+    const token = ilikeForOr(`qa"bq`);
+    const { data, error } = await db!
+      .from("persons")
+      .select("nombre")
+      .or(`nombre.ilike.${token},apellidos.ilike.${token}`)
+      .like("nombre", `${TAG}%`);
+    expect(error).toBeNull();
+    expect(names(data)).toEqual([QUOTE_ROW]);
+  });
+
   // ── (b) positional .ilike(col, value) context ─────────────────────────────
   it("(b) .ilike(col,val): literal-% search matches ONLY the literal-% row", async () => {
     const { data, error } = await db!
@@ -131,6 +145,16 @@ describeDb("PostgREST ilike escaping — CAS-04 (real transport)", () => {
       .like("nombre", `${TAG}%`);
     expect(error).toBeNull();
     expect(names(data)).toEqual([]);
+  });
+
+  it('(b) .ilike(col,val): a literal double-quote search matches its row', async () => {
+    const { data, error } = await db!
+      .from("persons")
+      .select("nombre")
+      .ilike("nombre", ilikeValue(`qa"bq`))
+      .like("nombre", `${TAG}%`);
+    expect(error).toBeNull();
+    expect(names(data)).toEqual([QUOTE_ROW]);
   });
 
   // ── A normal substring search still works in both contexts ────────────────
