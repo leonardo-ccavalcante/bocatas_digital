@@ -24,9 +24,10 @@ jobs:
         run: |
           set -euo pipefail
 
+          # fail-closed per Mythos DIO-03; the gate is path-filtered to migration PRs only
           if [[ -z "${SUPABASE_PROJECT_REF}" || -z "${SUPABASE_ACCESS_TOKEN}" ]]; then
-            echo "::warning::SUPABASE_PROJECT_REF or SUPABASE_ACCESS_TOKEN secret missing — advisor gate skipped"
-            exit 0
+            echo "::error::SUPABASE_PROJECT_REF or SUPABASE_ACCESS_TOKEN secret missing — advisor gate cannot run. Set repo secrets (Settings → Secrets and variables → Actions)."
+            exit 1
           fi
 
           response=$(curl --silent --fail --show-error \

@@ -26,9 +26,5 @@ describe('entregas.extractFromPhoto tRPC Procedure', () => {
       expect(procedure).toBeDefined();
     });
 
-    it('should include confidence scores in response', () => {
-      // Response should include confidence metadata
-      expect(true).toBe(true);
-    });
   });
 });

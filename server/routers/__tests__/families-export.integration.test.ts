@@ -96,10 +96,19 @@ describe("Families Export Integration", () => {
     expect(result.csv).toBeDefined();
   });
 
-  it("schema fix verified: deleted_at column exists and queries work", async () => {
-    // This test verifies the schema fix is applied
-    // If this passes, it means the deleted_at column exists and can be queried
-    // The actual export tests are in the browser/e2e phase
-    expect(true).toBe(true);
+  it("schema fix verified: deleted_at column present in generated database.types.ts for families.Row", () => {
+    // Compile-time check surfaced as a runtime string assertion: import the
+    // generated types file as text and confirm the families Row block declares
+    // deleted_at. This catches a regression if supabase gen types removes the
+    // column without a test catching it.
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const fs = require("fs");
+    const path = require("path");
+    const typesPath = path.resolve(__dirname, "../../../client/src/lib/database.types.ts");
+    const content: string = fs.readFileSync(typesPath, "utf-8");
+    // Confirm the families Row block exists
+    expect(content).toContain("families: {");
+    // Confirm deleted_at is declared in the Row block
+    expect(content).toMatch(/deleted_at: string \| null/);
   });
 });

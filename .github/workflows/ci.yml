@@ -110,3 +110,85 @@ jobs:
           VITE_APP_ID: ci-build
           VITE_OAUTH_PORTAL_URL: https://placeholder.manus.im
           JWT_SECRET: ${{ env.LHCI_JWT_SECRET }}
+
+  # DB Integration Tests — DIO-04
+  # Spins up a local Supabase instance (Docker) and runs only the 19 server
+  # integration test files that gate themselves behind RUN_LOCAL_SUPABASE_TESTS=true
+  # (see server/_core/db-test-env.ts:33). Non-gated server tests also re-run
+  # here — that's intentional: the full server suite stays fast (< 25 min with
+  # supabase start overhead) and avoids a separate glob that would drift.
+  #
+  # NOTE: This job is NOT added to branch-protection requirements yet.
+  # It will run in parallel and be observed for stability before gating merges.
+  # Revisit after 4 weeks of clean runs (tracked in DIO-04 follow-up issue).
+  #
+  # CAVEAT: supabase start requires Docker. If the runner's Docker daemon is
+  # unavailable or image pulls fail this job will error, not skip. Monitor
+  # initial runs and add a continue-on-error: true flag here if Docker
+  # availability is flaky on github-hosted ubuntu-latest before stabilising.
+  db-integration:
+    name: DB Integration Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Setup pnpm
+        # No `version` input here — pnpm/action-setup@v4 errors when both
+        # `version` and `package.json#packageManager` are set. The pinned
+        # version (with SHA) lives in package.json; that's the single
+        # source of truth for both CI and local dev. (Phase 6.b CI fix.)
+        uses: pnpm/action-setup@v4
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local Supabase
+        # supabase/config.toml and supabase/migrations/ live at repo root (worktree root).
+        # supabase start applies all migrations + seed.sql (intentionally empty).
+        run: supabase start
+
+      - name: Harvest Supabase env and run DB-gated server tests
+        # `supabase status -o env` emits lines like:
+        #   API_URL=http://127.0.0.1:54321
+        #   ANON_KEY=eyJ...
+        #   SERVICE_ROLE_KEY=eyJ...
+        #   JWT_SECRET=super-secret-jwt-token-with-at-least-32-characters-long
+        # We export them and map to the variable names the app expects, then
+        # activate the DB-gated describes via RUN_LOCAL_SUPABASE_TESTS=true.
+        # Running the full server suite (not a hand-curated glob) means new
+        # DB-gated test files are discovered automatically.
+        run: |
+          set -euo pipefail
+          eval "$(supabase status -o env | sed 's/^/export /')"
+          export VITE_SUPABASE_URL="${API_URL}"
+          export VITE_SUPABASE_ANON_KEY="${ANON_KEY}"
+          export SUPABASE_URL="${API_URL}"
+          export SUPABASE_SERVICE_ROLE_KEY="${SERVICE_ROLE_KEY}"
+          export SUPABASE_JWT_SECRET="${JWT_SECRET}"
+          export RUN_LOCAL_SUPABASE_TESTS=true
+          pnpm exec vitest run --reporter=verbose server/
