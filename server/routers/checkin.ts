@@ -9,7 +9,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { createAdminClient } from "../../client/src/lib/supabase/server";
 import { voluntarioProcedure, router } from "../_core/trpc";
-import { logProcedureAction, logProcedureError } from "../_core/logging-middleware";
+import { logProcedureAction, logProcedureError, logCorrelatedErrorToStderr } from "../_core/logging-middleware";
 import { ENV } from "../_core/env";
 import { parseQrPayload, verifySig } from "../../shared/qr/payload";
 
@@ -330,7 +330,7 @@ export const checkinRouter = router({
         })
       )
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       if (input.length === 0) return [];
       const supabase = createAdminClient();
 
@@ -357,10 +357,15 @@ export const checkinRouter = router({
 
       if (error) {
         // Whole-batch failure — return all as error so the client can retry.
+        // This payload is RETURNED (200), so the tRPC errorFormatter never sees
+        // it: never embed the raw Postgres message (can carry PII) in `error`.
+        // Return a generic Spanish string; log the raw error PII-safely to
+        // stderr so ops can correlate the offline-sync failure.
+        logCorrelatedErrorToStderr({ correlationId: ctx.correlationId, path: "checkin.syncOfflineQueue", type: "mutation", error });
         return input.map((item) => ({
           clientId: item.clientId,
           status: "error" as const,
-          error: error.message,
+          error: "No se pudo sincronizar el registro.",
         }));
       }
 

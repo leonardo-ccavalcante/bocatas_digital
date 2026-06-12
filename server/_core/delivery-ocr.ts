@@ -1,4 +1,5 @@
 import { invokeLLM } from './llm';
+import { logCorrelatedErrorToStderr } from './logging-middleware';
 
 export interface ExtractedDelivery {
   id: string;
@@ -190,13 +191,16 @@ Return ONLY valid JSON, no additional text.`,
 
     return result;
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    // The raw error can embed snippets of the LLM output (OCR'd beneficiary
+    // NAMES = PII) or a JSON.parse message quoting it — never surface it. Curate
+    // the client string; log the raw error PII-safely to stderr. (CAS-03 follow-up)
+    logCorrelatedErrorToStderr({ path: "delivery-ocr.extractDeliveryDataFromImage", error });
     return {
       success: false,
       extractionConfidence: 0,
       beneficiaries: [],
       warnings: [],
-      errors: [`Failed to extract data: ${errorMessage}`],
+      errors: ["No se pudieron extraer los datos del documento."],
     };
   }
 }

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { protectedProcedure, router } from "../../_core/trpc";
+import { logCorrelatedErrorToStderr } from "../../_core/logging-middleware";
 import {
   extractDeliveriesFromOCR,
   saveDeliveryBatch,
@@ -19,7 +20,7 @@ export const ocrRouter = router({
         programaId: z.string().min(1, "ID de programa requerido"),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       try {
         const result = await extractDeliveryDataFromImage(input.photoUrl, input.programaId);
         return {
@@ -34,13 +35,17 @@ export const ocrRouter = router({
             : `Error en extracción: ${result.errors?.join(", ") || "desconocido"}`,
         };
       } catch (error) {
+        // Returned (200) payload — bypasses the errorFormatter. The raw error
+        // can carry storage keys / URLs / DB text; never surface it. Return a
+        // generic Spanish string and log the raw error PII-safely to stderr.
+        logCorrelatedErrorToStderr({ correlationId: ctx.correlationId, path: "entregas.extractFromPhoto", type: "mutation", error });
         return {
           success: false,
           extractionConfidence: 0,
           beneficiaries: [],
           warnings: [],
-          errors: [error instanceof Error ? error.message : "Error desconocido"],
-          message: `Error al procesar foto: ${error instanceof Error ? error.message : "desconocido"}`,
+          errors: ["No se pudo procesar la foto."],
+          message: "No se pudo procesar la foto.",
         };
       }
     }),
@@ -55,7 +60,7 @@ export const ocrRouter = router({
         ocrText: z.string().min(10, "Texto OCR muy corto"),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       try {
         const result = await extractDeliveriesFromOCR(input.imageUrl, input.ocrText);
         return {
@@ -64,10 +69,13 @@ export const ocrRouter = router({
           message: `Extracción completada: ${result.rows.length} entregas detectadas`,
         };
       } catch (error) {
+        // Returned (200) payload — bypasses the errorFormatter. Never surface
+        // the raw error; log it PII-safely to stderr.
+        logCorrelatedErrorToStderr({ correlationId: ctx.correlationId, path: "entregas.extractFromOCR", type: "mutation", error });
         return {
           success: false,
           data: null,
-          message: `Error en extracción: ${error instanceof Error ? error.message : "desconocido"}`,
+          message: "No se pudo completar la extracción.",
         };
       }
     }),
@@ -105,7 +113,7 @@ export const ocrRouter = router({
         documentImageUrl: z.string().url(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       try {
         const result = await saveDeliveryBatch(
           input.header as ExtractedBatchHeader,
@@ -127,11 +135,14 @@ export const ocrRouter = router({
           message: `Lote guardado exitosamente: ${result.savedCount} entregas registradas`,
         };
       } catch (error) {
+        // Returned (200) payload — bypasses the errorFormatter. The raw error
+        // can carry DB text; never surface it. Log it PII-safely to stderr.
+        logCorrelatedErrorToStderr({ correlationId: ctx.correlationId, path: "entregas.saveBatch", type: "mutation", error });
         return {
           success: false,
           batchId: "",
           savedCount: 0,
-          message: `Error al guardar: ${error instanceof Error ? error.message : "desconocido"}`,
+          message: "No se pudo guardar el lote.",
         };
       }
     }),
