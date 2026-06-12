@@ -1,10 +1,11 @@
 /**
  * family_webhook_log.migration.test.ts — Phase B.7.5 string-level lint.
  *
- * Asserts that the PENDING REVIEW migration for `family_webhook_log`
- * contains the expected DDL. The migration is NOT executed — this is a
- * contract test against the SQL text only, mirroring the pattern in
- * `firma.migration.test.ts` (B.4.5).
+ * Asserts that the `family_webhook_log` migration contains the expected DDL and
+ * documents its go-live compliance gate (ADR-0008 — the migration applies for
+ * platform readiness; the EIPD-update signoff gates production data, not the
+ * build). The migration is NOT executed — this is a contract test against the
+ * SQL text only, mirroring `firma.migration.test.ts` (B.4.5).
  */
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
@@ -25,9 +26,12 @@ describe("family_webhook_log migration — file presence", () => {
     expect(sql.length).toBeGreaterThan(0);
   });
 
-  it("explicitly marks itself as PENDING REVIEW", () => {
+  // ADR-0008: applies (platform readiness); the EIPD-update signoff is a go-live
+  // gate on production data it must still document explicitly.
+  it("documents the go-live compliance gate (ADR-0008 + checklist)", () => {
     const sql = readMigration();
-    expect(sql).toMatch(/PENDING REVIEW/i);
+    expect(sql).toMatch(/ADR-0008/i);
+    expect(sql).toMatch(/GO-LIVE COMPLIANCE CHECKLIST/i);
   });
 });
 
