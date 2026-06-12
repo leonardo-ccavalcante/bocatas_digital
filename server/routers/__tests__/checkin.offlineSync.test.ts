@@ -38,18 +38,28 @@ describe("enrichOfflineItems", () => {
 });
 
 describe("offlineAttendanceRows", () => {
-  it("maps to attendance rows preserving es_demo + the derived timestamp/date", () => {
-    const enriched = enrichOfflineItems([item({ isDemoMode: true })]);
+  it("builds a row for a real item with the derived timestamp/date", () => {
+    const enriched = enrichOfflineItems([item()]);
     const [row] = offlineAttendanceRows(enriched);
     expect(row).toEqual({
       person_id: "p1",
       location_id: "l1",
       programa: "comedor",
       metodo: "qr_scan",
-      es_demo: true,
+      es_demo: false,
       checked_in_at: "2020-01-15T23:55:00.000Z",
       checked_in_date: "2020-01-15",
     });
+  });
+
+  it("filters demo items out — they write no real data (ARG-01)", () => {
+    const enriched = enrichOfflineItems([
+      item({ clientId: "real", isDemoMode: false }),
+      item({ clientId: "demo", isDemoMode: true }),
+    ]);
+    const rows = offlineAttendanceRows(enriched);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].es_demo).toBe(false);
   });
 });
 
@@ -72,5 +82,13 @@ describe("offlineSyncResults", () => {
     const enriched = enrichOfflineItems([item({ clientId: "anon", personId: null })]);
     const results = offlineSyncResults(enriched, new Set());
     expect(results).toEqual([{ clientId: "anon", status: "synced" }]);
+  });
+
+  it("marks a demo item synced even though it was never upserted (ARG-01)", () => {
+    // A named demo item whose key is NOT in insertedKeys must still report
+    // synced (not duplicate) so it leaves the queue.
+    const enriched = enrichOfflineItems([item({ clientId: "demo", isDemoMode: true })]);
+    const results = offlineSyncResults(enriched, new Set());
+    expect(results).toEqual([{ clientId: "demo", status: "synced" }]);
   });
 });
