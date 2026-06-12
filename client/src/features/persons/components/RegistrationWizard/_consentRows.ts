@@ -16,6 +16,32 @@ interface BuildConsentRowsArgs {
   grantedAt?: string;
 }
 
+/**
+ * Whether the consent step must render the Spanish + verbal-translation banner.
+ *
+ * True when the person's language is non-Spanish AND either (a) there is no
+ * translated template lane for it at all (getConsentTemplateLanguage collapses
+ * to "es" for en/ro/zh/wo/other), or (b) the lane exists but does not cover
+ * every Spanish-defined purpose. buildConsentRows() falls back to the Spanish
+ * template per purpose, so a partially-translated lane would render Spanish for
+ * the uncovered purposes with NO banner — silently. Over-warn, never under-warn,
+ * is the RGPD-correct bias. (MYTHOS THE-04 / THE-04b)
+ */
+export function computeVerbalFallback({
+  personLanguage,
+  consentTemplatesEs,
+  consentTemplatesLang,
+}: {
+  personLanguage: string | null | undefined;
+  consentTemplatesEs: ConsentTemplate[];
+  consentTemplatesLang: ConsentTemplate[];
+}): boolean {
+  if (!personLanguage || personLanguage === "es") return false;
+  if (getConsentTemplateLanguage(personLanguage) === "es") return true;
+  const translatedPurposes = new Set(consentTemplatesLang.map((t) => t.purpose));
+  return consentTemplatesEs.some((t) => !translatedPurposes.has(t.purpose));
+}
+
 export function buildConsentRows({
   purposes,
   consentChoices,
