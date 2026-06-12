@@ -122,6 +122,60 @@ export function logProcedureError(
 }
 
 /**
+ * PII-SAFE correlation log to stderr (`console.error`).
+ *
+ * Why this exists (cassandra follow-up): `logProcedureError` writes the raw
+ * error into `ctx.logger` — a fresh `new Logger()` per request whose in-memory
+ * ring buffer NOTHING reads (the admin LogsPage reads `globalLogger`, a
+ * different instance). So the raw error was silently dropped and the
+ * correlationId shown to users pointed at nothing. This helper restores
+ * correlation by emitting a single structured line to stderr that ops can grep
+ * by correlationId.
+ *
+ * PII-SAFETY (CLAUDE.md §Compliance "No PII in logs"): we do NOT log
+ * `error.message` / Postgres DETAIL — those can carry phone numbers, names, and
+ * other column VALUES. We log only safe structured fields: correlationId,
+ * route/path, type, Postgres error CODE (if present), and `error.name`.
+ *
+ * Do NOT route raw errors into `globalLogger`/`ctx.logger` — the admin LogsPage
+ * is user-exposed.
+ */
+export function logCorrelatedErrorToStderr(fields: {
+  correlationId?: string;
+  path?: string;
+  type?: string;
+  error: unknown;
+}): void {
+  const { correlationId, path, type, error } = fields;
+  const rawCode =
+    error && typeof error === "object" && "code" in error
+      ? (error as { code?: unknown }).code
+      : (error as { cause?: { code?: unknown } } | undefined)?.cause?.code;
+  // Only surface a real Postgres SQLSTATE (5-char alphanumeric, e.g. "23505").
+  // This deliberately excludes tRPC codes like "INTERNAL_SERVER_ERROR" — they
+  // are not Postgres codes and would be misleading under `pgCode`.
+  const pgCode =
+    typeof rawCode === "string" && /^[0-9A-Z]{5}$/.test(rawCode)
+      ? rawCode
+      : undefined;
+
+  // eslint-disable-next-line no-console
+  console.error(
+    JSON.stringify({
+      level: "error",
+      msg: "procedure-error",
+      timestamp: new Date().toISOString(),
+      correlationId,
+      path,
+      type,
+      // Postgres SQLSTATE (e.g. "23505") — safe, no PII.
+      pgCode,
+      errorName: error instanceof Error ? error.name : typeof error,
+    })
+  );
+}
+
+/**
  * Procedure-level audit log helper — for compliance-relevant admin actions
  * (role assignment, account creation, account revocation, etc).
  *

@@ -2,7 +2,7 @@ import { GENERIC_SERVER_ERROR_MSG, NOT_ADMIN_ERR_MSG, UNAUTHED_ERR_MSG } from '@
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import type { TrpcContext } from "./context";
-import { logProcedureError } from "./logging-middleware";
+import { logCorrelatedErrorToStderr } from "./logging-middleware";
 
 /**
  * Single PII / schema-leak boundary (THE-01 / SIS-02 / CAS-03 / ARG-12).
@@ -20,9 +20,13 @@ import { logProcedureError } from "./logging-middleware";
  * user-facing messages and are passed through untouched.
  *
  * Defense in depth: this is the boundary, not a substitute for per-site
- * discipline. A few sites still throw raw `error.message` under *client* codes
- * (e.g. BAD_REQUEST in entregas/crud.ts) — those are preserved here by design
- * and tracked as a site-level follow-up.
+ * discipline. The formatter only scrubs THROWN `INTERNAL_SERVER_ERROR`s, so two
+ * leak classes can't be fixed here and are closed at the call site instead
+ * (cassandra follow-up): (1) raw `error.message` thrown under *client* codes
+ * like BAD_REQUEST (e.g. entregas/crud.ts) bypasses the scrub; (2) raw
+ * `error.message` RETURNED inside a 200-response payload (checkin offline-sync,
+ * entregas/ocr.ts) never reaches the formatter at all. Both now return curated
+ * Spanish strings and log the raw error PII-safely to stderr.
  */
 const t = initTRPC.context<TrpcContext>().create({
   transformer: superjson,
@@ -35,16 +39,18 @@ const t = initTRPC.context<TrpcContext>().create({
 
     const correlationId = ctx?.correlationId;
 
-    // Preserve the original error (raw message + stack) in the server logs so
-    // support can cross-reference via the correlationId returned to the client.
-    if (ctx) {
-      logProcedureError(
-        ctx,
-        `[tRPC] ${type ?? "unknown"} ${path ?? "unknown"} failed`,
-        error.cause instanceof Error ? error.cause : error,
-        { code: error.code, path },
-      );
-    }
+    // Restore correlation: emit a PII-SAFE structured line to stderr that ops
+    // can grep by correlationId. We do NOT log the raw error message/DETAIL (it
+    // can carry PII), only safe fields (correlationId, path, type, Postgres
+    // CODE, error.name). Routing into ctx.logger/globalLogger is wrong here:
+    // ctx.logger is an unread per-request buffer, and globalLogger feeds the
+    // user-exposed admin LogsPage. See logCorrelatedErrorToStderr.
+    logCorrelatedErrorToStderr({
+      correlationId,
+      path,
+      type,
+      error: error.cause instanceof Error ? error.cause : error,
+    });
 
     const clientMessage = correlationId
       ? `${GENERIC_SERVER_ERROR_MSG} (${correlationId})`

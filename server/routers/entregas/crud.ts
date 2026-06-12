@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure, router } from "../../_core/trpc";
+import { logCorrelatedErrorToStderr } from "../../_core/logging-middleware";
 import { createAdminClient } from "../../../client/src/lib/supabase/server";
 import { uuidLike, type Entrega } from "./_shared";
 
@@ -121,8 +122,11 @@ export const crudRouter = router({
           .select()
           .single();
         if (error) {
-          console.error("Error creating delivery:", error);
-          throw new TRPCError({ code: "BAD_REQUEST", message: error.message || "Error al crear entrega" });
+          // Raw Postgres message can carry constraint names + column VALUES
+          // (= PII). Never interpolate it into the client message — return a
+          // curated string and log the raw error PII-safely to stderr.
+          logCorrelatedErrorToStderr({ correlationId: ctx.correlationId, path: "entregas.createDelivery", type: "mutation", error });
+          throw new TRPCError({ code: "BAD_REQUEST", message: "No se pudo registrar la entrega." });
         }
         return {
           success: true,
@@ -153,7 +157,7 @@ export const crudRouter = router({
         }),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       try {
         const db = createAdminClient();
         const { data, error } = await db
@@ -164,7 +168,10 @@ export const crudRouter = router({
           .select()
           .single();
         if (error) {
-          throw new TRPCError({ code: "BAD_REQUEST", message: error.message || "Error al actualizar entrega" });
+          // Raw Postgres message can carry PII — curate the client string and
+          // log the raw error PII-safely to stderr.
+          logCorrelatedErrorToStderr({ correlationId: ctx.correlationId, path: "entregas.updateDelivery", type: "mutation", error });
+          throw new TRPCError({ code: "BAD_REQUEST", message: "No se pudo actualizar la entrega." });
         }
         return { success: true, data: data as Entrega, message: "Entrega actualizada exitosamente" };
       } catch (error) {
@@ -178,7 +185,7 @@ export const crudRouter = router({
    */
   deleteDelivery: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       try {
         const db = createAdminClient();
         const { error } = await db
@@ -186,7 +193,10 @@ export const crudRouter = router({
           .update({ deleted_at: new Date().toISOString() })
           .eq("id", input.id);
         if (error) {
-          throw new TRPCError({ code: "BAD_REQUEST", message: error.message || "Error al eliminar entrega" });
+          // Raw Postgres message can carry PII — curate the client string and
+          // log the raw error PII-safely to stderr.
+          logCorrelatedErrorToStderr({ correlationId: ctx.correlationId, path: "entregas.deleteDelivery", type: "mutation", error });
+          throw new TRPCError({ code: "BAD_REQUEST", message: "No se pudo eliminar la entrega." });
         }
         return { success: true, message: "Entrega eliminada exitosamente" };
       } catch (error) {
