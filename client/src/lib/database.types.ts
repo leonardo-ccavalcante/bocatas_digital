@@ -7,6 +7,31 @@ export type Json =
   | Json[]
 
 export type Database = {
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       announcement_audiences: {
@@ -2344,6 +2369,14 @@ export type Database = {
         Args: { p_person: Json; p_person_id: string }
         Returns: undefined
       }
+      check_soft_delete_schema: {
+        Args: { table_names: string[] }
+        Returns: {
+          has_deleted_at: boolean
+          has_index: boolean
+          table_name: string
+        }[]
+      }
       commit_round_assignments: {
         Args: { p_round_id: string; p_rows: Json }
         Returns: number
@@ -2686,6 +2719,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       canal_llegada: [

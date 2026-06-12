@@ -114,7 +114,7 @@ jobs:
   # DB Integration Tests — DIO-04
   # Spins up a local Supabase instance (Docker) and runs only the 19 server
   # integration test files that gate themselves behind RUN_LOCAL_SUPABASE_TESTS=true
-  # (see server/_core/db-test-env.ts:33). Non-gated server tests also re-run
+  # (see server/__tests__/db-test-env.ts:33). Non-gated server tests also re-run
   # here — that's intentional: the full server suite stays fast (< 25 min with
   # supabase start overhead) and avoids a separate glob that would drift.
   #

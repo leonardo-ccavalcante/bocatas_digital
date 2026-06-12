@@ -17,6 +17,12 @@ import { render, screen, cleanup, waitFor, within } from "@testing-library/react
 import userEvent from "@testing-library/user-event";
 import type { ConsentTemplate, Program } from "../schemas";
 
+// Full-wizard jsdom mounts with Radix selects take 600-900ms each in isolation
+// but starve under full-suite parallel load — the default 5s timeout flaked
+// these tests intermittently (laquesis, Wave 6), which would red unrelated PRs
+// with blocking CI gates. Generous per-file timeout; assertions unchanged.
+vi.setConfig({ testTimeout: 20_000 });
+
 // ── jsdom polyfills used by Radix primitives ─────────────────────────────────
 class ResizeObserverStub {
   observe() {}

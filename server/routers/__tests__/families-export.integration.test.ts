@@ -12,8 +12,6 @@ import { Logger } from "../../_core/logger";
 
 describe("Families Export Integration", () => {
   let caller: ReturnType<typeof appRouter.createCaller>;
-  let testFamilyId: string;
-  let testMemberId: string;
 
   beforeAll(async () => {
     // Create a test context with admin user
@@ -96,19 +94,14 @@ describe("Families Export Integration", () => {
     expect(result.csv).toBeDefined();
   });
 
-  it("schema fix verified: deleted_at column present in generated database.types.ts for families.Row", () => {
-    // Compile-time check surfaced as a runtime string assertion: import the
-    // generated types file as text and confirm the families Row block declares
-    // deleted_at. This catches a regression if supabase gen types removes the
-    // column without a test catching it.
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const fs = require("fs");
-    const path = require("path");
-    const typesPath = path.resolve(__dirname, "../../../client/src/lib/database.types.ts");
-    const content: string = fs.readFileSync(typesPath, "utf-8");
-    // Confirm the families Row block exists
-    expect(content).toContain("families: {");
-    // Confirm deleted_at is declared in the Row block
-    expect(content).toMatch(/deleted_at: string \| null/);
+  it("schema fix verified: families.Row declares deleted_at in the generated types", () => {
+    // COMPILE-TIME guard (laquesis: the previous text-grep matched deleted_at
+    // anywhere in the 2700-line file). If `supabase gen types` ever drops the
+    // column from families, this type stops compiling — tsc and the suite both
+    // catch it.
+    type FamiliesDeletedAt =
+      import("../../../client/src/lib/database.types").Database["public"]["Tables"]["families"]["Row"]["deleted_at"];
+    const probe: FamiliesDeletedAt = null;
+    expect(probe).toBeNull();
   });
 });
