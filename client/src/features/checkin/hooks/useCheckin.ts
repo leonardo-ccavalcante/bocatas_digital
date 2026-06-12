@@ -11,10 +11,12 @@ import { capture } from "@/lib/posthog";
 import { checkinMachine } from "../machine/checkinMachine";
 import type { CheckinPrograma, CheckinMetodo } from "../machine/checkinMachine";
 import { useCheckinStore } from "../store/useCheckinStore";
+import { categorizeSyncResults } from "./syncResults";
 
 export function useCheckin() {
   const [state, send] = useActor(checkinMachine);
-  const { offlineQueue, enqueue, dequeue, setIsSyncing, isSyncing } = useCheckinStore();
+  const { offlineQueue, failedClientIds, enqueue, dequeue, markFailed, setIsSyncing, isSyncing } =
+    useCheckinStore();
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
 
   const verifyMutation = trpc.checkin.verifyAndInsert.useMutation();
@@ -164,15 +166,23 @@ export function useCheckin() {
     if (!isOnline || offlineQueue.length === 0 || isSyncing) return;
 
     setIsSyncing(true);
+    const attemptedIds = offlineQueue.map((item) => item.clientId);
     syncMutation.mutate(offlineQueue, {
       onSuccess: (results) => {
-        const synced = results
-          .filter((r) => r.status === "synced" || r.status === "duplicate")
-          .map((r) => r.clientId);
-        dequeue(synced);
+        // POS-03: settled (synced/duplicate) items leave the queue; "error"
+        // items are recorded as failed so the volunteer sees them instead of
+        // them silently looking like ordinary pending-offline items.
+        const { settled, failed } = categorizeSyncResults(results);
+        if (settled.length > 0) dequeue(settled);
+        if (failed.length > 0) markFailed(failed);
         setIsSyncing(false);
       },
-      onError: () => setIsSyncing(false),
+      onError: () => {
+        // Whole-batch failure: every attempted item failed this round. Surface
+        // them; they remain queued and are retried on the next flush.
+        markFailed(attemptedIds);
+        setIsSyncing(false);
+      },
     });
   }, [isOnline, offlineQueue.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -181,6 +191,7 @@ export function useCheckin() {
     send,
     isOnline,
     offlineCount: offlineQueue.length,
+    failedCount: failedClientIds.length,
     isSyncing,
   };
 }
