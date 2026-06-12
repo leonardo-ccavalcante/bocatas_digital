@@ -27,11 +27,12 @@ describe("OfflinePendingBadge", () => {
     expect(screen.queryByText(/pendiente/i)).not.toBeInTheDocument();
   });
 
-  it("shows only the non-failed remainder as pending", () => {
-    // 3 queued, 1 failed → 2 are genuinely pending connectivity.
+  it("shows failed AND the non-failed pending remainder side by side", () => {
+    // 3 queued, 1 failed → 1 failed + 2 genuinely pending connectivity. Both
+    // must be visible: a failure never hides the pending remainder.
     render(<OfflinePendingBadge count={3} failedCount={1} isSyncing={false} />);
-    // Failed takes precedence in the badge surface.
     expect(screen.getByText(/1 sin sincronizar/i)).toBeInTheDocument();
+    expect(screen.getByText(/2 pendientes sin conexión/i)).toBeInTheDocument();
   });
 
   it("shows pending count when nothing has failed", () => {

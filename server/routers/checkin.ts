@@ -13,6 +13,11 @@ import { logProcedureAction, logProcedureError, logCorrelatedErrorToStderr } fro
 import { ENV } from "../_core/env";
 import { parseQrPayload, verifySig } from "../../shared/qr/payload";
 import { ilikeForOr } from "../_core/postgrestFilter";
+import {
+  enrichOfflineItems,
+  offlineAttendanceRows,
+  offlineSyncResults,
+} from "./checkin.offlineSync";
 
 // UUID-like validator that accepts any 8-4-4-4-12 hex string (including synthetic seed IDs)
 const uuidLike = z.string().regex(
@@ -337,25 +342,11 @@ export const checkinRouter = router({
       if (input.length === 0) return [];
       const supabase = createAdminClient();
 
-      // ARG-02: derive checked_in_date + checked_in_at from the per-item capture
-      // moment (queuedAt), NOT the server flush time. A check-in made at 23:55
-      // offline and flushed after midnight must record the day it actually
-      // happened — both for the funder-facing date and for the unique-constraint
-      // key the result mapping compares against. Anonymous (person_id null)
-      // check-ins bypass the arbiter (NULL <> NULL) → always insert.
-      const enriched = input.map((item) => {
-        const iso = new Date(item.queuedAt).toISOString();
-        return { item, checkedInAt: iso, checkedInDate: iso.slice(0, 10) };
-      });
-      const rows = enriched.map(({ item, checkedInAt, checkedInDate }) => ({
-        person_id: item.personId,
-        location_id: item.locationId,
-        programa: item.programa,
-        metodo: item.metodo,
-        es_demo: item.isDemoMode,
-        checked_in_at: checkedInAt,
-        checked_in_date: checkedInDate,
-      }));
+      // ARG-02: date/timestamp derived per item from queuedAt, not flush time
+      // (see checkin.offlineSync.ts). Anonymous (person_id null) check-ins
+      // bypass the arbiter (NULL <> NULL) → always insert.
+      const enriched = enrichOfflineItems(input);
+      const rows = offlineAttendanceRows(enriched);
 
       const { data, error } = await supabase
         .from("attendances")
@@ -386,18 +377,6 @@ export const checkinRouter = router({
           `${r.person_id ?? "anon"}|${r.location_id}|${r.programa}|${r.checked_in_date}`
         )
       );
-      // For anonymous rows the unique constraint doesn't apply, so every
-      // anonymous input is "synced" by definition. For non-anon, status is
-      // derived from membership in insertedKeys.
-      return enriched.map(({ item, checkedInDate }) => {
-        if (item.personId === null) {
-          return { clientId: item.clientId, status: "synced" as const };
-        }
-        const key = `${item.personId}|${item.locationId}|${item.programa}|${checkedInDate}`;
-        return {
-          clientId: item.clientId,
-          status: insertedKeys.has(key) ? ("synced" as const) : ("duplicate" as const),
-        };
-      });
+      return offlineSyncResults(enriched, insertedKeys);
     }),
 });
