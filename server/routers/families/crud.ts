@@ -9,7 +9,7 @@ import {
 import { redactHighRiskFields, isElevatedRole } from "../../_core/rlsRedaction";
 import { createAdminClient } from "../../../client/src/lib/supabase/server";
 import { logProcedureAction } from "../../_core/logging-middleware";
-import { escapeIlikePattern } from "../../_core/postgrestFilter";
+import { ilikeForOr } from "../../_core/postgrestFilter";
 import { isMemberAdult } from "../../families-doc-helpers";
 import {
   uuidLike,
@@ -68,7 +68,7 @@ export const crudRouter = router({
           query = query.eq("familia_numero", searchNum);
         } else {
           query = query.or(
-            `persons.nombre.ilike.${escapeIlikePattern(input.search)},persons.apellidos.ilike.${escapeIlikePattern(input.search)}`
+            `persons.nombre.ilike.${ilikeForOr(input.search)},persons.apellidos.ilike.${ilikeForOr(input.search)}`
           );
         }
       }

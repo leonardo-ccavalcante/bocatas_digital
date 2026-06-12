@@ -26,7 +26,7 @@ import {
 import { createAdminClient } from "../../../client/src/lib/supabase/server";
 import { InstitucionCreateSchema } from "../../../shared/derivar/types";
 import type { Database } from "../../../client/src/lib/database.types";
-import { escapeIlikePattern } from "../../_core/postgrestFilter";
+import { ilikeValue } from "../../_core/postgrestFilter";
 
 type InstitucionUpdate = Database["public"]["Tables"]["instituciones"]["Update"];
 
@@ -88,7 +88,7 @@ export const institucionesRouter = router({
         .order("nombre", { ascending: true });
 
       if (input.activeOnly) q = q.eq("is_active", true);
-      if (input.q?.trim()) q = q.ilike("nombre", escapeIlikePattern(input.q.trim()));
+      if (input.q?.trim()) q = q.ilike("nombre", ilikeValue(input.q.trim()));
       if (input.area) q = q.contains("areas", [input.area]);
 
       const { data, error } = await q;
@@ -123,7 +123,7 @@ export const institucionesRouter = router({
     }
 
     if (input?.search?.trim()) {
-      q = q.ilike("nombre", escapeIlikePattern(input.search.trim()));
+      q = q.ilike("nombre", ilikeValue(input.search.trim()));
     }
     if (input?.area) {
       q = q.contains("areas", [input.area]);
