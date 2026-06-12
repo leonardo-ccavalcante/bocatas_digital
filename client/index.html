@@ -3,9 +3,9 @@
 
   <head>
     <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <!-- WCAG 2.1 AA (1.4.4): never cap zoom — beneficiaries include elderly and
+         low-vision users who rely on pinch-zoom. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Bocatas Digital</title>    
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -15,10 +15,10 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-    <script
-      defer
-      src="%VITE_ANALYTICS_ENDPOINT%/umami"
-      data-website-id="%VITE_ANALYTICS_WEBSITE_ID%"></script>
+    <!-- Analytics: PostHog (EU, env-gated) lives in src/lib/posthog. A previous
+         umami snippet here used %VITE_ANALYTICS_*% placeholders that were never
+         defined (.env.example has no such vars), so every page issued a dead
+         request to the literal placeholder URL. Removed (Wave 4). -->
   </body>
 
 </html>

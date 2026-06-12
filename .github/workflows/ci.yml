@@ -87,11 +87,21 @@ jobs:
           VITE_APP_ID: ci-build
           VITE_OAUTH_PORTAL_URL: https://placeholder.manus.im
 
-      - name: Lighthouse CI (LCP ≤2.5s, JS bundle ≤300 KB, perf score ≥0.95)
-        # Stays informational (continue-on-error) until auth scaffolding for
-        # Lighthouse exists. The asserted routes (/dashboard, /checkin,
-        # /persons/new) all require a logged-in session; Lighthouse can't
-        # navigate them without a test JWT or signed-in cookie fixture.
+      - name: Generate ephemeral JWT secret for Lighthouse
+        # The prod server fail-fasts at boot without a JWT_SECRET (env.ts), and
+        # REFUSES any value from its known-dummy deny-list. A per-run random
+        # secret satisfies both: never public, never reused, nothing to leak.
+        run: echo "LHCI_JWT_SECRET=$(openssl rand -base64 48)" >> "$GITHUB_ENV"
+
+      - name: Lighthouse CI (LCP ≤2.5s, JS bundle ≤300 KB, a11y ≥0.95)
+        # GATE IS BLOCKING (ATL-02). Audits /login — the only page measurable
+        # without a session — which pays the full entry+vendor payload, so it
+        # catches every-page script/LCP regressions. Auth-route auditing
+        # (/checkin, /dashboard) needs an LHCI puppeteer login script: tracked
+        # as follow-up, do NOT re-add continue-on-error. That follow-up MUST
+        # also switch upload away from temporary-public-storage first — public
+        # LHCI reports of authed pages would publish beneficiary PII
+        # screenshots.
         run: npx --yes @lhci/cli@0.13.x autorun
         env:
           LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
@@ -99,4 +109,4 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_APP_ID: ci-build
           VITE_OAUTH_PORTAL_URL: https://placeholder.manus.im
-        continue-on-error: true
+          JWT_SECRET: ${{ env.LHCI_JWT_SECRET }}
