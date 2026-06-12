@@ -1,7 +1,11 @@
 -- ============================================================================
 -- 20260509000001_delivery_signature_audit.sql
 --
--- PENDING REVIEW — DO NOT APPLY WITHOUT RGPD LAWYER SIGNOFF.
+-- APPLIES — platform-readiness decision ADR-0008 (2026-06-12, Leo): the schema
+-- ships so the platform is ready for the lawyer to review a working system. RGPD-
+-- lawyer signoff is a GO-LIVE gate before this table holds PRODUCTION signature
+-- evidence, NOT a migration/build blocker. The checklist below must clear before
+-- production signature data is collected here; track it in the EIPD register.
 --
 -- Required signoff: CARTA_ABOGADO_RGPD.md item — confirm legal equivalence
 -- of `signed_at` server-clock timestamp + `signer_person_id` binding for
@@ -20,7 +24,7 @@
 --   is INSERT-only at the row level (no UPDATE / DELETE policy granted to
 --   any role except superadmin for legal correction).
 --
--- WHY THIS IS NOT APPLIED YET
+-- GO-LIVE COMPLIANCE CHECKLIST (clear before production signature data is collected)
 --   1. Lawyer signoff: server-clock `signed_at` must be confirmed legally
 --      equivalent to a wet signature for Banco de Alimentos justification
 --      reports. RGPD-specialized counsel must validate.
