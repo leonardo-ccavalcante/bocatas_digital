@@ -1,3 +1,5 @@
+import { unescapeCsvField } from '../shared/csvSafe';
+
 export interface ImportValidationResult {
   isValid: boolean;
   errors: string[];
@@ -22,8 +24,12 @@ const OPTIONAL_UUID_FIELD = 'familia_id';
 const VALID_ESTADOS = ['activa', 'baja'];
 
 /**
- * Parse CSV string into rows
- * Handles escaped quotes and commas within quoted fields
+ * Parse CSV string into rows.
+ * Handles RFC-4180 escaped quotes and commas within quoted fields, and reverses
+ * the formula-injection sentinel escapeCsvField adds on export (a leading `'`
+ * before a formula trigger) so an export → re-import round-trip is lossless —
+ * e.g. a telefono exported as `'+34-...` reads back as `+34-...`. Both
+ * validateFamiliesCSV and parseFamiliesCSV read through here.
  */
 function parseCSVRows(csv: string): string[][] {
   const rows: string[][] = [];
@@ -46,12 +52,12 @@ function parseCSVRows(csv: string): string[][] {
       }
     } else if (char === ',' && !insideQuotes) {
       // End of field
-      currentRow.push(currentField.trim());
+      currentRow.push(unescapeCsvField(currentField.trim()));
       currentField = '';
     } else if ((char === '\n' || char === '\r') && !insideQuotes) {
       // End of row
       if (currentField || currentRow.length > 0) {
-        currentRow.push(currentField.trim());
+        currentRow.push(unescapeCsvField(currentField.trim()));
         if (currentRow.some(f => f.length > 0)) {
           rows.push(currentRow);
         }
@@ -69,7 +75,7 @@ function parseCSVRows(csv: string): string[][] {
 
   // Add last field and row
   if (currentField || currentRow.length > 0) {
-    currentRow.push(currentField.trim());
+    currentRow.push(unescapeCsvField(currentField.trim()));
     if (currentRow.some(f => f.length > 0)) {
       rows.push(currentRow);
     }

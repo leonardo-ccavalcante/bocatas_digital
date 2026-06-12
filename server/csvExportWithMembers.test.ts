@@ -48,6 +48,58 @@ describe('generateFamiliesCSVWithMembers', () => {
     },
   ];
 
+  describe('CSV formula injection (CAS-01 / THE-02)', () => {
+    it('neutralizes formula triggers in attacker-controllable free-text cells', () => {
+      const malicious = [
+        {
+          family: {
+            id: 'd0000-0002',
+            familia_numero: 'FAM-002',
+            nombre_familia: '=cmd|calc',
+            contacto_principal: '@SUM(A1)',
+            telefono: '+34-123',
+            direccion: '',
+            estado: 'activo',
+            fecha_creacion: '2026-01-15',
+            miembros_count: 1,
+            docs_identidad: false,
+            padron_recibido: false,
+            justificante_recibido: false,
+            consent_bocatas: false,
+            consent_banco_alimentos: false,
+            informe_social: false,
+            informe_social_fecha: null,
+            alta_en_guf: false,
+            fecha_alta_guf: null,
+            guf_verified_at: null,
+          },
+          members: [
+            {
+              id: 'm0002-0001',
+              familia_id: 'd0000-0002',
+              nombre: '-2+3',
+              rol: 'titular',
+              relacion: '=HYPERLINK("evil")',
+              fecha_nacimiento: '1980-05-15',
+              estado: 'activo',
+            },
+          ],
+        },
+      ];
+
+      const csv = generateFamiliesCSVWithMembers(malicious, 'update');
+
+      // Formula-leading free-text is prefixed with ' and force-quoted.
+      expect(csv).toContain('"\'=cmd|calc"');
+      expect(csv).toContain('"\'@SUM(A1)"');
+      expect(csv).toContain('"\'-2+3"');
+      expect(csv).toContain('"\'=HYPERLINK(""evil"")"');
+      // The raw, un-neutralized formula must NOT appear as a bare cell.
+      expect(csv).not.toContain(',=cmd|calc,');
+      expect(csv).not.toContain(',@SUM(A1),');
+    });
+  });
+
   describe('Update Mode (Full Fields)', () => {
     it('should export with all family and member fields', () => {
       const csv = generateFamiliesCSVWithMembers(mockFamilyWithMembers, 'update');

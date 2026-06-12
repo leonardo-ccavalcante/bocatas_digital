@@ -1,3 +1,5 @@
+import { unescapeCsvField } from "../shared/csvSafe";
+
 export interface ImportValidationResult {
   isValid: boolean;
   errors: string[];
@@ -30,8 +32,13 @@ const VALID_MIEMBRO_RELACIONES = [
 ];
 
 /**
- * Parse CSV string into rows
- * Handles escaped quotes and commas within quoted fields
+ * Parse CSV string into rows.
+ * Handles RFC-4180 escaped quotes and commas within quoted fields, and reverses
+ * the formula-injection sentinel escapeCsvField adds on export (a leading `'`
+ * before a formula trigger) so an export → re-import round-trip is lossless —
+ * e.g. a telefono exported as `'+34-...` reads back as `+34-...`. Both
+ * validateFamiliesWithMembersCSV and parseFamiliesWithMembersCSV read through
+ * here, so they see identical de-escaped values.
  */
 function parseCSVRows(csv: string): string[][] {
   const rows: string[][] = [];
@@ -51,11 +58,11 @@ function parseCSVRows(csv: string): string[][] {
         insideQuotes = !insideQuotes;
       }
     } else if (char === ',' && !insideQuotes) {
-      currentRow.push(currentField.trim());
+      currentRow.push(unescapeCsvField(currentField.trim()));
       currentField = '';
     } else if ((char === '\n' || char === '\r') && !insideQuotes) {
       if (currentField || currentRow.length > 0) {
-        currentRow.push(currentField.trim());
+        currentRow.push(unescapeCsvField(currentField.trim()));
         if (currentRow.some(f => f.length > 0)) {
           rows.push(currentRow);
         }
@@ -71,7 +78,7 @@ function parseCSVRows(csv: string): string[][] {
   }
 
   if (currentField || currentRow.length > 0) {
-    currentRow.push(currentField.trim());
+    currentRow.push(unescapeCsvField(currentField.trim()));
     if (currentRow.some(f => f.length > 0)) {
       rows.push(currentRow);
     }
@@ -298,6 +305,8 @@ export function parseFamiliesWithMembersCSV(csv: string): ParsedRow[] {
       } else if (!isNaN(Number(value)) && value !== '') {
         record[header] = Number(value);
       } else {
+        // parseCSVRows already reversed the export's formula-injection sentinel,
+        // so `value` is the original cell content here.
         record[header] = value;
       }
     }
