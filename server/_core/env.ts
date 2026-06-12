@@ -54,10 +54,11 @@ export function expandSecret(secret: string): string {
  *   per-process: restarting dev re-rolls it (existing dev cookies are dropped),
  *   which is acceptable in non-production.
  */
-// CI-only dummy used by the Lighthouse step (.github/workflows/ci.yml). It is
-// PUBLIC in the repo, so production must refuse it outright: anyone reading the
-// workflow could otherwise forge sessions (and QR signatures, which fall back
-// to JWT_SECRET) on a deployment that copy-pasted it.
+// Dummy that briefly lived in .github/workflows/ci.yml (now the Lighthouse
+// step generates a per-run random secret instead). The literal remains in git
+// history, so production refuses it outright: a deployment that copy-pasted it
+// would have forgeable sessions AND QR signatures (qrSigningSecret falls back
+// to JWT_SECRET).
 const KNOWN_DUMMY_SECRETS = new Set(["ci-lighthouse-only-not-a-real-secret"]);
 
 export function resolveCookieSecret(opts: {

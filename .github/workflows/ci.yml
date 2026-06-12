@@ -87,6 +87,12 @@ jobs:
           VITE_APP_ID: ci-build
           VITE_OAUTH_PORTAL_URL: https://placeholder.manus.im
 
+      - name: Generate ephemeral JWT secret for Lighthouse
+        # The prod server fail-fasts at boot without a JWT_SECRET (env.ts), and
+        # REFUSES any value from its known-dummy deny-list. A per-run random
+        # secret satisfies both: never public, never reused, nothing to leak.
+        run: echo "LHCI_JWT_SECRET=$(openssl rand -base64 48)" >> "$GITHUB_ENV"
+
       - name: Lighthouse CI (LCP ≤2.5s, JS bundle ≤300 KB, a11y ≥0.95)
         # GATE IS BLOCKING (ATL-02). Audits /login — the only page measurable
         # without a session — which pays the full entry+vendor payload, so it
@@ -95,9 +101,7 @@ jobs:
         # as follow-up, do NOT re-add continue-on-error. That follow-up MUST
         # also switch upload away from temporary-public-storage first — public
         # LHCI reports of authed pages would publish beneficiary PII
-        # screenshots. JWT_SECRET is a CI-only dummy: the prod server
-        # fail-fasts at boot without one, and REFUSES this exact dummy value
-        # in production (env.ts KNOWN_DUMMY_SECRETS).
+        # screenshots.
         run: npx --yes @lhci/cli@0.13.x autorun
         env:
           LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
@@ -105,4 +109,4 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_APP_ID: ci-build
           VITE_OAUTH_PORTAL_URL: https://placeholder.manus.im
-          JWT_SECRET: ci-lighthouse-only-not-a-real-secret
+          JWT_SECRET: ${{ env.LHCI_JWT_SECRET }}
