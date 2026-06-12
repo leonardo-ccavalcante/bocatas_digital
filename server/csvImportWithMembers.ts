@@ -15,10 +15,19 @@ interface ParsedRow {
 const REQUIRED_FAMILY_FIELDS = ['familia_numero', 'nombre_familia', 'contacto_principal'];
 const REQUIRED_MEMBER_FIELDS = ['miembro_nombre', 'miembro_rol'];
 
-// Valid enum values
-const VALID_ESTADOS = ['activo', 'inactivo', 'suspendido'];
+// Valid enum values — must mirror the DB CHECK constraints (verified live in prod),
+// so the import-preview warnings tell the operator the truth about what will be
+// accepted. The import itself also coerces these to DB-valid values (TES-08).
+//   • families.estado          CHECK ('activa','baja')
+//   • familia_miembros.rol     CHECK ('head_of_household','dependent','other')
+//   • familia_miembros.relacion CHECK (parent,child,sibling,other + esposo_a,hijo_a,
+//                                madre,padre,suegro_a,hermano_a,abuelo_a,otro)
+const VALID_ESTADOS = ['activa', 'baja'];
 const VALID_MIEMBRO_ROLES = ['head_of_household', 'dependent', 'other'];
-const VALID_MIEMBRO_RELACIONES = ['parent', 'child', 'sibling', 'spouse', 'other'];
+const VALID_MIEMBRO_RELACIONES = [
+  'parent', 'child', 'sibling', 'other',
+  'esposo_a', 'hijo_a', 'madre', 'padre', 'suegro_a', 'hermano_a', 'abuelo_a', 'otro',
+];
 
 /**
  * Parse CSV string into rows
