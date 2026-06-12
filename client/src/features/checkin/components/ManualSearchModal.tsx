@@ -67,17 +67,28 @@ export function ManualSearchModal({ open, onClose, onSelect }: ManualSearchModal
 
           {/* Loading */}
           {isLoading && (
-            <div className="flex items-center justify-center py-6">
+            <div role="status" className="flex items-center justify-center py-6">
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
             </div>
           )}
 
+          {/* Live region: ALWAYS in the DOM (WCAG 4.1.3 — a region mounted at
+              the same time as its first content is never announced; only text
+              CHANGES inside a pre-existing region are). Empty until results. */}
+          <p aria-live="polite" aria-atomic="true" className="sr-only">
+            {!isLoading && results && results.length > 0
+              ? `${results.length} resultado${results.length !== 1 ? "s" : ""}`
+              : ""}
+          </p>
+
           {/* Results */}
           {!isLoading && results && results.length > 0 && (
-            <ul className="space-y-2 max-h-64 overflow-y-auto">
+            <>
+              <ul className="space-y-2 max-h-64 overflow-y-auto">
               {results.map((person) => (
                 <li key={person.id}>
                   <button
+                    type="button"
                     className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors text-left"
                     onClick={() => handleSelect(person)}
                   >
@@ -117,11 +128,12 @@ export function ManualSearchModal({ open, onClose, onSelect }: ManualSearchModal
                 </li>
               ))}
             </ul>
+            </>
           )}
 
           {/* Empty state */}
           {!isLoading && results && results.length === 0 && debouncedQuery.length >= 3 && (
-            <div className="text-center py-6 text-muted-foreground">
+            <div role="status" className="text-center py-6 text-muted-foreground">
               <User className="w-8 h-8 mx-auto mb-2 opacity-40" />
               <p className="text-sm">No se encontraron resultados para "{debouncedQuery}"</p>
             </div>

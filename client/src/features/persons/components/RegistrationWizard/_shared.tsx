@@ -46,9 +46,11 @@ export const SLUG_FAMILIA = "familia";
 
 export function SelectField({
   label, id, value, onChange, options, placeholder, required,
+  "aria-describedby": ariaDescribedby, "aria-invalid": ariaInvalid,
 }: {
   label: string; id: string; value: string; onChange: (v: string) => void;
   options: Record<string, string>; placeholder?: string; required?: boolean;
+  "aria-describedby"?: string; "aria-invalid"?: boolean;
 }) {
   return (
     <div className="space-y-1">
@@ -57,7 +59,7 @@ export function SelectField({
         {required && <span className="ml-1 text-destructive">*</span>}
       </Label>
       <Select value={value ?? ""} onValueChange={onChange}>
-        <SelectTrigger id={id}>
+        <SelectTrigger id={id} aria-describedby={ariaDescribedby} aria-invalid={ariaInvalid}>
           <SelectValue placeholder={placeholder ?? "Seleccionar..."} />
         </SelectTrigger>
         <SelectContent>
@@ -70,7 +72,7 @@ export function SelectField({
   );
 }
 
-export function FieldError({ message }: { message?: string }) {
+export function FieldError({ id, message }: { id?: string; message?: string }) {
   if (!message) return null;
-  return <p className="mt-0.5 text-xs text-destructive">{message}</p>;
+  return <p id={id} role="alert" className="mt-0.5 text-xs text-destructive">{message}</p>;
 }
