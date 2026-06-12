@@ -54,11 +54,24 @@ export function expandSecret(secret: string): string {
  *   per-process: restarting dev re-rolls it (existing dev cookies are dropped),
  *   which is acceptable in non-production.
  */
+// CI-only dummy used by the Lighthouse step (.github/workflows/ci.yml). It is
+// PUBLIC in the repo, so production must refuse it outright: anyone reading the
+// workflow could otherwise forge sessions (and QR signatures, which fall back
+// to JWT_SECRET) on a deployment that copy-pasted it.
+const KNOWN_DUMMY_SECRETS = new Set(["ci-lighthouse-only-not-a-real-secret"]);
+
 export function resolveCookieSecret(opts: {
   jwtSecret: string;
   isProduction: boolean;
 }): string {
   const secret = opts.jwtSecret.trim();
+  if (secret && opts.isProduction && KNOWN_DUMMY_SECRETS.has(secret)) {
+    throw new Error(
+      "[Auth] JWT_SECRET is set to a known CI-only dummy value, which is " +
+        "public in this repository. Refusing to start in production — set a " +
+        "real secret (e.g. `openssl rand -base64 64`)."
+    );
+  }
   if (secret) return opts.jwtSecret;
 
   if (opts.isProduction) {

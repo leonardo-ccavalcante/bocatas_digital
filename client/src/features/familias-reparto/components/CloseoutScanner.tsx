@@ -1,9 +1,14 @@
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { QrCode } from "lucide-react";
-import { QRScanner } from "@/features/checkin/components/QRScanner";
+import { Loader2, QrCode } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+
+// ATL-01: camera lib (~49KB gzip) loads only when the scan dialog opens, not
+// with the reparto tab.
+const QRScanner = lazy(() =>
+  import("@/features/checkin/components/QRScanner").then((m) => ({ default: m.QRScanner }))
+);
 
 interface Props {
   roundId: string;
@@ -62,7 +67,18 @@ export function CloseoutScanner({ roundId, currentDay, onResolved }: Props) {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Escanear QR familiar</DialogTitle></DialogHeader>
-          {open && <QRScanner onDecoded={handleDecoded} onCancel={() => setOpen(false)} />}
+          {open && (
+            <Suspense
+              fallback={
+                <div className="flex flex-col items-center gap-3 py-8" role="status">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" />
+                  <p className="text-sm text-muted-foreground">Abriendo cámara...</p>
+                </div>
+              }
+            >
+              <QRScanner onDecoded={handleDecoded} onCancel={() => setOpen(false)} />
+            </Suspense>
+          )}
         </DialogContent>
       </Dialog>
     </div>

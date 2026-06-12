@@ -134,3 +134,4 @@ supabase/config.toml
 supabase/.branches/
 supabase/.temp/
 .project-config.json
+.lighthouseci/
