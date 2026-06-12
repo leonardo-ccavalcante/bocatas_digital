@@ -15,8 +15,11 @@ interface ParsedFamily {
 const REQUIRED_FIELDS = ['familia_numero', 'nombre_familia', 'contacto_principal'];
 const OPTIONAL_UUID_FIELD = 'familia_id';
 
-// Valid enum values
-const VALID_ESTADOS = ['activo', 'inactivo', 'suspendido'];
+// Valid enum values — mirrors the families.estado CHECK ('activa','baja') verified
+// live in prod, so the import-preview warning tells the operator the truth. The
+// stale ['activo','inactivo','suspendido'] set warned on valid values and stayed
+// silent on the invalid 'activo'. (MYTHOS TES-08)
+const VALID_ESTADOS = ['activa', 'baja'];
 
 /**
  * Parse CSV string into rows
