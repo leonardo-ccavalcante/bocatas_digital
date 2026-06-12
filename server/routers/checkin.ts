@@ -12,6 +12,7 @@ import { voluntarioProcedure, router } from "../_core/trpc";
 import { logProcedureAction, logProcedureError, logCorrelatedErrorToStderr } from "../_core/logging-middleware";
 import { ENV } from "../_core/env";
 import { parseQrPayload, verifySig } from "../../shared/qr/payload";
+import { escapeIlikePattern } from "../_core/postgrestFilter";
 
 // UUID-like validator that accepts any 8-4-4-4-12 hex string (including synthetic seed IDs)
 const uuidLike = z.string().regex(
@@ -248,7 +249,7 @@ export const checkinRouter = router({
         .from("persons_safe")
         .select("id, nombre, apellidos, fecha_nacimiento, foto_perfil_url, restricciones_alimentarias")
         .or(
-          `nombre.ilike.%${input.query}%,apellidos.ilike.%${input.query}%`
+          `nombre.ilike.${escapeIlikePattern(input.query)},apellidos.ilike.${escapeIlikePattern(input.query)}`
         )
         .is("deleted_at", null)
         .limit(10);

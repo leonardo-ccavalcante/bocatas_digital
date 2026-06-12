@@ -15,6 +15,7 @@ import { router, adminProcedure } from "../../../_core/trpc";
 import { createAdminClient } from "../../../../client/src/lib/supabase/server";
 import { logAudit } from "../../../_core/logging-middleware";
 import { K_ANONYMITY_FLOOR } from "../../../_core/mapaAggregation";
+import { escapeIlikePattern } from "../../../_core/postgrestFilter";
 import { withSoftDeleteFilter, wrapDbError } from "../_shared";
 import { SavedQuerySpecSchema, type ParsedFilterRow } from "./allowlist";
 import { ENTITY_FIELDS, ENTITY_TO_TABLE, type ReportEntity } from "./allowlist";
@@ -72,7 +73,7 @@ function applyFilter<
     case "in":
       return q.in(f.field, f.value);
     case "contains":
-      return q.ilike(f.field, `%${f.value}%`);
+      return q.ilike(f.field, escapeIlikePattern(f.value));
     case "is_null":
       return q.is(f.field, null);
     case "between":

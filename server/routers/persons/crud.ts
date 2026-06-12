@@ -4,6 +4,7 @@ import { createAdminClient } from "../../../client/src/lib/supabase/server";
 import { adminProcedure, protectedProcedure, voluntarioProcedure, router } from "../../_core/trpc";
 import { logProcedureAction, logProcedureError } from "../../_core/logging-middleware";
 import { redactHighRiskFields } from "../../_core/rlsRedaction";
+import { escapeIlikePattern } from "../../_core/postgrestFilter";
 import { PersonCreateInput } from "./_shared";
 
 const ELEVATED_ROLES = new Set(["admin", "superadmin"]);
@@ -232,7 +233,7 @@ export const crudRouter = router({
       const { data, error } = await supabase
         .from("persons")
         .select("id, nombre, apellidos, fecha_nacimiento, foto_perfil_url, restricciones_alimentarias, fase_itinerario")
-        .or(`nombre.ilike.%${trimmed}%,apellidos.ilike.%${trimmed}%`)
+        .or(`nombre.ilike.${escapeIlikePattern(trimmed)},apellidos.ilike.${escapeIlikePattern(trimmed)}`)
         .is("deleted_at", null)
         .order("nombre")
         .limit(20);
