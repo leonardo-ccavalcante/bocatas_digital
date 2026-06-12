@@ -120,6 +120,17 @@ export const checkinRouter = router({
         return { status: "not_found" as const };
       }
 
+      // ARG-01 / B.7: demo (practice) mode writes NO real data. Give realistic
+      // feedback — the person was found, restrictions shown — but persist
+      // nothing, so a demo check-in can never occupy a real check-in's unique
+      // slot and block it. (Returns before the duplicate check + insert.)
+      if (input.isDemoMode) {
+        return {
+          status: "registered" as const,
+          restriccionesAlimentarias: person.restricciones_alimentarias ?? null,
+        };
+      }
+
       // 2. Check for duplicate (same person + location + programa + today)
       const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
       const { data: existing } = await supabase
@@ -147,13 +158,14 @@ export const checkinRouter = router({
         return { status: "duplicate" as const, lastCheckinTime: time };
       }
 
-      // 3. Insert attendance
+      // 3. Insert attendance (only reached for real check-ins — demo returned
+      // above, so es_demo is always false here).
       const { error: insertError } = await supabase.from("attendances").insert({
         person_id: input.personId,
         location_id: input.locationId,
         programa: input.programa,
         metodo: input.metodo,
-        es_demo: input.isDemoMode,
+        es_demo: false,
         // registrado_por: null (no Supabase auth.uid() available with Manus OAuth)
         // The RLS is bypassed via service role key
       });
@@ -219,6 +231,11 @@ export const checkinRouter = router({
       })
     )
     .mutation(async ({ input }) => {
+      // ARG-01 / B.7: demo mode writes no real data.
+      if (input.isDemoMode) {
+        return { status: "registered" as const };
+      }
+
       const supabase = createAdminClient();
 
       const { error } = await supabase.from("attendances").insert({
@@ -226,7 +243,7 @@ export const checkinRouter = router({
         location_id: input.locationId,
         programa: input.programa,
         metodo: "conteo_anonimo",
-        es_demo: input.isDemoMode,
+        es_demo: false,
       });
 
       if (error) {
@@ -342,11 +359,18 @@ export const checkinRouter = router({
       if (input.length === 0) return [];
       const supabase = createAdminClient();
 
-      // ARG-02: date/timestamp derived per item from queuedAt, not flush time
-      // (see checkin.offlineSync.ts). Anonymous (person_id null) check-ins
-      // bypass the arbiter (NULL <> NULL) → always insert.
+      // ARG-02: date/timestamp derived per item from queuedAt, not flush time.
+      // ARG-01: demo items are filtered out of the rows (they write no real
+      // data). Anonymous (person_id null) check-ins bypass the arbiter
+      // (NULL <> NULL) → always insert. See checkin.offlineSync.ts.
       const enriched = enrichOfflineItems(input);
       const rows = offlineAttendanceRows(enriched);
+
+      // All-demo (or empty) batch → nothing to persist; everything reports
+      // synced and leaves the queue without touching the DB.
+      if (rows.length === 0) {
+        return offlineSyncResults(enriched, new Set());
+      }
 
       const { data, error } = await supabase
         .from("attendances")
