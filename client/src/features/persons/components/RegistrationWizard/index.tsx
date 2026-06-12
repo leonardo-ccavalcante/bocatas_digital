@@ -135,13 +135,20 @@ export function RegistrationWizard() {
   const watchedIdioma = watch("idioma_principal") ?? "es";
   const templateIdioma = getConsentTemplateLanguage(watchedIdioma);
 
-  // Consent fallback: no active template in the person's language → show
-  // Spanish + verbal-translation banner (never silently render Spanish).
-  const needsVerbalFallback = watchedIdioma !== "es" && templateIdioma === "es";
-
   // Consent templates
   const { data: consentTemplatesEs = [] } = useConsentTemplates("es");
   const { data: consentTemplatesLang = [] } = useConsentTemplates(templateIdioma);
+
+  // Consent fallback: show Spanish + verbal-translation banner whenever the
+  // person's language has no usable active template — either no template lane
+  // (templateIdioma resolved to 'es' for en/ro/zh/wo/other) OR the lane exists
+  // (ar/fr/bm) but no active templates are loaded. Gate on the actually-loaded
+  // templates, not just the language string: the render falls back to Spanish
+  // per purpose (_consentRows.ts), so an active-but-empty ar/fr/bm lane would
+  // otherwise render Spanish with NO banner — silently. (MYTHOS THE-04)
+  const needsVerbalFallback =
+    watchedIdioma !== "es" &&
+    (templateIdioma === "es" || consentTemplatesLang.length === 0);
 
   // Duplicate check belongs to the identity phase (phase 1) — matches the
   // showDuplicateWarning gate below.
