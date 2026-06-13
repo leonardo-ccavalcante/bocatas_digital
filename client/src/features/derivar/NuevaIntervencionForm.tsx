@@ -78,6 +78,25 @@ export function NuevaIntervencionForm({
     ? hojaQuery.isLoading || !hojaQuery.data
     : start.isLoading || !start.data;
 
+  // Error state: startIntervention failed (only relevant in create mode)
+  if (!isAppend && start.isError) {
+    return (
+      <div role="alert" className="space-y-3 p-4">
+        <p className="text-destructive text-sm">
+          {start.error?.message ?? "Error al cargar los datos. Inténtalo de nuevo."}
+        </p>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => void start.refetch()}>
+            Reintentar
+          </Button>
+          <Button variant="ghost" size="sm" onClick={onCancel}>
+            Cerrar
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   if (isLoadingData) {
     return (
       <div className="space-y-2 p-4" aria-busy="true" aria-label="Cargando datos">

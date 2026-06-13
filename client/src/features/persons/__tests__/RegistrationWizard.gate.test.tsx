@@ -73,10 +73,10 @@ const ES_TEMPLATES: ConsentTemplate[] = [
 ];
 vi.mock("../hooks/useConsentTemplates", () => ({
   useConsentTemplates: (idioma: string) => ({
-    // Only Spanish templates exist; any other language resolves to the
-    // Spanish set (the wizard never silently swaps language — it shows the
-    // fallback banner instead).
-    data: idioma === "es" ? ES_TEMPLATES : ES_TEMPLATES,
+    // Spanish templates exist. `ar` models an ACTIVE-BUT-EMPTY template lane (a
+    // consent_language enum value with no loaded template rows) — the THE-04 case:
+    // the wizard must show the fallback banner, not silently render Spanish.
+    data: idioma === "ar" ? [] : ES_TEMPLATES,
     isLoading: false,
     isError: false,
   }),
@@ -199,6 +199,22 @@ describe("RegistrationWizard — consent-language fallback", () => {
     await advanceToProgramaPhase(user);
 
     expect(screen.queryByTestId("verbal-translation-banner")).not.toBeInTheDocument();
+  });
+
+  // THE-04: `ar` is a template language (consent_language enum) but its lane is
+  // active-but-empty in this mount. The old condition gated on the language string
+  // (templateIdioma==="es") only, so it showed NO banner and the consent rows fell
+  // back to Spanish silently. The banner must appear.
+  it("shows the banner when a template-language lane (ar) is active-but-empty (THE-04)", async () => {
+    const user = userEvent.setup();
+    render(<RegistrationWizard />);
+
+    await user.click(screen.getByRole("combobox", { name: /Idioma principal/i }));
+    await user.click(await screen.findByRole("option", { name: /[ÁA]rabe/i }));
+
+    await advanceToProgramaPhase(user);
+
+    expect(screen.getByTestId("verbal-translation-banner")).toBeInTheDocument();
   });
 });
 

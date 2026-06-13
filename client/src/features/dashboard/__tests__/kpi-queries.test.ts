@@ -3,6 +3,32 @@
  * Location: client/src/features/dashboard/__tests__/ (as required by spec)
  */
 import { describe, it, expect } from "vitest";
+import { KPIStatsSchema } from "../schemas";
+
+// ─── KPIStatsSchema: programa field ───────────────────────────────────────────
+
+describe("KPIStatsSchema includes programa", () => {
+  it("parses a server response row WITH programa field", () => {
+    const raw = { count: 42, period: "today", locationId: "all", programa: "comedor" };
+    const result = KPIStatsSchema.safeParse(raw);
+    expect(result.success).toBe(true);
+    expect(result.data?.programa).toBe("comedor");
+  });
+
+  it("defaults programa to 'all' when field is absent (backward-compat)", () => {
+    const raw = { count: 10, period: "week", locationId: "all" };
+    const result = KPIStatsSchema.safeParse(raw);
+    expect(result.success).toBe(true);
+    expect(result.data?.programa).toBe("all");
+  });
+
+  it("parses programa='all' from server response", () => {
+    const raw = { count: 0, period: "month", locationId: "all", programa: "all" };
+    const result = KPIStatsSchema.safeParse(raw);
+    expect(result.success).toBe(true);
+    expect(result.data?.programa).toBe("all");
+  });
+});
 
 // ─── Period date range computation ────────────────────────────────────────────
 

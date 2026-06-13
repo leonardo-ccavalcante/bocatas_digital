@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { ilikeForOr } from "@shared/postgrestFilter";
 import { DuplicateCandidateSchema, type DuplicateCandidate } from "../schemas";
 import { z } from "zod";
 
@@ -30,7 +31,9 @@ export function useDuplicateCheck(
         const { data: fallback, error: fallbackError } = await supabase
           .from("persons")
           .select("id, nombre, apellidos, fecha_nacimiento, foto_perfil_url")
-          .or(`nombre.ilike.%${nombre.trim()}%,apellidos.ilike.%${apellidos.trim()}%`)
+          .or(
+            `nombre.ilike.${ilikeForOr(nombre.trim())},apellidos.ilike.${ilikeForOr(apellidos.trim())}`
+          )
           .is("deleted_at", null)
           .limit(5);
 

@@ -6,11 +6,13 @@
  * Tests:
  *   - FieldPicker renders only filterable fields, hides non-filterable
  *   - GroupByPicker renders only groupable fields, hides non-groupable
+ *   - PreviewPane shows the k-anonymity suppression banner when suppressedCount > 0
  */
 
 import React from "react";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
+import { PreviewPane } from "../CustomQueryBuilder/PreviewPane";
 import { FieldPicker } from "../CustomQueryBuilder/FieldPicker";
 import { GroupByPicker } from "../CustomQueryBuilder/GroupByPicker";
 import { AggregatePicker, aggregateOptions } from "../CustomQueryBuilder/AggregatePicker";
@@ -163,5 +165,65 @@ describe("CustomQueryBuilder — kAnonymize toggle gating", () => {
     // No groupBy + aggregate yet → toggle is disabled (k-anon only applies to
     // grouped aggregates; enabling it on a raw query would be misleading).
     expect(toggle).toBeDisabled();
+  });
+});
+
+// ─── PreviewPane — k-anonymity suppression banner ────────────────────────
+
+describe("PreviewPane — k-anonymity suppression banner", () => {
+  const baseRows = [{ group: "centro", value: 3 }];
+
+  it("does NOT show suppression banner when suppressedCount is 0", () => {
+    render(
+      <PreviewPane
+        rows={baseRows}
+        total={1}
+        isLoading={false}
+        error={null}
+        suppressedCount={0}
+      />,
+    );
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("does NOT show suppression banner when suppressedCount is undefined (default)", () => {
+    render(
+      <PreviewPane
+        rows={baseRows}
+        total={1}
+        isLoading={false}
+        error={null}
+      />,
+    );
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("shows suppression banner when suppressedCount > 0", () => {
+    render(
+      <PreviewPane
+        rows={baseRows}
+        total={1}
+        isLoading={false}
+        error={null}
+        suppressedCount={2}
+      />,
+    );
+    const banner = screen.getByRole("alert");
+    expect(banner).toBeInTheDocument();
+    expect(banner.textContent).toMatch(/k-anonimato/i);
+  });
+
+  it("suppression banner text matches IRPF modal wording", () => {
+    render(
+      <PreviewPane
+        rows={baseRows}
+        total={1}
+        isLoading={false}
+        error={null}
+        suppressedCount={1}
+      />,
+    );
+    const banner = screen.getByRole("alert");
+    expect(banner.textContent).toMatch(/algunas filas se ocultaron por privacidad/i);
   });
 });

@@ -12,7 +12,7 @@
  *   3. The final DOCX document.xml must be parseable as valid XML.
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import PizZip from "pizzip";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -20,6 +20,35 @@ import { resolve } from "node:path";
 // ── Access private helpers via the module ─────────────────────────────────────
 // We test the public renderDerivarHojaDocx API and inspect the ZIP output.
 import { renderDerivarHojaDocx } from "../docxRender";
+
+// DIO-04: exercise REAL docx rendering against the committed template fixture,
+// not a live Supabase. Without this the template "download" hits http://localhost
+// and hangs until the 5s test timeout in CI (no DB) — a false-red integration
+// dependency in what is really a rendering unit test.
+vi.mock("../../../client/src/lib/supabase/server", () => ({
+  createAdminClient: vi.fn(() => ({
+    from: vi.fn(() => ({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+    })),
+    storage: {
+      from: vi.fn(() => ({
+        download: vi.fn(async () => {
+          const { readFileSync: rf } = await import("node:fs");
+          const { resolve: res } = await import("node:path");
+          const buf = rf(
+            res(
+              process.cwd(),
+              "server/_core/__fixtures__/derivacion_hoja_template_v3.docx",
+            ),
+          );
+          return { data: new Blob([buf]), error: null };
+        }),
+      })),
+    },
+  })),
+}));
 
 const testData = {
   nombre: "Test User",

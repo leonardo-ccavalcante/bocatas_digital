@@ -1,7 +1,10 @@
 -- ============================================================================
 -- 20260512000001_create_family_webhook_log.sql
 --
--- PENDING REVIEW — DO NOT APPLY WITHOUT EIPD UPDATE.
+-- APPLIES — platform-readiness decision ADR-0008 (2026-06-12, Leo): the schema
+-- ships so the platform is ready for review. The EIPD update is a GO-LIVE gate
+-- before production webhook logs are written here, NOT a migration/build blocker.
+-- The checklist below must clear before go-live; track it in the EIPD register.
 --
 -- Purpose
 --   Append-only audit ledger for the 5 family lifecycle webhooks emitted to
@@ -16,7 +19,7 @@
 --     - family.compliance.alert
 --     - family.session.closed
 --
--- WHY THIS IS NOT APPLIED YET
+-- GO-LIVE COMPLIANCE CHECKLIST (clear before production webhook logs are written)
 --   1. EIPD update: the EIPD must list `family_webhook_log` as a processing
 --      record before the table is created in production. The log row holds
 --      no PII (response bodies are truncated and family_id is an opaque

@@ -120,6 +120,68 @@ describe("offline queue — FIFO ordering", () => {
   });
 });
 
+describe("offline queue — POS-03 failed-sync tracking", () => {
+  function enqueueOne(personId: string): string {
+    return useCheckinStore.getState().enqueue({
+      personId,
+      locationId: LOCATION_A,
+      programa: "comedor",
+      metodo: "qr_scan",
+      isDemoMode: false,
+    });
+  }
+
+  it("markFailed records clientIds so they can be surfaced (and dedups)", () => {
+    const { markFailed } = useCheckinStore.getState();
+    const id1 = enqueueOne(PERSON_1);
+    const id2 = enqueueOne(PERSON_2);
+
+    markFailed([id1, id2]);
+    markFailed([id1]); // repeat must not duplicate
+
+    expect(useCheckinStore.getState().failedClientIds.slice().sort()).toEqual(
+      [id1, id2].slice().sort()
+    );
+    // Failed items stay in the queue (eligible for a later retry).
+    expect(useCheckinStore.getState().offlineQueue).toHaveLength(2);
+  });
+
+  it("dequeue clears a recovered item from BOTH the queue and the failed set", () => {
+    const { markFailed, dequeue } = useCheckinStore.getState();
+    const id1 = enqueueOne(PERSON_1);
+    const id2 = enqueueOne(PERSON_2);
+    markFailed([id1, id2]);
+
+    // id1 succeeds on retry → leaves the queue and is no longer failed.
+    dequeue([id1]);
+
+    expect(useCheckinStore.getState().offlineQueue.map((q) => q.clientId)).toEqual([id2]);
+    expect(useCheckinStore.getState().failedClientIds).toEqual([id2]);
+  });
+
+  it("clearFailed removes specified ids without touching the queue", () => {
+    const { markFailed, clearFailed } = useCheckinStore.getState();
+    const id1 = enqueueOne(PERSON_1);
+    markFailed([id1]);
+
+    clearFailed([id1]);
+
+    expect(useCheckinStore.getState().failedClientIds).toEqual([]);
+    expect(useCheckinStore.getState().offlineQueue).toHaveLength(1);
+  });
+
+  it("clearQueue resets the failed set too", () => {
+    const { markFailed, clearQueue } = useCheckinStore.getState();
+    const id1 = enqueueOne(PERSON_1);
+    markFailed([id1]);
+
+    clearQueue();
+
+    expect(useCheckinStore.getState().offlineQueue).toEqual([]);
+    expect(useCheckinStore.getState().failedClientIds).toEqual([]);
+  });
+});
+
 describe("offline queue — Gate 1 B.5 dedup contract", () => {
   it("collapses to one effective row per (person_id, fecha, service_point) after flush", () => {
     const { enqueue } = useCheckinStore.getState();

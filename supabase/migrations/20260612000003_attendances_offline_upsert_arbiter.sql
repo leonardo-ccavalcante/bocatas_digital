@@ -1,0 +1,31 @@
+-- 20260612000003_attendances_offline_upsert_arbiter.sql
+--
+-- POS-02 (Mythos audit, P0).
+--
+-- `server/routers/checkin.ts` flushes the offline queue with
+-- `.upsert(rows, { onConflict: "person_id,location_id,programa,checked_in_date",
+--   ignoreDuplicates: true })`. PostgREST needs a NON-partial, NON-deferrable
+-- unique index over exactly those columns to use as the ON CONFLICT arbiter.
+--
+-- Neither prod index qualifies (verified live via MCP + reproduced):
+--   * `attendances_unique_checkin` UNIQUE(...) DEFERRABLE INITIALLY DEFERRED —
+--     Postgres rejects deferrable constraints as arbiters:
+--       "ON CONFLICT does not support deferrable unique constraints/exclusion
+--        constraints as arbiters"
+--   * `uq_attendance_person_location_programa_date` is PARTIAL (WHERE person_id
+--     IS NOT NULL AND programa IS NOT NULL AND deleted_at IS NULL) — a partial
+--     index is only inferable if the statement repeats the predicate, which
+--     PostgREST does not emit.
+-- So the offline flush fails at plan time with 42P10 ("there is no unique or
+-- exclusion constraint matching the ON CONFLICT specification") on EVERY env,
+-- prod included — prod is only masked by attendances having 0 rows. Confirmed:
+-- a non-partial, non-deferrable unique index makes the same upsert resolve.
+--
+-- Add that arbiter index under a NEW name so it COEXISTS with prod's deferrable
+-- constraint (no behavior change to the deferrable). Prod has 0 dup collisions on
+-- these columns (verified), so it builds cleanly. NULL person_id rows (anonymous
+-- check-ins) don't collide under a unique index (NULL <> NULL), matching the
+-- code's "anonymous always inserts" behavior.
+
+CREATE UNIQUE INDEX IF NOT EXISTS attendances_checkin_upsert_arbiter
+  ON public.attendances (person_id, location_id, programa, checked_in_date);

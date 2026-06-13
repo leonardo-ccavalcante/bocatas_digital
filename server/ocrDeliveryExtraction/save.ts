@@ -2,6 +2,7 @@ import { createAdminClient } from '../../client/src/lib/supabase/server';
 import { v4 as uuidv4 } from 'uuid';
 import { validateBatchHeaderWithDB, validateDeliveryRowWithDB } from "./validation";
 import type { ExtractedBatchHeader, ExtractedDeliveryRow } from "./types";
+import { logCorrelatedErrorToStderr } from "../_core/logging-middleware";
 
 /**
  * Save delivery batch and rows to database
@@ -28,18 +29,17 @@ export async function saveDeliveryBatch(
     rows.map(r => validateDeliveryRowWithDB(r))
   );
 
-  const rowValidations = rowSettlements.map((s, idx) =>
-    s.status === "fulfilled"
-      ? s.value
-      : {
-          isValid: false,
-          errors: [
-            `Row ${idx + 1}: validation threw — ${
-              s.reason instanceof Error ? s.reason.message : String(s.reason)
-            }`,
-          ],
-        }
-  );
+  const rowValidations = rowSettlements.map((s, idx) => {
+    if (s.status === "fulfilled") return s.value;
+    // The validation promise threw (unexpected — `s.reason` may be a raw DB error
+    // carrying constraint names / column VALUES = PII). Curate the client-facing
+    // string; log the raw error PII-safely to stderr. (CAS-03 follow-up)
+    logCorrelatedErrorToStderr({ path: "ocr.saveDeliveryBatch.validateRow", error: s.reason });
+    return {
+      isValid: false,
+      errors: [`Fila ${idx + 1}: no se pudo validar.`],
+    };
+  });
 
   const invalidRows = rowValidations.filter(v => !v.isValid);
 
@@ -84,10 +84,13 @@ export async function saveDeliveryBatch(
     const { error } = await adminDb.from('deliveries').insert(deliveriesToInsert);
     if (error) throw new Error(error.message);
   } catch (error) {
+    // Raw Postgres error can carry constraint names + column VALUES (PII). Curate
+    // the client string; log the raw error PII-safely to stderr. (CAS-03 follow-up)
+    logCorrelatedErrorToStderr({ path: "ocr.saveDeliveryBatch.insert", error });
     return {
       batchId,
       savedCount: 0,
-      errors: [`Error al guardar entregas: ${error instanceof Error ? error.message : 'desconocido'}`],
+      errors: ["No se pudieron guardar las entregas."],
     };
   }
 

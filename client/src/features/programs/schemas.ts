@@ -24,7 +24,21 @@ export const ProgramSchema = z.object({
 
 export type Program = z.infer<typeof ProgramSchema>;
 
-export const ProgramWithCountsSchema = ProgramSchema.extend({
+// ─── ProgramWithCounts (from get_programs_with_counts RPC) ────────────────────
+// The RPC returns `name` (not `nombre`) — the DB column was never renamed.
+// Use ProgramSchema for table rows (e.g. from getAll),
+// and ProgramWithCountsSchema for the counts RPC.
+export const ProgramWithCountsSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  slug: z.string(),
+  description: z.string().nullable().optional(),
+  display_order: z.number(),
+  is_active: z.boolean(),
+  volunteer_can_access: z.boolean(),
+  fecha_inicio: z.string().nullable().optional(),
+  fecha_fin: z.string().nullable().optional(),
+  responsable_id: z.string().nullable().optional(),
   active_enrollments: z.number(),
   total_enrollments: z.number(),
   new_this_month: z.number(),

@@ -43,6 +43,20 @@ describe("parseDate", () => {
     expect(parseDate("")).toEqual({ value: null, warning: null });
     expect(parseDate(undefined)).toEqual({ value: null, warning: null });
   });
+  // ARG-15: a 5-digit numeric (e.g. a Madrid postal code 28012) overlaps the
+  // Excel-serial range and was silently converted to a bogus date. It is still
+  // converted (real exports emit serial dates) but must NOT be silent.
+  it("5-digit numeric (postal-code-shaped) converts as serial but warns — never silent", () => {
+    const r = parseDate("28012");
+    expect(r.value).not.toBeNull();
+    expect(r.value).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(r.warning?.code).toBe("date_serial_ambiguous");
+  });
+  it("4-digit year-only stays invalid (below serial floor)", () => {
+    const r = parseDate("1985");
+    expect(r.value).toBeNull();
+    expect(r.warning?.code).toBe("date_invalid");
+  });
 });
 
 describe("parseSexo", () => {

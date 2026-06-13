@@ -258,3 +258,9 @@
 - [x] Fix Bug 2c: RepartoList rows get flex-wrap + min-w-0 for responsive layout
 - [x] TDD: 5 new tests (MapaChoropleth.isolation + FamiliasList.responsive) — all GREEN
 - [x] Full suite: 2851 tests pass, 0 failures, TypeScript 0 errors
+
+## Bug Fix: QR Signing Secret Not Configured
+- [x] Task 1: Configurar QR_SIGNING_SECRET como secret del proyecto (≥32 chars) — fix via env.ts expansion instead
+- [x] Task 2: Hacer env.ts fallback robusto con HMAC-SHA256 expansion del JWT_SECRET
+- [x] Task 3: TDD — 12 tests: 8 contrato puro + 4 integración con env.ts
+- [x] Task 4: QA — 2937 tests pasan, TypeScript 0 errores, commit y push

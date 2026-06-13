@@ -47,6 +47,27 @@ describe('CSV Export', () => {
     },
   ];
 
+  describe('CSV formula injection (CAS-01 / THE-02)', () => {
+    it('neutralizes formula triggers in attacker-controllable free-text cells', () => {
+      const malicious = [
+        {
+          ...mockFamilies[0],
+          nombre_familia: '=cmd|calc',
+          contacto_principal: '@SUM(A1)',
+        },
+      ];
+
+      const csv = generateFamiliesCSV(malicious, 'update');
+
+      // Formula-leading free-text is prefixed with ' and force-quoted.
+      expect(csv).toContain('"\'=cmd|calc"');
+      expect(csv).toContain('"\'@SUM(A1)"');
+      // The raw, un-neutralized formula must NOT appear as a bare cell.
+      expect(csv).not.toContain(',=cmd|calc,');
+      expect(csv).not.toContain(',@SUM(A1),');
+    });
+  });
+
   describe('Update mode (all fields)', () => {
     it('should generate CSV with all family fields', () => {
       const csv = generateFamiliesCSV(mockFamilies, 'update');

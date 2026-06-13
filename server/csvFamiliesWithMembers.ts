@@ -5,6 +5,8 @@
  * familia_numero,estado,miembro_nombre,miembro_rol,miembro_relacion,miembro_fecha_nacimiento
  */
 
+import { escapeCsvField, unescapeCsvField } from '../shared/csvSafe';
+
 export type MergeStrategy = 'overwrite' | 'merge' | 'skip';
 
 export interface FamilyWithMembersRow {
@@ -36,24 +38,6 @@ export interface ValidationResult {
 }
 
 /**
- * Escape CSV field value according to RFC 4180
- */
-function escapeCSVField(value: unknown): string {
-  if (value === null || value === undefined) {
-    return '';
-  }
-
-  const str = String(value);
-  const needsQuotes = str.includes(',') || str.includes('"') || str.includes('\n');
-
-  if (needsQuotes) {
-    return `"${str.replace(/"/g, '""')}"`;
-  }
-
-  return str;
-}
-
-/**
  * Generate CSV from families with members data
  */
 export function generateFamiliesWithMembersCSV(data: FamilyWithMembersRow[]): string {
@@ -61,12 +45,12 @@ export function generateFamiliesWithMembersCSV(data: FamilyWithMembersRow[]): st
 
   const rows = data.map(row => {
     return [
-      escapeCSVField(row.familia_numero),
-      escapeCSVField(row.estado),
-      escapeCSVField(row.miembro_nombre),
-      escapeCSVField(row.miembro_rol),
-      escapeCSVField(row.miembro_relacion),
-      escapeCSVField(row.miembro_fecha_nacimiento),
+      escapeCsvField(row.familia_numero),
+      escapeCsvField(row.estado),
+      escapeCsvField(row.miembro_nombre),
+      escapeCsvField(row.miembro_rol),
+      escapeCsvField(row.miembro_relacion),
+      escapeCsvField(row.miembro_fecha_nacimiento),
     ].join(',');
   });
 
@@ -74,7 +58,10 @@ export function generateFamiliesWithMembersCSV(data: FamilyWithMembersRow[]): st
 }
 
 /**
- * Parse CSV line (handle quoted fields)
+ * Parse CSV line (handle quoted fields).
+ * Reverses the formula-injection sentinel escapeCsvField adds on export (a
+ * leading `'` before a formula trigger) so an export → re-import round-trip is
+ * lossless — e.g. a member name exported as `'=evil` reads back as `=evil`.
  */
 function parseCSVLine(line: string): string[] {
   const result: string[] = [];
@@ -96,14 +83,14 @@ function parseCSVLine(line: string): string[] {
       }
     } else if (char === ',' && !inQuotes) {
       // Field separator
-      result.push(current);
+      result.push(unescapeCsvField(current));
       current = '';
     } else {
       current += char;
     }
   }
 
-  result.push(current);
+  result.push(unescapeCsvField(current));
   return result;
 }
 

@@ -44,6 +44,7 @@ import {
   SLUG_FAMILIA,
 } from "./_shared";
 import { useRegistrationSubmit } from "./_useSubmit";
+import { computeVerbalFallback } from "./_consentRows";
 import { type StepperPhase } from "../registration/WizardStepper";
 import { WizardHeader } from "../registration/WizardHeader";
 import { WizardPhases } from "../registration/WizardPhases";
@@ -135,13 +136,20 @@ export function RegistrationWizard() {
   const watchedIdioma = watch("idioma_principal") ?? "es";
   const templateIdioma = getConsentTemplateLanguage(watchedIdioma);
 
-  // Consent fallback: no active template in the person's language → show
-  // Spanish + verbal-translation banner (never silently render Spanish).
-  const needsVerbalFallback = watchedIdioma !== "es" && templateIdioma === "es";
-
   // Consent templates
   const { data: consentTemplatesEs = [] } = useConsentTemplates("es");
   const { data: consentTemplatesLang = [] } = useConsentTemplates(templateIdioma);
+
+  // Consent fallback: show Spanish + verbal-translation banner whenever the
+  // person's language has no usable active template — no lane at all, or a lane
+  // that does not cover every purpose (it would otherwise render Spanish per
+  // purpose with no banner, silently). Logic extracted + unit-tested in
+  // _consentRows.ts. (MYTHOS THE-04 / THE-04b)
+  const needsVerbalFallback = computeVerbalFallback({
+    personLanguage: watchedIdioma,
+    consentTemplatesEs,
+    consentTemplatesLang,
+  });
 
   // Duplicate check belongs to the identity phase (phase 1) — matches the
   // showDuplicateWarning gate below.
