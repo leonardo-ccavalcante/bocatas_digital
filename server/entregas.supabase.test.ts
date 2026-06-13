@@ -103,25 +103,24 @@ describeDb('Supabase Tables Integration', () => {
       expect(count).toBeGreaterThanOrEqual(1);
     });
 
-    it('sin_guf column should be boolean', async () => {
-      const { data, error } = await supabase!
+    // DIO-04 de-flake: these two used to read whatever row happened to exist
+    // (fixtures from OTHER suites leave sin_guf NULL → typeof null = 'object'),
+    // failing or vacuously passing depending on suite order. Use an owned
+    // fixture row with explicit booleans instead.
+    it('sin_guf / sin_informe_social columns hold booleans', async () => {
+      const { data: fam, error: insErr } = await supabase!
         .from('families')
-        .select('sin_guf')
-        .limit(1);
-      expect(error).toBeNull();
-      if (data && data.length > 0) {
-        expect(typeof data[0].sin_guf).toBe('boolean');
-      }
-    });
-
-    it('sin_informe_social column should be boolean', async () => {
-      const { data, error } = await supabase!
-        .from('families')
-        .select('sin_informe_social')
-        .limit(1);
-      expect(error).toBeNull();
-      if (data && data.length > 0) {
-        expect(typeof data[0].sin_informe_social).toBe('boolean');
+        .insert({ sin_guf: false, sin_informe_social: true })
+        .select('id, sin_guf, sin_informe_social')
+        .single();
+      expect(insErr).toBeNull();
+      try {
+        expect(typeof fam!.sin_guf).toBe('boolean');
+        expect(typeof fam!.sin_informe_social).toBe('boolean');
+        expect(fam!.sin_guf).toBe(false);
+        expect(fam!.sin_informe_social).toBe(true);
+      } finally {
+        await supabase!.from('families').delete().eq('id', fam!.id);
       }
     });
   });
