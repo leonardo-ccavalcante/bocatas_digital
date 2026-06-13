@@ -14,7 +14,7 @@
 import { z } from "zod";
 import { router, adminProcedure } from "../../../_core/trpc";
 import { createAdminClient } from "../../../../client/src/lib/supabase/server";
-import { wrapDbError } from "../_shared";
+import { wrapDbError, logAuditReport } from "../_shared";
 import { hasComplianceRedFlag, type ComplianceFlags } from "../../../_core/mapaAggregation";
 
 const InputSchema = z
@@ -41,7 +41,7 @@ interface FamilyRow extends ComplianceFlags {
 export const familiasEnRiesgoRouter = router({
   familiasEnRiesgo: adminProcedure
     .input(InputSchema)
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       const db = createAdminClient();
       const estado = input?.estado ?? "activa";
 
@@ -64,6 +64,10 @@ export const familiasEnRiesgoRouter = router({
 
       const rows = data ?? [];
       const redFlagRows = rows.filter((r) => hasComplianceRedFlag(r));
+
+      logAuditReport(ctx, "reports.familiasEnRiesgo", redFlagRows.length, {
+        estado: input?.estado ?? "activa",
+      });
 
       return {
         rows: redFlagRows,

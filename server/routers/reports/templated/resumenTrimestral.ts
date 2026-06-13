@@ -15,7 +15,7 @@
 import { z } from "zod";
 import { router, adminProcedure } from "../../../_core/trpc";
 import { createAdminClient } from "../../../../client/src/lib/supabase/server";
-import { withSoftDeleteFilter, wrapDbError } from "../_shared";
+import { withSoftDeleteFilter, wrapDbError, logAuditReport } from "../_shared";
 
 const QUARTER_MONTHS: Record<1 | 2 | 3 | 4, { start: string; end: string }> = {
   1: { start: "01", end: "03" },
@@ -43,7 +43,7 @@ const InputSchema = z.object({
 export const resumenTrimestralRouter = router({
   resumenTrimestral: adminProcedure
     .input(InputSchema)
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       const db = createAdminClient();
       const { year, quarter } = input;
       const { start, end } = QUARTER_MONTHS[quarter];
@@ -91,9 +91,19 @@ export const resumenTrimestralRouter = router({
         .map(([distrito, count]) => ({ distrito, count }))
         .sort((a, b) => b.count - a.count);
 
+      const nuevasFamilias = (newFamilies ?? []).length;
+      const totalEntregas = (entregas ?? []).length;
+
+      logAuditReport(
+        ctx,
+        "reports.resumenTrimestral",
+        nuevasFamilias + totalEntregas,
+        { year, quarter },
+      );
+
       return {
-        nuevasFamilias: (newFamilies ?? []).length,
-        totalEntregas: (entregas ?? []).length,
+        nuevasFamilias,
+        totalEntregas,
         distribucionPorDistrito,
         periodo: { year, quarter, from: fromDate, to: toDate },
       };

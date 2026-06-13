@@ -499,8 +499,10 @@ describe("confirmLegacyImport", () => {
     expect(rpcMock).toHaveBeenCalledWith(
       "confirm_legacy_familias_import",
       // src_filename must be sanitized to its basename before going to the RPC;
-      // p_mode threaded from input.mode; p_excluded_numbers defaults to null.
-      { p_token: "11111111-1111-4111-8111-111111111111", p_src_filename: "some.csv", p_mode: "update", p_excluded_numbers: null }
+      // p_mode threaded from input.mode; p_excluded_numbers omitted (undefined →
+      // PostgREST drops it → SQL DEFAULT NULL). The generated RPC arg type is
+      // string[] | undefined (optional), so undefined — not null — is type-correct.
+      { p_token: "11111111-1111-4111-8111-111111111111", p_src_filename: "some.csv", p_mode: "update", p_excluded_numbers: undefined }
     );
   });
 
@@ -533,7 +535,7 @@ describe("confirmLegacyImport", () => {
     );
   });
 
-  it("passes null for p_excluded_numbers when excluded_family_numbers is omitted", async () => {
+  it("omits p_excluded_numbers (undefined → SQL DEFAULT NULL) when excluded_family_numbers is omitted", async () => {
     fromMock.mockReturnValueOnce(
       confirmFetchChain({
         data: { token: "tok", created_by: "admin-uuid", created_at: new Date().toISOString() },
@@ -553,7 +555,7 @@ describe("confirmLegacyImport", () => {
 
     expect(rpcMock).toHaveBeenCalledWith(
       "confirm_legacy_familias_import",
-      expect.objectContaining({ p_excluded_numbers: null })
+      expect.objectContaining({ p_excluded_numbers: undefined })
     );
   });
 

@@ -6,13 +6,18 @@
  *   Main area: idle | scanning | verifying | result states
  *   Bottom: action buttons (Escanear QR | Búsqueda manual | Conteo anónimo)
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Loader2, QrCode, Search, Hash, WifiOff } from "lucide-react";
 
 import { useCheckin } from "@/features/checkin/hooks/useCheckin";
-import { QRScanner } from "@/features/checkin/components/QRScanner";
+// ATL-01: the QR scanner (camera lib, ~49KB gzip) loads only when the volunteer
+// starts a scan — never on route mount. The Suspense fallback overlaps with the
+// camera-permission prompt, so no perceived delay is added to the <8s budget.
+const QRScanner = lazy(() =>
+  import("@/features/checkin/components/QRScanner").then((m) => ({ default: m.QRScanner }))
+);
 import { ResultCard, RESULT_STATES, type ResultState } from "@/features/checkin/components/ResultCard";
 import { ManualSearchModal } from "@/features/checkin/components/ManualSearchModal";
 import { LocationSelector } from "@/features/checkin/components/LocationSelector";
@@ -23,7 +28,7 @@ import { useCheckinStore } from "@/features/checkin/store/useCheckinStore";
 import type { CheckinPerson, CheckinPrograma } from "@/features/checkin/machine/checkinMachine";
 
 export default function CheckIn() {
-  const { state, send, isOnline, offlineCount, isSyncing } = useCheckin();
+  const { state, send, isOnline, offlineCount, failedCount, isSyncing } = useCheckin();
   const { locationId: storedLocationId, programa: storedPrograma, setLocationId, setPrograma } = useCheckinStore();
   const [showManualSearch, setShowManualSearch] = useState(false);
 
@@ -78,7 +83,7 @@ export default function CheckIn() {
             )}
 
             {/* Offline queue count */}
-            <OfflinePendingBadge count={offlineCount} isSyncing={isSyncing} />
+            <OfflinePendingBadge count={offlineCount} failedCount={failedCount} isSyncing={isSyncing} />
 
             {/* Demo mode toggle */}
             <div className="flex items-center gap-2 min-h-[44px]">
@@ -130,11 +135,20 @@ export default function CheckIn() {
 
         {/* Scanning state */}
         {currentState === "scanning" && (
-          <QRScanner
-            onDecoded={handleQRDecoded}
-            onCancel={handleCancel}
-            isDemoMode={ctx.isDemoMode}
-          />
+          <Suspense
+            fallback={
+              <div className="flex flex-col items-center gap-4 py-12" role="status">
+                <Loader2 className="w-12 h-12 animate-spin text-primary" aria-hidden="true" />
+                <p className="text-muted-foreground">Abriendo cámara...</p>
+              </div>
+            }
+          >
+            <QRScanner
+              onDecoded={handleQRDecoded}
+              onCancel={handleCancel}
+              isDemoMode={ctx.isDemoMode}
+            />
+          </Suspense>
         )}
 
         {/* Verifying state */}

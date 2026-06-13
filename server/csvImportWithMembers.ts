@@ -1,3 +1,5 @@
+import { unescapeCsvField } from "../shared/csvSafe";
+
 export interface ImportValidationResult {
   isValid: boolean;
   errors: string[];
@@ -15,14 +17,28 @@ interface ParsedRow {
 const REQUIRED_FAMILY_FIELDS = ['familia_numero', 'nombre_familia', 'contacto_principal'];
 const REQUIRED_MEMBER_FIELDS = ['miembro_nombre', 'miembro_rol'];
 
-// Valid enum values
-const VALID_ESTADOS = ['activo', 'inactivo', 'suspendido'];
+// Valid enum values — must mirror the DB CHECK constraints (verified live in prod),
+// so the import-preview warnings tell the operator the truth about what will be
+// accepted. The import itself also coerces these to DB-valid values (TES-08).
+//   • families.estado          CHECK ('activa','baja')
+//   • familia_miembros.rol     CHECK ('head_of_household','dependent','other')
+//   • familia_miembros.relacion CHECK (parent,child,sibling,other + esposo_a,hijo_a,
+//                                madre,padre,suegro_a,hermano_a,abuelo_a,otro)
+const VALID_ESTADOS = ['activa', 'baja'];
 const VALID_MIEMBRO_ROLES = ['head_of_household', 'dependent', 'other'];
-const VALID_MIEMBRO_RELACIONES = ['parent', 'child', 'sibling', 'spouse', 'other'];
+const VALID_MIEMBRO_RELACIONES = [
+  'parent', 'child', 'sibling', 'other',
+  'esposo_a', 'hijo_a', 'madre', 'padre', 'suegro_a', 'hermano_a', 'abuelo_a', 'otro',
+];
 
 /**
- * Parse CSV string into rows
- * Handles escaped quotes and commas within quoted fields
+ * Parse CSV string into rows.
+ * Handles RFC-4180 escaped quotes and commas within quoted fields, and reverses
+ * the formula-injection sentinel escapeCsvField adds on export (a leading `'`
+ * before a formula trigger) so an export → re-import round-trip is lossless —
+ * e.g. a telefono exported as `'+34-...` reads back as `+34-...`. Both
+ * validateFamiliesWithMembersCSV and parseFamiliesWithMembersCSV read through
+ * here, so they see identical de-escaped values.
  */
 function parseCSVRows(csv: string): string[][] {
   const rows: string[][] = [];
@@ -42,11 +58,11 @@ function parseCSVRows(csv: string): string[][] {
         insideQuotes = !insideQuotes;
       }
     } else if (char === ',' && !insideQuotes) {
-      currentRow.push(currentField.trim());
+      currentRow.push(unescapeCsvField(currentField.trim()));
       currentField = '';
     } else if ((char === '\n' || char === '\r') && !insideQuotes) {
       if (currentField || currentRow.length > 0) {
-        currentRow.push(currentField.trim());
+        currentRow.push(unescapeCsvField(currentField.trim()));
         if (currentRow.some(f => f.length > 0)) {
           rows.push(currentRow);
         }
@@ -62,7 +78,7 @@ function parseCSVRows(csv: string): string[][] {
   }
 
   if (currentField || currentRow.length > 0) {
-    currentRow.push(currentField.trim());
+    currentRow.push(unescapeCsvField(currentField.trim()));
     if (currentRow.some(f => f.length > 0)) {
       rows.push(currentRow);
     }
@@ -289,6 +305,8 @@ export function parseFamiliesWithMembersCSV(csv: string): ParsedRow[] {
       } else if (!isNaN(Number(value)) && value !== '') {
         record[header] = Number(value);
       } else {
+        // parseCSVRows already reversed the export's formula-injection sentinel,
+        // so `value` is the original cell content here.
         record[header] = value;
       }
     }

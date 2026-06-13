@@ -15,7 +15,7 @@
 import { z } from "zod";
 import { router, adminProcedure } from "../../../_core/trpc";
 import { createAdminClient } from "../../../../client/src/lib/supabase/server";
-import { withSoftDeleteFilter, wrapDbError } from "../_shared";
+import { withSoftDeleteFilter, wrapDbError, logAuditReport } from "../_shared";
 import { PADRON_RENEWAL_DAYS } from "../../families/compliance";
 
 const InputSchema = z.object({
@@ -25,7 +25,7 @@ const InputSchema = z.object({
 export const padronPorVencerRouter = router({
   padronPorVencer: adminProcedure
     .input(InputSchema)
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       const db = createAdminClient();
 
       // cutoff: families whose padron expires within daysAhead from today.
@@ -52,6 +52,11 @@ export const padronPorVencerRouter = router({
         throw wrapDbError("reports.padronPorVencer", error);
       }
 
-      return { rows: data ?? [] };
+      const rows = data ?? [];
+      logAuditReport(ctx, "reports.padronPorVencer", rows.length, {
+        daysAhead: input.daysAhead,
+      });
+
+      return { rows };
     }),
 });

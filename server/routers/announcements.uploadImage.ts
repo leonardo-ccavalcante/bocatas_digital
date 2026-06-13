@@ -1,12 +1,12 @@
 import { z } from 'zod';
-import { protectedProcedure } from '../_core/trpc';
+import { adminProcedure } from '../_core/trpc';
 import { storagePut } from '../storage';
 import { TRPCError } from '@trpc/server';
 
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
-export const uploadImageProcedure = protectedProcedure
+export const uploadImageProcedure = adminProcedure
   .input(
     z.object({
       file: z.instanceof(File),

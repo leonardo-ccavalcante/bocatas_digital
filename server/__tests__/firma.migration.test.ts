@@ -1,10 +1,11 @@
 /**
  * firma.migration.test.ts — Phase B.4.5 string-level lint.
  *
- * Asserts that the two PENDING REVIEW migrations for the digital signature
- * legal stack contain the expected DDL statements. The migrations are NOT
- * executed — this is a contract test against the SQL text only, mirroring
- * the pattern established by `rls-column-grants.migration.test.ts` (B.2.3).
+ * Asserts that the two digital-signature legal-stack migrations contain the
+ * expected DDL statements and document their go-live compliance gate (ADR-0008 —
+ * the migrations apply for platform readiness; signoff gates production data, not
+ * the build). The migrations are NOT executed — this is a contract test against
+ * the SQL text only, mirroring `rls-column-grants.migration.test.ts` (B.2.3).
  *
  *   - 20260509000001_delivery_signature_audit.sql
  *   - 20260509000002_firmas_entregas_storage_rls.sql
@@ -43,9 +44,13 @@ describe("delivery_signature_audit migration — file presence", () => {
     expect(sql.length).toBeGreaterThan(0);
   });
 
-  it("explicitly marks itself as PENDING REVIEW", () => {
+  // Per ADR-0008 (2026-06-12) the legal signoff is a GO-LIVE gate on production
+  // data, not a build blocker — the migration applies. It must still document that
+  // gate explicitly (checklist + ADR reference), not silently drop the requirement.
+  it("documents the go-live compliance gate (ADR-0008 + checklist)", () => {
     const sql = readAuditMigration();
-    expect(sql).toMatch(/PENDING REVIEW/i);
+    expect(sql).toMatch(/ADR-0008/i);
+    expect(sql).toMatch(/GO-LIVE COMPLIANCE CHECKLIST/i);
   });
 
   it("references the CARTA_ABOGADO_RGPD signoff requirement", () => {
@@ -147,9 +152,12 @@ describe("firmas-entregas storage RLS migration — file presence", () => {
     expect(sql.length).toBeGreaterThan(0);
   });
 
-  it("explicitly marks itself as PENDING REVIEW", () => {
+  // ADR-0008: applies (platform readiness); legal signoff is a go-live gate it
+  // must still document explicitly.
+  it("documents the go-live compliance gate (ADR-0008 + checklist)", () => {
     const sql = readStorageMigration();
-    expect(sql).toMatch(/PENDING REVIEW/i);
+    expect(sql).toMatch(/ADR-0008/i);
+    expect(sql).toMatch(/GO-LIVE COMPLIANCE CHECKLIST/i);
   });
 });
 

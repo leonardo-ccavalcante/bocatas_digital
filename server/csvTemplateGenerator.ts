@@ -1,4 +1,5 @@
 import { format } from 'date-fns';
+import { escapeCsvField } from '../shared/csvSafe';
 
 export interface CSVTemplateData {
   csvContent: string;
@@ -65,19 +66,10 @@ export function generateEntregasCSVTemplate(): CSVTemplateData {
     '',
   ];
 
-  // Escape CSV values (handle commas and quotes)
-  const escapeCSVValue = (value: string | number): string => {
-    const stringValue = String(value);
-    if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
-      return `"${stringValue.replace(/"/g, '""')}"`;
-    }
-    return stringValue;
-  };
-
-  // Build CSV content
-  const headerRow = headers.map(escapeCSVValue).join(',');
-  const row1 = sampleRow1.map(escapeCSVValue).join(',');
-  const row2 = sampleRow2.map(escapeCSVValue).join(',');
+  // Build CSV content (escapeCsvField also neutralizes formula injection)
+  const headerRow = headers.map(escapeCsvField).join(',');
+  const row1 = sampleRow1.map(escapeCsvField).join(',');
+  const row2 = sampleRow2.map(escapeCsvField).join(',');
 
   const csvContent = [headerRow, row1, row2].join('\n');
 

@@ -11,7 +11,14 @@ import { PostHogProvider } from "./lib/posthog";
 import { registerSwUpdateToast } from "./lib/swUpdate";
 import "./index.css";
 
-const queryClient = new QueryClient();
+// ATL-07: default staleTime so window-focus/tab-switch does NOT refire every
+// visible query (the admin Personas list alone re-fetched the full persons
+// dataset on each focus, on 4G). Mutations still invalidate + refetch
+// immediately; Supabase Realtime (dashboard counters) is push-driven and
+// unaffected. Per-query overrides remain possible where freshness matters.
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { staleTime: 60_000 } },
+});
 
 const redirectToLoginIfUnauthorized = (error: unknown) => {
   if (!(error instanceof TRPCClientError)) return;

@@ -8,8 +8,16 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { createAdminClient } from "../../client/src/lib/supabase/server";
-import { protectedProcedure, router } from "../_core/trpc";
-import { logProcedureAction, logProcedureError } from "../_core/logging-middleware";
+import { voluntarioProcedure, router } from "../_core/trpc";
+import { logProcedureAction, logProcedureError, logCorrelatedErrorToStderr } from "../_core/logging-middleware";
+import { ENV } from "../_core/env";
+import { parseQrPayload, verifySig } from "../../shared/qr/payload";
+import { ilikeForOr } from "../_core/postgrestFilter";
+import {
+  enrichOfflineItems,
+  offlineAttendanceRows,
+  offlineSyncResults,
+} from "./checkin.offlineSync";
 
 // UUID-like validator that accepts any 8-4-4-4-12 hex string (including synthetic seed IDs)
 const uuidLike = z.string().regex(
@@ -38,7 +46,7 @@ export const checkinRouter = router({
    *   { status: 'duplicate', lastCheckinTime: string }
    *   { status: 'not_found' }
    */
-  verifyAndInsert: protectedProcedure
+  verifyAndInsert: voluntarioProcedure
     .input(
       z.object({
         personId: uuidLike,
@@ -47,9 +55,53 @@ export const checkinRouter = router({
         metodo: MetodoEnum.default("qr_scan"),
         isDemoMode: z.boolean().default(false),
         clientId: uuidLike.optional(), // for idempotent offline sync
+        /**
+         * Raw scanned QR string (e.g. "bocatas://person/<uuid>?sig=<hmac8>").
+         * When present, the server VERIFIES the HMAC signature before
+         * processing. Absent → manual-search / anonymous / demo path (no sig
+         * required — those flows never produce a signed payload).
+         */
+        qrValue: z.string().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
+      // ── QR signature verification (when a raw QR string is supplied) ──────
+      // This activates only when the QR-scan path passes qrValue.
+      // Manual-search, anonymous, and demo paths omit qrValue → bypass.
+      if (input.qrValue !== undefined) {
+        const parsed = parseQrPayload(input.qrValue);
+        if (!parsed) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Formato de QR inválido",
+          });
+        }
+        // Ensure the UUID in the payload matches what the client claims.
+        if (parsed.uuid.toLowerCase() !== input.personId.toLowerCase()) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "El QR no corresponde a la persona indicada",
+          });
+        }
+        const secret = ENV.qrSigningSecret;
+        if (!secret || secret.length < 32) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "QR signing secret not configured",
+          });
+        }
+        const valid = await verifySig(parsed.uuid, parsed.sig, secret);
+        if (!valid) {
+          logProcedureAction(ctx, "Checkin: Invalid QR signature rejected", {
+            personId: input.personId,
+          });
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Firma del QR inválida o adulterada",
+          });
+        }
+      }
+
       const supabase = createAdminClient();
       const startTime = Date.now();
 
@@ -66,6 +118,17 @@ export const checkinRouter = router({
           programa: input.programa,
         });
         return { status: "not_found" as const };
+      }
+
+      // ARG-01 / B.7: demo (practice) mode writes NO real data. Give realistic
+      // feedback — the person was found, restrictions shown — but persist
+      // nothing, so a demo check-in can never occupy a real check-in's unique
+      // slot and block it. (Returns before the duplicate check + insert.)
+      if (input.isDemoMode) {
+        return {
+          status: "registered" as const,
+          restriccionesAlimentarias: person.restricciones_alimentarias ?? null,
+        };
       }
 
       // 2. Check for duplicate (same person + location + programa + today)
@@ -95,13 +158,14 @@ export const checkinRouter = router({
         return { status: "duplicate" as const, lastCheckinTime: time };
       }
 
-      // 3. Insert attendance
+      // 3. Insert attendance (only reached for real check-ins — demo returned
+      // above, so es_demo is always false here).
       const { error: insertError } = await supabase.from("attendances").insert({
         person_id: input.personId,
         location_id: input.locationId,
         programa: input.programa,
         metodo: input.metodo,
-        es_demo: input.isDemoMode,
+        es_demo: false,
         // registrado_por: null (no Supabase auth.uid() available with Manus OAuth)
         // The RLS is bypassed via service role key
       });
@@ -158,7 +222,7 @@ export const checkinRouter = router({
   /**
    * anonymousCheckin — insert attendance with person_id = NULL.
    */
-  anonymousCheckin: protectedProcedure
+  anonymousCheckin: voluntarioProcedure
     .input(
       z.object({
         locationId: uuidLike,
@@ -167,6 +231,11 @@ export const checkinRouter = router({
       })
     )
     .mutation(async ({ input }) => {
+      // ARG-01 / B.7: demo mode writes no real data.
+      if (input.isDemoMode) {
+        return { status: "registered" as const };
+      }
+
       const supabase = createAdminClient();
 
       const { error } = await supabase.from("attendances").insert({
@@ -174,7 +243,7 @@ export const checkinRouter = router({
         location_id: input.locationId,
         programa: input.programa,
         metodo: "conteo_anonimo",
-        es_demo: input.isDemoMode,
+        es_demo: false,
       });
 
       if (error) {
@@ -190,7 +259,7 @@ export const checkinRouter = router({
   /**
    * searchPersons — fuzzy search by nombre/apellidos for manual fallback.
    */
-  searchPersons: protectedProcedure
+  searchPersons: voluntarioProcedure
     .input(
       z.object({
         query: z.string().min(3).max(100),
@@ -202,7 +271,7 @@ export const checkinRouter = router({
         .from("persons_safe")
         .select("id, nombre, apellidos, fecha_nacimiento, foto_perfil_url, restricciones_alimentarias")
         .or(
-          `nombre.ilike.%${input.query}%,apellidos.ilike.%${input.query}%`
+          `nombre.ilike.${ilikeForOr(input.query)},apellidos.ilike.${ilikeForOr(input.query)}`
         )
         .is("deleted_at", null)
         .limit(10);
@@ -222,7 +291,7 @@ export const checkinRouter = router({
   /**
    * getLocations — list active locations.
    */
-  getLocations: protectedProcedure.query(async () => {
+  getLocations: voluntarioProcedure.query(async () => {
     const supabase = createAdminClient();
     const { data, error } = await supabase
       .from("locations")
@@ -241,7 +310,7 @@ export const checkinRouter = router({
   /**
    * getPrograms — list active programs for the program selector.
    */
-  getPrograms: protectedProcedure.query(async () => {
+  getPrograms: voluntarioProcedure.query(async () => {
     const supabase = createAdminClient();
     const { data, error } = await supabase
       .from("programs")
@@ -270,7 +339,7 @@ export const checkinRouter = router({
    * comparing each input's composite key against the rows the DB
    * actually inserted (returned in `data`).
    */
-  syncOfflineQueue: protectedProcedure
+  syncOfflineQueue: voluntarioProcedure
     .input(
       z.array(
         z.object({
@@ -280,26 +349,28 @@ export const checkinRouter = router({
           programa: ProgramaEnum,
           metodo: MetodoEnum,
           isDemoMode: z.boolean().default(false),
-          queuedAt: z.string(),
+          // ISO-8601 instant the check-in was captured ON THE DEVICE. Validated
+          // here so the date/timestamp derivation below can't be fed garbage.
+          queuedAt: z.string().datetime(),
         })
       )
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       if (input.length === 0) return [];
       const supabase = createAdminClient();
 
-      // Pin the date server-side so the result-mapping key matches what
-      // the unique constraint sees. Anonymous (person_id null) check-ins
-      // bypass the partial unique index → always insert (no key collision).
-      const today = new Date().toISOString().slice(0, 10);
-      const rows = input.map((item) => ({
-        person_id: item.personId,
-        location_id: item.locationId,
-        programa: item.programa,
-        metodo: item.metodo,
-        es_demo: item.isDemoMode,
-        checked_in_date: today,
-      }));
+      // ARG-02: date/timestamp derived per item from queuedAt, not flush time.
+      // ARG-01: demo items are filtered out of the rows (they write no real
+      // data). Anonymous (person_id null) check-ins bypass the arbiter
+      // (NULL <> NULL) → always insert. See checkin.offlineSync.ts.
+      const enriched = enrichOfflineItems(input);
+      const rows = offlineAttendanceRows(enriched);
+
+      // All-demo (or empty) batch → nothing to persist; everything reports
+      // synced and leaves the queue without touching the DB.
+      if (rows.length === 0) {
+        return offlineSyncResults(enriched, new Set());
+      }
 
       const { data, error } = await supabase
         .from("attendances")
@@ -311,10 +382,15 @@ export const checkinRouter = router({
 
       if (error) {
         // Whole-batch failure — return all as error so the client can retry.
+        // This payload is RETURNED (200), so the tRPC errorFormatter never sees
+        // it: never embed the raw Postgres message (can carry PII) in `error`.
+        // Return a generic Spanish string; log the raw error PII-safely to
+        // stderr so ops can correlate the offline-sync failure.
+        logCorrelatedErrorToStderr({ correlationId: ctx.correlationId, path: "checkin.syncOfflineQueue", type: "mutation", error });
         return input.map((item) => ({
           clientId: item.clientId,
           status: "error" as const,
-          error: error.message,
+          error: "No se pudo sincronizar el registro.",
         }));
       }
 
@@ -325,18 +401,6 @@ export const checkinRouter = router({
           `${r.person_id ?? "anon"}|${r.location_id}|${r.programa}|${r.checked_in_date}`
         )
       );
-      // For anonymous rows the unique constraint doesn't apply, so every
-      // anonymous input is "synced" by definition. For non-anon, status is
-      // derived from membership in insertedKeys.
-      return input.map((item) => {
-        if (item.personId === null) {
-          return { clientId: item.clientId, status: "synced" as const };
-        }
-        const key = `${item.personId}|${item.locationId}|${item.programa}|${today}`;
-        return {
-          clientId: item.clientId,
-          status: insertedKeys.has(key) ? ("synced" as const) : ("duplicate" as const),
-        };
-      });
+      return offlineSyncResults(enriched, insertedKeys);
     }),
 });

@@ -5,8 +5,8 @@ describe('CSV Import', () => {
   const validCSVHeader = 'familia_numero,nombre_familia,contacto_principal,telefono,direccion,estado,fecha_creacion,miembros_count,docs_identidad,padron_recibido,justificante_recibido,consent_bocatas,consent_banco_alimentos,informe_social,informe_social_fecha,alta_en_guf,fecha_alta_guf,guf_verified_at';
 
   const validCSVData = `${validCSVHeader}
-FAM-001,García López,Juan García,+34-123-456-789,Calle Principal 1,activo,2026-01-15,4,true,true,true,true,true,true,2025-12-15,true,2026-01-10,2026-04-10
-FAM-002,Rodríguez Martín,María Rodríguez,+34-234-567-890,Calle Secundaria 2,activo,2026-02-20,3,false,true,false,true,false,false,,false,,`;
+FAM-001,García López,Juan García,+34-123-456-789,Calle Principal 1,activa,2026-01-15,4,true,true,true,true,true,true,2025-12-15,true,2026-01-10,2026-04-10
+FAM-002,Rodríguez Martín,María Rodríguez,+34-234-567-890,Calle Secundaria 2,activa,2026-02-20,3,false,true,false,true,false,false,,false,,`;
 
   describe('CSV Validation', () => {
     it('should validate correct CSV structure', () => {

@@ -116,6 +116,20 @@ describe("B.5.2 — ConsentModal verbal-translation fallback", () => {
     }
   });
 
+  // THE-04: a template-language person whose lane is ACTIVE-BUT-EMPTY (no loaded
+  // templates) must STILL get the banner — otherwise the modal silently renders
+  // Spanish (or nothing). Before the fix this returned no banner for ar/fr/bm
+  // regardless of whether any template was actually loaded.
+  it("renders the banner for `ar`/`fr`/`bm` when the template lane is EMPTY (THE-04)", () => {
+    for (const lang of ["ar", "fr", "bm"]) {
+      const html = render(lang, []);
+      expect(
+        html.includes('data-testid="verbal-translation-banner"'),
+        `expected verbal-translation banner for ${lang} with an empty template lane`,
+      ).toBe(true);
+    }
+  });
+
   it("does NOT render the banner when `personLanguage` prop is omitted (back-compat)", () => {
     const html = renderToStaticMarkup(
       <ConsentModal

@@ -8,6 +8,7 @@ import {
   REQUIRED_PER_MEMBER_DOC_TYPES,
 } from "../../families-doc-helpers";
 import { uuidLike } from "./_shared";
+import { ilikeValue } from "../../_core/postgrestFilter";
 
 // ─── Renewal cadence helpers (Phase B.6) ──────────────────────────────────
 // Pure helpers exported so unit tests in server/__tests__/renewal.alerts.test.ts
@@ -95,7 +96,7 @@ export const complianceRouter = router({
       if (!isNaN(queryNum)) {
         query = query.eq("familia_numero", queryNum);
       } else {
-        query = query.ilike("persons.nombre", `%${input.query}%`);
+        query = query.ilike("persons.nombre", ilikeValue(input.query));
       }
 
       const { data, error } = await query.limit(5);

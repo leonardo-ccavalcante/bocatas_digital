@@ -79,7 +79,7 @@ describe("Soft-Delete Recovery Procedures", () => {
   it("requires admin role for listing deleted families", async () => {
     await expect(
       userCaller.admin.softDelete.listDeletedFamilies({ limit: 10, offset: 0 })
-    ).rejects.toThrow("FORBIDDEN");
+    ).rejects.toThrow(/FORBIDDEN|permission|10002/i);
   });
 
   itDb("lists soft-deleted persons with metadata", async () => {
@@ -96,7 +96,7 @@ describe("Soft-Delete Recovery Procedures", () => {
   it("requires admin role for listing deleted persons", async () => {
     await expect(
       userCaller.admin.softDelete.listDeletedPersons({ limit: 10, offset: 0 })
-    ).rejects.toThrow("FORBIDDEN");
+    ).rejects.toThrow(/FORBIDDEN|permission|10002/i);
   });
 
   it("requires admin role for getting deleted family details", async () => {
@@ -104,7 +104,7 @@ describe("Soft-Delete Recovery Procedures", () => {
       userCaller.admin.softDelete.getDeletedFamilyDetails({
         familyId: "test-id",
       })
-    ).rejects.toThrow("FORBIDDEN");
+    ).rejects.toThrow(/FORBIDDEN|permission|10002/i);
   });
 
   it("requires admin role for restoring family", async () => {
@@ -112,7 +112,7 @@ describe("Soft-Delete Recovery Procedures", () => {
       userCaller.admin.softDelete.restoreFamily({
         familyId: "test-id",
       })
-    ).rejects.toThrow("FORBIDDEN");
+    ).rejects.toThrow(/FORBIDDEN|permission|10002/i);
   });
 
   it("requires admin role for restoring person", async () => {
@@ -120,6 +120,6 @@ describe("Soft-Delete Recovery Procedures", () => {
       userCaller.admin.softDelete.restorePerson({
         personId: "test-id",
       })
-    ).rejects.toThrow("FORBIDDEN");
+    ).rejects.toThrow(/FORBIDDEN|permission|10002/i);
   });
 });

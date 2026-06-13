@@ -10,12 +10,18 @@
  *
  * Compliance: adminProcedure. withSoftDeleteFilter. wrapDbError.
  * PII: No high-risk fields selected.
+ *
+ * Note: family_member_documents queries are chunked to ≤100 IDs per request to
+ * avoid PostgREST's 16KB URL limit (causes TypeError: fetch failed / HeadersOverflowError)
+ * when there are many families.
  */
 
 import { z } from "zod";
 import { router, adminProcedure } from "../../../_core/trpc";
 import { createAdminClient } from "../../../../client/src/lib/supabase/server";
-import { withSoftDeleteFilter, wrapDbError } from "../_shared";
+import { withSoftDeleteFilter, wrapDbError, logAuditReport } from "../_shared";
+
+const CHUNK_SIZE = 100;
 
 const uuidSchema = z
   .string()
@@ -26,7 +32,7 @@ const InputSchema = z.object({ programaId: uuidSchema });
 export const documentosFaltantesRouter = router({
   documentosFaltantes: adminProcedure
     .input(InputSchema)
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       const db = createAdminClient();
 
       // 1. Fetch required document types for this programa.
@@ -65,25 +71,38 @@ export const documentosFaltantesRouter = router({
 
       const familyIds = families.map((f) => f.id);
 
-      // 3. Fetch uploaded current docs for these families.
-      const { data: uploadedDocs, error: docsErr } = await withSoftDeleteFilter(
-        db
-          .from("family_member_documents")
-          .select("family_id, documento_tipo")
-          .in("family_id", familyIds)
-          .eq("is_current", true)
-          .not("documento_url", "is", null),
+      // 3. Fetch uploaded current docs in chunks of CHUNK_SIZE to avoid PostgREST's
+      //    16KB URL limit that triggers HeadersOverflowError with large .in() arrays.
+      const chunks: string[][] = [];
+      for (let i = 0; i < familyIds.length; i += CHUNK_SIZE) {
+        chunks.push(familyIds.slice(i, i + CHUNK_SIZE));
+      }
+
+      const chunkResults = await Promise.all(
+        chunks.map((chunk) =>
+          withSoftDeleteFilter(
+            db
+              .from("family_member_documents")
+              .select("family_id, documento_tipo")
+              .in("family_id", chunk)
+              .eq("is_current", true)
+              .not("documento_url", "is", null),
+          ),
+        ),
       );
 
-      if (docsErr) {
-        throw wrapDbError("reports.documentosFaltantes.docs", docsErr);
+      const firstDocsErr = chunkResults.find((r) => r.error)?.error;
+      if (firstDocsErr) {
+        throw wrapDbError("reports.documentosFaltantes.docs", firstDocsErr);
       }
 
       // Build a set of (family_id, documento_tipo) pairs that have been uploaded.
       const uploadedSet = new Set(
-        (uploadedDocs ?? []).map(
-          (d: { family_id: string; documento_tipo: string }) =>
-            `${d.family_id}:${d.documento_tipo}`,
+        chunkResults.flatMap(({ data }) =>
+          (data ?? []).map(
+            (d: { family_id: string; documento_tipo: string }) =>
+              `${d.family_id}:${d.documento_tipo}`,
+          ),
         ),
       );
 
@@ -100,6 +119,11 @@ export const documentosFaltantesRouter = router({
       }
 
       rows.sort((a, b) => a.familia_numero - b.familia_numero);
+
+      // programaId is a UUID — safe to log (not PII).
+      logAuditReport(ctx, "reports.documentosFaltantes", rows.length, {
+        programaId: input.programaId,
+      });
 
       return { rows };
     }),

@@ -39,18 +39,27 @@ const EnrollmentInputSchema = z.object({
   notas: z.string().max(500).optional(),
 });
 
-/** Validates shape of get_programs_with_counts RPC response */
+/** Validates shape of get_programs_with_counts RPC response.
+ * The RPC returns `name` (not `nombre`) — the DB column was never renamed.
+ * This schema must match the RPC output exactly.
+ */
 const ProgramWithCountsSchema = z.object({
   id: z.string(),
   name: z.string(),
   slug: z.string(),
-  icon: z.string().nullable(),
-  is_default: z.boolean(),
-  is_active: z.boolean(),
+  description: z.string().nullable().optional(),
   display_order: z.number(),
+  is_active: z.boolean(),
+  requires_fields: z.unknown().optional(),
   volunteer_can_access: z.boolean(),
+  requires_consents: z.unknown().optional(),
+  fecha_inicio: z.string().nullable().optional(),
+  fecha_fin: z.string().nullable().optional(),
+  config: z.unknown().optional(),
+  responsable_id: z.string().nullable().optional(),
   active_enrollments: z.number().nullable().transform(v => v ?? 0),
   total_enrollments: z.number().nullable().transform(v => v ?? 0),
+  new_this_month: z.number().nullable().transform(v => v ?? 0),
 }).passthrough();
 
 export const programsRouter = router({

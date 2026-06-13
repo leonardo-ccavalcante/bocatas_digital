@@ -49,7 +49,7 @@ describe("useMapaData", () => {
 
     renderHook(() => useMapaData("densidad"));
 
-    expect(mockUseQuery).toHaveBeenCalledWith({ layer: "densidad" });
+    expect(mockUseQuery).toHaveBeenCalledWith({ layer: "densidad" }, expect.objectContaining({ staleTime: expect.any(Number) }));
   });
 
   it("calls trpc.mapa.distritoStats.useQuery with 'compliance' layer", () => {
@@ -57,7 +57,7 @@ describe("useMapaData", () => {
 
     renderHook(() => useMapaData("compliance"));
 
-    expect(mockUseQuery).toHaveBeenCalledWith({ layer: "compliance" });
+    expect(mockUseQuery).toHaveBeenCalledWith({ layer: "compliance" }, expect.objectContaining({ staleTime: expect.any(Number) }));
   });
 
   it("returns data rows in the expected shape when query succeeds", () => {
@@ -122,5 +122,15 @@ describe("useMapaData", () => {
 
     const centro = result.current.rows.find((r) => r.distrito === "centro");
     expect(centro?.compliance).toBe(0.83);
+  });
+
+  it("passes staleTime of 5 minutes to prevent refetch on every tab switch", () => {
+    mockUseQuery.mockReturnValue({ data: undefined, isLoading: true, isError: false });
+
+    renderHook(() => useMapaData("densidad"));
+
+    const callArgs = mockUseQuery.mock.calls[0];
+    const options = callArgs[1] as { staleTime: number };
+    expect(options.staleTime).toBe(5 * 60_000);
   });
 });

@@ -1,3 +1,5 @@
+import { escapeCsvField } from '../shared/csvSafe';
+
 export type ExportMode = 'update' | 'audit' | 'verify';
 
 interface Family {
@@ -110,24 +112,6 @@ const EXPORT_FIELDS = {
 };
 
 /**
- * Escape CSV field value according to RFC 4180
- */
-function escapeCSVField(value: unknown): string {
-  if (value === null || value === undefined) {
-    return '';
-  }
-
-  const str = String(value);
-  const needsQuotes = str.includes(',') || str.includes('"') || str.includes('\n');
-
-  if (needsQuotes) {
-    return `"${str.replace(/"/g, '""')}"`;
-  }
-
-  return str;
-}
-
-/**
  * Generate CSV header row with both family and member fields
  */
 function generateHeader(mode: ExportMode): string {
@@ -156,7 +140,7 @@ function generateFamilyRow(family: Family, mode: ExportMode): string {
   // every entry there is a column name on `families`. Widening cast is safe.
   const familyValues = familyFields.map(field => {
     const value = (family as unknown as Record<string, unknown>)[field];
-    return escapeCSVField(value);
+    return escapeCsvField(value);
   });
 
   // Empty member data (same number of columns as member fields)
@@ -176,13 +160,13 @@ function generateMemberRow(family: Family, member: FamilyMember, mode: ExportMod
   // safety justification of this dynamic-field cast.
   const familyValues = familyFields.map(field => {
     const value = (family as unknown as Record<string, unknown>)[field];
-    return escapeCSVField(value);
+    return escapeCsvField(value);
   });
 
   // Member data — same pattern: keys bounded by EXPORT_FIELDS[mode].member.
   const memberValues = memberFields.map(field => {
     const value = (member as unknown as Record<string, unknown>)[field];
-    return escapeCSVField(value);
+    return escapeCsvField(value);
   });
 
   return [...familyValues, ...memberValues].join(',');

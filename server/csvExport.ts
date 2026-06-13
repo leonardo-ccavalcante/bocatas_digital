@@ -1,3 +1,5 @@
+import { escapeCsvField } from '../shared/csvSafe';
+
 export type ExportMode = 'update' | 'audit' | 'verify';
 
 interface Family {
@@ -70,26 +72,6 @@ const EXPORT_FIELDS = {
 };
 
 /**
- * Escape CSV field value according to RFC 4180
- * - Wrap in quotes if contains comma, quote, or newline
- * - Double any quotes inside the value
- */
-function escapeCSVField(value: unknown): string {
-  if (value === null || value === undefined) {
-    return '';
-  }
-
-  const str = String(value);
-  const needsQuotes = str.includes(',') || str.includes('"') || str.includes('\n');
-
-  if (needsQuotes) {
-    return `"${str.replace(/"/g, '""')}"`;
-  }
-
-  return str;
-}
-
-/**
  * Generate CSV content for families export with UUID support
  * @param families Array of family records
  * @param mode Export mode: 'update' (all fields), 'audit' (key fields), 'verify' (minimal fields)
@@ -115,7 +97,7 @@ export function generateFamiliesCSV(families: Family[], mode: ExportMode): strin
         // EXPORT_FIELDS[mode]; widening to Record<string, unknown> is safe
         // because every entry in EXPORT_FIELDS is a column name on `families`.
         const value = (family as unknown as Record<string, unknown>)[fieldKey];
-        return escapeCSVField(value);
+        return escapeCsvField(value);
       })
       .join(',');
   });

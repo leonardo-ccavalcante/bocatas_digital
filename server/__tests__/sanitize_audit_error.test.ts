@@ -16,6 +16,7 @@
  */
 import { it, expect } from "vitest";
 import { createClient } from "@supabase/supabase-js";
+import type { Database } from "../../client/src/lib/database.types";
 import { getRealSupabaseDescribe } from "./db-test-env";
 
 const url = process.env.SUPABASE_URL;
@@ -23,14 +24,14 @@ const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const describeDb = getRealSupabaseDescribe();
 
 describeDb("sanitize_audit_error SQL function", () => {
-  const db = createClient(url!, key!, { auth: { persistSession: false } });
+  const db = createClient<Database>(url!, key!, { auth: { persistSession: false } });
 
   async function sanitize(msg: string): Promise<string> {
-    const { data, error } = await db.rpc("sanitize_audit_error" as never, {
+    const { data, error } = await db.rpc("sanitize_audit_error", {
       p_msg: msg,
-    } as never);
+    });
     if (error) throw new Error(error.message);
-    return data as unknown as string;
+    return data as string;
   }
 
   it("masks DNI (8 digits + letter) inside parenthesised key=value", async () => {
