@@ -15,7 +15,9 @@ interface StatCardProps {
 function StatCard({ title, description, value, icon: Icon, variant = "default" }: StatCardProps) {
   const colorMap = {
     default: "text-primary",
-    warning: "text-yellow-600",
+    // dark:text-yellow-400 — yellow-700 on the dark yellow-950/20 card is
+    // ~3.5:1 (fails WCAG 1.4.3); matches the banner's existing dark variant.
+    warning: "text-yellow-700 dark:text-yellow-400",
     danger: "text-red-600",
     success: "text-green-600",
   };
@@ -79,7 +81,7 @@ export function ComplianceDashboard() {
         </div>
       ) : (
         <div className="flex items-center gap-2 p-3 rounded-lg bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200">
-          <AlertCircle className="h-4 w-4 text-yellow-600" />
+          <AlertCircle className="h-4 w-4 text-yellow-700" />
           <p className="text-sm text-yellow-700 dark:text-yellow-400 font-medium">
             {totalIssues} incidencias de cumplimiento activas
           </p>

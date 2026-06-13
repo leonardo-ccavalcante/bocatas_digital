@@ -191,7 +191,7 @@ function FamiliaRowGroup({
       {/* role="button" on <tr> preserves table semantics. Wrapping each <td> in
           a <button> would break <table>'s accessibility tree. */}
       <tr
-        className="cursor-pointer border-t border-border hover:bg-muted/60 focus:bg-muted/60 focus:outline-none"
+        className="cursor-pointer border-t border-border hover:bg-muted/60 focus:bg-muted/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset"
         role="button"
         tabIndex={0}
         onClick={onRowClick}

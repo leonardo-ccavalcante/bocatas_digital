@@ -2344,6 +2344,14 @@ export type Database = {
         Args: { p_person: Json; p_person_id: string }
         Returns: undefined
       }
+      check_soft_delete_schema: {
+        Args: { table_names: string[] }
+        Returns: {
+          has_deleted_at: boolean
+          has_index: boolean
+          table_name: string
+        }[]
+      }
       commit_round_assignments: {
         Args: { p_round_id: string; p_rows: Json }
         Returns: number
