@@ -3,10 +3,26 @@ import fs from "fs";
 import { type Server } from "http";
 import { nanoid } from "nanoid";
 import path from "path";
-import { createServer as createViteServer } from "vite";
-import viteConfig from "../../vite.config";
+import { createServer as createViteServer, type UserConfig } from "vite";
+import viteConfigExport from "../../vite.config";
+
+/**
+ * vite.config.ts uses defineConfig(({ command }) => ({...})) — a function form.
+ * We must resolve it before spreading into createViteServer options.
+ */
+function resolveViteConfig(): UserConfig {
+  if (typeof viteConfigExport === "function") {
+    // Call with { command: "serve", mode: "development" } to get the dev config
+    return (viteConfigExport as (env: { command: string; mode: string }) => UserConfig)(
+      { command: "serve", mode: "development" }
+    );
+  }
+  return viteConfigExport as UserConfig;
+}
 
 export async function setupVite(app: Express, server: Server) {
+  const resolvedConfig = resolveViteConfig();
+
   const serverOptions = {
     middlewareMode: true,
     hmr: { server },
@@ -14,7 +30,7 @@ export async function setupVite(app: Express, server: Server) {
   };
 
   const vite = await createViteServer({
-    ...viteConfig,
+    ...resolvedConfig,
     configFile: false,
     server: serverOptions,
     appType: "custom",
