@@ -264,3 +264,16 @@
 - [x] Task 2: Hacer env.ts fallback robusto con HMAC-SHA256 expansion del JWT_SECRET
 - [x] Task 3: TDD — 12 tests: 8 contrato puro + 4 integración con env.ts
 - [x] Task 4: QA — 2937 tests pasan, TypeScript 0 errores, commit y push
+
+## Sync GitHub 4 commits (2026-06-13 Wave 5/6/7/SIS-01)
+
+- [x] Wave 6 (a11y): WCAG 2.1 AA — focus rings, aria-live, role=status, lang attrs, contrast fixes
+- [x] Wave 7 (security): REVOKE anon EXECUTE on 6 SECURITY DEFINER RPCs
+- [x] Wave 5 (governance): CI lanes, test de-hollowing, prod/repo alignment migrations
+- [x] SIS-01 (refactor): split HojaDrawer 893→268 lines into 5 components
+- [x] Aplicar migración 20260612000004 (align prod dates + fn grants) en Supabase
+- [x] Aplicar migración 20260613000001_revoke_anon (Wave 7) en Supabase
+- [x] Resolver conflicto de nombre: 20260613000001 existe en Manus y GitHub con contenido diferente
+- [x] Verificar tests post-merge (3041 pasan, 0 fallos) (>=3054 tests pasan)
+- [x] Verificar TypeScript 0 errores post-merge
+- [x] Checkpoint + push a GitHub
