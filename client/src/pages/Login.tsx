@@ -56,7 +56,7 @@ export default function LoginPage() {
         <CardContent className="space-y-4">
           <Button
             onClick={handleLogin}
-            className="w-full bg-amber-600 hover:bg-amber-700 text-white font-medium h-11"
+            className="w-full bg-amber-700 hover:bg-amber-800 text-white font-medium h-11"
             aria-label="Iniciar sesión con Manus"
           >
             Iniciar sesión

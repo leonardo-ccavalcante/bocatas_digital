@@ -12,8 +12,6 @@ import { Logger } from "../../_core/logger";
 
 describe("Families Export Integration", () => {
   let caller: ReturnType<typeof appRouter.createCaller>;
-  let testFamilyId: string;
-  let testMemberId: string;
 
   beforeAll(async () => {
     // Create a test context with admin user
@@ -96,10 +94,14 @@ describe("Families Export Integration", () => {
     expect(result.csv).toBeDefined();
   });
 
-  it("schema fix verified: deleted_at column exists and queries work", async () => {
-    // This test verifies the schema fix is applied
-    // If this passes, it means the deleted_at column exists and can be queried
-    // The actual export tests are in the browser/e2e phase
-    expect(true).toBe(true);
+  it("schema fix verified: families.Row declares deleted_at in the generated types", () => {
+    // COMPILE-TIME guard (laquesis: the previous text-grep matched deleted_at
+    // anywhere in the 2700-line file). If `supabase gen types` ever drops the
+    // column from families, this type stops compiling — tsc and the suite both
+    // catch it.
+    type FamiliesDeletedAt =
+      import("../../../client/src/lib/database.types").Database["public"]["Tables"]["families"]["Row"]["deleted_at"];
+    const probe: FamiliesDeletedAt = null;
+    expect(probe).toBeNull();
   });
 });

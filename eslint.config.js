@@ -93,10 +93,11 @@ export default [
       "client/src/components/BulkImportNovedadesModal.tsx",
       "client/src/components/MemberManagementModal.tsx",
       "client/src/components/layout/AppShell.tsx",
-      // HojaDrawer (~800 LOC hot-path UI) — warn-listed to unblock CI (SIS-01);
-      // full sub-component split tracked in issue #83. Server-side intervenciones.ts
-      // was extracted in the same change, not warn-listed.
-      "client/src/features/derivar/HojaDrawer.tsx",
+      // HojaDrawer REMOVED from the allow-list (SIS-01 resolved): split from ~893
+      // lines into a drawer shell (268) + 5 self-contained components
+      // (DocPreviewModal, TemplateManagementModal, SignedHojaUploadModal,
+      // InterventionsList, ExcludeInterventionModal). The max-lines ERROR gate
+      // now enforces it — it can't silently regrow.
       "client/src/features/persons/components/RegistrationWizard/index.tsx",
       "client/src/features/programs/components/ProgramForm.tsx",
       "client/src/pages/ProgramaDetalle.tsx",

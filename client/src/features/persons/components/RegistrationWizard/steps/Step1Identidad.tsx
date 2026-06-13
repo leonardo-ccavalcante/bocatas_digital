@@ -53,21 +53,27 @@ export function Step1Identidad({
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1">
           <Label htmlFor="nombre">Nombre <span className="text-destructive">*</span></Label>
-          <Input id="nombre" {...register("nombre")} autoComplete="given-name" />
-          <FieldError message={errors.nombre?.message} />
+          <Input id="nombre" {...register("nombre")} autoComplete="given-name"
+            aria-describedby={errors.nombre ? "nombre-error" : undefined}
+            aria-invalid={!!errors.nombre} />
+          <FieldError id="nombre-error" message={errors.nombre?.message} />
         </div>
         <div className="space-y-1">
           <Label htmlFor="apellidos">Apellidos <span className="text-destructive">*</span></Label>
-          <Input id="apellidos" {...register("apellidos")} autoComplete="family-name" />
-          <FieldError message={errors.apellidos?.message} />
+          <Input id="apellidos" {...register("apellidos")} autoComplete="family-name"
+            aria-describedby={errors.apellidos ? "apellidos-error" : undefined}
+            aria-invalid={!!errors.apellidos} />
+          <FieldError id="apellidos-error" message={errors.apellidos?.message} />
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1">
           <Label htmlFor="fecha_nacimiento">Fecha de nacimiento <span className="text-destructive">*</span></Label>
-          <Input id="fecha_nacimiento" type="date" {...register("fecha_nacimiento")} />
-          <FieldError message={errors.fecha_nacimiento?.message} />
+          <Input id="fecha_nacimiento" type="date" {...register("fecha_nacimiento")}
+            aria-describedby={errors.fecha_nacimiento ? "fecha_nacimiento-error" : undefined}
+            aria-invalid={!!errors.fecha_nacimiento} />
+          <FieldError id="fecha_nacimiento-error" message={errors.fecha_nacimiento?.message} />
         </div>
         <SelectField
           label="Género"
@@ -94,9 +100,11 @@ export function Step1Identidad({
           onChange={(v) => setValue("idioma_principal", v as PersonCreate["idioma_principal"])}
           options={IDIOMA_LABELS}
           required
+          aria-describedby={errors.idioma_principal ? "idioma_principal-error" : undefined}
+          aria-invalid={!!errors.idioma_principal}
         />
       </div>
-      <FieldError message={errors.idioma_principal?.message} />
+      <FieldError id="idioma_principal-error" message={errors.idioma_principal?.message} />
     </div>
   );
 }

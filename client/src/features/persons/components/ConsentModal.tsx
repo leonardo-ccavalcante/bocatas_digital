@@ -176,7 +176,7 @@ export function ConsentModal({ open, personId, templates, onClose, onSaved, pers
                         {CONSENT_PURPOSE_LABELS[t.purpose] ?? t.purpose}
                       </Label>
                       <Badge variant="outline" className="text-xs">{t.idioma.toUpperCase()} · v{t.version}</Badge>
-                      <p className="text-xs text-muted-foreground line-clamp-3">{t.text_content}</p>
+                      <p lang={t.idioma} className="text-xs text-muted-foreground line-clamp-3">{t.text_content}</p>
                     </div>
                   </div>
 

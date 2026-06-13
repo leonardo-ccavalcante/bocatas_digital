@@ -98,7 +98,7 @@ export function InstitucionTypeahead({
               type="button"
               role="option"
               aria-selected={false}
-              className="w-full text-left p-2 hover:bg-muted text-sm focus:outline-none focus:bg-muted"
+              className="w-full text-left p-2 hover:bg-muted text-sm focus:outline-none focus:bg-muted focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset"
               onClick={() =>
                 handlePick({
                   id: inst.id,
