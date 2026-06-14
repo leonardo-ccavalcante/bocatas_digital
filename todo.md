@@ -313,3 +313,12 @@
 - [x] Fix 3: counts useMemo single O(N) pass — en lugar de 4 × .filter() sobre 999 registros
 - [x] Fix 4: filteredRows sort pre-computa timestamps — evita new Date() en cada comparación del sort
 - [x] Tests: 3049 tests pasan (8 TDD nuevos), TypeScript 0 errores
+
+### Bug 4: find_duplicate_persons 401 Unauthorized (2026-06-14)
+- [ ] TDD: write failing test for persons.findDuplicates tRPC procedure
+- [ ] Implement persons.findDuplicates procedure in server/routers/persons/crud.ts using createAdminClient
+- [ ] Register persons.findDuplicates in server/routers/persons/index.ts
+- [ ] Update useDuplicateCheck hook to call trpc.persons.findDuplicates instead of supabase.rpc directly
+- [ ] Verify: tests pass, TypeScript 0 errors, no 401 in browser console
+- [ ] Edge case: duplicate check UI must show fecha_nacimiento + ID prefix so users can distinguish two "Juan Pérez" with different birthdays
+- [ ] Verify DuplicateCandidateSchema includes fecha_nacimiento and that the UI renders it in the duplicate warning card

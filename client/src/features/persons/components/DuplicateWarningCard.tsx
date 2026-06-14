@@ -47,11 +47,11 @@ export function DuplicateWarningCard({ candidates, onContinueAnyway }: Duplicate
                 <p className="truncate text-sm font-medium">
                   {c.nombre} {c.apellidos}
                 </p>
-                {c.fecha_nacimiento && (
-                  <p className="text-xs text-muted-foreground">
-                    Nacido/a: {formatDateDisplay(c.fecha_nacimiento)}
-                  </p>
-                )}
+                <p className="text-xs text-muted-foreground">
+                  {c.fecha_nacimiento
+                    ? `Nacido/a: ${formatDateDisplay(c.fecha_nacimiento)}`
+                    : `ID: ...${c.id.slice(-6)}`}
+                </p>
               </div>
               <span className="shrink-0 rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700">
                 {Math.round(c.similarity * 100)}%
