@@ -67,7 +67,8 @@ export function buildPostHogConfig(): Partial<PostHogConfig> {
     recordBody: false,
     recordHeaders: false,
     // Volume + low-end-Android CPU bound. Masking (not sampling) protects PII.
-    sampleRate: 1,
+    // Reduced from 1 → 0.1 to lower main-thread GZIP overhead during heavy list interactions.
+    sampleRate: 0.1,
     minimumDurationMilliseconds: 2000,
   };
 

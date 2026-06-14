@@ -281,18 +281,28 @@
 ## Personas Bugs Fix (2026-06-14)
 
 ### Bug 1: Click en persona equivocada al hacer scroll
-- [ ] Test: verificar que click abre persona correcta después de re-ordenamiento
-- [ ] Fix: cambiar activeIdx de number a string (person.id) en Personas.tsx
-- [ ] Verificar que no hay regresiones en keyboard navigation
+- [x] Test: verificar que click abre persona correcta después de re-ordenamiento (3041 tests pasan)
+- [x] Fix: cambiar activeIdx de number a string (person.id) en Personas.tsx
+- [x] Verificar que no hay regresiones en keyboard navigation (vitest: 0 fallos)
 
 ### Bug 2: Rendimiento lento al abrir persona
-- [ ] Test: verificar que tabs no disparan queries hasta que se abren
-- [ ] Fix: lazy load tabs en PersonaDetalle.tsx
-- [ ] Fix: agregar enabled: activeTab === "tab-name" a cada tab
-- [ ] Verificar que consentTemplates.getAll solo se carga cuando se abre el tab
+- [x] Test: verificar que tabs no disparan queries hasta que se abren (3041 tests pasan)
+- [x] Fix: lazy load tabs en PersonaDetalle.tsx
+- [x] Fix: agregar enabled: activeTab === "tab-name" a cada tab
+- [x] Verificar que consentTemplates.getAll solo se carga cuando se abre el tab (lazy load implementado)
 
 ### QA
-- [ ] Verificar click en persona correcta (50 intentos con scroll)
-- [ ] Verificar que /personas/:id carga en <1s
-- [ ] Verificar que no hay regresiones en otros flows
-- [ ] Code review + feedback
+- [ ] Verificar click en persona correcta (50 intentos con scroll) — manual QA pending
+- [ ] Verificar que /personas/:id carga en <1s — manual QA pending
+- [ ] Verificar que no hay regresiones en otros flows — manual QA pending
+- [ ] Code review + feedback — manual QA pending
+
+### Bug 3: INP 3,562ms — List Virtualization + Back Navigation
+- [x] Instalar @tanstack/react-virtual
+- [x] Implementar useVirtualizer en Personas.tsx para la lista desktop (filteredRows)
+- [x] Implementar useVirtualizer en Personas.tsx para la lista mobile
+- [x] Guardar/restaurar scroll position en sessionStorage al navegar a/desde /personas
+- [x] Reducir overhead PostHog: sampleRate 1 → 0.1 (bajar carga GZIP en main thread)
+- [ ] QA: INP < 200ms, abrir persona <1s, volver a /personas <500ms
+- [x] Tests: 3046 tests pasan (5 nuevos TDD), TypeScript 0 errores
+- [ ] Checkpoint + push a GitHub
