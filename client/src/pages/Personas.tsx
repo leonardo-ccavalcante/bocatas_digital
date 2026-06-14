@@ -63,7 +63,7 @@ export default function Personas() {
   const [estadoFilter, setEstadoFilter] = useState<EstadoFilter>("todas");
   const [faseFilter, setFaseFilter] = useState("todas");
   const [sortBy, setSortBy] = useState<SortBy>("recent");
-  const [activeIdx, setActiveIdx] = useState(-1);
+  const [activePersonId, setActivePersonId] = useState<string | null>(null);
 
   // ── Data fetching ─────────────────────────────────────────────────────────
   // Admin path: getAll + client-side filter
@@ -164,20 +164,28 @@ export default function Personas() {
   }, [isAdmin, adminRows, searchRows, filteredRows]);
 
   // ── Reset cursor when filters change ─────────────────────────────────────
-  useEffect(() => { setActiveIdx(-1); }, [query, estadoFilter, faseFilter, sortBy]);
+  useEffect(() => { setActivePersonId(null); }, [query, estadoFilter, faseFilter, sortBy]);
 
   // ── Keyboard navigation on list ───────────────────────────────────────────
   const onListKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === "ArrowDown") {
         e.preventDefault();
-        setActiveIdx((i) => Math.min(filteredRows.length - 1, i + 1));
+        const currentIdx = filteredRows.findIndex((p) => p.id === activePersonId);
+        const nextIdx = Math.min(filteredRows.length - 1, currentIdx + 1);
+        if (nextIdx >= 0 && nextIdx < filteredRows.length) {
+          setActivePersonId(filteredRows[nextIdx].id);
+        }
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
-        setActiveIdx((i) => Math.max(0, i - 1));
+        const currentIdx = filteredRows.findIndex((p) => p.id === activePersonId);
+        const prevIdx = Math.max(0, currentIdx - 1);
+        if (prevIdx >= 0 && prevIdx < filteredRows.length) {
+          setActivePersonId(filteredRows[prevIdx].id);
+        }
       }
     },
-    [filteredRows.length],
+    [filteredRows, activePersonId],
   );
 
   const filtersActive =
@@ -244,13 +252,13 @@ export default function Personas() {
                 <span className="text-right">Acciones</span>
               </div>
               <ul className="divide-y divide-border" aria-label="Lista de personas">
-                {filteredRows.map((p, i) => (
+                {filteredRows.map((p) => (
                   <PersonRowDesktop
                     key={p.id}
                     person={p}
-                    active={activeIdx === i}
+                    active={activePersonId === p.id}
                     compact={false}
-                    onMouseEnter={() => setActiveIdx(i)}
+                    onMouseEnter={() => setActivePersonId(p.id)}
                   />
                 ))}
               </ul>

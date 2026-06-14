@@ -26,6 +26,7 @@ export default function PersonaDetalle() {
   const { data: person, isLoading, isError, refetch } = usePersonById(id ?? "");
   const { user } = useAuth();
   const [showConsent, setShowConsent] = useState(false);
+  const [activeTab, setActiveTab] = useState("resumen");
 
   // Only admins and superadmins see check-in data + the Familia CTA + the
   // high-risk fields gated inside the tabs.
@@ -40,8 +41,10 @@ export default function PersonaDetalle() {
   const visitas = isAdmin ? checkinCount.data?.total : undefined;
 
   // Consent templates for the modal (triggered from the header).
+  // Lazy load: only fetch when the user opens the resumen tab (where consent is shown)
   const { data: templates = [] } = useConsentTemplates(
     (person?.idioma_principal as "es" | "ar" | "fr" | "bm") ?? "es",
+    { enabled: activeTab === "resumen" },
   );
 
   if (isLoading) {
@@ -74,7 +77,7 @@ export default function PersonaDetalle() {
         onConsent={() => setShowConsent(true)}
       />
 
-      <Tabs defaultValue="resumen" className="flex flex-1 flex-col">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-1 flex-col">
         {/* Underline tab strip — flush with the header's border-b.
             -mt-px pulls the strip up so active border-b-2 overlaps the
             header border, creating a seamless connected underline. */}
@@ -142,7 +145,7 @@ export default function PersonaDetalle() {
 
           {/* Documentos — no endpoint yet: honest empty state (see component) */}
           <TabsContent value="documentos" className="mt-0">
-            <DocumentosTab person={personRow} isAdmin={isAdmin} />
+            {activeTab === "documentos" && <DocumentosTab person={personRow} isAdmin={isAdmin} />}
           </TabsContent>
 
           {/* Asistencias — admin only, existing CheckinHistoryTable */}
@@ -165,7 +168,7 @@ export default function PersonaDetalle() {
 
           {/* Notas — real observaciones + admin-only notas_privadas (no thread) */}
           <TabsContent value="notas" className="mt-0">
-            <NotasTab person={personRow} isAdmin={isAdmin} />
+            {activeTab === "notas" && <NotasTab person={personRow} isAdmin={isAdmin} />}
           </TabsContent>
         </main>
       </Tabs>
