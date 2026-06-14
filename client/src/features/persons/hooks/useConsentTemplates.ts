@@ -8,10 +8,10 @@
 import { trpc } from "@/lib/trpc";
 import type { ConsentTemplate, ConsentTemplateIdioma } from "../schemas";
 
-export function useConsentTemplates(idioma: ConsentTemplateIdioma = "es") {
+export function useConsentTemplates(idioma: ConsentTemplateIdioma = "es", options?: { enabled?: boolean }) {
   return trpc.persons.consentTemplates.useQuery(
     { idioma },
-    { staleTime: 5 * 60_000 }
+    { staleTime: 5 * 60_000, ...options }
   );
 }
 

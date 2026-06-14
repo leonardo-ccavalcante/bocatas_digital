@@ -277,3 +277,22 @@
 - [x] Verificar tests post-merge (3041 pasan, 0 fallos) (>=3054 tests pasan)
 - [x] Verificar TypeScript 0 errores post-merge
 - [x] Checkpoint + push a GitHub
+
+## Personas Bugs Fix (2026-06-14)
+
+### Bug 1: Click en persona equivocada al hacer scroll
+- [ ] Test: verificar que click abre persona correcta después de re-ordenamiento
+- [ ] Fix: cambiar activeIdx de number a string (person.id) en Personas.tsx
+- [ ] Verificar que no hay regresiones en keyboard navigation
+
+### Bug 2: Rendimiento lento al abrir persona
+- [ ] Test: verificar que tabs no disparan queries hasta que se abren
+- [ ] Fix: lazy load tabs en PersonaDetalle.tsx
+- [ ] Fix: agregar enabled: activeTab === "tab-name" a cada tab
+- [ ] Verificar que consentTemplates.getAll solo se carga cuando se abre el tab
+
+### QA
+- [ ] Verificar click en persona correcta (50 intentos con scroll)
+- [ ] Verificar que /personas/:id carga en <1s
+- [ ] Verificar que no hay regresiones en otros flows
+- [ ] Code review + feedback
