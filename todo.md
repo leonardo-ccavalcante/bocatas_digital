@@ -306,3 +306,10 @@
 - [ ] QA: INP < 200ms, abrir persona <1s, volver a /personas <500ms
 - [x] Tests: 3046 tests pasan (5 nuevos TDD), TypeScript 0 errores
 - [ ] Checkpoint + push a GitHub
+
+### Bug 3b: INP persists — v6 deep performance fixes (sesión 2026-06-14)
+- [x] Fix 1 (CRÍTICO): PersonsTable lazy-mount — solo se monta cuando el usuario abre <details>, evitando 999 <tr> + Radix <Select> portals en page load
+- [x] Fix 2 (CRÍTICO): Virtualizer scroll container via useLayoutEffect+useRef — evita null en primer render que causaba 0 items → re-render completo
+- [x] Fix 3: counts useMemo single O(N) pass — en lugar de 4 × .filter() sobre 999 registros
+- [x] Fix 4: filteredRows sort pre-computa timestamps — evita new Date() en cada comparación del sort
+- [x] Tests: 3049 tests pasan (8 TDD nuevos), TypeScript 0 errores
