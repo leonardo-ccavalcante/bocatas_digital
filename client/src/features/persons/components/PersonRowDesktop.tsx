@@ -120,6 +120,8 @@ interface PersonRowDesktopProps {
   active: boolean;
   compact: boolean;
   onMouseEnter: () => void;
+  /** Optional inline style — used by the virtualizer to position rows absolutely. */
+  style?: React.CSSProperties;
 }
 
 export function PersonRowDesktop({
@@ -127,6 +129,7 @@ export function PersonRowDesktop({
   active,
   compact,
   onMouseEnter,
+  style,
 }: PersonRowDesktopProps) {
   const [, navigate] = useLocation();
   const faseConfig = person.fase_itinerario
@@ -148,6 +151,7 @@ export function PersonRowDesktop({
           goToDetail();
         }
       }}
+      style={style}
       className={`
         grid grid-cols-[1fr_130px_120px_100px_80px] gap-3 items-center px-5 cursor-pointer
         transition-colors group

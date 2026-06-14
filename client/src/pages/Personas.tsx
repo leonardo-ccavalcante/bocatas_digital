@@ -1,15 +1,21 @@
 /**
- * Personas.tsx — Person directory page (v4 visual re-skin).
+ * Personas.tsx — Person directory page (v5 — virtualized list).
  *
  * Admin/superadmin: full directory with filter pills, desktop table, mobile cards.
  * Voluntario: search-only mode (min 2 chars).
+ *
+ * v5 changes:
+ * - List virtualization via @tanstack/react-virtual (only ~20 rows rendered at a time)
+ * - Scroll position saved/restored via sessionStorage on unmount/mount
+ * - Scroll container is the AppShell <main> element (not window)
  *
  * Filter pill state (estado + fase) is applied CLIENT-SIDE because the tRPC
  * `persons.search` procedure only accepts { query: string } — no estado/fase
  * param. Adding one would change the server contract; per task rules we must
  * not do that. `persons.getAll` (admin path) likewise has no filter params.
  */
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useSearchPersons } from "@/features/persons/hooks/useSearchPersons";
 import { PersonsFilterBar } from "@/features/persons/components/PersonsFilterBar";
@@ -33,10 +39,22 @@ import type { BocatasRole } from "@/components/layout/ProtectedRoute";
 import type { EstadoFilter, SortBy } from "@/features/persons/components/PersonsFilterBar";
 import type { PersonRowData } from "@/features/persons/components/PersonRowDesktop";
 
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const SCROLL_KEY = "personas-scroll-top";
+/** Estimated row heights for the virtualizer (actual heights may vary slightly). */
+const ROW_HEIGHT_DESKTOP = 57; // py-3 + content ≈ 57px
+const ROW_HEIGHT_MOBILE = 74;  // p-3 + content ≈ 74px
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function deriveEstado(p: PersonRowData): string {
   return p.fase_itinerario ? "Activa" : "Inactiva";
+}
+
+/** Returns the AppShell <main> scroll container (or null if not found). */
+function getScrollContainer(): HTMLElement | null {
+  return document.querySelector("main.flex-1.overflow-y-auto") as HTMLElement | null;
 }
 
 // ─── Main page ────────────────────────────────────────────────────────────────
@@ -75,9 +93,6 @@ export default function Personas() {
     useSearchPersons(query);
 
   // ── Normalise to PersonRowData ────────────────────────────────────────────
-  // allPersons infers as GenericStringError[] because the server uses
-  // .select(dynamicString). The double-cast via unknown is intentional:
-  // the runtime value is always PersonRow[]; this is a type-bridge only.
   const adminRows: PersonRowData[] = useMemo(() => (allPersons as unknown as PersonRow[]).map((p) => ({
     id: p.id,
     nombre: p.nombre,
@@ -166,6 +181,33 @@ export default function Personas() {
   // ── Reset cursor when filters change ─────────────────────────────────────
   useEffect(() => { setActivePersonId(null); }, [query, estadoFilter, faseFilter, sortBy]);
 
+  // ── Scroll restoration ────────────────────────────────────────────────────
+  // Save scroll position on unmount; restore it on mount (after data loads).
+  const scrollRestoredRef = useRef(false);
+
+  useEffect(() => {
+    // Restore scroll position once data is loaded and list is rendered
+    if (!isAdmin || loadingAll || scrollRestoredRef.current) return;
+    const saved = sessionStorage.getItem(SCROLL_KEY);
+    if (saved) {
+      const scrollEl = getScrollContainer();
+      if (scrollEl) {
+        scrollEl.scrollTop = parseInt(saved, 10);
+        scrollRestoredRef.current = true;
+      }
+    }
+  }, [isAdmin, loadingAll, filteredRows.length]);
+
+  useEffect(() => {
+    // Save scroll position on unmount
+    return () => {
+      const scrollEl = getScrollContainer();
+      if (scrollEl) {
+        sessionStorage.setItem(SCROLL_KEY, String(scrollEl.scrollTop));
+      }
+    };
+  }, []);
+
   // ── Keyboard navigation on list ───────────────────────────────────────────
   const onListKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -199,7 +241,7 @@ export default function Personas() {
 
   const isLoading = isAdmin ? loadingAll : (loadingSearch && query.trim().length >= 2);
 
-  // ── Non-admin: search-only UI (extracted to keep this page under 300 lines) ─
+  // ── Non-admin: search-only UI ─────────────────────────────────────────────
   if (!isAdmin) {
     return (
       <PersonasSearchView
@@ -213,7 +255,6 @@ export default function Personas() {
   }
 
   // ── Admin: full directory with filter pills ───────────────────────────────
-
   return (
     <div
       className="min-h-full flex flex-col bg-background"
@@ -241,9 +282,8 @@ export default function Personas() {
           <PersonsEmptyState onClear={clearFilters} hasFilters={filtersActive} isAdmin={isAdmin} />
         ) : (
           <>
-            {/* Desktop table */}
+            {/* Desktop table — virtualized */}
             <div className="hidden sm:block bocatas-card overflow-hidden">
-              {/* Column headers */}
               <div className="grid grid-cols-[1fr_130px_120px_100px_80px] gap-3 px-5 py-3 text-eyebrow text-muted-foreground border-b border-border bg-muted/30">
                 <span>Persona</span>
                 <span>Fase</span>
@@ -251,25 +291,19 @@ export default function Personas() {
                 <span>Estado</span>
                 <span className="text-right">Acciones</span>
               </div>
-              <ul className="divide-y divide-border" aria-label="Lista de personas">
-                {filteredRows.map((p) => (
-                  <PersonRowDesktop
-                    key={p.id}
-                    person={p}
-                    active={activePersonId === p.id}
-                    compact={false}
-                    onMouseEnter={() => setActivePersonId(p.id)}
-                  />
-                ))}
-              </ul>
+              <VirtualizedDesktopList
+                rows={filteredRows}
+                activePersonId={activePersonId}
+                onMouseEnter={setActivePersonId}
+                rowHeight={ROW_HEIGHT_DESKTOP}
+              />
             </div>
 
-            {/* Mobile cards */}
-            <ul className="sm:hidden space-y-2" aria-label="Lista de personas">
-              {filteredRows.map((p) => (
-                <PersonCardMobile key={p.id} person={p} />
-              ))}
-            </ul>
+            {/* Mobile cards — virtualized */}
+            <VirtualizedMobileList
+              rows={filteredRows}
+              rowHeight={ROW_HEIGHT_MOBILE}
+            />
           </>
         )}
 
@@ -284,5 +318,112 @@ export default function Personas() {
         )}
       </div>
     </div>
+  );
+}
+
+// ─── Virtualized Desktop List ─────────────────────────────────────────────────
+
+interface VirtualizedDesktopListProps {
+  rows: PersonRowData[];
+  activePersonId: string | null;
+  onMouseEnter: (id: string) => void;
+  rowHeight: number;
+}
+
+function VirtualizedDesktopList({
+  rows,
+  activePersonId,
+  onMouseEnter,
+  rowHeight,
+}: VirtualizedDesktopListProps) {
+  // The scroll container is the AppShell <main> element.
+  const scrollEl = getScrollContainer();
+
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => scrollEl,
+    estimateSize: () => rowHeight,
+    overscan: 5,
+  });
+
+  const items = virtualizer.getVirtualItems();
+  const totalHeight = virtualizer.getTotalSize();
+
+  return (
+    <ul
+      aria-label="Lista de personas"
+      className="relative"
+      style={{ height: `${totalHeight}px` }}
+    >
+      {items.map((virtualItem) => {
+        const p = rows[virtualItem.index];
+        return (
+          <PersonRowDesktop
+            key={p.id}
+            person={p}
+            active={activePersonId === p.id}
+            compact={false}
+            onMouseEnter={() => onMouseEnter(p.id)}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: `${virtualItem.size}px`,
+              transform: `translateY(${virtualItem.start}px)`,
+              borderBottom: "1px solid var(--border)",
+            }}
+          />
+        );
+      })}
+    </ul>
+  );
+}
+
+// ─── Virtualized Mobile List ──────────────────────────────────────────────────
+
+interface VirtualizedMobileListProps {
+  rows: PersonRowData[];
+  rowHeight: number;
+}
+
+function VirtualizedMobileList({ rows, rowHeight }: VirtualizedMobileListProps) {
+  const scrollEl = getScrollContainer();
+
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => scrollEl,
+    estimateSize: () => rowHeight,
+    overscan: 5,
+  });
+
+  const items = virtualizer.getVirtualItems();
+  const totalHeight = virtualizer.getTotalSize();
+
+  return (
+    <ul
+      aria-label="Lista de personas"
+      className="sm:hidden relative"
+      style={{ height: `${totalHeight}px` }}
+    >
+      {items.map((virtualItem) => {
+        const p = rows[virtualItem.index];
+        return (
+          <li
+            key={p.id}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              transform: `translateY(${virtualItem.start}px)`,
+              paddingBottom: "8px",
+            }}
+          >
+            <PersonCardMobile person={p} />
+          </li>
+        );
+      })}
+    </ul>
   );
 }
