@@ -140,7 +140,7 @@ export function PersonRowDesktop({
   const goToDetail = () => navigate(`/personas/${person.id}`);
 
   return (
-    <li
+    <div
       role="button"
       tabIndex={0}
       onMouseEnter={onMouseEnter}
@@ -226,7 +226,7 @@ export function PersonRowDesktop({
           onClick={goToDetail}
         />
       </div>
-    </li>
+    </div>
   );
 }
 
