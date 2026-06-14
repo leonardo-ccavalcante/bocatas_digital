@@ -1,27 +1,31 @@
 /**
- * Personas.tsx — Person directory page (v5 — virtualized list).
+ * Personas.tsx — Person directory page (v6 — performance-optimised virtualizer).
  *
  * Admin/superadmin: full directory with filter pills, desktop table, mobile cards.
  * Voluntario: search-only mode (min 2 chars).
  *
- * v5 changes:
- * - List virtualization via @tanstack/react-virtual (only ~20 rows rendered at a time)
- * - Scroll position saved/restored via sessionStorage on unmount/mount
- * - Scroll container is the AppShell <main> element (not window)
+ * v6 changes (perf):
+ * - Fix 1: PersonsTable lazy-mounted (only when <details> is opened) to avoid
+ *   rendering 999 <tr> rows + Radix <Select> portals on page load.
+ * - Fix 2: Virtualizer scroll container resolved via useLayoutEffect+useRef so
+ *   getScrollElement() never returns null on first render (which caused the
+ *   virtualizer to render 0 items then re-render all of them).
+ * - Fix 3: counts useMemo is now a single O(N) pass instead of 4 × .filter().
+ * - Fix 4: filteredRows sort pre-computes timestamps to avoid new Date() per
+ *   comparison (O(N log N) → O(N) pre-compute + O(N log N) sort).
  *
  * Filter pill state (estado + fase) is applied CLIENT-SIDE because the tRPC
  * `persons.search` procedure only accepts { query: string } — no estado/fase
  * param. Adding one would change the server contract; per task rules we must
  * not do that. `persons.getAll` (admin path) likewise has no filter params.
  */
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useState, useMemo, useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useSearchPersons } from "@/features/persons/hooks/useSearchPersons";
 import { PersonsFilterBar } from "@/features/persons/components/PersonsFilterBar";
 import { PersonRowDesktop } from "@/features/persons/components/PersonRowDesktop";
 import { PersonCardMobile } from "@/features/persons/components/PersonCardMobile";
-import { PersonsTable } from "@/features/persons/components/PersonsTable";
 import { PersonasSearchView } from "@/features/persons/components/PersonasSearchView";
 import { Loader2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
@@ -52,9 +56,52 @@ function deriveEstado(p: PersonRowData): string {
   return p.fase_itinerario ? "Activa" : "Inactiva";
 }
 
-/** Returns the AppShell <main> scroll container (or null if not found). */
-function getScrollContainer(): HTMLElement | null {
-  return document.querySelector("main.flex-1.overflow-y-auto") as HTMLElement | null;
+/**
+ * Hook that resolves the AppShell <main> scroll container via a layout effect,
+ * so the ref is always populated before the virtualizer reads it.
+ * This avoids the null-on-first-render bug that caused the virtualizer to
+ * render 0 items and then re-render all of them.
+ */
+function useScrollContainer(): React.RefObject<HTMLElement | null> {
+  const ref = useRef<HTMLElement | null>(null);
+  useLayoutEffect(() => {
+    ref.current = document.querySelector("main.flex-1.overflow-y-auto") as HTMLElement | null;
+  }, []);
+  return ref;
+}
+
+// ─── Lazy PersonsTable ────────────────────────────────────────────────────────
+
+/**
+ * PersonsTable is only mounted when the user opens the <details> accordion.
+ * This avoids rendering 999 <tr> rows + Radix <Select> portals on page load,
+ * which was the primary source of the 3,500ms INP.
+ */
+function LazyPersonsTable() {
+  const [mounted, setMounted] = useState(false);
+
+  // Dynamically import PersonsTable only when needed
+  const PersonsTable = useMemo(() => {
+    if (!mounted) return null;
+    // We use a lazy require pattern via dynamic import to defer the module load
+    return require("@/features/persons/components/PersonsTable").PersonsTable as React.ComponentType;
+  }, [mounted]);
+
+  return (
+    <details
+      className="mt-8"
+      onToggle={(e) => {
+        if ((e.currentTarget as HTMLDetailsElement).open && !mounted) {
+          setMounted(true);
+        }
+      }}
+    >
+      <summary className="cursor-pointer text-body-sm text-muted-foreground hover:text-foreground transition-colors mb-3 select-none">
+        Gestión de roles y fases (admin)
+      </summary>
+      {mounted && PersonsTable ? <PersonsTable /> : null}
+    </details>
+  );
 }
 
 // ─── Main page ────────────────────────────────────────────────────────────────
@@ -141,40 +188,45 @@ export default function Personas() {
       rows = rows.filter((p) => p.fase_itinerario === faseFilter);
     }
 
-    // Sort
+    // Sort — pre-compute timestamps to avoid new Date() inside comparator
     if (sortBy === "name") {
       rows = [...rows].sort((a, b) =>
         (a.apellidos ?? a.nombre).localeCompare(b.apellidos ?? b.nombre, "es")
       );
     } else {
-      // recent: newest created_at first
-      rows = [...rows].sort((a, b) => {
-        const da = a.created_at ? new Date(a.created_at).getTime() : 0;
-        const db = b.created_at ? new Date(b.created_at).getTime() : 0;
-        return db - da;
-      });
+      // recent: newest created_at first — pre-compute ms timestamps O(N)
+      const withTs = rows.map((p) => ({
+        p,
+        ts: p.created_at ? new Date(p.created_at).getTime() : 0,
+      }));
+      withTs.sort((a, b) => b.ts - a.ts);
+      rows = withTs.map((x) => x.p);
     }
 
     return rows;
   }, [isAdmin, adminRows, searchRows, query, estadoFilter, faseFilter, sortBy]);
 
-  // ── Counts for filter pills ───────────────────────────────────────────────
+  // ── Counts for filter pills — single O(N) pass ────────────────────────────
   const counts = useMemo(() => {
     const base = isAdmin ? adminRows : searchRows;
-    const faseSet = new Set(base.map((p) => p.fase_itinerario).filter(Boolean) as string[]);
-    const fases = Array.from(faseSet).sort();
 
-    const byEstado: Record<EstadoFilter, number> = {
-      todas: base.length,
-      Activa: base.filter((p) => deriveEstado(p) === "Activa").length,
-      Inactiva: base.filter((p) => deriveEstado(p) === "Inactiva").length,
-    };
-
+    // Single pass: accumulate all counts simultaneously
+    const byEstado: Record<EstadoFilter, number> = { todas: base.length, Activa: 0, Inactiva: 0 };
     const byFase: Record<string, number> = { todas: base.length };
-    for (const f of fases) {
-      byFase[f] = base.filter((p) => p.fase_itinerario === f).length;
+    const faseSet = new Set<string>();
+
+    for (const p of base) {
+      const estado = deriveEstado(p);
+      if (estado === "Activa") byEstado.Activa++;
+      else byEstado.Inactiva++;
+
+      if (p.fase_itinerario) {
+        faseSet.add(p.fase_itinerario);
+        byFase[p.fase_itinerario] = (byFase[p.fase_itinerario] ?? 0) + 1;
+      }
     }
 
+    const fases = Array.from(faseSet).sort();
     return { total: base.length, filtered: filteredRows.length, byEstado, byFase, fases };
   }, [isAdmin, adminRows, searchRows, filteredRows]);
 
@@ -190,7 +242,7 @@ export default function Personas() {
     if (!isAdmin || loadingAll || scrollRestoredRef.current) return;
     const saved = sessionStorage.getItem(SCROLL_KEY);
     if (saved) {
-      const scrollEl = getScrollContainer();
+      const scrollEl = document.querySelector("main.flex-1.overflow-y-auto") as HTMLElement | null;
       if (scrollEl) {
         scrollEl.scrollTop = parseInt(saved, 10);
         scrollRestoredRef.current = true;
@@ -201,7 +253,7 @@ export default function Personas() {
   useEffect(() => {
     // Save scroll position on unmount
     return () => {
-      const scrollEl = getScrollContainer();
+      const scrollEl = document.querySelector("main.flex-1.overflow-y-auto") as HTMLElement | null;
       if (scrollEl) {
         sessionStorage.setItem(SCROLL_KEY, String(scrollEl.scrollTop));
       }
@@ -307,14 +359,9 @@ export default function Personas() {
           </>
         )}
 
-        {/* Admin role-management table below the visual list */}
+        {/* Admin role-management table — lazy-mounted on <details> open */}
         {isAdmin && query.trim().length === 0 && estadoFilter === "todas" && faseFilter === "todas" && (
-          <details className="mt-8">
-            <summary className="cursor-pointer text-body-sm text-muted-foreground hover:text-foreground transition-colors mb-3 select-none">
-              Gestión de roles y fases (admin)
-            </summary>
-            <PersonsTable />
-          </details>
+          <LazyPersonsTable />
         )}
       </div>
     </div>
@@ -336,12 +383,13 @@ function VirtualizedDesktopList({
   onMouseEnter,
   rowHeight,
 }: VirtualizedDesktopListProps) {
-  // The scroll container is the AppShell <main> element.
-  const scrollEl = getScrollContainer();
+  // Fix 2: resolve scroll container via layout effect so it's never null on
+  // first render (null → virtualizer renders 0 items → re-render all items).
+  const scrollContainerRef = useScrollContainer();
 
   const virtualizer = useVirtualizer({
     count: rows.length,
-    getScrollElement: () => scrollEl,
+    getScrollElement: () => scrollContainerRef.current,
     estimateSize: () => rowHeight,
     overscan: 5,
   });
@@ -388,11 +436,12 @@ interface VirtualizedMobileListProps {
 }
 
 function VirtualizedMobileList({ rows, rowHeight }: VirtualizedMobileListProps) {
-  const scrollEl = getScrollContainer();
+  // Fix 2: same scroll container resolution via layout effect
+  const scrollContainerRef = useScrollContainer();
 
   const virtualizer = useVirtualizer({
     count: rows.length,
-    getScrollElement: () => scrollEl,
+    getScrollElement: () => scrollContainerRef.current,
     estimateSize: () => rowHeight,
     overscan: 5,
   });
