@@ -72,11 +72,11 @@ describe("PersonRowDesktop — style prop for virtualizer", () => {
       />
     );
 
-    const li = container.querySelector("li");
-    expect(li).not.toBeNull();
-    expect(li?.style.position).toBe("absolute");
-    expect(li?.style.transform).toBe("translateY(114px)");
-    expect(li?.style.height).toBe("57px");
+    const div = container.querySelector("div[role='button']") as HTMLElement | null;
+    expect(div).not.toBeNull();
+    expect(div?.style.position).toBe("absolute");
+    expect(div?.style.transform).toBe("translateY(114px)");
+    expect(div?.style.height).toBe("57px");
   });
 
   it("renders without style prop (non-virtualized usage)", async () => {
@@ -102,10 +102,10 @@ describe("PersonRowDesktop — style prop for virtualizer", () => {
       />
     );
 
-    const li = container.querySelector("li");
-    expect(li).not.toBeNull();
+    const div = container.querySelector("div[role='button']") as HTMLElement | null;
+    expect(div).not.toBeNull();
     // No inline position style when style prop is omitted
-    expect(li?.style.position).toBe("");
+    expect(div?.style.position).toBe("");
   });
 });
 
