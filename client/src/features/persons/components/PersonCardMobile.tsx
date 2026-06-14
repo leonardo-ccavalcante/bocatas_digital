@@ -26,7 +26,7 @@ export function PersonCardMobile({ person }: PersonCardMobileProps) {
     .toUpperCase();
 
   return (
-    <li
+    <div
       role="button"
       tabIndex={0}
       aria-label={`Ver ficha de ${person.nombre} ${person.apellidos ?? ""}`.trim()}
@@ -87,6 +87,6 @@ export function PersonCardMobile({ person }: PersonCardMobileProps) {
       >
         <MoreHorizontal className="h-4 w-4" />
       </span>
-    </li>
+    </div>
   );
 }
