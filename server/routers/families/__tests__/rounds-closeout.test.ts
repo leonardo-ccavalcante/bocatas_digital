@@ -4,6 +4,8 @@ import type { User } from "../../../../drizzle/schema";
 
 const tableResults: Record<string, { data: unknown; error: { message: string } | null }> = {};
 const captured: Array<{ table: string; op: string; payload: Record<string, unknown> }> = [];
+const rpcCalls: Array<{ name: string; args: Record<string, unknown> }> = [];
+const rpcErrors: Record<string, { message: string }> = {};
 
 function makeBuilder(table: string) {
   let write: Record<string, unknown> | null = null;
@@ -30,7 +32,14 @@ function makeBuilder(table: string) {
 }
 
 vi.mock("../../../../client/src/lib/supabase/server", () => ({
-  createAdminClient: () => ({ from: (t: string) => makeBuilder(t) }),
+  createAdminClient: () => ({
+    from: (t: string) => makeBuilder(t),
+    rpc: async (name: string, args: Record<string, unknown>) => {
+      rpcCalls.push({ name, args });
+      if (rpcErrors[name]) return { data: null, error: rpcErrors[name] };
+      return { data: null, error: null };
+    },
+  }),
 }));
 
 const { roundsCloseoutRouter } = await import("../rounds-closeout");
@@ -49,7 +58,8 @@ const P = "33333333-3333-4333-8333-333333333333";
 
 beforeEach(() => {
   for (const k of Object.keys(tableResults)) delete tableResults[k];
-  captured.length = 0; vi.clearAllMocks();
+  for (const k of Object.keys(rpcErrors)) delete rpcErrors[k];
+  captured.length = 0; rpcCalls.length = 0; vi.clearAllMocks();
 });
 
 describe("rounds-closeout — markAttendance", () => {
@@ -87,7 +97,7 @@ describe("rounds-closeout — resolveAssignment", () => {
   it("returns not_in_program when the person belongs to no family", async () => {
     tableResults["familia_miembros"] = { data: null, error: null };
     const caller = roundsCloseoutRouter.createCaller(ctx(buildUser("voluntario")));
-    const r = await caller.resolveAssignment({ round_id: R, person_id: P, current_day: "2026-06-01" });
+    const r = await caller.resolveAssignment({ round_id: R, person_id: P, current_day: "2026-06-01", current_turno: "manana" });
     expect(r.status).toBe("not_in_program");
   });
 });
@@ -122,11 +132,61 @@ describe("rounds-closeout — getAssignmentsForDay PII gate", () => {
     tableResults["persons"] = { data: [{ id: "pp", nombre: "Maria", apellidos: "García", numero_documento: "X123", telefono: "600" }], error: null };
 
     const caller = roundsCloseoutRouter.createCaller(ctx(buildUser("voluntario")));
-    const rows = await caller.getAssignmentsForDay({ round_id: R, assigned_day: "2026-06-01" });
+    const rows = await caller.getAssignmentsForDay({ round_id: R, assigned_day: "2026-06-01", turno: "manana" });
     expect(rows[0].nombre_titular).toBe("Maria García");
     const keys = Object.keys(rows[0]);
     expect(keys).not.toContain("dni");
     expect(keys).not.toContain("numero_documento");
     expect(keys).not.toContain("telefono");
+  });
+});
+
+describe("rounds-closeout — rescheduleAssignment guards the target slot", () => {
+  it("rejects re-assigning into a CLOSED turno (RPC raises turno_destino_cerrado)", async () => {
+    tableResults["delivery_round_assignments"] = { data: { id: A, family_id: "famA", round_id: R, assigned_day: "2026-06-01", turno: "manana" }, error: null };
+    rpcErrors["move_assignment_to_open_slot"] = { message: "turno_destino_cerrado" };
+    const caller = roundsCloseoutRouter.createCaller(ctx(buildUser("admin")));
+    await expect(
+      caller.rescheduleAssignment({ assignment_id: A, new_day: "2026-06-02", new_turno: "tarde" }),
+    ).rejects.toThrow(/cerrado|CONFLICT/i);
+  });
+
+  it("delegates the move to the atomic RPC with the new day+turno and resets attendance", async () => {
+    tableResults["delivery_round_assignments"] = { data: { id: A, family_id: "famA", round_id: R, assigned_day: "2026-06-01", turno: "manana" }, error: null };
+    const caller = roundsCloseoutRouter.createCaller(ctx(buildUser("admin")));
+    const res = await caller.rescheduleAssignment({ assignment_id: A, new_day: "2026-06-02", new_turno: "tarde" });
+    const call = rpcCalls.find((c) => c.name === "move_assignment_to_open_slot");
+    expect(call).toBeDefined();
+    expect(call?.args.p_assignment_id).toBe(A);
+    expect(call?.args.p_new_day).toBe("2026-06-02");
+    expect(call?.args.p_new_turno).toBe("tarde");
+    expect(res.assigned_day).toBe("2026-06-02");
+    expect(res.turno).toBe("tarde");
+    expect(res.estado_contacto).toBe("reprogramada");
+  });
+});
+
+describe("rounds-closeout — reassignPending carries no-shows to OPEN slots after from_slot", () => {
+  it("sweeps pending from the OPEN from_slot forward but PRESERVES no-shows already in a CLOSED slot (#113)", async () => {
+    tableResults["delivery_rounds"] = { data: { estado: "activa" }, error: null };
+    tableResults["delivery_round_slots"] = { data: [
+      { slot_date: "2026-06-01", turno: "manana", cap: null, estado: "cerrado" }, // finalised no-show — must NOT be swept
+      { slot_date: "2026-06-02", turno: "manana", cap: null, estado: "abierto" }, // from_slot (open)
+      { slot_date: "2026-06-03", turno: "manana", cap: null, estado: "abierto" }, // later open target
+    ], error: null };
+    tableResults["delivery_round_assignments"] = { data: [
+      { id: P, family_id: "famClosed", expediente: "5", total_miembros: 2, assigned_day: "2026-06-01", turno: "manana" },
+      { id: A, family_id: "famA", expediente: "7", total_miembros: 3, assigned_day: "2026-06-02", turno: "manana" },
+    ], error: null };
+    const caller = roundsCloseoutRouter.createCaller(ctx(buildUser("admin")));
+    const res = await caller.reassignPending({ round_id: R, from_slot: { date: "2026-06-02", turno: "manana" } });
+
+    // Only the OPEN-slot pending (famA) carries forward; the closed-slot no-show is left recorded.
+    expect(res.moved).toBe(1);
+    const moves = rpcCalls.filter((c) => c.name === "move_assignment_to_open_slot");
+    expect(moves).toHaveLength(1);
+    expect(moves[0].args.p_assignment_id).toBe(A);
+    expect(moves[0].args.p_new_day).toBe("2026-06-03"); // later OPEN slot; closed slot not reused
+    expect(moves.some((m) => m.args.p_assignment_id === P)).toBe(false); // closed-slot family untouched
   });
 });
