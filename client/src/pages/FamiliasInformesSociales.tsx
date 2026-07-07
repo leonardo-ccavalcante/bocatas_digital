@@ -18,6 +18,7 @@ import {
 import { FileText, Search, AlertTriangle, CheckCircle2, Clock, Download } from "lucide-react";
 import { useInformesSociales } from "@/features/families/hooks/useFamilias";
 import { SocialReportPanel } from "@/features/families/components/SocialReportPanel";
+import { BulkInformeGenerator } from "@/features/families/components/BulkInformeGenerator";
 import { Link } from "wouter";
 
 type FilterType = "all" | "pendientes" | "por_renovar" | "al_dia";
@@ -101,6 +102,9 @@ export default function FamiliasInformesSociales() {
           Exportar CSV
         </Button>
       </div>
+
+      {/* Bulk generation */}
+      <BulkInformeGenerator />
 
       {/* Filters */}
       <div className="flex gap-3 flex-wrap">
