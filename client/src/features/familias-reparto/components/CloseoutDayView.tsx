@@ -79,6 +79,13 @@ export function CloseoutDayView({ roundId, day, turno }: Props) {
     (s) => s.estado === "abierto" && !(s.slot_date === day && s.turno === turno),
   );
 
+  // A closed turno is finalised: its attendance is immutable (enforced by the DB
+  // guard trigger). Render it read-only — no scanner, no mark/reassign actions —
+  // so volunteers aren't offered writes that would only bounce back as CONFLICT.
+  const currentClosed = (slots ?? []).some(
+    (s) => s.slot_date === day && s.turno === turno && s.estado === "cerrado",
+  );
+
   const onScanResolved = (assignmentId: string) => {
     const row = list.find((r) => r.id === assignmentId);
     setPending({ assignmentId, label: row ? labelOf(row) : "Familia", attended: true });
@@ -90,7 +97,7 @@ export function CloseoutDayView({ roundId, day, turno }: Props) {
         <p className="text-sm text-muted-foreground">
           {atendidas} atendidas · {ausentes} ausentes · {pendientes} pendientes
         </p>
-        {(pendientes > 0 || ausentes > 0) && openSlots.length > 0 && (
+        {!currentClosed && (pendientes > 0 || ausentes > 0) && openSlots.length > 0 && (
           <Button
             size="sm"
             variant="outline"
@@ -112,7 +119,13 @@ export function CloseoutDayView({ roundId, day, turno }: Props) {
         )}
       </div>
 
-      <CloseoutScanner roundId={roundId} currentDay={day} currentTurno={turno} onResolved={onScanResolved} />
+      {currentClosed ? (
+        <p className="rounded-md border border-muted bg-muted/40 p-2 text-sm text-muted-foreground" role="status">
+          Turno cerrado — registro de asistencia en solo lectura.
+        </p>
+      ) : (
+        <CloseoutScanner roundId={roundId} currentDay={day} currentTurno={turno} onResolved={onScanResolved} />
+      )}
 
       <ul className="space-y-2">
         {list.map((r) => (

@@ -20,6 +20,15 @@ function fail(error: { message: string } | null): never {
   throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error?.message ?? "DB error" });
 }
 
+// Attendance writes can be rejected by the DB guard trigger (migration
+// 20260707000005) when their slot is already 'cerrado'. Map that to a clean
+// CONFLICT instead of a 500 — the finalised turno is intentionally immutable.
+function failWrite(error: { message: string } | null): never {
+  if (error?.message.includes("turno_cerrado"))
+    throw new TRPCError({ code: "CONFLICT", message: "El turno está cerrado; no se puede modificar la asistencia" });
+  fail(error);
+}
+
 interface UndoEntry { prev: boolean | null; at: string; by: string }
 
 export const roundsCloseoutRouter = router({
@@ -114,7 +123,7 @@ export const roundsCloseoutRouter = router({
         .eq("id", input.assignment_id)
         .select("id, round_id, attended")
         .single();
-      if (error) fail(error);
+      if (error) failWrite(error);
       return data;
     }),
 
@@ -144,7 +153,7 @@ export const roundsCloseoutRouter = router({
         .eq("id", input.assignment_id)
         .select("id, round_id, attended")
         .single();
-      if (error) fail(error);
+      if (error) failWrite(error);
       return data;
     }),
 
@@ -179,6 +188,8 @@ export const roundsCloseoutRouter = router({
         p_log_entry: logEntry as unknown as Json,
       });
       if (error) {
+        if (error.message.includes("turno_origen_cerrado"))
+          throw new TRPCError({ code: "CONFLICT", message: "No se puede reprogramar desde un turno ya cerrado" });
         if (error.message.includes("turno_destino_cerrado"))
           throw new TRPCError({ code: "CONFLICT", message: "No se puede reasignar a un turno ya cerrado" });
         if (error.message.includes("turno_destino_inexistente"))
@@ -217,7 +228,7 @@ export const roundsCloseoutRouter = router({
         .eq("round_id", input.round_id)
         .in("id", input.assignment_ids)
         .select("id");
-      if (error) fail(error);
+      if (error) failWrite(error);
       return { count: data?.length ?? 0 };
     }),
 
@@ -253,8 +264,14 @@ export const roundsCloseoutRouter = router({
         .map((s) => ({ date: s.slot_date, turno: s.turno as Turno, ordinal: s.ordinal, cap: s.cap }));
       if (openRemaining.length === 0) return { moved: 0 };
 
-      // Pending families sit in slots AT OR BEFORE the from_slot ordinal.
-      const pastKeys = new Set(ordered.filter((s) => s.ordinal <= fromOrdinal).map((s) => `${s.slot_date}#${s.turno}`));
+      // Pending families sit in slots AT OR BEFORE the from_slot ordinal — but
+      // only OPEN ones: a closed slot's rows are finalised no-shows and must not
+      // be swept forward (that would move them and wipe the recorded absence).
+      const pastKeys = new Set(
+        ordered
+          .filter((s) => s.ordinal <= fromOrdinal && s.estado === "abierto")
+          .map((s) => `${s.slot_date}#${s.turno}`),
+      );
       const { data: pend, error: pe } = await db
         .from("delivery_round_assignments")
         .select("id, family_id, expediente, total_miembros, assigned_day, turno")
@@ -296,7 +313,9 @@ export const roundsCloseoutRouter = router({
           p_log_entry: logEntry as unknown as Json,
         });
         if (ue) {
-          if (ue.message.includes("turno_destino_cerrado")) continue;
+          // A slot that closed mid-loop (target) or a source that is already
+          // closed (defensive — pastKeys is open-only) is skipped, not fatal.
+          if (ue.message.includes("turno_destino_cerrado") || ue.message.includes("turno_origen_cerrado")) continue;
           fail(ue);
         }
         moved += 1;

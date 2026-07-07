@@ -167,22 +167,26 @@ describe("rounds-closeout — rescheduleAssignment guards the target slot", () =
 });
 
 describe("rounds-closeout — reassignPending carries no-shows to OPEN slots after from_slot", () => {
-  it("moves a pending family from a closed slot to a later open slot (true ordinals, no closed-slot reuse)", async () => {
+  it("sweeps pending from the OPEN from_slot forward but PRESERVES no-shows already in a CLOSED slot (#113)", async () => {
     tableResults["delivery_rounds"] = { data: { estado: "activa" }, error: null };
     tableResults["delivery_round_slots"] = { data: [
-      { slot_date: "2026-06-01", turno: "manana", cap: null, estado: "cerrado" },
-      { slot_date: "2026-06-02", turno: "manana", cap: null, estado: "abierto" },
+      { slot_date: "2026-06-01", turno: "manana", cap: null, estado: "cerrado" }, // finalised no-show — must NOT be swept
+      { slot_date: "2026-06-02", turno: "manana", cap: null, estado: "abierto" }, // from_slot (open)
+      { slot_date: "2026-06-03", turno: "manana", cap: null, estado: "abierto" }, // later open target
     ], error: null };
     tableResults["delivery_round_assignments"] = { data: [
-      { id: A, family_id: "famA", expediente: "7", total_miembros: 3, assigned_day: "2026-06-01", turno: "manana" },
+      { id: P, family_id: "famClosed", expediente: "5", total_miembros: 2, assigned_day: "2026-06-01", turno: "manana" },
+      { id: A, family_id: "famA", expediente: "7", total_miembros: 3, assigned_day: "2026-06-02", turno: "manana" },
     ], error: null };
     const caller = roundsCloseoutRouter.createCaller(ctx(buildUser("admin")));
-    const res = await caller.reassignPending({ round_id: R, from_slot: { date: "2026-06-01", turno: "manana" } });
+    const res = await caller.reassignPending({ round_id: R, from_slot: { date: "2026-06-02", turno: "manana" } });
+
+    // Only the OPEN-slot pending (famA) carries forward; the closed-slot no-show is left recorded.
     expect(res.moved).toBe(1);
-    const call = rpcCalls.find((c) => c.name === "move_assignment_to_open_slot");
-    expect(call).toBeDefined();
-    expect(call?.args.p_assignment_id).toBe(A);
-    expect(call?.args.p_new_day).toBe("2026-06-02"); // the later OPEN slot
-    expect(call?.args.p_new_turno).toBe("manana");
+    const moves = rpcCalls.filter((c) => c.name === "move_assignment_to_open_slot");
+    expect(moves).toHaveLength(1);
+    expect(moves[0].args.p_assignment_id).toBe(A);
+    expect(moves[0].args.p_new_day).toBe("2026-06-03"); // later OPEN slot; closed slot not reused
+    expect(moves.some((m) => m.args.p_assignment_id === P)).toBe(false); // closed-slot family untouched
   });
 });
