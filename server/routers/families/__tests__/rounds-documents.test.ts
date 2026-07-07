@@ -40,23 +40,23 @@ beforeEach(() => {
   captured.length = 0; vi.clearAllMocks();
 });
 
-describe("rounds-documents — attachSignedActa (T-Doc-3)", () => {
-  it("records the signed-acta path + audit (by/at) under the day key, preserving other days", async () => {
-    tableResults["delivery_rounds"] = { data: { signed_actas: { "2026-06-01": { url: "old", by: "1", at: "x" } } }, error: null };
+describe("rounds-documents — attachSignedActa (per-slot)", () => {
+  const SLOT = "22222222-2222-4222-8222-222222222222";
+  it("records the signed-acta path + audit (by/at) on the slot", async () => {
+    tableResults["delivery_round_slots"] = { data: { id: SLOT, round_id: R }, error: null };
     const caller = roundsDocumentsRouter.createCaller(ctx(buildUser("admin", 7)));
-    await caller.attachSignedActa({ round_id: R, assigned_day: "2026-06-08", documento_url: "actas-firmadas/r/2026-06-08.jpg" });
+    await caller.attachSignedActa({ round_id: R, slot_id: SLOT, documento_url: "actas-firmadas/r/2026-06-08-manana.jpg" });
 
-    const upd = captured.find((c) => c.op === "update");
-    const map = upd?.payload.signed_actas as Record<string, { url: string; by: string }>;
-    expect(map["2026-06-08"].url).toBe("actas-firmadas/r/2026-06-08.jpg");
-    expect(map["2026-06-08"].by).toBe("7");
-    expect(map["2026-06-01"]).toBeDefined(); // existing day preserved
+    const upd = captured.find((c) => c.table === "delivery_round_slots" && c.op === "update");
+    const acta = upd?.payload.signed_acta as { url: string; by: string };
+    expect(acta.url).toBe("actas-firmadas/r/2026-06-08-manana.jpg");
+    expect(acta.by).toBe("7");
   });
 
   it("rejects voluntario (admin-only)", async () => {
     const caller = roundsDocumentsRouter.createCaller(ctx(buildUser("voluntario")));
     await expect(
-      caller.attachSignedActa({ round_id: R, assigned_day: "2026-06-08", documento_url: "x" }),
+      caller.attachSignedActa({ round_id: R, slot_id: SLOT, documento_url: "x" }),
     ).rejects.toThrow(/FORBIDDEN|UNAUTHORIZED|admin|permission|10002/i);
   });
 });

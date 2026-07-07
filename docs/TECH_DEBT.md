@@ -214,3 +214,5 @@ Scored `Priority = (Impact+Risk)×(6−Effort)`. Sorted high→low.
 - **Refuted (3, refuted by ≥2 of 3 Moiras):** SIS-07 (`docs/agents/` "missing" — they resolve at **project root**, present), TES-05 (GUF CSV "UTF-8 mojibake" — encoding handled), IRI-07 (`KPICard` emerald-600 contrast — passes at the actual size). These are documented as NOT-bugs.
 
 > **Backlog / waves.** This is the audit ledger. The prioritized SMART/MECE wave plan (formula scores, fixer routing, RED-test plans, E5-contested deferrals) is produced separately in the Mythos *plan* phase — see `docs/audits/mythos/plan.md` (project root) once written. Per CLAUDE.md §2, every re-verified-still-open known item above (T-*, S-*, R-*, D-*, C-*) re-enters that backlog alongside the 72 new findings.
+
+- **[Reparto closeout — attendance mutável em turno cerrado](issues/reparto-closeout-attendance-cerrado.md)** — pós-`cerrarTurno`, markAttendance/bulk/resolve/undo + UI não checam slot cerrado; corrompe absentismo. Gate Codex (feat/reparto-turnos). Deferido p/ frente de closeout-integrity.
