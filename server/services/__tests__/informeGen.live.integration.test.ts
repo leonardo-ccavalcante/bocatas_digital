@@ -47,7 +47,7 @@ describe.skipIf(!RUN)("informe valoración — live DB integration", () => {
     expect(xml).toContain(VALORACION);
   });
 
-  it("persists a versioned informe_valoracion_social document (storage + RPC)", async () => {
+  it("persists a versioned informe_valoracion_social document (direct insert, no RPC)", async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const ctx = await buildFamilyDataContext(db as any, FAMILY_ID, { slug: "informe_social" });
     const { buffer, mime } = await renderDocument("informe_social", ctx, { actorId: "test", familyId: FAMILY_ID });
@@ -56,15 +56,26 @@ describe.skipIf(!RUN)("informe valoración — live DB integration", () => {
     const up = await db!.storage.from("family-documents").upload(path, buffer, { contentType: mime, upsert: false });
     expect(up.error).toBeNull();
 
-    const rpc = await db!.rpc("upload_family_document", {
-      p_family_id: FAMILY_ID,
-      p_member_index: -1,
-      p_member_person_id: null as unknown as string,
-      p_documento_tipo: "informe_valoracion_social",
-      p_documento_url: path,
-      p_verified_by: "integration-test",
+    // Same direct versioning as generateAndPersist (service_role bypasses RLS).
+    await db!
+      .from("family_member_documents")
+      .update({ is_current: false })
+      .eq("family_id", FAMILY_ID)
+      .eq("documento_tipo", "informe_valoracion_social")
+      .eq("member_index", -1)
+      .eq("is_current", true)
+      .is("deleted_at", null);
+    const ins = await db!.from("family_member_documents").insert({
+      family_id: FAMILY_ID,
+      member_index: -1,
+      member_person_id: null,
+      documento_tipo: "informe_valoracion_social",
+      documento_url: path,
+      fecha_upload: new Date().toISOString(),
+      verified_by: null,
+      is_current: true,
     });
-    expect(rpc.error).toBeNull();
+    expect(ins.error).toBeNull();
 
     const { data: rows } = await db!
       .from("family_member_documents")
@@ -72,7 +83,7 @@ describe.skipIf(!RUN)("informe valoración — live DB integration", () => {
       .eq("family_id", FAMILY_ID)
       .eq("documento_tipo", "informe_valoracion_social")
       .eq("is_current", true);
-    expect((rows ?? []).length).toBe(1);
+    expect((rows ?? []).length).toBe(1); // exactly one current row (versioning holds)
     expect(rows![0].documento_url).toBe(path);
   });
 });
