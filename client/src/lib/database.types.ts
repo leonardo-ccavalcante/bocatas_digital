@@ -567,6 +567,7 @@ export type Database = {
           reschedule_log: Json
           round_id: string
           total_miembros: number
+          turno: string
           undo_log: Json
           updated_at: string
         }
@@ -588,6 +589,7 @@ export type Database = {
           reschedule_log?: Json
           round_id: string
           total_miembros?: number
+          turno: string
           undo_log?: Json
           updated_at?: string
         }
@@ -609,6 +611,7 @@ export type Database = {
           reschedule_log?: Json
           round_id?: string
           total_miembros?: number
+          turno?: string
           undo_log?: Json
           updated_at?: string
         }
@@ -627,16 +630,73 @@ export type Database = {
             referencedRelation: "delivery_rounds"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "dra_slot_fk"
+            columns: ["round_id", "assigned_day", "turno"]
+            isOneToOne: false
+            referencedRelation: "delivery_round_slots"
+            referencedColumns: ["round_id", "slot_date", "turno"]
+          },
+        ]
+      }
+      delivery_round_slots: {
+        Row: {
+          cap: number | null
+          cerrado_at: string | null
+          cerrado_por: string | null
+          created_at: string
+          es_fuera_madrid: boolean
+          estado: string
+          id: string
+          round_id: string
+          signed_acta: Json | null
+          slot_date: string
+          turno: string
+          updated_at: string
+        }
+        Insert: {
+          cap?: number | null
+          cerrado_at?: string | null
+          cerrado_por?: string | null
+          created_at?: string
+          es_fuera_madrid?: boolean
+          estado?: string
+          id?: string
+          round_id: string
+          signed_acta?: Json | null
+          slot_date: string
+          turno: string
+          updated_at?: string
+        }
+        Update: {
+          cap?: number | null
+          cerrado_at?: string | null
+          cerrado_por?: string | null
+          created_at?: string
+          es_fuera_madrid?: boolean
+          estado?: string
+          id?: string
+          round_id?: string
+          signed_acta?: Json | null
+          slot_date?: string
+          turno?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "drs_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "delivery_rounds"
+            referencedColumns: ["id"]
+          },
         ]
       }
       delivery_rounds: {
         Row: {
-          cap_mode: string
-          cap_per_day: number | null
           creado_por: string
           created_at: string
           deleted_at: string | null
-          dias_reparto: number
           estado: string
           fecha_inicio: string
           id: string
@@ -645,19 +705,15 @@ export type Database = {
           logos: string[]
           nombre: string
           notas: string | null
-          num_albaran_ba: string | null
-          num_factura_carne: string | null
+          num_albaran_ba: string[] | null
+          num_factura_carne: string[] | null
           program_id: string
-          signed_actas: Json
           updated_at: string
         }
         Insert: {
-          cap_mode?: string
-          cap_per_day?: number | null
           creado_por: string
           created_at?: string
           deleted_at?: string | null
-          dias_reparto: number
           estado?: string
           fecha_inicio: string
           id?: string
@@ -666,19 +722,15 @@ export type Database = {
           logos?: string[]
           nombre: string
           notas?: string | null
-          num_albaran_ba?: string | null
-          num_factura_carne?: string | null
+          num_albaran_ba?: string[] | null
+          num_factura_carne?: string[] | null
           program_id: string
-          signed_actas?: Json
           updated_at?: string
         }
         Update: {
-          cap_mode?: string
-          cap_per_day?: number | null
           creado_por?: string
           created_at?: string
           deleted_at?: string | null
-          dias_reparto?: number
           estado?: string
           fecha_inicio?: string
           id?: string
@@ -687,10 +739,9 @@ export type Database = {
           logos?: string[]
           nombre?: string
           notas?: string | null
-          num_albaran_ba?: string | null
-          num_factura_carne?: string | null
+          num_albaran_ba?: string[] | null
+          num_factura_carne?: string[] | null
           program_id?: string
-          signed_actas?: Json
           updated_at?: string
         }
         Relationships: [
@@ -2344,6 +2395,10 @@ export type Database = {
         Args: { p_person: Json; p_person_id: string }
         Returns: undefined
       }
+      cerrar_turno: {
+        Args: { p_actor: string; p_slot_id: string }
+        Returns: undefined
+      }
       check_soft_delete_schema: {
         Args: { table_names: string[] }
         Returns: {
@@ -2368,6 +2423,10 @@ export type Database = {
           p_token: string
         }
         Returns: Json
+      }
+      create_round_with_slots: {
+        Args: { p_round: Json; p_slots: Json }
+        Returns: string
       }
       enrich_families_from_informes: {
         Args: { p_src_filename?: string; p_token: string }
@@ -2395,6 +2454,7 @@ export type Database = {
       get_eligible_families_for_reparto: {
         Args: { p_program_id: string }
         Returns: {
+          codigo_postal: string
           familia_numero: string
           id: string
           total_miembros: number
@@ -2426,6 +2486,16 @@ export type Database = {
       }
       get_user_role: { Args: never; Returns: string }
       madrid_distrito_for: { Args: { postal_code: string }; Returns: string }
+      move_assignment_to_open_slot: {
+        Args: {
+          p_actor: string
+          p_assignment_id: string
+          p_log_entry: Json
+          p_new_day: string
+          p_new_turno: string
+        }
+        Returns: string
+      }
       sanitize_audit_error: { Args: { p_msg: string }; Returns: string }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }

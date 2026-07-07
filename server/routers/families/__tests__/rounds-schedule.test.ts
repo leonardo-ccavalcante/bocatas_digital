@@ -8,6 +8,8 @@ const captured: Array<{ table: string; op: string; payload: unknown }> = [];
 const rpcCalls: Array<{ name: string; args: unknown }> = [];
 // rpcResults maps RPC name → return value so different RPCs can return different shapes.
 const rpcResults: Record<string, unknown> = {};
+// rpcErrors maps RPC name → an error to return (for the atomic RPCs that RAISE).
+const rpcErrors: Record<string, { message: string }> = {};
 
 function makeBuilder(table: string) {
   let write: Record<string, unknown> | null = null;
@@ -33,6 +35,7 @@ vi.mock("../../../../client/src/lib/supabase/server", () => ({
     from: (table: string) => makeBuilder(table),
     rpc: async (name: string, args: unknown) => {
       rpcCalls.push({ name, args });
+      if (rpcErrors[name]) return { data: null, error: rpcErrors[name] };
       const result = rpcResults[name] ?? [];
       return { data: result, error: null };
     },
@@ -55,6 +58,7 @@ const PROG = "00000000-0000-0000-0000-000000000001";
 beforeEach(() => {
   for (const k of Object.keys(tableResults)) delete tableResults[k];
   for (const k of Object.keys(rpcResults)) delete rpcResults[k];
+  for (const k of Object.keys(rpcErrors)) delete rpcErrors[k];
   captured.length = 0; rpcCalls.length = 0;
   vi.clearAllMocks();
 });
@@ -63,20 +67,39 @@ describe("rounds-schedule — auth", () => {
   it("rejects voluntario from createRound", async () => {
     const caller = roundsScheduleRouter.createCaller(buildCtx(buildUser("voluntario")));
     await expect(
-      caller.createRound({ program_id: PROG, nombre: "Hoja de Firmas Mayo", fecha_inicio: "2026-06-01", dias_reparto: 3 }),
+      caller.createRound({ program_id: PROG, nombre: "Hoja de Firmas Mayo", slots: [{ slot_date: "2026-06-01", turno: "manana" }] }),
     ).rejects.toThrow(/FORBIDDEN|UNAUTHORIZED|admin|permission|10002/i);
   });
 });
 
 describe("rounds-schedule — createRound", () => {
-  it("stores creado_por as a STRING (Manus numeric id) — 22P02 regression", async () => {
+  it("derives fecha_inicio=min(slot_date), passes creado_por STRING + slots to the atomic RPC", async () => {
+    rpcResults["create_round_with_slots"] = "new-round-id";
     const caller = roundsScheduleRouter.createCaller(buildCtx(buildUser("admin", 42)));
-    await caller.createRound({ program_id: PROG, nombre: "Hoja de Firmas Mayo", fecha_inicio: "2026-06-01", dias_reparto: 3 });
-    const insert = captured.find((c) => c.table === "delivery_rounds" && c.op === "insert");
-    const payload = insert?.payload as Record<string, unknown>;
-    expect(payload.creado_por).toBe("42");
-    expect(typeof payload.creado_por).toBe("string");
-    expect(payload.estado).toBe("borrador");
+    const res = await caller.createRound({
+      program_id: PROG,
+      nombre: "Hoja de Firmas Mayo",
+      slots: [
+        { slot_date: "2026-05-12", turno: "tarde" },
+        { slot_date: "2026-05-05", turno: "manana" },
+      ],
+    });
+    expect(res.id).toBe("new-round-id");
+    const call = rpcCalls.find((c) => c.name === "create_round_with_slots");
+    const args = call?.args as { p_round: Record<string, unknown>; p_slots: unknown[] };
+    expect(args.p_round.creado_por).toBe("42");
+    expect(typeof args.p_round.creado_por).toBe("string");
+    expect(args.p_round.fecha_inicio).toBe("2026-05-05"); // earliest slot date
+    expect(args.p_slots).toHaveLength(2);
+  });
+
+  it("rejects >10 distinct days (Zod)", async () => {
+    const caller = roundsScheduleRouter.createCaller(buildCtx(buildUser("admin")));
+    const slots = Array.from({ length: 11 }, (_, i) => ({
+      slot_date: `2026-05-${String(i + 1).padStart(2, "0")}`,
+      turno: "manana" as const,
+    }));
+    await expect(caller.createRound({ program_id: PROG, nombre: "R", slots })).rejects.toThrow(/10 d|máximo|BAD_REQUEST/i);
   });
 });
 
@@ -89,16 +112,18 @@ describe("rounds-schedule — getEligibleFamilies (PRE-1, RPC-based)", () => {
     expect((rpcCalls[0]?.args as Record<string, unknown>).p_program_id).toBe(PROG);
   });
 
-  it("maps RPC rows: parses familia_numero string→number and passes total_miembros through", async () => {
+  it("maps RPC rows: parses familia_numero, passes total_miembros, derives es_fuera_madrid from CP", async () => {
     rpcResults["get_eligible_families_for_reparto"] = [
-      { id: "famA", familia_numero: "7", total_miembros: 5 },
-      { id: "famB", familia_numero: "12", total_miembros: 3 },
+      { id: "famA", familia_numero: "7", total_miembros: 5, codigo_postal: "28004" }, // Madrid city
+      { id: "famB", familia_numero: "12", total_miembros: 3, codigo_postal: "28801" }, // Alcalá → fuera
+      { id: "famC", familia_numero: "13", total_miembros: 2, codigo_postal: null }, // unknown → false
     ];
     const caller = roundsScheduleRouter.createCaller(buildCtx(buildUser("admin")));
     const result = await caller.getEligibleFamilies({ program_id: PROG });
     expect(result).toEqual([
-      { id: "famA", familia_numero: 7, total_miembros: 5 },
-      { id: "famB", familia_numero: 12, total_miembros: 3 },
+      { id: "famA", familia_numero: 7, total_miembros: 5, es_fuera_madrid: false },
+      { id: "famB", familia_numero: 12, total_miembros: 3, es_fuera_madrid: true },
+      { id: "famC", familia_numero: 13, total_miembros: 2, es_fuera_madrid: false },
     ]);
   });
 
@@ -114,7 +139,7 @@ describe("rounds-schedule — getEligibleFamilies (PRE-1, RPC-based)", () => {
     ];
     const caller = roundsScheduleRouter.createCaller(buildCtx(buildUser("admin")));
     const result = await caller.getEligibleFamilies({ program_id: PROG });
-    expect(result).toEqual([{ id: "famC", familia_numero: null, total_miembros: 2 }]);
+    expect(result).toEqual([{ id: "famC", familia_numero: null, total_miembros: 2, es_fuera_madrid: false }]);
   });
 });
 
@@ -180,18 +205,66 @@ describe("rounds-schedule — deleteRound", () => {
 });
 
 describe("rounds-schedule — commitAssignments", () => {
-  it("calls the commit RPC and activates the round", async () => {
-    tableResults["delivery_rounds"] = { data: { id: "r1", estado: "borrador" }, error: null };
+  it("delegates to the atomic commit RPC (which locks, checks borrador, and activates)", async () => {
     rpcResults["commit_round_assignments"] = 2;
     const caller = roundsScheduleRouter.createCaller(buildCtx(buildUser("admin")));
     const res = await caller.commitAssignments({
       round_id: "11111111-1111-4111-8111-111111111111",
       assignments: [
-        { family_id: "22222222-2222-4222-8222-222222222222", assigned_day: "2026-06-01", day_slot: 1, expediente: "7", total_miembros: 5 },
+        { family_id: "22222222-2222-4222-8222-222222222222", assigned_day: "2026-06-01", turno: "manana", day_slot: 1, expediente: "7", total_miembros: 5 },
       ],
     });
     expect(rpcCalls[0]?.name).toBe("commit_round_assignments");
     expect(res.count).toBe(2);
-    expect(captured.some((c) => c.table === "delivery_rounds" && c.op === "update" && (c.payload as Record<string, unknown>).estado === "activa")).toBe(true);
+  });
+
+  it("maps the RPC's 'ronda_ya_activada' raise to CONFLICT", async () => {
+    rpcErrors["commit_round_assignments"] = { message: "ronda_ya_activada" };
+    const caller = roundsScheduleRouter.createCaller(buildCtx(buildUser("admin")));
+    await expect(
+      caller.commitAssignments({
+        round_id: "11111111-1111-4111-8111-111111111111",
+        assignments: [
+          { family_id: "22222222-2222-4222-8222-222222222222", assigned_day: "2026-06-01", turno: "manana", day_slot: 1, expediente: "7", total_miembros: 5 },
+        ],
+      }),
+    ).rejects.toThrow(/activado|CONFLICT/i);
+  });
+});
+
+describe("rounds-schedule — closeRound completion gate", () => {
+  it("BLOCKS closing while any slot is still abierto", async () => {
+    tableResults["delivery_round_slots"] = { data: [], error: null, count: 2 } as never;
+    const caller = roundsScheduleRouter.createCaller(buildCtx(buildUser("admin")));
+    await expect(
+      caller.closeRound({ round_id: "11111111-1111-4111-8111-111111111111" }),
+    ).rejects.toThrow(/Faltan|turno|CONFLICT/i);
+  });
+
+  it("ALLOWS closing when every slot is cerrado (0 open)", async () => {
+    tableResults["delivery_round_slots"] = { data: [], error: null, count: 0 } as never;
+    const caller = roundsScheduleRouter.createCaller(buildCtx(buildUser("admin")));
+    const res = await caller.closeRound({ round_id: "11111111-1111-4111-8111-111111111111" });
+    expect((res as Record<string, unknown>).estado).toBe("cerrada");
+  });
+});
+
+describe("rounds-schedule — cerrarTurno", () => {
+  const S = "44444444-4444-4444-8444-444444444444";
+  it("delegates to the atomic cerrar_turno RPC with the slot id and actor", async () => {
+    const caller = roundsScheduleRouter.createCaller(buildCtx(buildUser("admin", 9)));
+    const res = await caller.cerrarTurno({ slot_id: S });
+    expect(res.closed).toBe(true);
+    const call = rpcCalls.find((c) => c.name === "cerrar_turno");
+    expect(call).toBeDefined();
+    const args = call?.args as Record<string, unknown>;
+    expect(args.p_slot_id).toBe(S);
+    expect(args.p_actor).toBe("9");
+  });
+
+  it("maps the RPC's 'turno_ya_cerrado' raise to CONFLICT", async () => {
+    rpcErrors["cerrar_turno"] = { message: "turno_ya_cerrado" };
+    const caller = roundsScheduleRouter.createCaller(buildCtx(buildUser("admin")));
+    await expect(caller.cerrarTurno({ slot_id: S })).rejects.toThrow(/cerrado|CONFLICT/i);
   });
 });

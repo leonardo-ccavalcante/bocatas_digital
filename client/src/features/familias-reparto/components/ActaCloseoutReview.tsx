@@ -8,7 +8,7 @@ import type { CloseoutProposal } from "../utils/actaCloseoutMatch";
 
 interface Props {
   roundId: string;
-  day: string;
+  slotId: string;
 }
 
 const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
@@ -18,12 +18,11 @@ const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
 };
 
 /**
- * OCR-assisted close-out — MANDATORY human review. Reads the signed acta photo,
- * proposes which families signed (pre-checked only when OCR is confident), and
- * the operator confirms before any attendance is written. Amounts are not
- * touched (already snapshotted); this only records who received.
+ * OCR-assisted close-out — MANDATORY human review. Reads the signed acta photo
+ * for a slot, proposes which families signed, and the operator confirms before
+ * any attendance is written. Amounts are not touched. Never autonomous.
  */
-export function ActaCloseoutReview({ roundId, day }: Props) {
+export function ActaCloseoutReview({ roundId, slotId }: Props) {
   const propose = useProposeActaCloseout();
   const bulk = useBulkMarkAttendance();
   const [proposal, setProposal] = useState<CloseoutProposal | null>(null);
@@ -32,7 +31,7 @@ export function ActaCloseoutReview({ roundId, day }: Props) {
 
   const run = async () => {
     try {
-      const res = await propose.mutateAsync({ round_id: roundId, assigned_day: day });
+      const res = await propose.mutateAsync({ round_id: roundId, slot_id: slotId });
       setProposal(res.proposal as CloseoutProposal);
       setWarnings(res.warnings ?? []);
       setSelected(new Set(res.proposal.attendedAutoIds));
@@ -63,7 +62,7 @@ export function ActaCloseoutReview({ roundId, day }: Props) {
     <div className="space-y-3 print:hidden">
       <Button size="sm" variant="outline" disabled={propose.isPending} onClick={run}>
         <ScanLine className="mr-2 h-4 w-4" aria-hidden />
-        {propose.isPending ? "Leyendo acta…" : "Cerrar día desde el acta (revisar)"}
+        {propose.isPending ? "Leyendo acta…" : "Cerrar turno desde el acta (revisar)"}
       </Button>
 
       {proposal && (
@@ -76,7 +75,7 @@ export function ActaCloseoutReview({ roundId, day }: Props) {
           )}
           {proposal.unmatchedOcr.length > 0 && (
             <p className="text-xs text-amber-700">
-              Expedientes leídos pero no en este día: {proposal.unmatchedOcr.join(", ")}
+              Expedientes leídos pero no en este turno: {proposal.unmatchedOcr.join(", ")}
             </p>
           )}
           <ul className="space-y-1">

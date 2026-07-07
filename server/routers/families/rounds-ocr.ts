@@ -10,26 +10,26 @@ import {
 } from "../../../client/src/features/familias-reparto/utils/actaCloseoutMatch";
 
 const uuid = z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
-const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 export const roundsOcrRouter = router({
-  // OCR-assisted close-out PROPOSAL — read-only. Reads the stored signed-acta
-  // photo, OCRs expediente+firma per row, matches to the KNOWN day roster, and
+  // OCR-assisted close-out PROPOSAL — read-only. Reads the SLOT's signed-acta
+  // photo, OCRs expediente+firma per row, matches to the KNOWN slot roster, and
   // returns a proposal for the operator to review/confirm. Writes nothing; the
   // UI confirms via bulkMarkAttendance. (Never autonomous.)
   proposeActaCloseout: voluntarioProcedure
-    .input(z.object({ round_id: uuid, assigned_day: isoDate }))
+    .input(z.object({ round_id: uuid, slot_id: uuid }))
     .mutation(async ({ input }) => {
       const db = createAdminClient();
 
-      const { data: round } = await db
-        .from("delivery_rounds")
-        .select("signed_actas")
-        .eq("id", input.round_id)
+      const { data: slot } = await db
+        .from("delivery_round_slots")
+        .select("slot_date, turno, signed_acta")
+        .eq("id", input.slot_id)
+        .eq("round_id", input.round_id)
         .single();
-      const actas = (round?.signed_actas as Record<string, { url: string }> | null) ?? {};
-      const path = actas[input.assigned_day]?.url;
-      if (!path) throw new TRPCError({ code: "NOT_FOUND", message: "Primero fotografía el acta firmada de este día" });
+      if (!slot) throw new TRPCError({ code: "NOT_FOUND", message: "Turno no encontrado" });
+      const path = (slot.signed_acta as { url?: string } | null)?.url;
+      if (!path) throw new TRPCError({ code: "NOT_FOUND", message: "Primero fotografía el acta firmada de este turno" });
 
       const { data: signed, error: se } = await db.storage
         .from("family-documents")
@@ -43,7 +43,8 @@ export const roundsOcrRouter = router({
         .from("delivery_round_assignments")
         .select("id, family_id, expediente")
         .eq("round_id", input.round_id)
-        .eq("assigned_day", input.assigned_day);
+        .eq("assigned_day", slot.slot_date)
+        .eq("turno", slot.turno);
       const list = rows ?? [];
       const reps = await resolveRepresentatives(db, [...new Set(list.map((r) => r.family_id))]);
       const assignments: AssignmentLite[] = list.map((r) => {

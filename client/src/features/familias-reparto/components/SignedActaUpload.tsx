@@ -5,22 +5,25 @@ import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { getSignedDocUrl } from "@/features/families/utils/signedUrl";
 import { useAttachSignedActa } from "../hooks/useReparto";
+import type { Turno } from "../schemas";
 
 interface Props {
   roundId: string;
+  slotId: string;
   day: string;
-  /** existing signed-acta path for this day (from delivery_rounds.signed_actas) */
+  turno: Turno;
+  /** existing signed-acta storage path for this slot */
   existingPath?: string | null;
 }
 
 const BUCKET = "family-documents";
 
 /**
- * T-Doc-3: photograph the SIGNED Hoja de Firmas and store it for physical audit.
+ * T-Doc-3: photograph the SIGNED Hoja de Firmas for a (day × turno) slot.
  * The image goes to the private family-documents bucket; the path + audit fields
- * are recorded on the round via attachSignedActa. Retrievable here via signed URL.
+ * are recorded on the slot via attachSignedActa. Retrievable via signed URL.
  */
-export function SignedActaUpload({ roundId, day, existingPath }: Props) {
+export function SignedActaUpload({ roundId, slotId, day, turno, existingPath }: Props) {
   const attach = useAttachSignedActa();
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -29,7 +32,7 @@ export function SignedActaUpload({ roundId, day, existingPath }: Props) {
     const file = e.target.files?.[0];
     if (!file) return;
     const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
-    const path = `actas-firmadas/${roundId}/${day}.${ext}`;
+    const path = `actas-firmadas/${roundId}/${day}-${turno}.${ext}`;
     setBusy(true);
     try {
       const supabase = createClient();
@@ -40,7 +43,7 @@ export function SignedActaUpload({ roundId, day, existingPath }: Props) {
         toast.error(error.message || "Error al subir la foto");
         return;
       }
-      await attach.mutateAsync({ round_id: roundId, assigned_day: day, documento_url: path });
+      await attach.mutateAsync({ round_id: roundId, slot_id: slotId, documento_url: path });
       toast.success("Acta firmada guardada");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Error al guardar el acta firmada");
