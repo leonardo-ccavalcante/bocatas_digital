@@ -80,6 +80,54 @@ informe generado" works without this (reads by family_id + tipo).
   data → the **EIPD addendum (migration `20260604000003`) must be signed before prod**.
   Voluntarios must never receive the narrative column nor a signed URL to the docx.
 
+## Live local verification (this session — local Supabase, project `repo-informe-valoracion`)
+
+- ✅ **Core render chain VERIFIED live** (`informeGen.live.integration.test.ts`, test 1):
+  real titular loaded from `persons` → `buildFamilyDataContext` → `renderDocument`
+  with the **published** template → the docx contains the real titular name AND the
+  valoración. Proves the whole chain + the dotted-parser fix against real DB + Storage.
+- Template published to local `document_templates` (v1, active) via the publish script.
+- `supabase db reset` applied cleanly (all migrations + seed). Seed = 1 family / 4
+  persons / 2 members / 0 follow-ups.
+
+### 🔴 Finding #2 — the shared `upload_family_document` path is broken in the repo migration state
+The persist RPC could NOT run locally. Root causes (all pre-existing, shared with the
+EXISTING manual family-doc upload, NOT specific to this feature):
+1. Migration `20260506000007_phase2_revoke_public_authenticated_from_secdef.sql`
+   `REVOKE EXECUTE … FROM PUBLIC, authenticated` **also stripped `service_role`'s
+   PUBLIC-inherited EXECUTE** on `upload_family_document` (and its siblings). Its header
+   comment "Application impact: NONE … service_role" is **wrong** — the exact mistake the
+   later `20260613000001` migration documents. `has_function_privilege('service_role', …)`
+   = **false** after reset. `get_user_role()` is likewise un-executable by app roles.
+2. `upload_family_document` guards on `get_user_role() IN ('admin','superadmin')`, but
+   `get_user_role()` reads `auth.jwt() -> 'app_metadata' ->> 'role'` — which is `NULL`
+   (→ `'beneficiario'`) for a bare **service_role** client. The app calls this RPC via
+   `createAdminClient()` (service_role) in `documents.ts`, so the guard **rejects the
+   app's own calls** (P0001).
+3. `family_member_documents.verified_by` is `UUID REFERENCES auth.users(id)`, but the app
+   passes `p_verified_by = String(ctx.user.id)` where `ctx.user.id` is a Manus **int/openId**
+   (`drizzle/schema.ts` `users.id = int`) — not a UUID in `auth.users` → `42804`/FK error.
+   (Same class as the TES-04 `registrado_por` landmine.)
+
+**These almost certainly break the existing manual family-document upload wherever this
+migration/grant state holds** — likely masked in prod only by the known prod↔repo
+migration gap. **Recommend: (a) verify manual upload works in prod; (b) fix the shared
+path** — grant EXECUTE back to the real caller, make `get_user_role()` handle service_role
+(or call the RPC via `createUserImpersonationClient` with an admin JWT), and store a real
+UUID (or null) in `verified_by`. Until then, `generateSocialReport` (which reuses this
+exact path) will fail the same way. Option: bypass the RPC with a direct versioned insert
+via service_role (like `createMemberDocument`) to decouple this feature from the shared bug.
+
+To verify persist locally I applied dev-only shims (grants + a `get_user_role` service_role
+branch); these are NOT committed and NOT a substitute for the real fix.
+
+### 🔴 Blocker — local browser login needs Manus OAuth
+The app authenticates via the Manus WebDev SDK (`sdk.authenticateRequest`, needs
+`OAUTH_SERVER_URL`). With it unset there is no `ctx.user`, so all admin procedures return
+UNAUTHORIZED — the UI can be served (running at `http://localhost:3007`) but not exercised
+without a Manus OAuth session. The server reads `process.env` directly (it does NOT load
+`.env.local`), so server-side env must be exported in the launching shell.
+
 ## Pre-PR gate (Leo's requirement — bullet-proof before delivery)
 Before opening the PR: `/sat` (Key Assumptions + Devil's Advocacy) · `/code-review` ·
 `/karpathy` · `/simplify` · mythos `laquesis`/`cassandra`/`themis`/`diogenes` over the
