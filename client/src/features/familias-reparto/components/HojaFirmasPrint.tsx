@@ -1,10 +1,12 @@
 import { Button } from "@/components/ui/button";
 import { Printer } from "lucide-react";
 import { useSigningRoster } from "../hooks/useReparto";
+import type { Turno } from "../schemas";
 
 interface Props {
   roundId: string;
   day: string;
+  turno: Turno;
 }
 
 const COLS = [
@@ -12,23 +14,26 @@ const COLS = [
   "Adultos", "Menores", "Total", "kg FyH", "kg Carne", "Firma",
 ];
 
+const TURNO_LABEL: Record<string, string> = { manana: "Mañana", tarde: "Tarde" };
+
 /**
- * Acta de entrega / Hoja de Firmas — printable A4 table modeled on the paper
- * sheet (Images/notas_entrega.jpeg). Admin-only data (includes DNI). Uses the
- * browser print dialog + print CSS — no heavy PDF dependency.
+ * Acta de entrega / Hoja de Firmas — printable A4 table per (day × turno).
+ * Admin-only data (includes DNI). Uses the browser print dialog.
  */
-export function HojaFirmasPrint({ roundId, day }: Props) {
-  const { data, isLoading } = useSigningRoster(roundId, day);
+export function HojaFirmasPrint({ roundId, day, turno }: Props) {
+  const { data, isLoading } = useSigningRoster(roundId, day, turno);
 
   if (isLoading) return <p className="text-sm text-muted-foreground">Generando hoja de firmas…</p>;
   if (!data) return null;
 
   return (
     <div className="space-y-3">
-      {/* Print isolation: only #hoja-firmas prints (the app has no global print CSS). */}
+      {/* Print isolation: only #hoja-firmas prints. */}
       <style>{`@media print { body * { visibility: hidden !important; } #hoja-firmas, #hoja-firmas * { visibility: visible !important; } #hoja-firmas { position: absolute; left: 0; top: 0; width: 100%; } }`}</style>
       <div className="flex items-center justify-between print:hidden">
-        <p className="text-sm text-muted-foreground">{data.rows.length} familias · {day}</p>
+        <p className="text-sm text-muted-foreground">
+          {data.rows.length} familias · {day} · {TURNO_LABEL[turno] ?? turno}
+        </p>
         <Button size="sm" onClick={() => window.print()}>
           <Printer className="mr-2 h-4 w-4" aria-hidden /> Imprimir
         </Button>
@@ -43,8 +48,14 @@ export function HojaFirmasPrint({ roundId, day }: Props) {
           </div>
           <div className="text-right">
             <h2 className="text-sm font-bold">{data.header.nombre ?? "Hoja de Firmas"}</h2>
-            <p>Nº Albarán B.A.: {data.header.num_albaran_ba ?? "—"}</p>
-            <p>Familias: {data.header.num_familias} · Fecha: {data.header.fecha}</p>
+            {data.header.es_fuera_madrid && (
+              <p className="font-semibold">Turno · Fuera de Madrid</p>
+            )}
+            <p>Nº Albarán B.A.: {(data.header.num_albaran_ba ?? []).join(" · ") || "—"}</p>
+            <p>
+              Familias: {data.header.num_familias} · Fecha: {data.header.fecha}
+              {" · "}Turno: {TURNO_LABEL[data.header.turno ?? ""] ?? data.header.turno ?? "—"}
+            </p>
           </div>
         </header>
 
