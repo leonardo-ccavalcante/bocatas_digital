@@ -39,6 +39,30 @@ function coerceNumber(v: number | null | undefined): number {
   return v ?? 0;
 }
 
+// ISO-2 → Spanish country name (mirrors client reports-tab/utils/paisLabel;
+// inlined server-side to avoid a client→server import).
+const regionNames: Intl.DisplayNames | null = (() => {
+  try {
+    return new Intl.DisplayNames(["es"], { type: "region" });
+  } catch {
+    return null;
+  }
+})();
+
+function paisEs(code: string | null | undefined): string {
+  if (!code) return "";
+  const up = code.toUpperCase();
+  if (regionNames) {
+    try {
+      const n = regionNames.of(up);
+      if (n && n !== up) return n;
+    } catch {
+      /* fall through to code */
+    }
+  }
+  return up;
+}
+
 // ── Main export ───────────────────────────────────────────────────────────────
 
 /**
@@ -65,7 +89,9 @@ export async function buildFamilyDataContext(
     .from("families")
     .select(
       `id, familia_numero, num_adultos, num_menores_18, distrito, codigo_postal, estado,
-       persons!titular_id(nombre, apellidos, numero_documento, telefono)`
+       fecha_alta, situacion_familiar_texto,
+       persons!titular_id(nombre, apellidos, numero_documento, telefono,
+                          pais_origen, fecha_nacimiento, direccion)`
     )
     .eq("id", familyId)
     .is("deleted_at", null)
@@ -82,11 +108,15 @@ export async function buildFamilyDataContext(
     ? family.persons[0]
     : family.persons;
 
-  const titular = {
+  const titular: FamilyDocumentContext["titular"] = {
     nombre: coerce(titularRaw?.nombre),
     apellidos: coerce(titularRaw?.apellidos),
     documento: coerce(titularRaw?.numero_documento),
     telefono: coerce(titularRaw?.telefono),
+    // Informe-only fields (blank for other slugs; nullGetter renders "").
+    pais: paisEs(titularRaw?.pais_origen),
+    fecha_nacimiento: coerce(titularRaw?.fecha_nacimiento),
+    direccion: coerce(titularRaw?.direccion),
   };
 
   const numAdultos = coerceNumber(family.num_adultos);
@@ -96,27 +126,33 @@ export async function buildFamilyDataContext(
     numero: String(family.familia_numero).padStart(4, "0"),
     num_adultos: numAdultos,
     num_menores_18: numMenores,
+    // Cross-document-consistent total (same value nota_entrega uses). Members
+    // count staleness is a separate data-integrity concern, not fixed here.
     total_miembros: numAdultos + numMenores,
     distrito: family.distrito ?? null,
     codigo_postal: family.codigo_postal ?? null,
     estado: coerce(family.estado),
+    fecha_alta: coerce(family.fecha_alta),
   };
 
   // ── 2. Fetch familia_miembros (non-deleted) ───────────────────────────────
 
   const { data: miembrosRaw } = await db
     .from("familia_miembros")
-    .select("nombre, apellidos, relacion, fecha_nacimiento")
+    .select("nombre, apellidos, relacion, fecha_nacimiento, documento")
     .eq("familia_id", familyId)
     .is("deleted_at", null)
     .order("created_at", { ascending: true });
 
-  const miembros: FamilyDocumentContext["miembros"] = (miembrosRaw ?? []).map((m) => ({
+  const miembros: FamilyDocumentContext["miembros"] = (miembrosRaw ?? []).map((m, i) => ({
     nombre: coerce(m.nombre),
     apellidos: coerce(m.apellidos),
     // DB column is `relacion` (confirmed from database.types.ts)
     parentesco: coerce(m.relacion),
     fecha_nacimiento: m.fecha_nacimiento ?? null,
+    // Informe member loop: dependents are numbered from 2 (titular is member 1).
+    numero: i + 2,
+    documento: coerce(m.documento),
   }));
 
   // ── 3. Slug-specific data ─────────────────────────────────────────────────
@@ -251,6 +287,9 @@ export async function buildFamilyDataContext(
     miembros,
     informe: informeBlock,
     round: roundBlock,
+    // «DESCRIPCIÓN SITUACIÓN FAMILIAR» — the edited valoración draft. Empty when
+    // unset → declared placeholder → validateContext blocks generation.
+    valoracion: coerce(family.situacion_familiar_texto),
     logos: [],
     static_blocks: {},
     generated_at: new Date().toISOString(),

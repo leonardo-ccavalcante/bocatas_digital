@@ -52,6 +52,11 @@ export type FamilyDocumentContext = {
     apellidos: string;
     documento: string;
     telefono: string;
+    // ── Informe valoración social only (optional — filled by buildFamilyDataContext
+    //    for slug "informe_social"; absent for nota_entrega/derivacion) ──
+    pais?: string; // «PAIS» — nacionalidad, ISO-2 resolved to Spanish display name
+    fecha_nacimiento?: string; // «Fecha_Nacimiento» — ISO date, "" if unknown
+    direccion?: string; // «DIRECCION» — persons.direccion, "" if unknown
   };
   familia: {
     numero: string; // zero-padded e.g. "0042"
@@ -61,13 +66,20 @@ export type FamilyDocumentContext = {
     distrito: string | null;
     codigo_postal: string | null;
     estado: string;
+    fecha_alta?: string; // «FECHA_ALTA» — families.fecha_alta ISO date (informe only)
   };
   miembros: Array<{
     nombre: string;
     apellidos: string;
     parentesco: string;
     fecha_nacimiento: string | null;
+    numero?: number; // 1-based row index in the informe member loop (2,3,…)
+    documento?: string; // «DNI_PASAPORTE_N» — familia_miembros.documento, "" if unknown
   }>;
+  // ── Valoración social narrative («DESCRIPCION_SITUACIÓN_FAMILIAR») ──
+  // Composed/edited draft persisted on families.situacion_familiar_texto.
+  // Declared as a required placeholder for informe_social → empty blocks generation.
+  valoracion?: string;
   // ── Informe social specific ──
   informe?: {
     fecha_seguimiento: string; // last family_follow_ups.fecha (ISO)
