@@ -41,9 +41,7 @@ export function RepartoList({ programId, onSelect }: Props) {
           <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3">
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium">{r.nombre}</p>
-              <p className="text-xs text-muted-foreground">
-                {r.fecha_inicio} · {r.dias_reparto} día{r.dias_reparto === 1 ? "" : "s"}
-              </p>
+              <p className="text-xs text-muted-foreground">{r.fecha_inicio}</p>
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <Badge variant={ESTADO_VARIANT[r.estado] ?? "secondary"}>{r.estado}</Badge>
