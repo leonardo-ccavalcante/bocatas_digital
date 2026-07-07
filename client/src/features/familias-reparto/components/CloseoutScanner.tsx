@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Loader2, QrCode } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import type { Turno } from "../schemas";
 
 // ATL-01: camera lib (~49KB gzip) loads only when the scan dialog opens, not
 // with the reparto tab.
@@ -13,13 +14,14 @@ const QRScanner = lazy(() =>
 interface Props {
   roundId: string;
   currentDay: string;
+  currentTurno: Turno;
   onResolved: (assignmentId: string) => void;
 }
 
 const UUID_RE = /([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i;
 
 /** QR scan path for close-out. Reuses the comedor QRScanner — no new scanner. */
-export function CloseoutScanner({ roundId, currentDay, onResolved }: Props) {
+export function CloseoutScanner({ roundId, currentDay, currentTurno, onResolved }: Props) {
   const [open, setOpen] = useState(false);
   const [warning, setWarning] = useState<string | null>(null);
   const utils = trpc.useUtils();
@@ -32,6 +34,7 @@ export function CloseoutScanner({ roundId, currentDay, onResolved }: Props) {
       round_id: roundId,
       person_id: match[1],
       current_day: currentDay,
+      current_turno: currentTurno,
     });
     switch (result.status) {
       case "ready":
@@ -41,9 +44,11 @@ export function CloseoutScanner({ roundId, currentDay, onResolved }: Props) {
       case "already_attended":
         setWarning("Esta familia ya estaba marcada como atendida.");
         break;
-      case "wrong_day":
-        setWarning(`Familia asignada al ${result.expected_day}, no a hoy.`);
+      case "wrong_slot": {
+        const t = result.expected_turno === "manana" ? "Mañana" : "Tarde";
+        setWarning(`Familia asignada al ${result.expected_day} · ${t}, no a este turno.`);
         break;
+      }
       case "not_in_round":
         setWarning("Familia no asignada a este reparto.");
         break;
@@ -55,9 +60,14 @@ export function CloseoutScanner({ roundId, currentDay, onResolved }: Props) {
   return (
     <div className="space-y-2">
       {warning && (
-        <div role="status" className="rounded-md border border-amber-200 bg-amber-50 p-2 text-sm text-amber-700">
+        <div
+          role="status"
+          className="rounded-md border border-amber-200 bg-amber-50 p-2 text-sm text-amber-700"
+        >
           {warning}
-          <button className="ml-2 text-xs underline" onClick={() => setWarning(null)}>Cerrar</button>
+          <button className="ml-2 text-xs underline" onClick={() => setWarning(null)}>
+            Cerrar
+          </button>
         </div>
       )}
       <Button variant="outline" className="w-full" onClick={() => setOpen(true)}>

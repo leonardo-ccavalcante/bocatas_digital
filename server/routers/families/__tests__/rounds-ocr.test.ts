@@ -42,26 +42,27 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe("rounds-ocr — proposeActaCloseout (read-only, OCR→match→propose)", () => {
-  it("matches OCR rows to the roster by expediente and pre-selects confident signatures", async () => {
-    tableResults["delivery_rounds"] = { data: { signed_actas: { "2026-06-01": { url: "actas/x.jpg" } } }, error: null };
+describe("rounds-ocr — proposeActaCloseout (read-only, per-slot OCR→match→propose)", () => {
+  const SLOT = "22222222-2222-4222-8222-222222222222";
+  it("matches OCR rows to the slot roster by expediente and pre-selects confident signatures", async () => {
+    tableResults["delivery_round_slots"] = { data: { slot_date: "2026-06-01", turno: "manana", signed_acta: { url: "actas/x.jpg" } }, error: null };
     tableResults["delivery_round_assignments"] = { data: [{ id: "a1", family_id: "f1", expediente: "101" }], error: null };
     tableResults["familia_miembros"] = { data: [{ familia_id: "f1", relacion: "parent", created_at: "x", person_id: "p1" }], error: null };
     tableResults["persons"] = { data: [{ id: "p1", nombre: "Maria", apellidos: "G", numero_documento: null, telefono: null }], error: null };
     extractActaSignatures.mockResolvedValue({ success: true, rows: [{ expediente: "101", signed: true, confidence: 0.95 }], extractionConfidence: 0.9, warnings: [] });
 
     const caller = roundsOcrRouter.createCaller(ctx(buildUser("voluntario")));
-    const res = await caller.proposeActaCloseout({ round_id: R, assigned_day: "2026-06-01" });
+    const res = await caller.proposeActaCloseout({ round_id: R, slot_id: SLOT });
 
     expect(res.proposal.attendedAutoIds).toEqual(["a1"]);
     expect(res.proposal.rows[0].nombre).toBe("Maria G");
     expect(extractActaSignatures).toHaveBeenCalledWith("https://signed/acta.jpg");
   });
 
-  it("errors clearly when no signed-acta photo is stored for the day", async () => {
-    tableResults["delivery_rounds"] = { data: { signed_actas: {} }, error: null };
+  it("errors clearly when no signed-acta photo is stored for the turno", async () => {
+    tableResults["delivery_round_slots"] = { data: { slot_date: "2026-06-01", turno: "manana", signed_acta: null }, error: null };
     const caller = roundsOcrRouter.createCaller(ctx(buildUser("voluntario")));
-    await expect(caller.proposeActaCloseout({ round_id: R, assigned_day: "2026-06-01" }))
+    await expect(caller.proposeActaCloseout({ round_id: R, slot_id: SLOT }))
       .rejects.toThrow(/fotograf|acta|NOT_FOUND/i);
   });
 });
