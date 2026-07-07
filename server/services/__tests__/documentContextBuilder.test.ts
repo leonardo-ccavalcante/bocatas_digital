@@ -252,6 +252,57 @@ describe("buildFamilyDataContext — informe_social", () => {
   });
 });
 
+// ── Test: informe valoración social — extended fields ─────────────────────────
+
+describe("buildFamilyDataContext — informe valoración fields", () => {
+  it("maps pais (ISO-2→ES), fecha_nacimiento, direccion, fecha_alta, valoracion, member numero+documento", async () => {
+    const db = buildDb({
+      families: {
+        data: {
+          ...FAMILY_ROW,
+          fecha_alta: "2026-01-15",
+          situacion_familiar_texto: "Situación de prueba",
+          persons: {
+            ...TITULAR_ROW,
+            pais_origen: "PE",
+            fecha_nacimiento: "1985-07-20",
+            direccion: "Calle Falsa 1",
+          },
+        },
+        error: null,
+      },
+      familia_miembros: { data: [{ ...MIEMBRO_ROW, documento: "M-123" }], error: null },
+      family_follow_ups: { data: [FOLLOW_UP_1], error: null },
+    });
+
+    const ctx = await buildFamilyDataContext(db, FAMILY_UUID, { slug: "informe_social" });
+
+    expect(ctx.titular.pais).toBe("Perú"); // ISO-2 → Spanish
+    expect(ctx.titular.fecha_nacimiento).toBe("1985-07-20");
+    expect(ctx.titular.direccion).toBe("Calle Falsa 1");
+    expect(ctx.familia.fecha_alta).toBe("2026-01-15");
+    expect(ctx.valoracion).toBe("Situación de prueba");
+    expect(ctx.miembros[0].numero).toBe(2); // dependents numbered from 2
+    expect(ctx.miembros[0].documento).toBe("M-123");
+  });
+
+  it("blanks the extended fields (never undefined) when the DB columns are null", async () => {
+    const db = buildDb({
+      families: { data: FAMILY_ROW, error: null }, // no fecha_alta / situacion_familiar_texto / extra person cols
+      familia_miembros: { data: [MIEMBRO_ROW], error: null },
+      family_follow_ups: { data: [FOLLOW_UP_1], error: null },
+    });
+
+    const ctx = await buildFamilyDataContext(db, FAMILY_UUID, { slug: "informe_social" });
+
+    expect(ctx.titular.pais).toBe("");
+    expect(ctx.titular.direccion).toBe("");
+    expect(ctx.familia.fecha_alta).toBe("");
+    expect(ctx.valoracion).toBe("");
+    expect(ctx.miembros[0].documento).toBe("");
+  });
+});
+
 // ── Test: nota_entrega ────────────────────────────────────────────────────────
 
 describe("buildFamilyDataContext — nota_entrega", () => {
