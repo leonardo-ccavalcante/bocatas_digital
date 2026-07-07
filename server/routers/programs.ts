@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { router, protectedProcedure } from "../_core/trpc";
+import { router, voluntarioProcedure, adminProcedure } from "../_core/trpc";
 import { createAdminClient } from "../../client/src/lib/supabase/server";
 import type { Database } from "../../client/src/lib/database.types";
 
@@ -66,7 +66,7 @@ export const programsRouter = router({
   // ─── Job 1: Programs Catalog ─────────────────────────────────────────────
 
   /** Returns active programs. Voluntarios only see volunteer_can_access=true */
-  getAll: protectedProcedure.query(async ({ ctx }) => {
+  getAll: voluntarioProcedure.query(async ({ ctx }) => {
     const supabase = createAdminClient();
     const role = ctx.user.role;
 
@@ -76,8 +76,9 @@ export const programsRouter = router({
       .eq("is_active", true)
       .order("display_order");
 
-    if (role === "user") {
-      // voluntario role maps to "user" in Manus OAuth
+    // Voluntarios (non-elevated) only see programs flagged volunteer_can_access.
+    // Admin/superadmin see every active program.
+    if (role !== "admin" && role !== "superadmin") {
       query = query.eq("volunteer_can_access", true);
     }
 
@@ -87,10 +88,7 @@ export const programsRouter = router({
   }),
 
   /** Returns all programs with enrollment counts (admin+) */
-  getAllWithCounts: protectedProcedure.query(async ({ ctx }) => {
-    if (ctx.user.role !== "admin" && ctx.user.role !== "superadmin") {
-      throw new TRPCError({ code: "FORBIDDEN", message: "Solo administradores pueden ver los conteos" });
-    }
+  getAllWithCounts: adminProcedure.query(async () => {
     const supabase = createAdminClient();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await (supabase as any).rpc("get_programs_with_counts");
@@ -105,12 +103,9 @@ export const programsRouter = router({
   }),
 
   /** Returns single program by slug (admin+) */
-  getBySlug: protectedProcedure
+  getBySlug: adminProcedure
     .input(z.object({ slug: z.string() }))
-    .query(async ({ ctx, input }) => {
-      if (ctx.user.role !== "admin" && ctx.user.role !== "superadmin") {
-        throw new TRPCError({ code: "FORBIDDEN" });
-      }
+    .query(async ({ input }) => {
       const supabase = createAdminClient();
       const { data, error } = await supabase
         .from("programs")
@@ -125,12 +120,9 @@ export const programsRouter = router({
     }),
 
   /** Creates a new program (admin+) */
-  create: protectedProcedure
+  create: adminProcedure
     .input(ProgramInputSchema)
     .mutation(async ({ ctx, input }) => {
-      if (ctx.user.role !== "admin" && ctx.user.role !== "superadmin") {
-        throw new TRPCError({ code: "FORBIDDEN" });
-      }
       const supabase = createAdminClient();
       const { data, error } = await supabase
         .from("programs")
@@ -166,12 +158,9 @@ export const programsRouter = router({
     }),
 
   /** Updates an existing program (admin+) */
-  update: protectedProcedure
+  update: adminProcedure
     .input(z.object({ id: uuidLike, data: ProgramInputSchema.partial() }))
-    .mutation(async ({ ctx, input }) => {
-      if (ctx.user.role !== "admin" && ctx.user.role !== "superadmin") {
-        throw new TRPCError({ code: "FORBIDDEN" });
-      }
+    .mutation(async ({ input }) => {
       const supabase = createAdminClient();
       const { data, error } = await supabase
         .from("programs")
@@ -193,12 +182,9 @@ export const programsRouter = router({
     }),
 
   /** Deactivates a program, returns active enrollment count as warning (admin+) */
-  deactivate: protectedProcedure
+  deactivate: adminProcedure
     .input(z.object({ id: uuidLike }))
-    .mutation(async ({ ctx, input }) => {
-      if (ctx.user.role !== "admin" && ctx.user.role !== "superadmin") {
-        throw new TRPCError({ code: "FORBIDDEN" });
-      }
+    .mutation(async ({ input }) => {
       const supabase = createAdminClient();
 
       // Count active enrollments first
@@ -222,7 +208,7 @@ export const programsRouter = router({
   // ─── Job 2: Enrollment Management ────────────────────────────────────────
 
   /** Returns enrolled persons for a program (admin+) */
-  getEnrollments: protectedProcedure
+  getEnrollments: adminProcedure
     .input(z.object({
       programId: uuidLike,
       estado: z.enum(["activo", "completado", "rechazado"]).optional(),
@@ -230,10 +216,7 @@ export const programsRouter = router({
       limit: z.number().int().min(1).max(100).default(50),
       offset: z.number().int().min(0).default(0),
     }))
-    .query(async ({ ctx, input }) => {
-      if (ctx.user.role !== "admin" && ctx.user.role !== "superadmin") {
-        throw new TRPCError({ code: "FORBIDDEN" });
-      }
+    .query(async ({ input }) => {
       const supabase = createAdminClient();
 
       let query = supabase
@@ -258,12 +241,9 @@ export const programsRouter = router({
     }),
 
   /** Enrolls a person in a program with consent pre-check (admin+) */
-  enrollPerson: protectedProcedure
+  enrollPerson: adminProcedure
     .input(EnrollmentInputSchema)
-    .mutation(async ({ ctx, input }) => {
-      if (ctx.user.role !== "admin" && ctx.user.role !== "superadmin") {
-        throw new TRPCError({ code: "FORBIDDEN" });
-      }
+    .mutation(async ({ input }) => {
       const supabase = createAdminClient();
 
       // Get program requires_consents
@@ -324,12 +304,9 @@ export const programsRouter = router({
     }),
 
   /** Gets all enrollments for a specific person (admin+) */
-  getPersonEnrollments: protectedProcedure
+  getPersonEnrollments: adminProcedure
     .input(z.object({ personId: uuidLike }))
-    .query(async ({ ctx, input }) => {
-      if (ctx.user.role !== "admin" && ctx.user.role !== "superadmin") {
-        throw new TRPCError({ code: "FORBIDDEN" });
-      }
+    .query(async ({ input }) => {
       const supabase = createAdminClient();
       const { data, error } = await supabase
         .from("program_enrollments")
@@ -347,12 +324,9 @@ export const programsRouter = router({
     }),
 
   /** Unenrolls a person from a program (sets estado='completado') (admin+) */
-  unenrollPerson: protectedProcedure
+  unenrollPerson: adminProcedure
     .input(z.object({ enrollmentId: uuidLike, notas: z.string().optional() }))
-    .mutation(async ({ ctx, input }) => {
-      if (ctx.user.role !== "admin" && ctx.user.role !== "superadmin") {
-        throw new TRPCError({ code: "FORBIDDEN" });
-      }
+    .mutation(async ({ input }) => {
       const supabase = createAdminClient();
       const { data, error } = await supabase
         .from("program_enrollments")
