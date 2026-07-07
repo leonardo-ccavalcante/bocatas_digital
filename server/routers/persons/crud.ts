@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { createAdminClient } from "../../../client/src/lib/supabase/server";
-import { adminProcedure, protectedProcedure, voluntarioProcedure, router } from "../../_core/trpc";
+import { adminProcedure, voluntarioProcedure, router } from "../../_core/trpc";
 import { logProcedureAction, logProcedureError } from "../../_core/logging-middleware";
 import { redactHighRiskFields } from "../../_core/rlsRedaction";
 import { ilikeForOr } from "../../_core/postgrestFilter";
@@ -224,7 +224,7 @@ export const crudRouter = router({
    * Search persons by name.
    * Uses service role key to bypass RLS.
    */
-  search: protectedProcedure
+  search: voluntarioProcedure
     .input(z.object({ query: z.string().min(2).max(100) }))
     .query(async ({ input }) => {
       const supabase = createAdminClient();

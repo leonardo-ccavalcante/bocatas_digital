@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { protectedProcedure, router } from "../../_core/trpc";
+import { voluntarioProcedure, router } from "../../_core/trpc";
 import { logCorrelatedErrorToStderr } from "../../_core/logging-middleware";
 import {
   extractDeliveriesFromOCR,
@@ -13,7 +13,7 @@ export const ocrRouter = router({
   /**
    * Extract delivery data from a photo of physical delivery document.
    */
-  extractFromPhoto: protectedProcedure
+  extractFromPhoto: voluntarioProcedure
     .input(
       z.object({
         photoUrl: z.string().url("URL de foto inválida").min(1),
@@ -53,7 +53,7 @@ export const ocrRouter = router({
   /**
    * Extract deliveries from OCR text.
    */
-  extractFromOCR: protectedProcedure
+  extractFromOCR: voluntarioProcedure
     .input(
       z.object({
         imageUrl: z.string().url("URL de imagen inválida"),
@@ -84,7 +84,7 @@ export const ocrRouter = router({
    * Save extracted delivery batch to database.
    * Inserts into the canonical `deliveries` table (via saveDeliveryBatch).
    */
-  saveBatch: protectedProcedure
+  saveBatch: voluntarioProcedure
     .input(
       z.object({
         header: z.object({

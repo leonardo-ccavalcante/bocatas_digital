@@ -1,14 +1,14 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { createAdminClient } from "../../../client/src/lib/supabase/server";
-import { protectedProcedure, router } from "../../_core/trpc";
+import { voluntarioProcedure, router } from "../../_core/trpc";
 
 export const enrollRouter = router({
   /**
    * Enroll a person in one or more programs.
    * Uses service role key to bypass RLS.
    */
-  enroll: protectedProcedure
+  enroll: voluntarioProcedure
     .input(z.object({
       personId: z.string().uuid(),
       programIds: z.array(z.string().uuid()),

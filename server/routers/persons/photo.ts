@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { protectedProcedure, router } from "../../_core/trpc";
+import { voluntarioProcedure, router } from "../../_core/trpc";
 import { storagePut } from "../../storage";
 
 export const photoRouter = router({
@@ -7,7 +7,7 @@ export const photoRouter = router({
    * Upload a photo (profile or consent document) to Manus CDN storage.
    * Accepts base64-encoded JPEG, returns a public CDN URL.
    */
-  uploadPhoto: protectedProcedure
+  uploadPhoto: voluntarioProcedure
     .input(z.object({
       bucket: z.enum(["fotos-perfil", "documentos-consentimiento"]),
       base64: z.string().min(1),
