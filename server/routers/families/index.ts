@@ -11,6 +11,7 @@ import { legacyImportRouter } from "./legacy-import";
 import { informesImportRouter } from "./informes-import";
 import { followUpsRouter } from "./follow-ups";
 import { documentsGenRouter } from "./documents-gen";
+import { narrativeRouter } from "./narrative";
 import { templateEditorRouter } from "./template-editor";
 import { roundsScheduleRouter } from "./rounds-schedule";
 import { roundsCloseoutRouter } from "./rounds-closeout";
@@ -47,6 +48,7 @@ export const familiesRouter = mergeRouters(
   informesImportRouter,
   followUpsRouter,
   documentsGenRouter,
+  narrativeRouter,
   templateEditorRouter,
   roundsScheduleRouter,
   roundsCloseoutRouter,
