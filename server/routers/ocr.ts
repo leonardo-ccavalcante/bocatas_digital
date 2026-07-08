@@ -12,7 +12,7 @@
  */
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { protectedProcedure, router } from "../_core/trpc";
+import { voluntarioProcedure, router } from "../_core/trpc";
 import { invokeLLM } from "../_core/llm";
 import { OCRResultSchema } from "../../client/src/features/persons/schemas";
 
@@ -27,7 +27,7 @@ export const ocrRouter = router({
    * - International national IDs (Documento_Extranjero)
    * - Document country of origin (pais_documento)
    */
-  extractDocument: protectedProcedure
+  extractDocument: voluntarioProcedure
     .input(
       z.object({
         base64Image: z.string().min(1, "Image required"),

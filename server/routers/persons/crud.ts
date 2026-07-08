@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { createAdminClient } from "../../../client/src/lib/supabase/server";
-import { adminProcedure, protectedProcedure, voluntarioProcedure, router } from "../../_core/trpc";
+import { adminProcedure, voluntarioProcedure, router } from "../../_core/trpc";
 import { logProcedureAction, logProcedureError } from "../../_core/logging-middleware";
 import { redactHighRiskFields } from "../../_core/rlsRedaction";
 import { ilikeForOr } from "../../_core/postgrestFilter";
@@ -258,7 +258,7 @@ export const crudRouter = router({
    * Find duplicate persons using pg_trgm similarity (server-side).
    * See findDuplicatesHandler above for the rationale.
    */
-  findDuplicates: protectedProcedure
+  findDuplicates: voluntarioProcedure
     .input(
       z.object({
         nombre: z.string().min(1).max(200),
@@ -274,7 +274,7 @@ export const crudRouter = router({
    * Search persons by name.
    * Uses service role key to bypass RLS.
    */
-  search: protectedProcedure
+  search: voluntarioProcedure
     .input(z.object({ query: z.string().min(2).max(100) }))
     .query(async ({ input }) => {
       const supabase = createAdminClient();

@@ -29,7 +29,9 @@ function authCtx(): TrpcContext {
     email: "test@bocatas.org",
     name: "Test",
     loginMethod: "manus",
-    role: "user",
+    // saveConsents is voluntarioProcedure; use a staff role so the caller
+    // reaches the Group-A enforcement (the subject under test), not the guard.
+    role: "voluntario",
     createdAt: new Date(),
     updatedAt: new Date(),
     lastSignedIn: new Date(),

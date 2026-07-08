@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { protectedProcedure, router } from "../../_core/trpc";
+import { voluntarioProcedure, router } from "../../_core/trpc";
 import { createAdminClient } from "../../../client/src/lib/supabase/server";
 import { uuidLike, type Entrega } from "./_shared";
 
@@ -9,7 +9,7 @@ export const sessionsRouter = router({
    * Get delivery sessions (batches) for a family from `deliveries`.
    * Groups by session_id (replaces old entregas_batch_id grouping).
    */
-  getBatchesByFamilia: protectedProcedure
+  getBatchesByFamilia: voluntarioProcedure
     .input(
       z.object({
         familia_id: uuidLike,
@@ -54,7 +54,7 @@ export const sessionsRouter = router({
   /**
    * Get delivery details for a session from `deliveries`.
    */
-  getBatchDetails: protectedProcedure
+  getBatchDetails: voluntarioProcedure
     .input(z.object({ batchId: z.string() }))
     .query(async ({ input }) => {
       try {
