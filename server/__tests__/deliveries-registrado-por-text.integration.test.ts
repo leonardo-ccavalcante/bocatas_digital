@@ -46,8 +46,11 @@ describeDb("deliveries.registrado_por is TEXT (TES-04 / #116)", () => {
       .select()
       .single();
 
-    // Pre-fix (uuid column): error.code === '22P02'. Post-fix (text): the value is
-    // accepted; any residual error is the FK on the fake family_id (23503), never 22P02.
-    expect(error?.code).not.toBe("22P02");
+    // RED→GREEN, positively: pre-fix (uuid column) the non-UUID value raises 22P02;
+    // post-fix (text) it is coerced/accepted and the ONLY remaining failure is the FK
+    // violation on the non-existent family_id. Asserting the EXACT FK code (23503) —
+    // not merely "not 22P02" — proves the value passed type-coercion into a text column,
+    // so the test can't pass vacuously on some unrelated error.
+    expect(error?.code).toBe("23503");
   });
 });
