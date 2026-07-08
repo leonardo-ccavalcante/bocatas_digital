@@ -27,6 +27,9 @@ const fullRow = {
   // Family social-report narrative (INFORMES SOCIALES) — also high-risk (Art. 9).
   situacion_familiar_texto: "Familia monoparental con dos menores.",
   necesidades_texto: "Apoyo alimentario y acompañamiento.",
+  // RGPD Art. 9/10 special-category — "otras características / colectivo".
+  colectivos: ["gitanos"],
+  colectivo_otros: "v1:enc:enc:enc", // encrypted-at-rest ciphertext shape
   fase_itinerario: "acogida",
 };
 

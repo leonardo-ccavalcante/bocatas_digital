@@ -4,6 +4,7 @@ import { createAdminClient } from "../../../client/src/lib/supabase/server";
 import { adminProcedure, voluntarioProcedure, router } from "../../_core/trpc";
 import { logProcedureAction, logProcedureError } from "../../_core/logging-middleware";
 import { redactHighRiskFields } from "../../_core/rlsRedaction";
+import { encryptPII, decryptPII, isPiiCryptoConfigured } from "../../_core/pii-crypto";
 import { ilikeForOr } from "../../_core/postgrestFilter";
 import { PersonCreateInput } from "./_shared";
 
@@ -72,7 +73,7 @@ export const crudRouter = router({
     .input(PersonCreateInput)
     .mutation(async ({ ctx, input }) => {
       const supabase = createAdminClient();
-      const { program_ids, ...personData } = input;
+      const { program_ids, colectivo_consentimiento, ...personData } = input;
       void program_ids;
       const startTime = Date.now();
 
@@ -108,7 +109,18 @@ export const crudRouter = router({
         empadronado: personData.empadronado ?? null,
         nivel_estudios: personData.nivel_estudios ?? null,
         situacion_laboral: personData.situacion_laboral ?? null,
+        situacion_ante_empleo: personData.situacion_ante_empleo ?? null,
         nivel_ingresos: personData.nivel_ingresos ?? null,
+        // RGPD Art. 9/10 special-category — persisted ONLY under explicit
+        // consent. The enum tags are stored plainly (needed for aggregation);
+        // the free-text "otros" is app-layer encrypted at rest, and is stored
+        // ONLY when the encryption key is configured — otherwise it is dropped
+        // (never stored as plaintext) so a missing key degrades gracefully
+        // instead of failing the whole registration.
+        colectivos: colectivo_consentimiento ? (personData.colectivos ?? null) : null,
+        colectivo_otros: colectivo_consentimiento && isPiiCryptoConfigured()
+          ? encryptPII(str(personData.colectivo_otros))
+          : null,
         canal_llegada: personData.canal_llegada,
         entidad_derivadora: str(personData.entidad_derivadora),
         persona_referencia: str(personData.persona_referencia),
@@ -190,6 +202,18 @@ export const crudRouter = router({
         const row = redacted as Record<string, unknown>;
         for (const field of PERSONS_RESTRICTED_EXTRA_FIELDS) {
           delete row[field];
+        }
+      } else if (redacted && ELEVATED_ROLES.has(ctx.user.role)) {
+        // Elevated callers keep colectivo_otros; decrypt for display. Degrade
+        // to null on failure (e.g. key rotated away) rather than failing the
+        // whole profile read.
+        const row = redacted as Record<string, unknown>;
+        if (typeof row.colectivo_otros === "string") {
+          try {
+            row.colectivo_otros = decryptPII(row.colectivo_otros as string);
+          } catch {
+            row.colectivo_otros = null;
+          }
         }
       }
       return redacted;
