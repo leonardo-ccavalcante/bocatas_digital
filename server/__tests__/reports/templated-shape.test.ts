@@ -410,6 +410,23 @@ describe("reports.informeIrpfDemografico", () => {
       caller.informeIrpfDemografico({ year: 2025 }),
     ).rejects.toMatchObject({ code: "INTERNAL_SERVER_ERROR" });
   });
+
+  // Regression guard for the funder-report scoping. A demo/practice check-in
+  // (Epic B.7) or a check-in outside the fiscal year must NEVER enter the IRPF
+  // denominator. Asserts the query applies year bounds + deleted_at + es_demo.
+  it("scopes the population to non-demo, non-deleted check-ins in the fiscal year", async () => {
+    const chain = emptyChain();
+    fromMock.mockReturnValueOnce(chain);
+    const caller = informeIrpfDemograficoRouter.createCaller(ctxWithRole("admin"));
+    await caller.informeIrpfDemografico({ year: 2025 });
+
+    expect(fromMock).toHaveBeenCalledWith("persons");
+    expect(chain.gte).toHaveBeenCalledWith("attendances.checked_in_date", "2025-01-01");
+    expect(chain.lte).toHaveBeenCalledWith("attendances.checked_in_date", "2025-12-31");
+    expect(chain.is).toHaveBeenCalledWith("attendances.deleted_at", null);
+    // OS1: demo rows are authoritative-excluded from funder reports.
+    expect(chain.eq).toHaveBeenCalledWith("attendances.es_demo", false);
+  });
 });
 
 // ─── 11. RGPD Art. 30 — logAudit called on every templated procedure ─────

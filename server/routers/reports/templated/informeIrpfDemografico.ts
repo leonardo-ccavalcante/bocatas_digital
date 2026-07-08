@@ -93,11 +93,15 @@ export const informeIrpfDemograficoRouter = router({
       const start = `${year}-01-01`;
       const end = `${year}-12-31`;
 
-      // Population = persons with ≥1 non-deleted check-in during the fiscal year.
-      // `attendances!inner` + the embedded date filter scopes persons to those
-      // attended in [start, end]; each person is returned once. persons.deleted_at
-      // intentionally NOT filtered (aggregate-only k-anon posture, consistent
-      // with sibling reports); soft-deleted check-ins ARE excluded.
+      // Population = persons with ≥1 non-deleted, non-demo check-in during the
+      // fiscal year. `attendances!inner` + the embedded date filter scopes
+      // persons to those attended in [start, end]; each person is returned once.
+      // persons.deleted_at intentionally NOT filtered (aggregate-only k-anon
+      // posture, consistent with sibling reports); soft-deleted check-ins ARE
+      // excluded. es_demo=false excludes practice/demo check-ins (Epic B.7) —
+      // demo rows must never inflate a funder report (dashboard.ts treats this
+      // exclusion as authoritative for funder reports). A person whose ONLY
+      // check-ins in the year are demo is correctly dropped by the inner join.
       const { data, error } = await db
         .from("persons")
         .select(
@@ -106,6 +110,7 @@ export const informeIrpfDemograficoRouter = router({
         .gte("attendances.checked_in_date", start)
         .lte("attendances.checked_in_date", end)
         .is("attendances.deleted_at", null)
+        .eq("attendances.es_demo", false)
         .returns<RawPersonRow[]>();
 
       if (error) {
