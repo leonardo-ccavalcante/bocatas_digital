@@ -47,6 +47,26 @@ de daño en caso de brecha es **alto**.
 - Base secundaria a valorar por el/la DPO: Art. 9.2.g (interés público esencial,
   justificación de subvención pública) — a documentar si procede.
 
+### 3.1. Datos migrados desde el proceso actual (continuidad del tratamiento)
+
+El dato de colectivo entra por **dos vías con base jurídica distinta**:
+
+1. **Formulario de inscripción (recogida nueva)** → Art. 9.2.a, consentimiento
+   explícito en el punto de recogida (lo anterior).
+2. **Importación / migración GUF-Bocatas (dato ya existente)** → **continuidad
+   del tratamiento**: la persona interesada ya otorgó su conformidad en el
+   proceso actual del que proviene el dato; mover ese dato ya lícitamente
+   obtenido a la nueva plataforma **no constituye una recogida nueva**, sino la
+   continuación del mismo tratamiento con la misma finalidad (justificación de
+   subvención al financiador). El importador **no** solicita un consentimiento
+   nuevo en runtime; escribe la columna tipada `persons.colectivos` conservando
+   la finalidad y sin ampliar el conjunto de datos. Ámbito técnico:
+   `upsert_legacy_person` (migración `20260708000003`).
+
+> El/la DPO debe confirmar que el proceso de origen (GUF/Bocatas) recogió una
+> conformidad válida para esta categoría; en caso contrario, aplicar la Opción
+> conservadora (no migrar colectivo y re-recabar por formulario con 9.2.a).
+
 ## 4. Principios aplicados
 
 - **Minimización:** solo se recogen las 4 categorías del formulario IRPF/FSE + un
