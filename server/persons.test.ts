@@ -287,8 +287,9 @@ describe("persons router — updateRole procedure", () => {
         newRole: "admin",
       })
     ).rejects.toMatchObject({
+      // adminProcedure enforces the same {admin,superadmin} gate the removed
+      // inline check did; it emits the canonical message, so assert the code only.
       code: "FORBIDDEN",
-      message: "Solo admin puede cambiar roles",
     });
   });
 
@@ -384,8 +385,9 @@ describe("persons router — updateFaseItinerario procedure", () => {
         newFaseItinerario: "formacion",
       })
     ).rejects.toMatchObject({
+      // adminProcedure enforces the same {admin,superadmin} gate the removed
+      // inline check did; it emits the canonical message, so assert the code only.
       code: "FORBIDDEN",
-      message: "Solo admin puede cambiar fase itinerario",
     });
   });
 

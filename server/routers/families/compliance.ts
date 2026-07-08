@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { router, adminProcedure, protectedProcedure } from "../../_core/trpc";
+import { router, adminProcedure, voluntarioProcedure } from "../../_core/trpc";
 import { createAdminClient } from "../../../client/src/lib/supabase/server";
 import {
   isMemberAdult,
@@ -77,7 +77,7 @@ export function collectRenewalAlerts(
 export const complianceRouter = router({
   // ─── Job 7: Volunteer Identity Verifier ─────────────────────────────────
   /** Search families for volunteer identity verification (field-level redaction) */
-  verifyIdentity: protectedProcedure
+  verifyIdentity: voluntarioProcedure
     .input(z.object({ query: z.string().min(1) }))
     .query(async ({ input }) => {
       const db = createAdminClient();

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { protectedProcedure, router } from "../../_core/trpc";
+import { voluntarioProcedure, router } from "../../_core/trpc";
 import { logCorrelatedErrorToStderr } from "../../_core/logging-middleware";
 import { createAdminClient } from "../../../client/src/lib/supabase/server";
 import { uuidLike, type Entrega } from "./_shared";
@@ -9,7 +9,7 @@ export const crudRouter = router({
   /**
    * Get deliveries from the canonical `deliveries` table.
    */
-  getDeliveries: protectedProcedure
+  getDeliveries: voluntarioProcedure
     .input(
       z.object({
         limit: z.number().int().positive().default(50),
@@ -58,7 +58,7 @@ export const crudRouter = router({
   /**
    * Get single delivery by ID from the canonical `deliveries` table.
    */
-  getDeliveryById: protectedProcedure
+  getDeliveryById: voluntarioProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ input }) => {
       try {
@@ -86,7 +86,7 @@ export const crudRouter = router({
   /**
    * Create a delivery record in the canonical `deliveries` table.
    */
-  createDelivery: protectedProcedure
+  createDelivery: voluntarioProcedure
     .input(
       z.object({
         family_id: uuidLike,
@@ -117,7 +117,9 @@ export const crudRouter = router({
             kg_otros: input.kg_otros ?? null,
             notas: input.notas ?? null,
             session_id: input.session_id ?? null,
-            registrado_por: ctx.user?.name ?? null,
+            // App-wide convention for the acting user (cf. announcements autor_id,
+            // programs created_by): String(ctx.user.id). registrado_por is TEXT (ADR-0011).
+            registrado_por: ctx.user ? String(ctx.user.id) : null,
           }])
           .select()
           .single();
@@ -142,7 +144,7 @@ export const crudRouter = router({
   /**
    * Update a delivery record in the canonical `deliveries` table.
    */
-  updateDelivery: protectedProcedure
+  updateDelivery: voluntarioProcedure
     .input(
       z.object({
         id: z.string().uuid(),
@@ -183,7 +185,7 @@ export const crudRouter = router({
   /**
    * Soft-delete a delivery record in the canonical `deliveries` table.
    */
-  deleteDelivery: protectedProcedure
+  deleteDelivery: voluntarioProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ input, ctx }) => {
       try {
