@@ -117,7 +117,9 @@ export const crudRouter = router({
             kg_otros: input.kg_otros ?? null,
             notas: input.notas ?? null,
             session_id: input.session_id ?? null,
-            registrado_por: ctx.user?.name ?? null,
+            // App-wide convention for the acting user (cf. announcements autor_id,
+            // programs created_by): String(ctx.user.id). registrado_por is TEXT (ADR-0011).
+            registrado_por: ctx.user ? String(ctx.user.id) : null,
           }])
           .select()
           .single();
