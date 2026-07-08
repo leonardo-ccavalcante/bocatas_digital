@@ -40,11 +40,12 @@ export default function PersonaDetalle() {
   );
   const visitas = isAdmin ? checkinCount.data?.total : undefined;
 
-  // Consent templates for the modal (triggered from the header).
-  // Lazy load: only fetch when the user opens the resumen tab (where consent is shown)
+  // Consent templates for the modal (triggered from the always-visible header button).
+  // Lazy load, but also fetch when the modal is opened from any tab — otherwise the
+  // modal shows "No hay plantillas…" off the resumen tab (Codex review on #118).
   const { data: templates = [] } = useConsentTemplates(
     (person?.idioma_principal as "es" | "ar" | "fr" | "bm") ?? "es",
-    { enabled: activeTab === "resumen" },
+    { enabled: activeTab === "resumen" || showConsent },
   );
 
   if (isLoading) {
