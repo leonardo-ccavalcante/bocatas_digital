@@ -43,7 +43,7 @@ Spanish is the operational language of the domain. UI chrome is Spanish-only (th
 | **Consent language** | The 4 template languages (es, ar, fr, bm) — distinct from **idioma** (9 person-language values). A new template language is added when ≥5 active personas have that `idioma_principal`. | conflating `consent_language` with `idioma` |
 | **Idioma principal** | A persona's primary language (ENUM of 9: es, ar, fr, bm, en, ro, zh, wo, other). Drives which consent template is shown; Spanish + verbal-translation banner is the fallback. | — |
 | **EIPD** | Evaluación de Impacto en Protección de Datos. The DPIA / legal shield. Must exist before any data collection. | "privacy policy" |
-| **High-risk fields** | `situacion_legal`, `foto_documento`, `recorrido_migratorio`. Read access restricted to superadmin/admin. | — |
+| **High-risk fields** | `situacion_legal`, `foto_documento_url`, `recorrido_migratorio`. Read access restricted to superadmin/admin. | — |
 | **Redaction boundary** | `redactHighRiskFields` — the single application-layer PII wall. DB-level RLS is bypassed app-wide; redaction is what enforces field-level access. See ADR-0002. | assuming DB RLS protects PII |
 | **Announcements / novedades** | Out-of-original-spec but retained feature: audiences DSL, bulk import, n8n webhook + retry log. | — |
 | **Chatwoot** | External (VPS) omnichannel messaging (WhatsApp + email). Bocatas Digital emits events; Chatwoot/n8n deliver. No messaging SDK in the app server. | "our WhatsApp integration" |

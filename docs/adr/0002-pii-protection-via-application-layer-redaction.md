@@ -4,7 +4,7 @@
 
 ## Context
 
-The platform handles sensitive PII for vulnerable people, including high-risk fields (`situacion_legal`, `foto_documento`, `recorrido_migratorio`) whose exposure could cause real harm. Supabase offers row-level security (RLS) at the database layer. However, in practice the app accesses the database with a service/admin client across the codebase (RLS is bypassed app-wide in the current architecture), so DB-level RLS is **not** the enforcement boundary that actually runs in production. A DB-RLS migration exists but is marked DO-NOT-APPLY.
+The platform handles sensitive PII for vulnerable people, including high-risk fields (`situacion_legal`, `foto_documento_url`, `recorrido_migratorio`) whose exposure could cause real harm. Supabase offers row-level security (RLS) at the database layer. However, in practice the app accesses the database with a service/admin client across the codebase (RLS is bypassed app-wide in the current architecture), so DB-level RLS is **not** the enforcement boundary that actually runs in production. A DB-RLS migration exists but is marked DO-NOT-APPLY.
 
 Relying on DB RLS that isn't actually in the request path would be a false sense of security: the wall would not be load-bearing.
 
