@@ -13,6 +13,7 @@ import {
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { Trash2, Plus, Edit2 } from "lucide-react";
+import { RELACION_LABEL_ES } from "@shared/parentesco";
 
 interface Member {
   id: string;
@@ -28,21 +29,6 @@ interface Member {
   created_at: string;
   updated_at: string;
 }
-
-const RELACION_LABEL_ES: Record<string, string> = {
-  parent: "Padre/Madre",
-  child: "Hijo/Hija",
-  sibling: "Hermano/Hermana",
-  other: "Otro",
-  esposo_a: "Esposo/a",
-  hijo_a: "Hijo/a",
-  madre: "Madre",
-  padre: "Padre",
-  suegro_a: "Suegro/a",
-  hermano_a: "Hermano/a",
-  abuelo_a: "Abuelo/a",
-  otro: "Otro",
-};
 
 interface MemberManagementModalProps {
   familiaId: string;

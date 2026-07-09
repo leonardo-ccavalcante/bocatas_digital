@@ -1,10 +1,11 @@
 import { useCallback, useMemo } from "react";
 import { useLocation, useSearch } from "wouter";
 
-export type ProgramTab = "familias" | "repartos" | "mapa" | "reports" | "uploads" | "derivar";
+export type ProgramTab = "familias" | "informes" | "repartos" | "mapa" | "reports" | "uploads" | "derivar";
 
 export const PROGRAM_TABS: readonly ProgramTab[] = [
   "familias",
+  "informes",
   "repartos",
   "mapa",
   "reports",
@@ -15,7 +16,15 @@ export const PROGRAM_TABS: readonly ProgramTab[] = [
 const DEFAULT_TAB: ProgramTab = "familias";
 
 /** Single source of truth for which tabs are live in this phase. */
-export const ENABLED_TABS: readonly ProgramTab[] = ["familias", "repartos", "uploads", "mapa", "reports", "derivar"];
+export const ENABLED_TABS: readonly ProgramTab[] = [
+  "familias",
+  "informes",
+  "repartos",
+  "uploads",
+  "mapa",
+  "reports",
+  "derivar",
+];
 
 /** Pure: parse the `tab` query param from a URL search string. */
 export function parseTabFromSearch(search: string): ProgramTab {

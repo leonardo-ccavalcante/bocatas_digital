@@ -5,6 +5,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { useTabParam, PROGRAM_TABS, ENABLED_TABS, type ProgramTab } from "../hooks/useTabParam";
 
 const FamiliasTab = lazy(() => import("@/features/familias-tab"));
+const InformesTab = lazy(() => import("@/pages/FamiliasInformesSociales"));
 const UploadsTab = lazy(() => import("@/features/uploads-tab"));
 // Phase 2 — lazy-chunked so react-leaflet (~150KB) never enters the LCP-critical bundle.
 const MapaTab = lazy(() => import("@/features/mapa-tab"));
@@ -27,6 +28,7 @@ interface ProgramTabsProps {
 
 const TAB_LABELS: Record<ProgramTab, string> = {
   familias: "Familias",
+  informes: "Informes",
   repartos: "Lista de distribución",
   mapa: "Mapa",
   reports: "Reports",
@@ -98,6 +100,12 @@ export function ProgramTabs({ program }: ProgramTabsProps) {
       <TabsContent value="familias">
         <Suspense fallback={<TabFallback />}>
           {ENABLED_TABS.includes("familias") && <FamiliasTab programaId={program.id} />}
+        </Suspense>
+      </TabsContent>
+
+      <TabsContent value="informes">
+        <Suspense fallback={<TabFallback />}>
+          {ENABLED_TABS.includes("informes") && <InformesTab />}
         </Suspense>
       </TabsContent>
 

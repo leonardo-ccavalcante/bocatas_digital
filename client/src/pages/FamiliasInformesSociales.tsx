@@ -1,7 +1,9 @@
 /**
- * FamiliasInformesSociales — E-E7
- * Batch social report view: lists families grouped by informe social status.
- * Admin/trabajador_social can update informe social dates in bulk.
+ * FamiliasInformesSociales — Informes tab content.
+ * Lists Programa de Familia families by informe-social status and hosts the
+ * bulk generator. Status derives from the SINGLE source of truth
+ * (informeDocStatus over informe_social_fecha) — never the informe_social
+ * boolean, and never an ad-hoc day threshold.
  */
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { FileText, Search, AlertTriangle, CheckCircle2, Clock, Download } from "lucide-react";
+import { informeDocStatus, type InformeDocStatus } from "@shared/informeFreshness";
 import { useInformesSociales } from "@/features/families/hooks/useFamilias";
 import { SocialReportPanel } from "@/features/families/components/SocialReportPanel";
 import { BulkInformeGenerator } from "@/features/families/components/BulkInformeGenerator";
@@ -23,10 +26,19 @@ import { Link } from "wouter";
 
 type FilterType = "all" | "pendientes" | "por_renovar" | "al_dia";
 
+interface InformeFamily {
+  id: string;
+  familia_numero: number | string;
+  estado?: string;
+  informe_social: boolean;
+  informe_social_fecha: string | null;
+  persons?: { nombre?: string; apellidos?: string; telefono?: string } | null;
+}
+
 const FILTER_LABELS: Record<FilterType, string> = {
   all: "Todas",
   pendientes: "Sin informe",
-  por_renovar: "Por renovar (≤30 días)",
+  por_renovar: "Por renovar / vencidos",
   al_dia: "Al día",
 };
 
@@ -37,15 +49,49 @@ const FILTER_ICONS: Record<FilterType, React.ReactNode> = {
   al_dia: <CheckCircle2 className="h-4 w-4 text-green-500" />,
 };
 
+// Visual + label per status (color + icon, never text-only — WCAG / low literacy).
+const STATUS_META: Record<
+  InformeDocStatus,
+  { label: string; badgeClass: string; textClass: string; cardClass: string }
+> = {
+  sin_informe: {
+    label: "Sin informe social",
+    badgeClass: "border-red-300 text-red-700",
+    textClass: "text-red-600 font-medium",
+    cardClass: "border-red-200 bg-red-50/30",
+  },
+  vencido: {
+    label: "Informe vencido",
+    badgeClass: "border-red-300 text-red-700",
+    textClass: "text-red-600 font-medium",
+    cardClass: "border-red-200 bg-red-50/30",
+  },
+  por_renovar: {
+    label: "Por renovar",
+    badgeClass: "border-amber-300 text-amber-700",
+    textClass: "text-amber-700",
+    cardClass: "border-amber-200 bg-amber-50/30",
+  },
+  al_dia: {
+    label: "Al día",
+    badgeClass: "border-green-300 text-green-700",
+    textClass: "text-green-700",
+    cardClass: "border-green-200 bg-green-50/30",
+  },
+};
+
+const statusOf = (f: InformeFamily): InformeDocStatus =>
+  f.informe_social ? informeDocStatus(f.informe_social_fecha) : "sin_informe";
+
 export default function FamiliasInformesSociales() {
   const [filter, setFilter] = useState<FilterType>("all");
   const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const { data: families, isLoading } = useInformesSociales(filter);
+  const { data, isLoading } = useInformesSociales(filter);
+  const families = (data ?? []) as InformeFamily[];
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const filteredFamilies = ((families as any[]) ?? []).filter((f: any) => {
+  const filteredFamilies = families.filter((f) => {
     if (!search.trim()) return true;
     const q = search.toLowerCase();
     return (
@@ -57,23 +103,15 @@ export default function FamiliasInformesSociales() {
 
   const handleExportCSV = () => {
     if (!filteredFamilies.length) return;
-    const headers = ["Nº Familia", "Titular", "Estado", "Informe Social", "Fecha Informe", "Días para Renovar"];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const rows = filteredFamilies.map((f: any) => {
-      const daysLeft = f.informe_social
-        ? Math.ceil(
-            (new Date(f.informe_social).getTime() + 330 * 86400000 - Date.now()) / 86400000
-          )
-        : null;
-      return [
-        f.familia_numero,
-        `${f.persons?.nombre ?? ""} ${f.persons?.apellidos ?? ""}`.trim(),
-        f.estado,
-        f.informe_social ? "Sí" : "No",
-        f.informe_social ?? "—",
-        daysLeft !== null ? daysLeft : "—",
-      ];
-    });
+    const headers = ["Nº Familia", "Titular", "Estado", "Informe Social", "Fecha Informe", "Estado informe"];
+    const rows = filteredFamilies.map((f) => [
+      f.familia_numero,
+      `${f.persons?.nombre ?? ""} ${f.persons?.apellidos ?? ""}`.trim(),
+      f.estado ?? "",
+      f.informe_social ? "Sí" : "No",
+      f.informe_social_fecha ?? "—",
+      STATUS_META[statusOf(f)].label,
+    ]);
     const csv = [headers, ...rows].map((r) => r.join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -83,6 +121,9 @@ export default function FamiliasInformesSociales() {
     a.click();
     URL.revokeObjectURL(url);
   };
+
+  const countBy = (pred: (s: InformeDocStatus) => boolean) =>
+    families.filter((f) => pred(statusOf(f))).length;
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 space-y-6">
@@ -94,7 +135,8 @@ export default function FamiliasInformesSociales() {
             Informes sociales
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Gestión de informes sociales de todas las familias activas.
+            Gestión de informes sociales de todas las familias activas. Se renuevan cada 6 meses
+            (revisión recomendada a los 5).
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={!filteredFamilies.length}>
@@ -115,10 +157,11 @@ export default function FamiliasInformesSociales() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9 h-9"
+            aria-label="Buscar familias"
           />
         </div>
         <Select value={filter} onValueChange={(v) => setFilter(v as FilterType)}>
-          <SelectTrigger className="w-52 h-9">
+          <SelectTrigger className="w-56 h-9" aria-label="Filtrar por estado del informe">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -138,30 +181,15 @@ export default function FamiliasInformesSociales() {
       <div className="flex gap-3 flex-wrap text-sm">
         <Badge variant="outline" className="border-red-300 text-red-700">
           <AlertTriangle className="h-3.5 w-3.5 mr-1" />
-          Sin informe: {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-          {((families as any[]) ?? []).filter((f: any) => !f.informe_social).length}
+          Sin informe / vencido: {countBy((s) => s === "sin_informe" || s === "vencido")}
         </Badge>
         <Badge variant="outline" className="border-amber-300 text-amber-700">
           <Clock className="h-3.5 w-3.5 mr-1" />
-          Por renovar: {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-          {((families as any[]) ?? []).filter((f: any) => {
-            if (!f.informe_social) return false;
-            const daysLeft = Math.ceil(
-              (new Date(f.informe_social).getTime() + 330 * 86400000 - Date.now()) / 86400000
-            );
-            return daysLeft >= 0 && daysLeft <= 30;
-          }).length}
+          Por renovar: {countBy((s) => s === "por_renovar")}
         </Badge>
         <Badge variant="outline" className="border-green-300 text-green-700">
           <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
-          Al día: {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-          {((families as any[]) ?? []).filter((f: any) => {
-            if (!f.informe_social) return false;
-            const daysLeft = Math.ceil(
-              (new Date(f.informe_social).getTime() + 330 * 86400000 - Date.now()) / 86400000
-            );
-            return daysLeft > 30;
-          }).length}
+          Al día: {countBy((s) => s === "al_dia")}
         </Badge>
       </div>
 
@@ -174,24 +202,13 @@ export default function FamiliasInformesSociales() {
         </p>
       ) : (
         <div className="space-y-3">
-          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-          {filteredFamilies.map((family: any) => {
+          {filteredFamilies.map((family) => {
             const isExpanded = expandedId === family.id;
-            const daysLeft = family.informe_social
-              ? Math.ceil(
-                  (new Date(family.informe_social).getTime() + 330 * 86400000 - Date.now()) / 86400000
-                )
-              : null;
-
-            const statusColor =
-              !family.informe_social
-                ? "border-red-200 bg-red-50/30"
-                : daysLeft !== null && daysLeft <= 30
-                ? "border-amber-200 bg-amber-50/30"
-                : "border-green-200 bg-green-50/30";
+            const status = statusOf(family);
+            const meta = STATUS_META[status];
 
             return (
-              <Card key={family.id} className={statusColor}>
+              <Card key={family.id} className={meta.cardClass}>
                 <CardHeader className="pb-2">
                   <div className="flex items-center gap-3">
                     <div className="flex-1 min-w-0">
@@ -201,19 +218,7 @@ export default function FamiliasInformesSociales() {
                           #{family.familia_numero}
                         </span>
                       </CardTitle>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {!family.informe_social ? (
-                          <span className="text-red-600 font-medium">Sin informe social</span>
-                        ) : daysLeft !== null && daysLeft <= 0 ? (
-                          <span className="text-red-600 font-medium">Informe vencido</span>
-                        ) : daysLeft !== null && daysLeft <= 30 ? (
-                          <span className="text-amber-700">Vence en {daysLeft} días</span>
-                        ) : (
-                          <span className="text-green-700">
-                            Al día · vence en {daysLeft} días
-                          </span>
-                        )}
-                      </p>
+                      <p className={`text-xs mt-0.5 ${meta.textClass}`}>{meta.label}</p>
                     </div>
                     <div className="flex gap-2 shrink-0">
                       <Link href={`/familias/${family.id}`}>
@@ -238,7 +243,7 @@ export default function FamiliasInformesSociales() {
                     <SocialReportPanel
                       familyId={family.id}
                       informeSocial={family.informe_social}
-                      informeSocialFecha={family.informe_social}
+                      informeSocialFecha={family.informe_social_fecha}
                     />
                   </CardContent>
                 )}

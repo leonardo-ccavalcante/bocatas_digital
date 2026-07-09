@@ -9,10 +9,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { FileText, FileDown, AlertCircle, CheckCircle, Clock, Upload, Loader2, Wand2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
-import { isInformeStale } from "@shared/informeFreshness";
+import { isInformeStale, informeDocStatus } from "@shared/informeFreshness";
 import { DocumentUploadModal } from "@/components/DocumentUploadModal";
 import { useFamilyLevelDocuments } from "@/features/families/hooks/useFamilias";
 import { FollowUpsPanel } from "./FollowUpsPanel";
+import DocxPreviewModal from "./DocxPreviewModal";
 
 interface SocialReportPanelProps {
   familyId: string;
@@ -23,12 +24,15 @@ interface SocialReportPanelProps {
 function getReportStatus(hasReport: boolean, fecha: string | null) {
   if (!hasReport) return { label: "Pendiente", variant: "destructive" as const, icon: AlertCircle };
   if (!fecha) return { label: "Sin fecha", variant: "secondary" as const, icon: Clock };
-  const reportDate = new Date(fecha);
-  const now = new Date();
-  const monthsOld = (now.getFullYear() - reportDate.getFullYear()) * 12 + (now.getMonth() - reportDate.getMonth());
-  if (monthsOld > 12) return { label: "Caducado", variant: "destructive" as const, icon: AlertCircle };
-  if (monthsOld > 9) return { label: "Por renovar", variant: "secondary" as const, icon: Clock };
-  return { label: "Al día", variant: "default" as const, icon: CheckCircle };
+  // Informe validity: expires at 6 months, due for review at 5 (shared rule).
+  switch (informeDocStatus(fecha)) {
+    case "vencido":
+      return { label: "Vencido", variant: "destructive" as const, icon: AlertCircle };
+    case "por_renovar":
+      return { label: "Por renovar", variant: "secondary" as const, icon: Clock };
+    default:
+      return { label: "Al día", variant: "default" as const, icon: CheckCircle };
+  }
 }
 
 export function SocialReportPanel({ familyId, informeSocial, informeSocialFecha }: SocialReportPanelProps) {
@@ -36,6 +40,7 @@ export function SocialReportPanel({ familyId, informeSocial, informeSocialFecha 
   const [localFecha, setLocalFecha] = useState(informeSocialFecha ?? "");
   const [uploadOpen, setUploadOpen] = useState(false);
   const [valoracion, setValoracion] = useState<string | null>(null); // null = not loaded/edited yet
+  const [previewOpen, setPreviewOpen] = useState(false); // generated informe preview (PDF)
   const utils = trpc.useUtils();
 
   const { data: familyDocs = [] } = useFamilyLevelDocuments(familyId);
@@ -170,18 +175,20 @@ export function SocialReportPanel({ familyId, informeSocial, informeSocialFecha 
               <button
                 type="button"
                 className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
-                aria-label="Ver informe de valoración generado (DOCX)"
-                onClick={async () => {
-                  const url = await getSignedDocUrl(generatedRow.documento_url);
-                  if (url) window.open(url, "_blank", "noopener,noreferrer");
-                  else toast.error("No se pudo generar el enlace");
-                }}
+                aria-label="Ver informe de valoración generado"
+                onClick={() => setPreviewOpen(true)}
               >
                 <FileDown className="h-3 w-3" aria-hidden="true" />
-                Ver informe generado (DOCX)
+                Ver informe generado
               </button>
             )}
           </div>
+
+          <DocxPreviewModal
+            open={previewOpen}
+            onOpenChange={setPreviewOpen}
+            docPath={generatedRow?.documento_url ?? null}
+          />
 
           {editing && (
             <div className="space-y-3 pt-2">

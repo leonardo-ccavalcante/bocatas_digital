@@ -2,9 +2,12 @@
 // `informe_social` template. Run against a Supabase instance:
 //   SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... node scripts/publish-informe-template.mjs
 //
-// Idempotent-ish: bumps version, deactivates the prior active row, uploads the
-// .docx to the `document-templates` bucket, inserts a new active row.
+// Idempotent: if the fixture is byte-identical to the currently-active template
+// this is a no-op, so the version history only ever records real changes.
+// Otherwise it bumps the version, uploads the .docx to the `document-templates`
+// bucket, deactivates the prior active row and inserts a new active one.
 import { createClient } from "@supabase/supabase-js";
+import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -31,8 +34,32 @@ const db = createClient(url, key, { auth: { persistSession: false } });
 
 async function main() {
   const buf = fs.readFileSync(FIXTURE);
+  const fixtureHash = crypto.createHash("sha256").update(buf).digest("hex");
 
-  // next version
+  // Skip when the fixture already IS the active template — keeps the version
+  // history honest (one row per real change, not one per run).
+  const { data: active } = await db
+    .from("document_templates")
+    .select("version, storage_path")
+    .eq("slug", "informe_social")
+    .eq("is_active", true)
+    .maybeSingle();
+  if (active) {
+    const dl = await db.storage.from("document-templates").download(active.storage_path);
+    if (dl.data) {
+      const activeHash = crypto
+        .createHash("sha256")
+        .update(Buffer.from(await dl.data.arrayBuffer()))
+        .digest("hex");
+      if (activeHash === fixtureHash) {
+        console.log(`No change: fixture already active as v${active.version}. Nothing to publish.`);
+        return;
+      }
+    }
+  }
+
+  // Bump from the highest existing version so a new row never collides, even if
+  // an older version was manually reactivated.
   const { data: last } = await db
     .from("document_templates")
     .select("version")

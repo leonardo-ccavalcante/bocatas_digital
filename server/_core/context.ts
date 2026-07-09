@@ -27,11 +27,12 @@ export async function createContext(
   }
 
   // DEV-ONLY admin bypass. Manus OAuth is unavailable in local dev, so when it is
-  // explicitly opted in (DEV_ADMIN_LOGIN=1) AND we are not in production, inject a
-  // synthetic admin session. Double-gated; the production branch never runs it.
+  // explicitly opted in (DEV_ADMIN_LOGIN=1) AND NODE_ENV is exactly "development"
+  // (allowlist — a deployment with NODE_ENV unset/mis-set stays locked), inject a
+  // synthetic admin session. `pnpm dev` sets NODE_ENV=development.
   if (
     !user &&
-    process.env.NODE_ENV !== "production" &&
+    process.env.NODE_ENV === "development" &&
     process.env.DEV_ADMIN_LOGIN === "1"
   ) {
     user = {
