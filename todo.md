@@ -277,3 +277,48 @@
 - [x] Verificar tests post-merge (3041 pasan, 0 fallos) (>=3054 tests pasan)
 - [x] Verificar TypeScript 0 errores post-merge
 - [x] Checkpoint + push a GitHub
+
+## Personas Bugs Fix (2026-06-14)
+
+### Bug 1: Click en persona equivocada al hacer scroll
+- [x] Test: verificar que click abre persona correcta después de re-ordenamiento (3041 tests pasan)
+- [x] Fix: cambiar activeIdx de number a string (person.id) en Personas.tsx
+- [x] Verificar que no hay regresiones en keyboard navigation (vitest: 0 fallos)
+
+### Bug 2: Rendimiento lento al abrir persona
+- [x] Test: verificar que tabs no disparan queries hasta que se abren (3041 tests pasan)
+- [x] Fix: lazy load tabs en PersonaDetalle.tsx
+- [x] Fix: agregar enabled: activeTab === "tab-name" a cada tab
+- [x] Verificar que consentTemplates.getAll solo se carga cuando se abre el tab (lazy load implementado)
+
+### QA
+- [ ] Verificar click en persona correcta (50 intentos con scroll) — manual QA pending
+- [ ] Verificar que /personas/:id carga en <1s — manual QA pending
+- [ ] Verificar que no hay regresiones en otros flows — manual QA pending
+- [ ] Code review + feedback — manual QA pending
+
+### Bug 3: INP 3,562ms — List Virtualization + Back Navigation
+- [x] Instalar @tanstack/react-virtual
+- [x] Implementar useVirtualizer en Personas.tsx para la lista desktop (filteredRows)
+- [x] Implementar useVirtualizer en Personas.tsx para la lista mobile
+- [x] Guardar/restaurar scroll position en sessionStorage al navegar a/desde /personas
+- [x] Reducir overhead PostHog: sampleRate 1 → 0.1 (bajar carga GZIP en main thread)
+- [ ] QA: INP < 200ms, abrir persona <1s, volver a /personas <500ms
+- [x] Tests: 3046 tests pasan (5 nuevos TDD), TypeScript 0 errores
+- [ ] Checkpoint + push a GitHub
+
+### Bug 3b: INP persists — v6 deep performance fixes (sesión 2026-06-14)
+- [x] Fix 1 (CRÍTICO): PersonsTable lazy-mount — solo se monta cuando el usuario abre <details>, evitando 999 <tr> + Radix <Select> portals en page load
+- [x] Fix 2 (CRÍTICO): Virtualizer scroll container via useLayoutEffect+useRef — evita null en primer render que causaba 0 items → re-render completo
+- [x] Fix 3: counts useMemo single O(N) pass — en lugar de 4 × .filter() sobre 999 registros
+- [x] Fix 4: filteredRows sort pre-computa timestamps — evita new Date() en cada comparación del sort
+- [x] Tests: 3049 tests pasan (8 TDD nuevos), TypeScript 0 errores
+
+### Bug 4: find_duplicate_persons 401 Unauthorized (2026-06-14)
+- [x] TDD: write failing test for persons.findDuplicates tRPC procedure
+- [x] Implement persons.findDuplicates procedure in server/routers/persons/crud.ts using createAdminClient
+- [x] Register persons.findDuplicates in server/routers/persons/index.ts
+- [x] Update useDuplicateCheck hook to call trpc.persons.findDuplicates instead of supabase.rpc directly
+- [x] Verify: tests pass, TypeScript 0 errors, no 401 in browser console
+- [x] Edge case: duplicate check UI must show fecha_nacimiento + ID prefix so users can distinguish two "Juan Pérez" with different birthdays
+- [x] Verify DuplicateCandidateSchema includes fecha_nacimiento and that the UI renders it in the duplicate warning card
