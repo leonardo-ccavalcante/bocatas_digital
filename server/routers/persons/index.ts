@@ -2,7 +2,7 @@
  * persons/index.ts — barrel that merges sub-routers for person management.
  *
  * Procedures (preserved verbatim from the pre-split persons.ts):
- *   crud.ts:     create, getById, getAll, search
+ *   crud.ts:     create, getById, getAll, search, findDuplicates
  *   enroll.ts:   enroll
  *   consents.ts: programs, consentTemplates, saveConsents
  *   photo.ts:    uploadPhoto
@@ -38,4 +38,5 @@ export const personsRouter = router({
   getCheckinHistory: historyRouter.getCheckinHistory,
   getQrPayload: qrRouter.getQrPayload,
   getCheckinTarget: qrRouter.getCheckinTarget,
+  findDuplicates: crudRouter.findDuplicates,
 });

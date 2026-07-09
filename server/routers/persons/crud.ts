@@ -63,6 +63,40 @@ export function getPersonValidationWarnings(
   return validationWarnings;
 }
 
+// ── findDuplicatesHandler ────────────────────────────────────────────────────
+// Exported for unit testing (see server/routers/__tests__/persons.findDuplicates.test.ts).
+// Called by the findDuplicates tRPC procedure below.
+//
+// Why this exists: find_duplicate_persons has EXECUTE revoked from PUBLIC and
+// authenticated (migration 20260506000007). The frontend anon key inherits from
+// PUBLIC → 401. service_role (createAdminClient) retains EXECUTE.
+export async function findDuplicatesHandler(input: {
+  nombre: string;
+  apellidos: string;
+  threshold: number;
+}) {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase.rpc("find_duplicate_persons", {
+    p_nombre: input.nombre,
+    p_apellidos: input.apellidos,
+    p_threshold: input.threshold,
+  });
+  if (error) {
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: `Error al buscar duplicados: ${error.message}`,
+    });
+  }
+  return (data ?? []) as Array<{
+    id: string;
+    nombre: string;
+    apellidos: string;
+    fecha_nacimiento: string | null;
+    foto_perfil_url: string | null;
+    similarity: number;
+  }>;
+}
+
 export const crudRouter = router({
   /**
    * Create a new person record.
@@ -219,6 +253,22 @@ export const crudRouter = router({
 
     return data ?? [];
   }),
+
+  /**
+   * Find duplicate persons using pg_trgm similarity (server-side).
+   * See findDuplicatesHandler above for the rationale.
+   */
+  findDuplicates: voluntarioProcedure
+    .input(
+      z.object({
+        nombre: z.string().min(1).max(200),
+        apellidos: z.string().max(200).default(""),
+        threshold: z.number().min(0).max(1).default(0.7),
+      })
+    )
+    .query(async ({ input }) => {
+      return findDuplicatesHandler(input);
+    }),
 
   /**
    * Search persons by name.
