@@ -21,26 +21,42 @@ export const GENDER_ORDER = [
 ] as const;
 export type GenderKey = (typeof GENDER_ORDER)[number];
 
+// IRPF/FSE education buckets (5). The 7 raw persons.nivel_estudios enum values
+// are rolled up into these by ESTUDIOS_ROLLUP (bachillerato + FP →
+// postsecundaria_no_superior; universitario + postgrado → superior).
 export const ESTUDIOS_ORDER = [
-  "sin_estudios", "primaria", "secundaria", "bachillerato",
-  "formacion_profesional", "universitario", "postgrado", "no_indicado",
+  "sin_estudios", "primaria", "secundaria",
+  "postsecundaria_no_superior", "superior", "no_indicado",
 ] as const;
 export type EstudiosKey = (typeof ESTUDIOS_ORDER)[number];
 
+// FSE/IRPF "situación ante el empleo" categories. The report's "laboral"
+// dimension reads persons.situacion_ante_empleo (the router feeds it into the
+// NormalizedMiembroRow.situacion_laboral field), NOT the employment-TYPE column.
 export const LABORAL_ORDER = [
-  "desempleado", "economia_informal", "empleo_temporal", "empleo_indefinido",
-  "autonomo", "en_formacion", "jubilado", "incapacidad_permanente",
-  "sin_permiso_trabajo", "no_indicado",
+  "inactiva", "desempleo_subsidio_larga_duracion", "agotada_prestacion_subsidio",
+  "precariedad_laboral", "no_aplica", "no_indicado",
 ] as const;
 export type LaboralKey = (typeof LABORAL_ORDER)[number];
+
+// RGPD Art. 9/10 special-category tags. Multi-valued → MARGINAL ONLY, never a
+// cross-tab axis (a person can hold several, which would break the Σ=N partition
+// and weaken k-anonymity).
+export const COLECTIVO_ORDER = [
+  "gitanos", "lgtbi", "sin_hogar", "reclusos_exreclusos",
+] as const;
+export type ColectivoKey = (typeof COLECTIVO_ORDER)[number];
 
 /** Input row after DB fetch + person-field flatten (done by the router). */
 export interface NormalizedMiembroRow {
   fecha_nacimiento: string | null;
   genero: string | null;
   nivel_estudios: string | null;
+  // Carries persons.situacion_ante_empleo (FSE/IRPF status), fed by the router.
   situacion_laboral: string | null;
   pais_origen: string | null;
+  // RGPD Art. 9/10 tags; multi-valued (marginal only).
+  colectivos: string[];
 }
 
 /** Cross-tab leaf bucket — count is null when suppressed. */
@@ -66,6 +82,7 @@ export interface IrpfMarginals {
   estudios: MarginalRow[];
   laboral: MarginalRow[];
   pais: MarginalRow[];
+  colectivo: MarginalRow[];
 }
 
 export interface CrossTabResult { buckets: IrpfBucket[]; totalSuppressed: number; }
@@ -74,8 +91,20 @@ export interface MarginalsResult { marginals: IrpfMarginals; totalSuppressedMarg
 // ─── Module-scope membership sets (derived from order arrays — stay DRY) ────
 
 const VALID_GENDER = new Set<string>(GENDER_ORDER.filter((k) => k !== "no_indicado"));
-const VALID_ESTUDIOS = new Set<string>(ESTUDIOS_ORDER.filter((k) => k !== "no_indicado"));
 const VALID_LABORAL = new Set<string>(LABORAL_ORDER.filter((k) => k !== "no_indicado"));
+const COLECTIVO_SET = new Set<string>(COLECTIVO_ORDER);
+
+// Roll the 7 raw persons.nivel_estudios enum values up into the 5 IRPF/FSE
+// education buckets. Anything unknown/null → "no_indicado".
+const ESTUDIOS_ROLLUP: Record<string, EstudiosKey> = {
+  sin_estudios: "sin_estudios",
+  primaria: "primaria",
+  secundaria: "secundaria",
+  bachillerato: "postsecundaria_no_superior",
+  formacion_profesional: "postsecundaria_no_superior",
+  universitario: "superior",
+  postgrado: "superior",
+};
 
 // ─── Internal normalizers ────────────────────────────────────────────────────
 
@@ -85,8 +114,8 @@ function normalizeGender(raw: string | null): GenderKey {
 }
 
 function normalizeEstudios(raw: string | null): EstudiosKey {
-  if (raw === null || !VALID_ESTUDIOS.has(raw)) return "no_indicado";
-  return raw as EstudiosKey;
+  if (raw === null) return "no_indicado";
+  return ESTUDIOS_ROLLUP[raw] ?? "no_indicado";
 }
 
 function normalizeLaboral(raw: string | null): LaboralKey {
@@ -213,6 +242,7 @@ export function computeMarginals(
   const estudiosMap = new Map<EstudiosKey, number>();
   const laboralMap = new Map<LaboralKey, number>();
   const paisMap = new Map<string, number>();
+  const colectivoMap = new Map<string, number>();
 
   for (const r of rows) {
     const ab = computeAgeBracket(r.fecha_nacimiento, reportYear);
@@ -225,12 +255,18 @@ export function computeMarginals(
     estudiosMap.set(es, (estudiosMap.get(es) ?? 0) + 1);
     laboralMap.set(la, (laboralMap.get(la) ?? 0) + 1);
     paisMap.set(pa, (paisMap.get(pa) ?? 0) + 1);
+    // colectivo is multi-valued: +1 per tag the person holds (distinct-persons-
+    // per-tag). A person can contribute to several tags; empty → contributes to none.
+    for (const tag of r.colectivos ?? []) {
+      if (COLECTIVO_SET.has(tag)) colectivoMap.set(tag, (colectivoMap.get(tag) ?? 0) + 1);
+    }
   }
 
   const ageResult     = applyKAnonToMarginalMap(ageMap,     AGE_BRACKETS);
   const generoResult  = applyKAnonToMarginalMap(generoMap,  GENDER_ORDER);
   const estudiosResult= applyKAnonToMarginalMap(estudiosMap,ESTUDIOS_ORDER);
   const laboralResult = applyKAnonToMarginalMap(laboralMap, LABORAL_ORDER);
+  const colectivoResult = applyKAnonToMarginalMap(colectivoMap, COLECTIVO_ORDER);
 
   let paisSuppressed = 0;
   const pais: MarginalRow[] = [...paisMap.entries()]
@@ -242,7 +278,8 @@ export function computeMarginals(
 
   const totalSuppressedMarginal =
     ageResult.suppressed + generoResult.suppressed +
-    estudiosResult.suppressed + laboralResult.suppressed + paisSuppressed;
+    estudiosResult.suppressed + laboralResult.suppressed + paisSuppressed +
+    colectivoResult.suppressed;
 
   return {
     marginals: {
@@ -251,6 +288,7 @@ export function computeMarginals(
       estudios:estudiosResult.rows,
       laboral: laboralResult.rows,
       pais,
+      colectivo: colectivoResult.rows,
     },
     totalSuppressedMarginal,
   };

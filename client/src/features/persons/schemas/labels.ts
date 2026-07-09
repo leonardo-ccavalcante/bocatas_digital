@@ -87,6 +87,23 @@ export const SITUACION_LABORAL_LABELS: Record<string, string> = {
   sin_permiso_trabajo: "Sin permiso de trabajo",
 };
 
+// FSE/IRPF "situación ante el empleo" categories (informe demográfico).
+export const SITUACION_ANTE_EMPLEO_LABELS: Record<string, string> = {
+  inactiva: "Persona inactiva",
+  desempleo_subsidio_larga_duracion: "Desempleado/a con subsidio de larga duración (+12 meses)",
+  agotada_prestacion_subsidio: "Ha agotado la prestación / subsidio de desempleo",
+  precariedad_laboral: "En situación de precariedad laboral",
+  no_aplica: "No aplica / otra situación",
+};
+
+// RGPD Art. 9/10 special-category — "otras características / colectivo".
+export const COLECTIVO_LABELS: Record<string, string> = {
+  gitanos: "Población gitana",
+  lgtbi: "LGTBI",
+  sin_hogar: "Sin hogar",
+  reclusos_exreclusos: "Reclusos / exreclusos",
+};
+
 export const NIVEL_INGRESOS_LABELS: Record<string, string> = {
   sin_ingresos: "Sin ingresos",
   menos_500: "Menos de 500€",

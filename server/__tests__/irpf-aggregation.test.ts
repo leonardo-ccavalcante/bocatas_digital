@@ -41,8 +41,10 @@ function row(overrides: Partial<NormalizedMiembroRow> = {}): NormalizedMiembroRo
     fecha_nacimiento: `${YEAR - 30}-06-15`, // default: 30 yo on Jun 15
     genero: "masculino",
     nivel_estudios: "primaria",
-    situacion_laboral: "desempleado",
+    // situacion_laboral carries the FSE/IRPF "situación ante el empleo" status.
+    situacion_laboral: "inactiva",
     pais_origen: "ES", // realistic ISO-3166-1 alpha-2 code (uppercase from DB)
+    colectivos: [],
     ...overrides,
   };
 }
@@ -241,47 +243,44 @@ describe("applyKAnonymityToIrpf — count < floor → null; buckets retained", (
 
 describe("computeMarginals — five 1-D breakdowns with k-anon + ordering", () => {
   /**
-   * Dataset (7 rows) designed so we can hand-compute every tally.
-   * pais_origen values are realistic ISO-3166-1 alpha-2 codes (uppercase,
-   * as stored in the DB). normalizeCountryKey lowercases them for bucketing.
+   * Dataset (7 rows) designed so we can hand-compute every tally. laboral now
+   * carries FSE/IRPF "situación ante el empleo" values; estudios uses RAW enum
+   * values that the aggregator ROLLS UP (bachillerato → postsecundaria_no_superior).
+   * colectivo is multi-valued (Art. 9/10 tags), counted distinct-persons-per-tag.
    *
-   *  Row | fecha_nacimiento (age on Dec31/2025) | genero    | estudios       | laboral        | pais
-   *   A  | 1985-06-15 (40 yo) → "31-45"        | masculino | primaria       | desempleado    | ES
-   *   B  | 1985-06-15 (40 yo) → "31-45"        | masculino | primaria       | desempleado    | ES
-   *   C  | 1985-06-15 (40 yo) → "31-45"        | masculino | primaria       | desempleado    | ES
-   *   D  | 1990-01-01 (35 yo) → "31-45"        | femenino  | secundaria     | economia_informal | MA
-   *   E  | 1990-01-01 (35 yo) → "31-45"        | femenino  | secundaria     | economia_informal | MA
-   *   F  | 2010-01-01 (15 yo) → "11-17"        | no_binario| bachillerato   | en_formacion   | SN
-   *   G  | null                                 | null      | null           | null           | null
+   *  Row | age(Dec31/2025) | genero    | estudios(raw→rolled)         | laboral(IRPF)       | pais | colectivos
+   *   A  | "31-45"         | masculino | primaria→primaria            | inactiva            | ES   | [gitanos]
+   *   B  | "31-45"         | masculino | primaria→primaria            | inactiva            | ES   | [gitanos]
+   *   C  | "31-45"         | masculino | primaria→primaria            | inactiva            | ES   | [gitanos]
+   *   D  | "31-45"         | femenino  | secundaria→secundaria        | precariedad_laboral | MA   | []
+   *   E  | "31-45"         | femenino  | secundaria→secundaria        | precariedad_laboral | MA   | []
+   *   F  | "11-17"         | no_binario| bachillerato→postsec_no_sup  | no_aplica           | SN   | []
+   *   G  | null            | null      | null→no_indicado             | null→no_indicado    | null | []
    *
    * Marginal tallies (before k-anon) — after normalizeCountryKey (lowercase):
-   *   age:     "31-45"=5, "11-17"=1, "sin_fecha"=1
-   *   genero:  masculino=3, femenino=2, no_binario=1, no_indicado=1
-   *   estudios: primaria=3, secundaria=2, bachillerato=1, no_indicado=1
-   *   laboral: desempleado=3, economia_informal=2, en_formacion=1, no_indicado=1
-   *   pais:    es=3, ma=2, sn=1, no_indicado=1
+   *   age:      "31-45"=5, "11-17"=1, "sin_fecha"=1
+   *   genero:   masculino=3, femenino=2, no_binario=1, no_indicado=1
+   *   estudios: primaria=3, secundaria=2, postsecundaria_no_superior=1, no_indicado=1
+   *   laboral:  inactiva=3, precariedad_laboral=2, no_aplica=1, no_indicado=1
+   *   pais:     es=3, ma=2, sn=1, no_indicado=1
+   *   colectivo:gitanos=3  (only tag present)
    *
-   * After k-anon (floor=3): any cell with count<3 → null
-   *   age:     "31-45"=5(ok), "11-17"=null, "sin_fecha"=null  → totalSuppressedMarginal += 2
-   *   genero:  masculino=3(ok), femenino=null, no_binario=null, no_indicado=null → += 3
-   *   estudios: primaria=3(ok), secundaria=null, bachillerato=null, no_indicado=null → += 3
-   *   laboral: desempleado=3(ok), economia_informal=null, en_formacion=null, no_indicado=null → += 3
-   *   pais:    es=3(ok), ma=null, sn=null, no_indicado=null → += 3
-   *   Total suppressed marginal cells = 2+3+3+3+3 = 14
+   * After k-anon (floor=3): cells < 3 → null
+   *   age:2 + genero:3 + estudios:3 + laboral:3 + pais:3 + colectivo:0 = 14 suppressed
    */
 
   const DATASET: NormalizedMiembroRow[] = [
     // A, B, C
-    { fecha_nacimiento: "1985-06-15", genero: "masculino", nivel_estudios: "primaria",    situacion_laboral: "desempleado",       pais_origen: "ES" },
-    { fecha_nacimiento: "1985-06-15", genero: "masculino", nivel_estudios: "primaria",    situacion_laboral: "desempleado",       pais_origen: "ES" },
-    { fecha_nacimiento: "1985-06-15", genero: "masculino", nivel_estudios: "primaria",    situacion_laboral: "desempleado",       pais_origen: "ES" },
+    { fecha_nacimiento: "1985-06-15", genero: "masculino", nivel_estudios: "primaria",    situacion_laboral: "inactiva",           pais_origen: "ES", colectivos: ["gitanos"] },
+    { fecha_nacimiento: "1985-06-15", genero: "masculino", nivel_estudios: "primaria",    situacion_laboral: "inactiva",           pais_origen: "ES", colectivos: ["gitanos"] },
+    { fecha_nacimiento: "1985-06-15", genero: "masculino", nivel_estudios: "primaria",    situacion_laboral: "inactiva",           pais_origen: "ES", colectivos: ["gitanos"] },
     // D, E
-    { fecha_nacimiento: "1990-01-01", genero: "femenino",  nivel_estudios: "secundaria",  situacion_laboral: "economia_informal", pais_origen: "MA" },
-    { fecha_nacimiento: "1990-01-01", genero: "femenino",  nivel_estudios: "secundaria",  situacion_laboral: "economia_informal", pais_origen: "MA" },
+    { fecha_nacimiento: "1990-01-01", genero: "femenino",  nivel_estudios: "secundaria",  situacion_laboral: "precariedad_laboral", pais_origen: "MA", colectivos: [] },
+    { fecha_nacimiento: "1990-01-01", genero: "femenino",  nivel_estudios: "secundaria",  situacion_laboral: "precariedad_laboral", pais_origen: "MA", colectivos: [] },
     // F
-    { fecha_nacimiento: "2010-01-01", genero: "no_binario",nivel_estudios: "bachillerato",situacion_laboral: "en_formacion",      pais_origen: "SN" },
+    { fecha_nacimiento: "2010-01-01", genero: "no_binario",nivel_estudios: "bachillerato",situacion_laboral: "no_aplica",          pais_origen: "SN", colectivos: [] },
     // G — all nulls
-    { fecha_nacimiento: null,         genero: null,         nivel_estudios: null,          situacion_laboral: null,               pais_origen: null },
+    { fecha_nacimiento: null,         genero: null,         nivel_estudios: null,          situacion_laboral: null,                pais_origen: null, colectivos: [] },
   ];
 
   it("totalSuppressedMarginal = 14 (every cell < 3 across all 5 dimensions)", () => {
@@ -321,22 +320,54 @@ describe("computeMarginals — five 1-D breakdowns with k-anon + ordering", () =
     expect(gKeys[gKeys.length - 1]).toBe("no_indicado");
   });
 
-  it("estudios marginal: primaria=3 visible; others suppressed", () => {
+  it("estudios marginal rolls up to IRPF-5: primaria=3 visible; rolled-up others suppressed", () => {
     const { marginals } = computeMarginals(DATASET, YEAR);
     const e = Object.fromEntries(marginals.estudios.map((r) => [r.key, r.count]));
     expect(e["primaria"]).toBe(3);
     expect(e["secundaria"]).toBeNull();
-    expect(e["bachillerato"]).toBeNull();
+    expect(e["postsecundaria_no_superior"]).toBeNull(); // F's bachillerato rolled up here
     expect(e["no_indicado"]).toBeNull();
+    // The raw 7-value keys must NOT appear post-rollup.
+    expect(e["bachillerato"]).toBeUndefined();
   });
 
-  it("laboral marginal: desempleado=3 visible; others suppressed", () => {
+  it("laboral marginal (FSE/IRPF): inactiva=3 visible; others suppressed", () => {
     const { marginals } = computeMarginals(DATASET, YEAR);
     const l = Object.fromEntries(marginals.laboral.map((r) => [r.key, r.count]));
-    expect(l["desempleado"]).toBe(3);
-    expect(l["economia_informal"]).toBeNull();
-    expect(l["en_formacion"]).toBeNull();
+    expect(l["inactiva"]).toBe(3);
+    expect(l["precariedad_laboral"]).toBeNull();
+    expect(l["no_aplica"]).toBeNull();
     expect(l["no_indicado"]).toBeNull();
+  });
+
+  it("colectivo marginal (Art. 9/10): gitanos=3 visible", () => {
+    const { marginals } = computeMarginals(DATASET, YEAR);
+    const c = Object.fromEntries(marginals.colectivo.map((r) => [r.key, r.count]));
+    expect(c["gitanos"]).toBe(3);
+  });
+
+  it("colectivo is multi-valued: one person with 2 tags contributes to both", () => {
+    const rows: NormalizedMiembroRow[] = [
+      row({ colectivos: ["gitanos", "sin_hogar"] }),
+      row({ colectivos: ["gitanos", "sin_hogar"] }),
+      row({ colectivos: ["gitanos", "sin_hogar"] }),
+    ];
+    const c = Object.fromEntries(
+      computeMarginals(rows, YEAR).marginals.colectivo.map((r) => [r.key, r.count]),
+    );
+    expect(c["gitanos"]).toBe(3);
+    expect(c["sin_hogar"]).toBe(3);
+  });
+
+  it("colectivo marginal suppresses tags held by < 3 persons (k-anon)", () => {
+    const rows: NormalizedMiembroRow[] = [
+      row({ colectivos: ["lgtbi"] }),
+      row({ colectivos: ["lgtbi"] }),
+    ];
+    const c = Object.fromEntries(
+      computeMarginals(rows, YEAR).marginals.colectivo.map((r) => [r.key, r.count]),
+    );
+    expect(c["lgtbi"]).toBeNull(); // count 2 < floor 3
   });
 
   it("pais marginal: es=3 visible; others suppressed (ISO-2 codes normalised to lowercase)", () => {

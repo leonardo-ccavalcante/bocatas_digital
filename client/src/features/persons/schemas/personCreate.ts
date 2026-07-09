@@ -10,6 +10,8 @@ import {
   EstabilidadHabitacionalSchema,
   NivelEstudiosSchema,
   SituacionLaboralSchema,
+  SituacionAnteEmpleoSchema,
+  ColectivoSchema,
   NivelIngresosSchema,
   FaseItinerarioSchema,
 } from "./enums";
@@ -79,7 +81,15 @@ export const PersonCreateSchema = z.object({
   empadronado: z.boolean().optional().nullable(),
   nivel_estudios: NivelEstudiosSchema.optional().nullable(),
   situacion_laboral: SituacionLaboralSchema.optional().nullable(),
+  // FSE/IRPF status ante el empleo (orthogonal to situacion_laboral — feeds the report)
+  situacion_ante_empleo: SituacionAnteEmpleoSchema.optional().nullable(),
   nivel_ingresos: NivelIngresosSchema.optional().nullable(),
+  // RGPD Art. 9/10 special-category (persisted only under explicit consent)
+  colectivos: z.array(ColectivoSchema).optional().nullable(),
+  colectivo_otros: z.string().max(200).optional().nullable(),
+  // Transient (NOT a DB column): true only when the person granted the Art. 9
+  // special-category consent. Gates server-side persistence of colectivo* fields.
+  colectivo_consentimiento: z.boolean().optional(),
 
   // Section 5 — Info social
   recorrido_migratorio: z.string().max(2000).optional().nullable(),
@@ -148,7 +158,10 @@ export const Section4Schema = PersonCreateSchema.pick({
   estabilidad_habitacional: true,
   nivel_estudios: true,
   situacion_laboral: true,
+  situacion_ante_empleo: true,
   nivel_ingresos: true,
+  colectivos: true,
+  colectivo_otros: true,
 });
 
 export const Section5Schema = PersonCreateSchema.pick({
