@@ -1,26 +1,32 @@
 /**
- * templated/informeIrpfDemografico.ts — Informe demográfico IRPF anual
- * de miembros familiares activos (familia_miembros).
+ * templated/informeIrpfDemografico.ts — Informe demográfico IRPF/FSE anual.
+ *
+ * Denominator (decision 2026-07-08): the WHOLE registered population (`persons`)
+ * that was ATTENDED during the fiscal year — i.e. has ≥1 check-in
+ * (attendances.checked_in_date) within [year-01-01, year-12-31]. This replaced
+ * the previous familia_miembros-only source so the general registration form
+ * actually feeds the funder report.
  *
  * Inputs: { year: number (2020–2099) }
  * Output: {
  *   year,
- *   totalMiembros,
- *   marginals: { age, genero, estudios, laboral, pais },
+ *   totalMiembros,   // count of persons in the report (attended during `year`)
+ *   marginals: { age, genero, estudios, laboral, pais, colectivo },
  *   crossTab: IrpfBucket[],
  *   totalSuppressed,
  *   totalSuppressedMarginal,
  * }
  *
- * Compliance: adminProcedure only. withSoftDeleteFilter applied. wrapDbError on failure.
- * PII: NEVER includes situacion_legal, foto_documento_url, recorrido_migratorio.
- *      Output is aggregate-only; no row-level person data leaves the server.
+ * Compliance: adminProcedure only. wrapDbError on failure. Output is aggregate-
+ * only + k-anonymity ≥3; no row-level person data leaves the server. The
+ * "laboral" dimension reads persons.situacion_ante_empleo (FSE/IRPF status);
+ * "colectivo" is a MARGINAL-only breakdown of the Art. 9/10 tags.
  */
 
 import { z } from "zod";
 import { router, adminProcedure } from "../../../_core/trpc";
 import { createAdminClient } from "../../../../client/src/lib/supabase/server";
-import { withSoftDeleteFilter, wrapDbError, logAuditReport } from "../_shared";
+import { wrapDbError, logAuditReport } from "../_shared";
 import {
   bucketRows,
   applyKAnonymityToIrpf,
@@ -30,56 +36,50 @@ import type { NormalizedMiembroRow } from "../../../_core/irpfAggregation";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-/** Shape returned by PostgREST for each familia_miembro row. */
-type RawMiembroRow = {
+/** Shape returned by PostgREST for each persons row (demographic fields only). */
+type RawPersonRow = {
   id: string;
   fecha_nacimiento: string | null;
-  persons: {
-    genero: string | null;
-    nivel_estudios: string | null;
-    situacion_laboral: string | null;
-    pais_origen: string | null;
-  } | null;
+  genero: string | null;
+  nivel_estudios: string | null;
+  situacion_ante_empleo: string | null;
+  pais_origen: string | null;
+  colectivos: string[] | null;
 };
 
 // ─── Helper ──────────────────────────────────────────────────────────────────
 
-/**
- * Flatten the nested persons FK into NormalizedMiembroRow.
- *
- * Defensive array-guard: PostgREST returns an object for single-row FK joins,
- * but if the runtime ever returns an array (schema drift), take [0] ?? null
- * before reading fields. null persons → all person fields null.
- */
-function flattenPersonFields(raw: RawMiembroRow): NormalizedMiembroRow {
-  const personsRaw = Array.isArray(raw.persons)
-    ? (raw.persons[0] ?? null)
-    : raw.persons;
-
+function toNormalizedRow(raw: RawPersonRow): NormalizedMiembroRow {
   return {
     fecha_nacimiento: raw.fecha_nacimiento,
-    genero: personsRaw?.genero ?? null,
-    nivel_estudios: personsRaw?.nivel_estudios ?? null,
-    situacion_laboral: personsRaw?.situacion_laboral ?? null,
-    pais_origen: personsRaw?.pais_origen ?? null,
+    genero: raw.genero,
+    nivel_estudios: raw.nivel_estudios,
+    // The report's "laboral" dimension is the FSE/IRPF status ante el empleo.
+    situacion_laboral: raw.situacion_ante_empleo,
+    pais_origen: raw.pais_origen,
+    colectivos: raw.colectivos ?? [],
   };
 }
 
 // ─── Input schema ─────────────────────────────────────────────────────────────
 
 /**
- * Temporal semantics of `year`:
- *   - The report counts ALL current `estado='activo'` familia_miembros — it is
- *     NOT filtered by when members joined. `year` affects ONLY age-bracket
- *     classification (age computed as of Dec 31 of `year`, AEAT convention).
- *   - Historical fiscal-year membership scoping (e.g. a `created_at`/period
- *     filter to include only members active during that year) is a deliberate
- *     FUTURE decision to confirm with Familia stakeholders (Espe/Nacho) before
- *     implementing. Do NOT add a `created_at` filter here without that sign-off.
+ * `year` now has TWO effects:
+ *   - Scopes the population to persons attended during the fiscal year (≥1
+ *     check-in with checked_in_date in [year-01-01, year-12-31]).
+ *   - Age-bracket classification (age as of Dec 31 of `year`, AEAT convention).
+ *
+ * "Atendido" = comedor/programa check-in (attendances), aligned with the North
+ * Star metric. If the funder later defines "served" differently (e.g. program
+ * enrollment), confirm with Familia stakeholders (Espe/Nacho) before changing.
  */
 const InputSchema = z.object({
   year: z.number().int().min(2020).max(2099),
 });
+
+const EMPTY_MARGINALS = {
+  age: [], genero: [], estudios: [], laboral: [], pais: [], colectivo: [],
+};
 
 // ─── Router ───────────────────────────────────────────────────────────────────
 
@@ -90,27 +90,42 @@ export const informeIrpfDemograficoRouter = router({
       const { year } = input;
       const db = createAdminClient();
 
-      // persons.deleted_at intentionally NOT filtered: aggregate-only k-anon output makes a soft-deleted
-      // person's residual contribution an accepted EIPD posture (consistent with sibling reports).
-      const { data, error } = await withSoftDeleteFilter(
-        db
-          .from("familia_miembros")
-          .select(
-            "id, fecha_nacimiento, persons!person_id(genero, nivel_estudios, situacion_laboral, pais_origen)",
-          )
-          .eq("estado", "activo"),
-      ).returns<RawMiembroRow[]>();
+      const start = `${year}-01-01`;
+      const end = `${year}-12-31`;
+
+      // Population = persons with ≥1 non-deleted, non-demo check-in during the
+      // fiscal year. `attendances!inner` + the embedded date filter scopes
+      // persons to those attended in [start, end]; each person is returned once.
+      // persons.deleted_at intentionally NOT filtered (aggregate-only k-anon
+      // posture, consistent with sibling reports); soft-deleted check-ins ARE
+      // excluded. es_demo=false excludes practice/demo check-ins (Epic B.7) —
+      // demo rows must never inflate a funder report (dashboard.ts treats this
+      // exclusion as authoritative for funder reports). A person whose ONLY
+      // check-ins in the year are demo is correctly dropped by the inner join.
+      const { data, error } = await db
+        .from("persons")
+        .select(
+          "id, fecha_nacimiento, genero, nivel_estudios, situacion_ante_empleo, pais_origen, colectivos, attendances!inner(checked_in_date)",
+        )
+        .gte("attendances.checked_in_date", start)
+        .lte("attendances.checked_in_date", end)
+        .is("attendances.deleted_at", null)
+        .eq("attendances.es_demo", false)
+        .returns<RawPersonRow[]>();
 
       if (error) {
         throw wrapDbError("reports.informeIrpfDemografico", error);
       }
 
       const rawRows = data ?? [];
-      const normalized = rawRows.map(flattenPersonFields);
+      const normalized = rawRows.map(toNormalizedRow);
       const { buckets: crossTab, totalSuppressed } = applyKAnonymityToIrpf(
         bucketRows(normalized, year),
       );
-      const { marginals, totalSuppressedMarginal } = computeMarginals(normalized, year);
+      const { marginals, totalSuppressedMarginal } =
+        normalized.length === 0
+          ? { marginals: EMPTY_MARGINALS, totalSuppressedMarginal: 0 }
+          : computeMarginals(normalized, year);
 
       logAuditReport(ctx, "reports.informeIrpfDemografico", rawRows.length, {
         year,

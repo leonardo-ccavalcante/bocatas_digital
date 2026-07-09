@@ -34,6 +34,7 @@ import { Download } from "lucide-react";
 import { HIGH_RISK_PII_FIELDS } from "@shared/reports/entities";
 import { exportRowsAsCsv } from "../utils/exportCsv";
 import { paisLabel } from "../utils/paisLabel";
+import { irpfEstudiosLabel, irpfLaboralLabel, irpfColectivoLabel } from "../utils/irpfLabels";
 import { useIrpfDemografico } from "../hooks/useTemplatedReports";
 
 // ── Types derived from hook — NO server import (F-B) ─────────────────────────
@@ -106,19 +107,20 @@ export function IrpfDemograficoModal({ open, onClose }: Props) {
 
   function handleExportMarginals() {
     if (!data) return;
-    const dims: { title: string; key: keyof IrpfData["marginals"] }[] = [
+    const dims: { title: string; key: keyof IrpfData["marginals"]; labelFn?: (k: string) => string }[] = [
       { title: "Edad", key: "age" },
       { title: "Género", key: "genero" },
-      { title: "Estudios", key: "estudios" },
-      { title: "Empleo", key: "laboral" },
-      { title: "Nacionalidad", key: "pais" },
+      { title: "Estudios", key: "estudios", labelFn: irpfEstudiosLabel },
+      { title: "Empleo", key: "laboral", labelFn: irpfLaboralLabel },
+      { title: "Nacionalidad", key: "pais", labelFn: paisLabel },
+      { title: "Colectivo", key: "colectivo", labelFn: irpfColectivoLabel },
     ];
-    const rows = dims.flatMap(({ title, key }) =>
+    const rows = dims.flatMap(({ title, key, labelFn }) =>
       data.marginals[key]
         .filter(isVisible)
         .map((r) => ({
           dimension: title,
-          valor: key === "pais" ? paisLabel(r.key) : r.key,
+          valor: labelFn ? labelFn(r.key) : r.key,
           n: r.count,
         })),
     );
@@ -238,9 +240,10 @@ export function IrpfDemograficoModal({ open, onClose }: Props) {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <MarginalTable title="Edad" rows={data.marginals.age} />
             <MarginalTable title="Género" rows={data.marginals.genero} />
-            <MarginalTable title="Estudios" rows={data.marginals.estudios} />
-            <MarginalTable title="Empleo" rows={data.marginals.laboral} />
+            <MarginalTable title="Estudios" rows={data.marginals.estudios} labelFn={irpfEstudiosLabel} />
+            <MarginalTable title="Empleo" rows={data.marginals.laboral} labelFn={irpfLaboralLabel} />
             <MarginalTable title="Nacionalidad" rows={data.marginals.pais} labelFn={paisLabel} />
+            <MarginalTable title="Colectivo" rows={data.marginals.colectivo} labelFn={irpfColectivoLabel} />
           </div>
         )}
 
@@ -267,8 +270,8 @@ export function IrpfDemograficoModal({ open, onClose }: Props) {
                     <TableRow key={`${r.age_bracket}|${r.genero}|${r.nivel_estudios}|${r.situacion_laboral}|${r.pais_origen}`}>
                       <TableCell className="text-xs">{r.age_bracket}</TableCell>
                       <TableCell className="text-xs">{r.genero}</TableCell>
-                      <TableCell className="text-xs">{r.nivel_estudios}</TableCell>
-                      <TableCell className="text-xs">{r.situacion_laboral}</TableCell>
+                      <TableCell className="text-xs">{irpfEstudiosLabel(r.nivel_estudios)}</TableCell>
+                      <TableCell className="text-xs">{irpfLaboralLabel(r.situacion_laboral)}</TableCell>
                       <TableCell className="text-xs">{paisLabel(r.pais_origen)}</TableCell>
                       <TableCell className="text-xs text-right">
                         {r.count === null ? "—" : r.count}

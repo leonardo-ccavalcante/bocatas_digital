@@ -76,6 +76,26 @@ export const SituacionLaboralSchema = z.enum([
   "autonomo", "en_formacion", "jubilado", "incapacidad_permanente", "sin_permiso_trabajo"
 ]);
 
+// Situación ante el empleo — FSE/IRPF vulnerability status. ORTHOGONAL to
+// SituacionLaboralSchema (employment TYPE); this is the benefit/subsidy STATUS
+// dimension the funder IRPF demographic report aggregates. See migration
+// 20260708000001_add_situacion_ante_empleo_fse.sql.
+export const SituacionAnteEmpleoSchema = z.enum([
+  "inactiva",
+  "desempleo_subsidio_larga_duracion",
+  "agotada_prestacion_subsidio",
+  "precariedad_laboral",
+  "no_aplica",
+]);
+
+// RGPD Art. 9/10 special-category — ethnic origin / sexual orientation /
+// criminal-offence. Multi-valued per person. Collection under explicit Art.
+// 9(2)(a) consent; see migration 20260708000002_add_colectivos_special_category.sql.
+export const ColectivoSchema = z.enum([
+  "gitanos", "lgtbi", "sin_hogar", "reclusos_exreclusos",
+]);
+export type Colectivo = z.infer<typeof ColectivoSchema>;
+
 export const NivelIngresosSchema = z.enum([
   "sin_ingresos", "menos_500", "entre_500_1000", "entre_1000_1500", "mas_1500"
 ]);
