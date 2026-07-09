@@ -12,6 +12,7 @@ import {
   familyDocTypeSchema,
   type FamiliesUpdate,
 } from "./_shared";
+import { convertDocxToPdf, LibreOfficeUnavailableError } from "../../services/docxToPdf";
 
 export const documentsRouter = router({
   // ─── Job 8: Member Document Write ────────────────────────────────────────
@@ -89,6 +90,71 @@ export const documentsRouter = router({
       const { data, error } = await q;
       if (error) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
       return data ?? [];
+    }),
+
+  /**
+   * Returns a short-lived signed URL for a document in the private
+   * `family-documents` bucket. Signing MUST happen server-side with the
+   * service-role client: the browser's anon Supabase client is blocked by
+   * storage RLS on this private bucket (createSignedUrl → 404 "Object not
+   * found"). adminProcedure-gated — these are family PII (and, for the
+   * informe_valoracion_social, Art.9 special-category); never for voluntarios.
+   */
+  getDocumentSignedUrl: adminProcedure
+    .input(z.object({ path: z.string().min(1) }))
+    .query(async ({ input }) => {
+      const db = createAdminClient();
+      const { data, error } = await db.storage
+        .from("family-documents")
+        .createSignedUrl(input.path, 60 * 60); // 1 hour
+      if (error || !data) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "No se pudo generar el enlace del documento",
+        });
+      }
+      return { signedUrl: data.signedUrl };
+    }),
+
+  /**
+   * Faithful on-screen preview: downloads the generated .docx from the private
+   * bucket and returns it converted to PDF (base64). Pure-JS docx renderers drop
+   * the running header (membrete) and floating signature; a server-side
+   * LibreOffice conversion is pixel-faithful and the browser renders PDF
+   * natively. adminProcedure-gated — this carries Art.9 special-category data;
+   * the base64 travels only over the authenticated tRPC channel, never persisted.
+   * If LibreOffice is absent on the host, throws PRECONDITION_FAILED so the
+   * client falls back to the .docx download.
+   */
+  getSocialReportPdf: adminProcedure
+    .input(z.object({ path: z.string().min(1) }))
+    .query(async ({ input }) => {
+      const db = createAdminClient();
+      const { data, error } = await db.storage
+        .from("family-documents")
+        .download(input.path);
+      if (error || !data) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "No se pudo abrir el documento",
+        });
+      }
+      const docxBuffer = Buffer.from(await data.arrayBuffer());
+      try {
+        const pdf = await convertDocxToPdf(docxBuffer);
+        return { pdfBase64: pdf.toString("base64") };
+      } catch (e) {
+        if (e instanceof LibreOfficeUnavailableError) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: "La vista previa en PDF no está disponible en este servidor",
+          });
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "No se pudo generar la vista previa en PDF",
+        });
+      }
     }),
 
   /** POST upload a document — versions any existing current row and recomputes boolean cache */

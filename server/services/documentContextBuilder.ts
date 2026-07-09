@@ -7,6 +7,7 @@ import { TRPCError } from "@trpc/server";
 import type { createAdminClient } from "../../client/src/lib/supabase/server";
 import type { FamilyDocumentContext } from "./documentService.types";
 import { computeDeliveryRow } from "./notaEntregaComputer";
+import { parentescoLabelEs } from "@shared/parentesco";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -137,18 +138,28 @@ export async function buildFamilyDataContext(
 
   // ── 2. Fetch familia_miembros (non-deleted) ───────────────────────────────
 
-  const { data: miembrosRaw } = await db
+  const { data: miembrosRaw, error: miembrosErr } = await db
     .from("familia_miembros")
     .select("nombre, apellidos, relacion, fecha_nacimiento, documento")
     .eq("familia_id", familyId)
     .is("deleted_at", null)
     .order("created_at", { ascending: true });
+  // An official document silently missing all dependents is worse than a loud
+  // failure — a fetch error must never be treated as "family has no members".
+  if (miembrosErr) {
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "No se pudieron cargar los miembros de la familia",
+    });
+  }
 
   const miembros: FamilyDocumentContext["miembros"] = (miembrosRaw ?? []).map((m, i) => ({
     nombre: coerce(m.nombre),
     apellidos: coerce(m.apellidos),
-    // DB column is `relacion` (confirmed from database.types.ts)
-    parentesco: coerce(m.relacion),
+    // DB column is `relacion` (confirmed from database.types.ts). Render the
+    // Spanish label, never the raw enum — this is an official document. Unknown
+    // values fall back to the raw string so nothing is silently dropped.
+    parentesco: parentescoLabelEs(m.relacion, coerce(m.relacion)),
     fecha_nacimiento: m.fecha_nacimiento ?? null,
     // Informe member loop: dependents are numbered from 2 (titular is member 1).
     numero: i + 2,

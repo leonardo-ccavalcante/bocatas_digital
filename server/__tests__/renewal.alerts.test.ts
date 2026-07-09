@@ -16,7 +16,6 @@ import {
   isPadronRenewalDue,
   collectRenewalAlerts,
   PADRON_RENEWAL_DAYS,
-  INFORME_SOCIAL_RENEWAL_DAYS,
 } from "../routers/families/compliance";
 
 const TODAY = new Date("2026-05-06");
@@ -28,26 +27,22 @@ function daysAgo(days: number, ref: Date = TODAY): string {
 }
 
 describe("renewal cadence constants", () => {
-  it("locks the 330-day informe social cutoff", () => {
-    expect(INFORME_SOCIAL_RENEWAL_DAYS).toBe(330);
-  });
-
   it("locks the 180-day padrón cutoff", () => {
     expect(PADRON_RENEWAL_DAYS).toBe(180);
   });
 });
 
-describe("isInformeSocialRenewalDue", () => {
+describe("isInformeSocialRenewalDue (5-month renewal — shared source of truth)", () => {
   it("returns false when informe social is not on file", () => {
     expect(isInformeSocialRenewalDue(false, null, TODAY)).toBe(false);
   });
 
-  it("returns false when informe social is recent (<330 days)", () => {
-    expect(isInformeSocialRenewalDue(true, daysAgo(320), TODAY)).toBe(false);
+  it("returns false when informe social is recent (< 5 months)", () => {
+    expect(isInformeSocialRenewalDue(true, daysAgo(60), TODAY)).toBe(false);
   });
 
-  it("returns true when informe social is older than 330 days", () => {
-    expect(isInformeSocialRenewalDue(true, daysAgo(340), TODAY)).toBe(true);
+  it("returns true when informe social is older than 5 months", () => {
+    expect(isInformeSocialRenewalDue(true, daysAgo(200), TODAY)).toBe(true);
   });
 
   it("returns false when informe social date is null", () => {
@@ -93,16 +88,16 @@ describe("collectRenewalAlerts — 4-family scenario", () => {
       padron_recibido_fecha: daysAgo(0),
     },
     {
-      id: "near-informe-renewal",
+      id: "recent-informe",
       informe_social: true,
-      informe_social_fecha: daysAgo(320),
+      informe_social_fecha: daysAgo(60), // ~2 months → not due
       padron_recibido: true,
       padron_recibido_fecha: daysAgo(0),
     },
     {
       id: "overdue-informe",
       informe_social: true,
-      informe_social_fecha: daysAgo(340),
+      informe_social_fecha: daysAgo(200), // ~6.5 months → due
       padron_recibido: true,
       padron_recibido_fecha: daysAgo(0),
     },

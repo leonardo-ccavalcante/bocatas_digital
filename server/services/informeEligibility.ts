@@ -16,16 +16,21 @@ export type InformeSkipReason =
   | "SIN_SEGUIMIENTO"
   | "SEGUIMIENTO_VENCIDO"
   | "SIN_DESCRIPCION_SITUACION"
-  | "MIEMBRO_DATOS_INCOMPLETOS";
+  | "MIEMBRO_DATOS_INCOMPLETOS"
+  // Policy skip (NOT a render-ability reason — evaluateInformeReadiness never
+  // returns it): the family already has a valid informe (< 5 months), so the
+  // bulk tool leaves it untouched. Applied by the bulk data layer.
+  | "INFORME_AL_DIA";
 
 /** Human-readable Spanish label for each skip reason (bulk report UI). */
 export const INFORME_SKIP_REASON_LABEL: Record<InformeSkipReason, string> = {
   SIN_TITULAR: "Sin titular asignado",
   TITULAR_DATOS_INCOMPLETOS: "Datos del titular incompletos (nombre, apellidos o documento)",
   SIN_SEGUIMIENTO: "Sin seguimiento registrado",
-  SEGUIMIENTO_VENCIDO: "Seguimiento vencido (más de 365 días)",
+  SEGUIMIENTO_VENCIDO: "Seguimiento vencido (más de 6 meses)",
   SIN_DESCRIPCION_SITUACION: "Sin descripción de la situación familiar (valoración)",
   MIEMBRO_DATOS_INCOMPLETOS: "Algún miembro tiene datos incompletos",
+  INFORME_AL_DIA: "Informe al día (no requiere renovación todavía)",
 };
 
 export type InformeReadinessInput = {

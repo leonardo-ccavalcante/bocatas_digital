@@ -33,6 +33,10 @@ const HIGH_RISK_FIELDS = [
   // (server/_core/pii-crypto.ts) and decrypted only for elevated callers.
   "colectivos",
   "colectivo_otros",
+  // families.metadata carries informe_historial: longitudinal socioeconomic
+  // snapshots (vivienda, empleo, ingresos, dirección) written at each informe
+  // generation. Admin/superadmin only; no client surface consumes row.metadata.
+  "metadata",
 ] as const;
 
 const ELEVATED_ROLES = new Set(["admin", "superadmin"]);

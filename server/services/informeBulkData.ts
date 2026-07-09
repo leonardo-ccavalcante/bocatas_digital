@@ -9,6 +9,7 @@
 // data-fetching; readiness logic lives in informeEligibility.
 
 import type { createAdminClient } from "../../client/src/lib/supabase/server";
+import { informeNeedsRenewal } from "@shared/informeFreshness";
 import {
   evaluateInformeReadiness,
   type InformeReadiness,
@@ -36,7 +37,7 @@ export async function fetchActiveFamiliesReadiness(db: Db): Promise<FamilyReadin
   const { data: families, error } = await db
     .from("families")
     .select(
-      `id, familia_numero, titular_id, situacion_familiar_texto,
+      `id, familia_numero, titular_id, situacion_familiar_texto, informe_social_fecha,
        persons!titular_id(nombre, apellidos, numero_documento)`,
     )
     .eq("estado", "activa")
@@ -50,12 +51,14 @@ export async function fetchActiveFamiliesReadiness(db: Db): Promise<FamilyReadin
   // Batched latest-follow-up per family (max fecha).
   const latestFollowUp = new Map<string, string>();
   for (const ids100 of chunk(ids, CHUNK)) {
-    const { data } = await db
+    const { data, error: fuErr } = await db
       .from("family_follow_ups")
       .select("family_id, fecha")
       .in("family_id", ids100)
       .is("deleted_at", null)
       .order("fecha", { ascending: false });
+    // A silent [] here would mislabel families as SIN_SEGUIMIENTO — fail loudly.
+    if (fuErr) throw new Error(`follow-ups fetch failed: ${fuErr.message}`);
     for (const f of data ?? []) {
       const fid = f.family_id as string;
       if (!latestFollowUp.has(fid)) latestFollowUp.set(fid, f.fecha as string); // first = newest
@@ -65,11 +68,13 @@ export async function fetchActiveFamiliesReadiness(db: Db): Promise<FamilyReadin
   // Batched members per family.
   const members = new Map<string, InformeReadinessInput["members"]>();
   for (const ids100 of chunk(ids, CHUNK)) {
-    const { data } = await db
+    const { data, error: memErr } = await db
       .from("familia_miembros")
       .select("familia_id, nombre, apellidos, fecha_nacimiento")
       .in("familia_id", ids100)
       .is("deleted_at", null);
+    // A silent [] would mark families READY with zero members — fail loudly.
+    if (memErr) throw new Error(`members fetch failed: ${memErr.message}`);
     for (const m of data ?? []) {
       const fid = m.familia_id as string;
       const list = members.get(fid) ?? [];
@@ -93,10 +98,19 @@ export async function fetchActiveFamiliesReadiness(db: Db): Promise<FamilyReadin
       latest_follow_up_fecha: latestFollowUp.get(r.id as string) ?? null,
       members: members.get(r.id as string) ?? [],
     };
+    const readiness = evaluateInformeReadiness(input);
+    // Policy layer (on top of render-ability): a renderable family whose informe
+    // is still valid (< 5 months) is skipped as INFORME_AL_DIA — the bulk tool
+    // only fills gaps and renews informes due for review / expired.
+    const finalReadiness: InformeReadiness =
+      readiness.ready &&
+      !informeNeedsRenewal((r.informe_social_fecha as string | null) ?? null)
+        ? { ready: false, reason: "INFORME_AL_DIA" }
+        : readiness;
     return {
       family_id: r.id as string,
       familia_numero: String(r.familia_numero).padStart(4, "0"),
-      readiness: evaluateInformeReadiness(input),
+      readiness: finalReadiness,
     };
   });
 }

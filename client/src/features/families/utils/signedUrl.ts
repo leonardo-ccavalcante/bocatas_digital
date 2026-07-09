@@ -1,25 +1,26 @@
-import { createClient } from "@/lib/supabase/client";
-
-const BUCKET = "family-documents";
-const SIGNED_URL_TTL_SECONDS = 3600;
+import { trpcVanilla } from "@/lib/trpc";
 
 /**
- * Generate a signed URL for a storage path in the private family-documents bucket.
- * Returns null if the path is null/empty or signing fails.
+ * Resolve a short-lived signed URL for a path in the PRIVATE `family-documents`
+ * bucket. Signing happens SERVER-SIDE (`families.getDocumentSignedUrl`, via the
+ * service-role client): the browser's anon Supabase client is blocked by storage
+ * RLS on this private bucket, so a client-side `createSignedUrl` returns 404
+ * "Object not found". Returns null on failure (callers toast a generic error).
  *
- * If `path` is already a full URL (legacy data migrated before this fix),
- * returns it as-is so old links keep working.
+ * If `path` is already a full URL (legacy data migrated before paths were
+ * stored), it is returned as-is so old links keep working.
  */
 export async function getSignedDocUrl(
   path: string | null | undefined
 ): Promise<string | null> {
   if (!path) return null;
-  // Legacy guard: if someone stored a full URL before this fix, pass it through.
   if (path.startsWith("http://") || path.startsWith("https://")) return path;
-  const supabase = createClient();
-  const { data, error } = await supabase.storage
-    .from(BUCKET)
-    .createSignedUrl(path, SIGNED_URL_TTL_SECONDS);
-  if (error || !data) return null;
-  return data.signedUrl;
+  try {
+    const { signedUrl } = await trpcVanilla.families.getDocumentSignedUrl.query({
+      path,
+    });
+    return signedUrl;
+  } catch {
+    return null;
+  }
 }

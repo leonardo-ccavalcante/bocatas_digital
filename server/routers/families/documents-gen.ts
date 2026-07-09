@@ -11,6 +11,12 @@ import {
   INFORME_SKIP_REASON_LABEL,
   type InformeSkipReason,
 } from "../../services/informeEligibility";
+import {
+  computeSituacionChanges,
+  lastSnapshot,
+  appendHistorial,
+  type SituacionSnapshot,
+} from "../../services/informeSnapshot";
 
 type Db = ReturnType<typeof createAdminClient>;
 
@@ -43,6 +49,19 @@ async function generateAndPersist(
   // Mark any current family-level informe_valoracion_social not-current, then insert
   // the new current row. The partial-unique index (family_id, documento_tipo) rejects
   // a concurrent double-insert, so a race fails loudly rather than duplicating.
+  // No transaction over PostgREST: capture the currently-current row id(s) first
+  // so a failed insert can RESTORE the pointer instead of leaving the family with
+  // no current informe (deactivated old + no new row).
+  const { data: prevCurrent, error: prevErr } = await db
+    .from("family_member_documents")
+    .select("id")
+    .eq("family_id", familyId)
+    .eq("documento_tipo", "informe_valoracion_social")
+    .eq("member_index", -1)
+    .eq("is_current", true)
+    .is("deleted_at", null);
+  if (prevErr) throw new Error(prevErr.message);
+
   const { error: updErr } = await db
     .from("family_member_documents")
     .update({ is_current: false })
@@ -63,7 +82,60 @@ async function generateAndPersist(
     verified_by: null, // Manus id is not a valid auth.users UUID → store null
     is_current: true,
   });
-  if (insErr) throw new Error(insErr.message);
+  if (insErr) {
+    // Compensate: put the previous current informe back before failing loudly.
+    const prevIds = (prevCurrent ?? []).map((r) => r.id);
+    if (prevIds.length > 0) {
+      await db.from("family_member_documents").update({ is_current: true }).in("id", prevIds);
+    }
+    throw new Error(insErr.message);
+  }
+
+  // Capture the socioeconomic snapshot and append it to the family's informe
+  // history (metadata.informe_historial) — this powers the longitudinal
+  // "Cambios desde el último informe" comparison on the NEXT renewal. Only
+  // NON-Art.9 structured fields are stored. Read the row once for both the
+  // snapshot fields and the existing metadata.
+  const { data: fam } = await db
+    .from("families")
+    .select(
+      `num_adultos, num_menores_18, metadata,
+       persons!titular_id(tipo_vivienda, situacion_laboral, nivel_ingresos,
+                          nivel_estudios, empadronado, direccion)`,
+    )
+    .eq("id", familyId)
+    .single();
+  const today = new Date().toISOString().slice(0, 10);
+  if (fam) {
+    const tp = Array.isArray(fam.persons) ? fam.persons[0] : fam.persons;
+    const snapshot: SituacionSnapshot = {
+      tipo_vivienda: tp?.tipo_vivienda ?? null,
+      situacion_laboral: tp?.situacion_laboral ?? null,
+      nivel_ingresos: tp?.nivel_ingresos ?? null,
+      nivel_estudios: tp?.nivel_estudios ?? null,
+      empadronado: tp?.empadronado ?? null,
+      direccion: tp?.direccion ?? null,
+      num_adultos: fam.num_adultos,
+      num_menores_18: fam.num_menores_18,
+    };
+    const metadata = (fam.metadata ?? {}) as Record<string, unknown>;
+    const cambios = computeSituacionChanges(lastSnapshot(metadata), snapshot);
+    const nextMetadata = appendHistorial(metadata, { fecha: today, situacion: snapshot, cambios });
+
+    // Stamp status (generating IS producing the informe) AND persist history in
+    // one update — aligns the badge/list/bulk rule with actual generation.
+    const { error: updErr2 } = await db
+      .from("families")
+      .update({
+        informe_social: true,
+        informe_social_fecha: today,
+        // Round-trip to a plain JSON value for the jsonb column (repo pattern —
+        // see crud.ts baja_history); nextMetadata is already JSON-serializable.
+        metadata: JSON.parse(JSON.stringify(nextMetadata)),
+      })
+      .eq("id", familyId);
+    if (updErr2) throw new Error(updErr2.message);
+  }
 
   return { fileName: rendered.fileName, path };
 }
