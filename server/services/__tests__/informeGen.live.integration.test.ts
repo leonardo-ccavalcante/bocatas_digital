@@ -1,7 +1,11 @@
 /**
- * LIVE integration test — requires a running local Supabase with the template
- * published. Run explicitly:
- *   SUPABASE_URL=http://127.0.0.1:54321 SUPABASE_SERVICE_ROLE_KEY=... \
+ * LIVE integration test — requires a running local Supabase with the SEEDED demo
+ * family AND the informe template published (scripts/publish-informe-template.mjs).
+ * CI cannot satisfy those preconditions (its unit job has placeholder SUPABASE
+ * env → network timeout; its DB job has a real DB but no published template), so
+ * the suite is OPT-IN via an explicit flag, not env presence. Run explicitly:
+ *   RUN_LIVE_INFORME_TESTS=1 SUPABASE_URL=http://127.0.0.1:54321 \
+ *   SUPABASE_SERVICE_ROLE_KEY=... \
  *   pnpm exec vitest run server/services/__tests__/informeGen.live.integration.test.ts
  *
  * Proves the WHOLE chain end-to-end against real DB + Storage + the published
@@ -17,7 +21,8 @@ import { renderDocument } from "../documentService";
 
 const url = process.env.SUPABASE_URL;
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const RUN = !!url && !!key;
+// Explicit opt-in: env PRESENCE is not env USABILITY (CI sets placeholder values).
+const RUN = process.env.RUN_LIVE_INFORME_TESTS === "1" && !!url && !!key;
 const db = RUN ? createClient(url as string, key as string, { auth: { persistSession: false } }) : null;
 
 const FAMILY_ID = "d0000000-0000-0000-0000-000000000001";
