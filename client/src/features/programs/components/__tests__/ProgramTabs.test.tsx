@@ -115,21 +115,29 @@ describe("ProgramTabs contract", () => {
   });
 
   // 2 ──────────────────────────────────────────────────────────────────────────
-  it("renders 6 tab triggers in spec order for programa_familias", () => {
+  it("renders 7 tab triggers in spec order for programa_familias", () => {
     renderWithRouter(<ProgramTabs program={makeProgram("programa_familias")} />);
     const tabs = screen.getAllByRole("tab");
-    expect(tabs).toHaveLength(6);
+    expect(tabs).toHaveLength(7);
     const labels = tabs.map((t) => t.textContent?.trim());
-    expect(labels).toEqual(["Familias", "Lista de distribución", "Mapa", "Reports", "Uploads", "Derivar"]);
+    expect(labels).toEqual([
+      "Familias",
+      "Informes",
+      "Lista de distribución",
+      "Mapa",
+      "Reports",
+      "Uploads",
+      "Derivar",
+    ]);
   });
 
   // 3 ──────────────────────────────────────────────────────────────────────────
-  it("enables all six tabs including Repartos and Derivar (Phase 3+ active)", () => {
+  it("enables all seven tabs including Informes, Repartos and Derivar", () => {
     renderWithRouter(<ProgramTabs program={makeProgram("programa_familias")} />);
 
     const allTabs = screen.getAllByRole("tab");
-    // Index order: Familias(0), Lista de distribución(1), Mapa(2), Reports(3), Uploads(4), Derivar(5)
-    const [familias, repartos, mapa, reports, uploads, derivar] = allTabs;
+    // Index order: Familias(0), Informes(1), Lista de distribución(2), Mapa(3), Reports(4), Uploads(5), Derivar(6)
+    const [familias, informes, repartos, mapa, reports, uploads, derivar] = allTabs;
 
     function isDisabledTab(el: HTMLElement): boolean {
       return (
@@ -137,8 +145,9 @@ describe("ProgramTabs contract", () => {
         el.getAttribute("aria-disabled") === "true"
       );
     }
-    // All tabs are live now that Repartos (Lista de distribución) and Derivar (Phase 3) are enabled.
+    // All tabs are live.
     expect(isDisabledTab(familias)).toBe(false);
+    expect(isDisabledTab(informes)).toBe(false);
     expect(isDisabledTab(repartos)).toBe(false);
     expect(isDisabledTab(uploads)).toBe(false);
     expect(isDisabledTab(mapa)).toBe(false);
@@ -180,9 +189,9 @@ describe("ProgramTabs contract", () => {
       <ProgramTabs program={makeProgram("programa_familias")} />,
     );
 
-    // Uploads is index 4 per spec order (after Lista de distribución was added at index 1)
+    // Uploads is index 5 per spec order (Familias, Informes, Lista de distribución, Mapa, Reports, Uploads, Derivar)
     const allTabs = screen.getAllByRole("tab");
-    const uploadsTab = allTabs[4];
+    const uploadsTab = allTabs[5];
     await user.click(uploadsTab);
 
     await waitFor(() => {
@@ -209,7 +218,7 @@ describe("ProgramTabs contract", () => {
 
     // Navigate to uploads and verify UploadsTab also receives the id
     const allTabs = screen.getAllByRole("tab");
-    const uploadsTab = allTabs[4];
+    const uploadsTab = allTabs[5];
     await user.click(uploadsTab);
 
     await waitFor(() => {

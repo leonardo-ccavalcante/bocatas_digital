@@ -60,14 +60,15 @@ export function MemberDocSubcard({
           else toast.error("No se pudo generar el enlace");
         }}
       />
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
         {memberDocs.map((d) => (
           <Button
             key={d.key}
             variant="outline"
             size="sm"
             onClick={() => onUpload(d.key as FamilyDocType, member.member_index)}
-            className="justify-start text-xs"
+            // Wrap long labels inside the pill instead of overflowing the cell.
+            className="h-auto min-h-9 justify-start whitespace-normal text-left leading-snug text-xs"
           >
             {items.find((i) => i.id === d.key)?.checked ? "Actualizar" : "Cargar"}: {d.label}
           </Button>
