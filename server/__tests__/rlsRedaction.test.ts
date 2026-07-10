@@ -30,6 +30,8 @@ const fullRow = {
   // RGPD Art. 9/10 special-category — "otras características / colectivo".
   colectivos: ["gitanos"],
   colectivo_otros: "v1:enc:enc:enc", // encrypted-at-rest ciphertext shape
+  // families.metadata carries informe_historial socioeconomic snapshots.
+  metadata: { informe_historial: [{ fecha: "2026-07-08", situacion: {}, cambios: [] }] },
   fase_itinerario: "acogida",
 };
 
@@ -42,6 +44,7 @@ const EXPECTED_HIGH_RISK_FIELDS = [
   "colectivo_otros",
   "colectivos",
   "foto_documento_url",
+  "metadata",
   "necesidades_texto",
   "recorrido_migratorio",
   "situacion_familiar_texto",

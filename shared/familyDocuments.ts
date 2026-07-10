@@ -14,6 +14,7 @@ export type FamilyDocType =
   | "padron_municipal"
   | "justificante_situacion"
   | "informe_social"
+  | "informe_valoracion_social"
   | "autorizacion_recogida"
   | "documento_identidad"
   | "consent_bocatas"
@@ -37,6 +38,10 @@ export const FAMILY_DOC_TO_BOOLEAN_COLUMN: Record<FamilyDocType, FamilyBooleanCa
   padron_municipal: "padron_recibido",
   justificante_situacion: "justificante_recibido",
   informe_social: "informe_social",
+  // Generated valoración docx: deliberately NO cache column so generating/
+  // regenerating never flips the `informe_social` flag (which tracks the
+  // manually-uploaded signed informe — a distinct artifact that coexists).
+  informe_valoracion_social: null,
   autorizacion_recogida: null,
   documento_identidad: "docs_identidad",
   consent_bocatas: "consent_bocatas",
@@ -50,6 +55,7 @@ export const FAMILY_LEVEL_DOC_TYPES = [
   "padron_municipal",
   "justificante_situacion",
   "informe_social",
+  "informe_valoracion_social",
   "autorizacion_recogida",
 ] as const satisfies readonly FamilyDocType[];
 

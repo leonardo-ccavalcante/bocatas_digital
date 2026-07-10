@@ -219,13 +219,13 @@ describe("App.tsx legacy /familias redirects", () => {
   });
 
   // 3 ──────────────────────────────────────────────────────────────────────────
-  it("/familias/informes-sociales redirects to /programas/programa_familias?tab=reports", () => {
+  it("/familias/informes-sociales redirects to /programas/programa_familias?tab=informes", () => {
     renderAtPath("/familias/informes-sociales");
 
     const redirect = screen.getByTestId("redirect-mock");
     expect(redirect).toHaveAttribute(
       "data-to",
-      "/programas/programa_familias?tab=reports",
+      "/programas/programa_familias?tab=informes",
     );
   });
 
