@@ -27,6 +27,19 @@ export async function setupVite(app: Express, server: Server) {
     allowedHosts: true as const,
   };
 
+  // vite.config.ts default-exports the result of `defineConfig(({ command }) => ...)`,
+  // which is a FUNCTION. Spreading a function (`...viteConfig`) yields an empty
+  // object, dropping `root`/`plugins`/`resolve`, so the dev server serves from the
+  // wrong root with no React plugin (blank page, `/src/main.tsx` 404). Resolve the
+  // config first so middleware mode gets the real root + plugins.
+  const resolvedConfig =
+    typeof viteConfig === "function"
+      ? await (viteConfig as (env: { command: "serve"; mode: string }) => unknown)({
+          command: "serve",
+          mode: process.env.NODE_ENV ?? "development",
+        })
+      : viteConfig;
+
   const vite = await createViteServer({
     ...(resolvedConfig as Record<string, unknown>),
     configFile: false,

@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { createAdminClient } from "../../../client/src/lib/supabase/server";
-import { protectedProcedure, router } from "../../_core/trpc";
+import { adminProcedure, router } from "../../_core/trpc";
 import { FaseItinerarioEnum } from "./_shared";
 
 export const adminRouter = router({
@@ -9,19 +9,14 @@ export const adminRouter = router({
    * Update a person's role (admin/superadmin only).
    * Validates role against allowed enum values.
    */
-  updateRole: protectedProcedure
+  updateRole: adminProcedure
     .input(
       z.object({
         personId: z.string().uuid("Invalid person ID"),
         newRole: z.enum(["user", "admin", "superadmin", "voluntario", "beneficiario"]),
       })
     )
-    .mutation(async ({ ctx, input }) => {
-      // Only admin/superadmin can change roles
-      if (ctx.user.role !== "admin" && ctx.user.role !== "superadmin") {
-        throw new TRPCError({ code: "FORBIDDEN", message: "Solo admin puede cambiar roles" });
-      }
-
+    .mutation(async ({ input }) => {
       const supabase = createAdminClient();
       const { data, error } = await supabase
         .from("persons")
@@ -48,19 +43,14 @@ export const adminRouter = router({
    * Only admin/superadmin can change this field.
    * Uses service role key to bypass RLS.
    */
-  updateFaseItinerario: protectedProcedure
+  updateFaseItinerario: adminProcedure
     .input(
       z.object({
         personId: z.string().uuid("Invalid person ID"),
         newFaseItinerario: FaseItinerarioEnum,
       })
     )
-    .mutation(async ({ ctx, input }) => {
-      // Only admin/superadmin can change fase itinerario
-      if (ctx.user.role !== "admin" && ctx.user.role !== "superadmin") {
-        throw new TRPCError({ code: "FORBIDDEN", message: "Solo admin puede cambiar fase itinerario" });
-      }
-
+    .mutation(async ({ input }) => {
       const supabase = createAdminClient();
       const { data, error } = await supabase
         .from("persons")

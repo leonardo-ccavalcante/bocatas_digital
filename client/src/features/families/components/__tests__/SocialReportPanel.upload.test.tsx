@@ -51,6 +51,10 @@ const {
   mockCreateFollowUp,
   mockGenerateDocument,
   mockUseUtils,
+  mockGetById,
+  mockComposeDraft,
+  mockUpdateNarrative,
+  mockGenerateSocialReport,
 } = vi.hoisted(() => ({
   mockUpdateDocField: vi.fn(),
   mockGetLatestFollowUp: vi.fn(),
@@ -58,6 +62,10 @@ const {
   mockCreateFollowUp: vi.fn(),
   mockGenerateDocument: vi.fn(),
   mockUseUtils: vi.fn(),
+  mockGetById: vi.fn(),
+  mockComposeDraft: vi.fn(),
+  mockUpdateNarrative: vi.fn(),
+  mockGenerateSocialReport: vi.fn(),
 }));
 
 vi.mock("@/lib/trpc", () => ({
@@ -77,6 +85,24 @@ vi.mock("@/lib/trpc", () => ({
       },
       generateDocument: {
         useMutation: mockGenerateDocument,
+      },
+      // Added in the narrative/persist rewrite (kept in sync with the component):
+      getById: {
+        useQuery: mockGetById,
+      },
+      composeNarrativeDraft: {
+        useMutation: mockComposeDraft,
+      },
+      updateNarrative: {
+        useMutation: mockUpdateNarrative,
+      },
+      generateSocialReport: {
+        useMutation: mockGenerateSocialReport,
+      },
+      // DocxPreviewModal is always mounted inside the panel; its query is
+      // disabled while closed but useQuery is still invoked on render.
+      getSocialReportPdf: {
+        useQuery: () => ({ isPending: false, isError: false, data: undefined, error: null }),
       },
     },
     useUtils: mockUseUtils,
@@ -117,12 +143,17 @@ function setupDefaultMocks(options: {
   mockUseUtils.mockReturnValue({
     families: {
       getById: { invalidate },
+      getFamilyDocuments: { invalidate },
       listFollowUps: { invalidate },
       getLatestFollowUp: { invalidate },
     },
   });
 
   mockUpdateDocField.mockReturnValue({ mutate: vi.fn(), isPending: false });
+  mockGetById.mockReturnValue({ data: { situacion_familiar_texto: "" } });
+  mockComposeDraft.mockReturnValue({ mutate: vi.fn(), isPending: false });
+  mockUpdateNarrative.mockReturnValue({ mutate: vi.fn(), isPending: false });
+  mockGenerateSocialReport.mockReturnValue({ mutate: vi.fn(), isPending: false });
 
   const latest = options.latestFollowUp !== undefined
     ? options.latestFollowUp
@@ -179,7 +210,7 @@ describe("SocialReportPanel rendering", () => {
     );
 
     expect(
-      screen.getByRole("button", { name: /generar informe social/i }),
+      screen.getByRole("button", { name: /generar y guardar el informe/i }),
     ).toBeInTheDocument();
   });
 
@@ -194,7 +225,7 @@ describe("SocialReportPanel rendering", () => {
       />
     );
 
-    const btn = screen.getByRole("button", { name: /generar informe social/i });
+    const btn = screen.getByRole("button", { name: /generar y guardar el informe/i });
     expect(btn).toBeDisabled();
 
     const alert = screen.getByRole("alert");

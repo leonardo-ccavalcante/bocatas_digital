@@ -11,6 +11,10 @@ export const TipoViviendaEnum = z.enum(["calle", "albergue", "piso_compartido_al
 export const EstabilidadHabitacionalEnum = z.enum(["sin_hogar", "inestable", "temporal", "estable"]);
 export const NivelEstudiosEnum = z.enum(["sin_estudios", "primaria", "secundaria", "bachillerato", "formacion_profesional", "universitario", "postgrado"]);
 export const SituacionLaboralEnum = z.enum(["desempleado", "economia_informal", "empleo_temporal", "empleo_indefinido", "autonomo", "en_formacion", "jubilado", "incapacidad_permanente", "sin_permiso_trabajo"]);
+// FSE/IRPF status ante el empleo (orthogonal to situacion_laboral).
+export const SituacionAnteEmpleoEnum = z.enum(["inactiva", "desempleo_subsidio_larga_duracion", "agotada_prestacion_subsidio", "precariedad_laboral", "no_aplica"]);
+// RGPD Art. 9/10 special-category.
+export const ColectivoEnum = z.enum(["gitanos", "lgtbi", "sin_hogar", "reclusos_exreclusos"]);
 export const NivelIngresosEnum = z.enum(["sin_ingresos", "menos_500", "entre_500_1000", "entre_1000_1500", "mas_1500"]);
 export const CanalLlegadaEnum = z.enum(["boca_a_boca", "cruz_roja", "servicios_sociales", "otra_ong", "internet", "presencial_directo", "whatsapp", "telefono", "email", "instagram", "retorno_bocatas", "otros"]);
 export const FaseItinerarioEnum = z.enum(["acogida", "estabilizacion", "formacion", "insercion_laboral", "autonomia"]);
@@ -51,7 +55,13 @@ export const PersonCreateInput = z.object({
   empadronado: z.boolean().optional().nullable(),
   nivel_estudios: NivelEstudiosEnum.optional().nullable(),
   situacion_laboral: SituacionLaboralEnum.optional().nullable(),
+  situacion_ante_empleo: SituacionAnteEmpleoEnum.optional().nullable(),
   nivel_ingresos: NivelIngresosEnum.optional().nullable(),
+  // RGPD Art. 9/10 — persisted only under explicit consent (see crud.ts).
+  colectivos: z.array(ColectivoEnum).optional().nullable(),
+  colectivo_otros: z.string().max(200).optional().nullable(),
+  // Transient (not a DB column): gates persistence of colectivo* fields.
+  colectivo_consentimiento: z.boolean().optional(),
   recorrido_migratorio: z.string().max(2000).optional().nullable(),
   necesidades_principales: z.string().max(2000).optional().nullable(),
   restricciones_alimentarias: z.string().max(500).optional().nullable(),

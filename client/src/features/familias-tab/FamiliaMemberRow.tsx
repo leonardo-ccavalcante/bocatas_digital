@@ -1,4 +1,5 @@
 import { ageInYears } from "@/features/families/utils/age";
+import { RELACION_LABEL_ES } from "@shared/parentesco";
 import { MemberDocDots } from "./MemberDocDots";
 
 /**
@@ -23,13 +24,6 @@ export interface FamiliaMemberRowProps {
   uploadedTipos: ReadonlySet<string>;
 }
 
-const RELACION_LABELS: Record<string, string> = {
-  parent: "Progenitor/a",
-  child: "Hijo/a",
-  sibling: "Hermano/a",
-  other: "Otro",
-};
-
 const ROL_LABELS: Record<string, string> = {
   head_of_household: "Titular",
   dependent: "Dependiente",
@@ -39,7 +33,7 @@ const ROL_LABELS: Record<string, string> = {
 /** Pure: pick the best Spanish parentesco label from rol/relacion, else em-dash. */
 export function parentescoLabel(rol?: string | null, relacion?: string | null): string {
   if (rol && ROL_LABELS[rol]) return ROL_LABELS[rol];
-  if (relacion && RELACION_LABELS[relacion]) return RELACION_LABELS[relacion];
+  if (relacion && RELACION_LABEL_ES[relacion]) return RELACION_LABEL_ES[relacion];
   return "—";
 }
 

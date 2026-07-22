@@ -1748,6 +1748,8 @@ export type Database = {
           barrio_zona: string | null
           canal_llegada: Database["public"]["Enums"]["canal_llegada"] | null
           codigo_postal: string | null
+          colectivo_otros: string | null
+          colectivos: Database["public"]["Enums"]["colectivo"][] | null
           created_at: string
           deleted_at: string | null
           direccion: string | null
@@ -1786,6 +1788,9 @@ export type Database = {
           recorrido_migratorio: string | null
           restricciones_alimentarias: string | null
           role: string
+          situacion_ante_empleo:
+            | Database["public"]["Enums"]["situacion_ante_empleo"]
+            | null
           situacion_laboral:
             | Database["public"]["Enums"]["situacion_laboral"]
             | null
@@ -1801,6 +1806,8 @@ export type Database = {
           barrio_zona?: string | null
           canal_llegada?: Database["public"]["Enums"]["canal_llegada"] | null
           codigo_postal?: string | null
+          colectivo_otros?: string | null
+          colectivos?: Database["public"]["Enums"]["colectivo"][] | null
           created_at?: string
           deleted_at?: string | null
           direccion?: string | null
@@ -1839,6 +1846,9 @@ export type Database = {
           recorrido_migratorio?: string | null
           restricciones_alimentarias?: string | null
           role?: string
+          situacion_ante_empleo?:
+            | Database["public"]["Enums"]["situacion_ante_empleo"]
+            | null
           situacion_laboral?:
             | Database["public"]["Enums"]["situacion_laboral"]
             | null
@@ -1854,6 +1864,8 @@ export type Database = {
           barrio_zona?: string | null
           canal_llegada?: Database["public"]["Enums"]["canal_llegada"] | null
           codigo_postal?: string | null
+          colectivo_otros?: string | null
+          colectivos?: Database["public"]["Enums"]["colectivo"][] | null
           created_at?: string
           deleted_at?: string | null
           direccion?: string | null
@@ -1892,6 +1904,9 @@ export type Database = {
           recorrido_migratorio?: string | null
           restricciones_alimentarias?: string | null
           role?: string
+          situacion_ante_empleo?:
+            | Database["public"]["Enums"]["situacion_ante_empleo"]
+            | null
           situacion_laboral?:
             | Database["public"]["Enums"]["situacion_laboral"]
             | null
@@ -2556,6 +2571,7 @@ export type Database = {
         | "retorno_bocatas"
         | "otros"
         | "programa_familias"
+      colectivo: "gitanos" | "lgtbi" | "sin_hogar" | "reclusos_exreclusos"
       consent_language: "es" | "ar" | "fr" | "bm"
       consent_purpose:
         | "tratamiento_datos_bocatas"
@@ -2605,6 +2621,12 @@ export type Database = {
         | "atencion_juridica"
         | "voluntariado"
         | "acompanamiento"
+      situacion_ante_empleo:
+        | "inactiva"
+        | "desempleo_subsidio_larga_duracion"
+        | "agotada_prestacion_subsidio"
+        | "precariedad_laboral"
+        | "no_aplica"
       situacion_laboral:
         | "desempleado"
         | "economia_informal"
@@ -2781,6 +2803,7 @@ export const Constants = {
         "otros",
         "programa_familias",
       ],
+      colectivo: ["gitanos", "lgtbi", "sin_hogar", "reclusos_exreclusos"],
       consent_language: ["es", "ar", "fr", "bm"],
       consent_purpose: [
         "tratamiento_datos_bocatas",
@@ -2836,6 +2859,13 @@ export const Constants = {
         "atencion_juridica",
         "voluntariado",
         "acompanamiento",
+      ],
+      situacion_ante_empleo: [
+        "inactiva",
+        "desempleo_subsidio_larga_duracion",
+        "agotada_prestacion_subsidio",
+        "precariedad_laboral",
+        "no_aplica",
       ],
       situacion_laboral: [
         "desempleado",

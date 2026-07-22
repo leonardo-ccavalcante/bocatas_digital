@@ -65,14 +65,16 @@ export function FamilyDocsCard({ familyId, onUpload }: FamilyDocsCardProps) {
             else toast.error("No se pudo generar el enlace");
           }}
         />
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 pt-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 pt-2">
           {familyDocs.map((d) => (
             <Button
               key={d.key}
               variant="outline"
               size="sm"
               onClick={() => onUpload(d.key as FamilyDocType)}
-              className="justify-start"
+              // Long labels must wrap inside the pill instead of overflowing the
+              // fixed-width grid cell: h-auto + whitespace-normal + left align.
+              className="h-auto min-h-9 justify-start whitespace-normal text-left leading-snug"
             >
               {items.find((i) => i.id === d.key)?.checked ? "Actualizar" : "Cargar"}: {d.label}
             </Button>

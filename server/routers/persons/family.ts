@@ -1,10 +1,10 @@
 import { z } from "zod";
 import { createAdminClient } from "../../../client/src/lib/supabase/server";
-import { protectedProcedure, router } from "../../_core/trpc";
+import { voluntarioProcedure, router } from "../../_core/trpc";
 import { mirrorMembersToTable, insertFamilyRow } from "../families";
 
 export const familyRouter = router({
-  createFamily: protectedProcedure
+  createFamily: voluntarioProcedure
     .input(z.object({
       titularId: z.string().uuid(),
       miembros: z.array(z.object({

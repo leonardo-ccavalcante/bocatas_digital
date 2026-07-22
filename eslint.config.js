@@ -101,6 +101,11 @@ export default [
       "client/src/features/persons/components/RegistrationWizard/index.tsx",
       "client/src/features/programs/components/ProgramForm.tsx",
       "client/src/pages/ProgramaDetalle.tsx",
+      // Personas.tsx grew 280→478 via Manus perf work (virtualization + lazy-mount)
+      // integrated in the #118 merge. Allow-listed to keep the merge surgical; the
+      // over-line portion (VirtualizedDesktop/MobileList + filter hooks) should be
+      // extracted in a focused follow-up where /personas perf can be verified in-app.
+      "client/src/pages/Personas.tsx",
       "client/src/pages/admin/LogsPage.tsx",
       "server/csvLegacyFamiliasMapper.ts",
       "server/routers/families/compliance.ts",

@@ -116,6 +116,34 @@ function flattenContext(ctx: FamilyDocumentContext): Record<string, unknown> {
 }
 
 /**
+ * Dotted-path parser for docxtemplater.
+ *
+ * docxtemplater's DEFAULT parser does NOT resolve dotted tags: `{titular.nombre}`
+ * looks up a literal property named "titular.nombre" (not `scope.titular.nombre`)
+ * and renders blank. Every template here uses dotted tags (`{titular.nombre}`,
+ * `{familia.numero}`, `{round.header.mes_fecha}`), so WITHOUT this parser the
+ * beneficiary identity fields silently render EMPTY — a bug the determinism test
+ * cannot catch (two equally-blank renders are byte-identical).
+ *
+ * docxtemplater calls `get` once per scope (innermost first), so returning
+ * undefined for a missing intermediate lets it walk up to an outer scope; `"."`
+ * is the current-item token used by scalar loops.
+ */
+function dottedParser(tag: string): { get(scope: unknown): unknown } {
+  return {
+    get(scope: unknown): unknown {
+      if (tag === ".") return scope;
+      return tag
+        .split(".")
+        .reduce<unknown>(
+          (v, k) => (v == null ? undefined : (v as Record<string, unknown>)[k]),
+          scope
+        );
+    },
+  };
+}
+
+/**
  * auditRender — NON-FATAL audit log insert.
  * On failure, logs to console but does NOT rethrow.
  * No PII in the log line — only family UUID + ids.
@@ -202,6 +230,7 @@ export async function renderDocument(
       paragraphLoop: true,
       linebreaks: true,
       nullGetter: () => "",
+      parser: dottedParser,
     });
     doc.render(flattenContext(enrichedContext));
     out = doc.getZip().generate({ type: "nodebuffer" }) as Buffer;

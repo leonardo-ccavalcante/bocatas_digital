@@ -27,8 +27,40 @@ const fullRow = {
   // Family social-report narrative (INFORMES SOCIALES) — also high-risk (Art. 9).
   situacion_familiar_texto: "Familia monoparental con dos menores.",
   necesidades_texto: "Apoyo alimentario y acompañamiento.",
+  // RGPD Art. 9/10 special-category — "otras características / colectivo".
+  colectivos: ["gitanos"],
+  colectivo_otros: "v1:enc:enc:enc", // encrypted-at-rest ciphertext shape
+  // families.metadata carries informe_historial socioeconomic snapshots.
+  metadata: { informe_historial: [{ fecha: "2026-07-08", situacion: {}, cambios: [] }] },
   fase_itinerario: "acogida",
 };
+
+// The concrete field set this redactor MUST protect. Hardcoded on purpose:
+// the behavioral tests below iterate over HIGH_RISK_FIELD_NAMES (the module's
+// own export), so if a field were dropped from HIGH_RISK_FIELDS it would also
+// vanish from their oracle and pass silently. This test is the independent
+// oracle — dropping (or adding) a protected field fails here first.
+const EXPECTED_HIGH_RISK_FIELDS = [
+  "colectivo_otros",
+  "colectivos",
+  "foto_documento_url",
+  "metadata",
+  "necesidades_texto",
+  "recorrido_migratorio",
+  "situacion_familiar_texto",
+  "situacion_legal",
+].sort();
+
+describe("HIGH_RISK_FIELD_NAMES — the protected set is exactly this", () => {
+  it("matches the expected special-category / high-risk field set", () => {
+    expect([...HIGH_RISK_FIELD_NAMES].sort()).toEqual(EXPECTED_HIGH_RISK_FIELDS);
+  });
+
+  it("explicitly includes the RGPD Art.9/10 colectivo fields", () => {
+    expect(HIGH_RISK_FIELD_NAMES).toContain("colectivos");
+    expect(HIGH_RISK_FIELD_NAMES).toContain("colectivo_otros");
+  });
+});
 
 describe("redactHighRiskFields — elevated roles", () => {
   it("returns row unchanged for admin", () => {

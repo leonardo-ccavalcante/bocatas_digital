@@ -194,7 +194,7 @@ function Router() {
         </Route>
         <Route path="/familias/informes-sociales">
           <ProtectedRoute requiredRoles={["admin", "superadmin"]}>
-            <Redirect to="/programas/programa_familias?tab=reports" />
+            <Redirect to="/programas/programa_familias?tab=informes" />
           </ProtectedRoute>
         </Route>
         <Route path="/familias/:id">
