@@ -322,3 +322,12 @@
 - [x] Verify: tests pass, TypeScript 0 errors, no 401 in browser console
 - [x] Edge case: duplicate check UI must show fecha_nacimiento + ID prefix so users can distinguish two "Juan Pérez" with different birthdays
 - [x] Verify DuplicateCandidateSchema includes fecha_nacimiento and that the UI renders it in the duplicate warning card
+
+### Feature: Informe de Valoración Social (PR #123)
+- [ ] Merge feat/informe-valoracion-social into Manus main
+- [ ] Apply new Supabase migrations (20260708000001, 000002, 000003)
+- [ ] Add LIBREOFFICE_WORKER_URL remote mode to docxToPdf.ts
+- [ ] Set LIBREOFFICE_WORKER_URL secret pointing to Cloud Computer worker
+- [ ] TDD: tests for remote worker mode in docxToPdf.ts
+- [ ] TypeScript 0 errors, full test suite green
+- [ ] Checkpoint + push to GitHub
