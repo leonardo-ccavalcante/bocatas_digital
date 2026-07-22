@@ -21,6 +21,10 @@ jobs:
         with:
           node-version: "22"
 
+      - name: Docs drift gate (AGENTS.md path refs, bridge, stale-state)
+        # Needs only Node — runs before pnpm setup so doc rot fails in seconds.
+        run: node scripts/check-agents-docs.mjs
+
       - name: Setup pnpm
         # No `version` input here — pnpm/action-setup@v4 errors when both
         # `version` and `package.json#packageManager` are set. The pinned

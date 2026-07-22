@@ -12,7 +12,8 @@
     "test": "vitest run",
     "db:push": "drizzle-kit generate && drizzle-kit migrate",
     "lint": "eslint client/src server shared --ext .ts,.tsx",
-    "lint:fix": "eslint client/src server shared --ext .ts,.tsx --fix"
+    "lint:fix": "eslint client/src server shared --ext .ts,.tsx --fix",
+    "docs:check": "node scripts/check-agents-docs.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
