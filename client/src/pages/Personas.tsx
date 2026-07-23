@@ -19,7 +19,7 @@
  * param. Adding one would change the server contract; per task rules we must
  * not do that. `persons.getAll` (admin path) likewise has no filter params.
  */
-import { useState, useMemo, useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import { useState, useMemo, useCallback, useEffect, useLayoutEffect, useRef, lazy, Suspense } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useSearchPersons } from "@/features/persons/hooks/useSearchPersons";
@@ -77,16 +77,16 @@ function useScrollContainer(): React.RefObject<HTMLElement | null> {
  * This avoids rendering 999 <tr> rows + Radix <Select> portals on page load,
  * which was the primary source of the 3,500ms INP.
  */
+// React.lazy so the chunk is fetched only when the admin accordion opens.
+// (Was `require(...)` — not defined in the Vite/ESM client bundle → ReferenceError
+// crash when the <details> was opened. Codex review on #118.)
+const PersonsTableLazy = lazy(() =>
+  import("@/features/persons/components/PersonsTable").then((m) => ({
+    default: m.PersonsTable,
+  }))
+);
 function LazyPersonsTable() {
   const [mounted, setMounted] = useState(false);
-
-  // Dynamically import PersonsTable only when needed
-  const PersonsTable = useMemo(() => {
-    if (!mounted) return null;
-    // We use a lazy require pattern via dynamic import to defer the module load
-    return require("@/features/persons/components/PersonsTable").PersonsTable as React.ComponentType;
-  }, [mounted]);
-
   return (
     <details
       className="mt-8"
@@ -99,7 +99,11 @@ function LazyPersonsTable() {
       <summary className="cursor-pointer text-body-sm text-muted-foreground hover:text-foreground transition-colors mb-3 select-none">
         Gestión de roles y fases (admin)
       </summary>
-      {mounted && PersonsTable ? <PersonsTable /> : null}
+      {mounted ? (
+        <Suspense fallback={null}>
+          <PersonsTableLazy />
+        </Suspense>
+      ) : null}
     </details>
   );
 }

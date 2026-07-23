@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { router, adminProcedure, protectedProcedure } from "../../_core/trpc";
+import { router, adminProcedure, voluntarioProcedure } from "../../_core/trpc";
 import { createAdminClient } from "../../../client/src/lib/supabase/server";
 import {
   isMemberAdult,
@@ -9,12 +9,16 @@ import {
 } from "../../families-doc-helpers";
 import { uuidLike } from "./_shared";
 import { ilikeValue } from "../../_core/postgrestFilter";
+import {
+  informeNeedsRenewal,
+  monthsAgoISO,
+  INFORME_REVIEW_MONTHS,
+} from "@shared/informeFreshness";
 
 // ─── Renewal cadence helpers (Phase B.6) ──────────────────────────────────
-// Pure helpers exported so unit tests in server/__tests__/renewal.alerts.test.ts
-// can lock the rule without hitting the DB. Mirrored in the SQL filters of
-// `getComplianceStats` below.
-export const INFORME_SOCIAL_RENEWAL_DAYS = 330;
+// Informe social renewal derives from the SINGLE source of truth
+// (shared/informeFreshness: review at 5 months, expiry at 6). PADRON keeps its
+// own 180-day cadence. Pure helpers stay exported for renewal.alerts.test.ts.
 export const PADRON_RENEWAL_DAYS = 180;
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
@@ -29,7 +33,7 @@ export function isInformeSocialRenewalDue(
   today: Date = new Date()
 ): boolean {
   if (!informeSocial || !informeSocialFecha) return false;
-  return daysBetween(today, new Date(informeSocialFecha)) > INFORME_SOCIAL_RENEWAL_DAYS;
+  return informeNeedsRenewal(informeSocialFecha, today.getTime());
 }
 
 export function isPadronRenewalDue(
@@ -77,7 +81,7 @@ export function collectRenewalAlerts(
 export const complianceRouter = router({
   // ─── Job 7: Volunteer Identity Verifier ─────────────────────────────────
   /** Search families for volunteer identity verification (field-level redaction) */
-  verifyIdentity: protectedProcedure
+  verifyIdentity: voluntarioProcedure
     .input(z.object({ query: z.string().min(1) }))
     .query(async ({ input }) => {
       const db = createAdminClient();
@@ -310,8 +314,6 @@ export const complianceRouter = router({
     const db = createAdminClient();
     const today = new Date();
 
-    const cutoff330 = new Date(today);
-    cutoff330.setDate(cutoff330.getDate() - 330);
     const cutoff180 = new Date(today);
     cutoff180.setDate(cutoff180.getDate() - 180);
     const cutoff60 = new Date(today);
@@ -327,14 +329,14 @@ export const complianceRouter = router({
       .is("deleted_at", null)
       .eq("consent_banco_alimentos", false);
 
-    // CM-2: informes sociales >330d old
+    // CM-2: informes sociales que necesitan renovación (> 5 meses)
     const { count: cm2 } = await db
       .from("families")
       .select("*", { count: "exact", head: true })
       .eq("estado", "activa")
       .is("deleted_at", null)
       .eq("informe_social", true)
-      .lt("informe_social_fecha", cutoff330.toISOString().split("T")[0]);
+      .lt("informe_social_fecha", monthsAgoISO(INFORME_REVIEW_MONTHS, today.getTime()));
 
     // CM-3: GUF stale >30d or not registered
     const { count: cm3 } = await db
@@ -443,8 +445,8 @@ export const complianceRouter = router({
     .query(async ({ input }) => {
       const db = createAdminClient();
       const today = new Date();
-      const cutoff300 = new Date(today);
-      cutoff300.setDate(cutoff300.getDate() - 300);
+      // Single renewal threshold (5 months) — shared with the client badge/list.
+      const renewalCutoff = monthsAgoISO(INFORME_REVIEW_MONTHS, today.getTime());
 
       let query = db
         .from("families")
@@ -461,11 +463,11 @@ export const complianceRouter = router({
       } else if (filter === "por_renovar") {
         query = query
           .eq("informe_social", true)
-          .lt("informe_social_fecha", cutoff300.toISOString().split("T")[0]);
+          .lt("informe_social_fecha", renewalCutoff);
       } else if (filter === "al_dia") {
         query = query
           .eq("informe_social", true)
-          .gte("informe_social_fecha", cutoff300.toISOString().split("T")[0]);
+          .gte("informe_social_fecha", renewalCutoff);
       }
 
       const { data, error } = await query.order("familia_numero");

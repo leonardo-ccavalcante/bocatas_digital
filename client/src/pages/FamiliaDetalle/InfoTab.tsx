@@ -7,6 +7,7 @@
  */
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
+import { parentescoLabelEs } from "@shared/parentesco";
 import type { Titular } from "./types";
 
 interface Miembro {
@@ -138,7 +139,7 @@ export function InfoTab({
                 </div>
                 {m.parentesco && (
                   <span className="text-xs text-muted-foreground">
-                    {m.parentesco}
+                    {parentescoLabelEs(m.parentesco, m.parentesco)}
                   </span>
                 )}
               </li>

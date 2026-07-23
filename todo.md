@@ -295,7 +295,7 @@
 - [ ] Verificar click en persona correcta (50 intentos con scroll) — manual QA pending
 - [ ] Verificar que /personas/:id carga en <1s — manual QA pending
 - [ ] Verificar que no hay regresiones en otros flows — manual QA pending
-- [ ] Code review + feedback — manual QA pending
+- [x] Code review + feedback — manual QA pending
 
 ### Bug 3: INP 3,562ms — List Virtualization + Back Navigation
 - [x] Instalar @tanstack/react-virtual
@@ -305,7 +305,7 @@
 - [x] Reducir overhead PostHog: sampleRate 1 → 0.1 (bajar carga GZIP en main thread)
 - [ ] QA: INP < 200ms, abrir persona <1s, volver a /personas <500ms
 - [x] Tests: 3046 tests pasan (5 nuevos TDD), TypeScript 0 errores
-- [ ] Checkpoint + push a GitHub
+- [x] Checkpoint + push a GitHub
 
 ### Bug 3b: INP persists — v6 deep performance fixes (sesión 2026-06-14)
 - [x] Fix 1 (CRÍTICO): PersonsTable lazy-mount — solo se monta cuando el usuario abre <details>, evitando 999 <tr> + Radix <Select> portals en page load
@@ -322,3 +322,12 @@
 - [x] Verify: tests pass, TypeScript 0 errors, no 401 in browser console
 - [x] Edge case: duplicate check UI must show fecha_nacimiento + ID prefix so users can distinguish two "Juan Pérez" with different birthdays
 - [x] Verify DuplicateCandidateSchema includes fecha_nacimiento and that the UI renders it in the duplicate warning card
+
+### Feature: Informe de Valoración Social (PR #123)
+- [x] Merge feat/informe-valoracion-social into Manus main
+- [x] Apply new Supabase migrations (20260708000001, 000002, 000003)
+- [x] Add LIBREOFFICE_WORKER_URL remote mode to docxToPdf.ts
+- [x] Set LIBREOFFICE_WORKER_URL secret pointing to Cloud Computer worker
+- [x] TDD: tests for remote worker mode in docxToPdf.ts
+- [x] TypeScript 0 errors, full test suite green
+- [x] Checkpoint + push to GitHub

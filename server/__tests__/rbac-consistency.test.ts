@@ -9,7 +9,7 @@ import { TRPCError } from '@trpc/server';
  * - adminProcedure allows admin AND superadmin (C3 fix)
  * - superadminProcedure allows ONLY superadmin
  * - voluntario (role='user') is blocked from admin endpoints
- * - programs.getAll filters by volunteer_can_access for 'user' role
+ * - programs.getAll filters by volunteer_can_access for non-elevated roles
  */
 
 // ── Inline the middleware logic for unit testing ─────────────────────────────
@@ -29,8 +29,10 @@ function checkSuperadminAccess(role: BocatasRole | undefined): void {
 }
 
 function isVolunteerFiltered(role: BocatasRole): boolean {
-  // In programs.getAll: role === 'user' means voluntario → filter by volunteer_can_access
-  return role === 'user';
+  // programs.getAll: non-elevated roles only see volunteer_can_access programs;
+  // admin/superadmin see all. (Fixed 2026-07-07 P1-7: previously keyed on the
+  // literal 'user' string, which the real 'voluntario' role never matched → dead.)
+  return role !== 'admin' && role !== 'superadmin';
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────────
@@ -104,9 +106,9 @@ describe('RBAC: programs.getAll volunteer filtering', () => {
   });
 
   it('voluntario role should have volunteer_can_access filter applied', () => {
-    // In the current system, voluntario maps to 'user' in Manus OAuth
-    // This test documents the expected behavior
-    expect(isVolunteerFiltered('voluntario')).toBe(false); // 'voluntario' !== 'user' in current mapping
+    // Fixed 2026-07-07 (P1-7): the real 'voluntario' role is now correctly
+    // filtered (the filter keys on non-elevated role, not the literal 'user').
+    expect(isVolunteerFiltered('voluntario')).toBe(true);
   });
 });
 

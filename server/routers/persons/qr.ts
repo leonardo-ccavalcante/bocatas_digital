@@ -16,7 +16,7 @@
 
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { router, protectedProcedure } from "../../_core/trpc";
+import { router, voluntarioProcedure } from "../../_core/trpc";
 import { ENV } from "../../_core/env";
 import { createAdminClient } from "../../../client/src/lib/supabase/server";
 import { buildQrPayload, verifySig } from "../../../shared/qr/payload";
@@ -37,7 +37,7 @@ export const qrRouter = router({
    * Build a signed QR payload for the requested person.
    * Authorization: admin/superadmin/voluntario only (server-side gate).
    */
-  getQrPayload: protectedProcedure
+  getQrPayload: voluntarioProcedure
     .input(z.object({ personId: uuidLike }))
     .query(async ({ input, ctx }) => {
       const role = ctx.user.role;
@@ -77,10 +77,10 @@ export const qrRouter = router({
    *
    * Returned fields are PII — only allowed because the caller already
    * proved possession of a server-signed token. Caller is also
-   * authenticated (protectedProcedure) — voluntario is the typical
+   * authenticated (voluntarioProcedure) — voluntario is the typical
    * scanner.
    */
-  getCheckinTarget: protectedProcedure
+  getCheckinTarget: voluntarioProcedure
     .input(z.object({ uuid: uuidLike, sig: z.string().regex(/^[a-f0-9]{8}$/) }))
     .query(async ({ input }) => {
       const ok = await verifySig(input.uuid, input.sig, ensureSecret());

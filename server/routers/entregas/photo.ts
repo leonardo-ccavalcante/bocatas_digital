@@ -1,13 +1,13 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { protectedProcedure, router } from "../../_core/trpc";
+import { voluntarioProcedure, router } from "../../_core/trpc";
 import { storagePut } from "../../storage";
 
 export const photoRouter = router({
   /**
    * Upload photo to S3 storage and return URL.
    */
-  uploadPhotoToStorage: protectedProcedure
+  uploadPhotoToStorage: voluntarioProcedure
     .input(
       z.object({
         photoData: z.string().min(1, "Datos de foto requeridos"),

@@ -64,6 +64,10 @@ const marginalsWithSuppressed = {
   laboral: [{ key: "desempleado", count: 7 }],
   // ISO-2 codes as produced by normalizeCountryKey (lowercase)
   pais: [{ key: "ma", count: 4 }],
+  colectivo: [
+    { key: "gitanos", count: 5 },
+    { key: "lgtbi", count: null }, // suppressed
+  ],
 };
 
 const sampleData = {

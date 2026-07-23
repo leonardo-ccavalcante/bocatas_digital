@@ -47,12 +47,28 @@ describe("buildTabSearch", () => {
 });
 
 describe("PROGRAM_TABS / ENABLED_TABS", () => {
-  it("PROGRAM_TABS lists exactly the 6 tabs in order", () => {
-    expect(PROGRAM_TABS).toEqual(["familias", "repartos", "mapa", "reports", "uploads", "derivar"]);
+  it("PROGRAM_TABS lists exactly the 7 tabs in order", () => {
+    expect(PROGRAM_TABS).toEqual([
+      "familias",
+      "informes",
+      "repartos",
+      "mapa",
+      "reports",
+      "uploads",
+      "derivar",
+    ]);
   });
 
-  it("ENABLED_TABS includes repartos and derivar (Phase 3+ active)", () => {
-    expect(ENABLED_TABS).toEqual(["familias", "repartos", "uploads", "mapa", "reports", "derivar"]);
+  it("ENABLED_TABS includes informes, repartos and derivar", () => {
+    expect(ENABLED_TABS).toEqual([
+      "familias",
+      "informes",
+      "repartos",
+      "uploads",
+      "mapa",
+      "reports",
+      "derivar",
+    ]);
   });
 
   it("every ENABLED_TAB is also a PROGRAM_TAB", () => {

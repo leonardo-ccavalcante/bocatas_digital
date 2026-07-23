@@ -74,6 +74,8 @@ type TestPerson = {
   numero_documento?: string | null;
   codigo_postal?: string | null;
   telefono?: string | null;
+  // Legacy metadata.colectivos tags (capitalized, as the CSV mapper emits them).
+  colectivos?: string[];
 };
 
 type TestRow = {
@@ -98,7 +100,7 @@ function group(legacyNum: string, titularIndex: number, rows: TestRow[]) {
         numero_documento: r.person.numero_documento ?? null,
         codigo_postal: r.person.codigo_postal ?? null,
         telefono: r.person.telefono ?? null,
-        metadata: {},
+        metadata: r.person.colectivos ? { colectivos: r.person.colectivos } : {},
       },
     })),
     person_dedup_hits: [],
@@ -599,5 +601,49 @@ describeDb("confirm_legacy_familias_import — Phase 3 upsert + enrollment", () 
       .select("id", { count: "exact", head: true })
       .eq("familia_id", famAfterCreate.id);
     expect(afterSecond).toBe(2);
+  });
+
+  // Root-cause fix (20260708000003): the importer must promote legacy
+  // metadata.colectivos (special-category) into the TYPED persons.colectivos
+  // column so the IRPF funder report sees it, normalizing the capitalized
+  // legacy tags to the enum, AND strip it from stored metadata (no duplicate).
+  it("promotes metadata.colectivos → typed persons.colectivos (normalized) and strips the metadata copy", async () => {
+    const actorId = `phase3-colectivo-${Date.now()}`;
+    const legacyNum = `P3-COLECTIVO-${Date.now()}`;
+    const docT = `DOC-COL-${Date.now()}`;
+    createdLegacyNums.push(legacyNum);
+    const userClient = await makeUserClient(actorId, "admin");
+
+    const { error } = await stashAndConfirm(userClient, actorId, [
+      group(legacyNum, 0, [
+        {
+          estado: "activa",
+          relacion_db: "other",
+          person: {
+            nombre: "Etnia",
+            apellidos: "Tag Uno",
+            fecha_nacimiento: "1988-08-08",
+            numero_documento: docT,
+            // Capitalized legacy tags + a mixed one that maps non-trivially
+            // (Reclusos → reclusos_exreclusos). Array_agg orders ascending.
+            colectivos: ["Gitanos", "Reclusos"],
+          },
+        },
+      ]),
+    ]);
+    expect(error).toBeNull();
+
+    const fam = await familyByLegacy(legacyNum);
+    const { data: person } = await adminDb!
+      .from("persons")
+      .select("colectivos, metadata")
+      .eq("id", fam.titular_id)
+      .single();
+    const row = person as { colectivos: string[] | null; metadata: Record<string, unknown> };
+
+    // Typed column populated + normalized to the enum (sorted by array_agg).
+    expect(row.colectivos).toEqual(["gitanos", "reclusos_exreclusos"]);
+    // The metadata duplicate is stripped — single home for special-category data.
+    expect(row.metadata).not.toHaveProperty("colectivos");
   });
 });

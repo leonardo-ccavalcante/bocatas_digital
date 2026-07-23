@@ -1,14 +1,14 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { createAdminClient } from "../../../client/src/lib/supabase/server";
-import { protectedProcedure, router } from "../../_core/trpc";
+import { voluntarioProcedure, router } from "../../_core/trpc";
 
 export const consentsRouter = router({
   /**
    * Get programs list (public data, but proxied through tRPC for consistency).
    * Uses service role key to ensure programs are always visible.
    */
-  programs: protectedProcedure.query(async () => {
+  programs: voluntarioProcedure.query(async () => {
     const supabase = createAdminClient();
 
     const { data, error } = await supabase
@@ -29,7 +29,7 @@ export const consentsRouter = router({
    * Get consent templates for a given language.
    * Uses service role key to ensure templates are always visible.
    */
-  consentTemplates: protectedProcedure
+  consentTemplates: voluntarioProcedure
     .input(z.object({ idioma: z.enum(["es", "ar", "fr", "bm"]).default("es") }))
     .query(async ({ input }) => {
       const supabase = createAdminClient();
@@ -49,7 +49,7 @@ export const consentsRouter = router({
    * Save consent records for a person.
    * Uses service role key to bypass RLS.
    */
-  saveConsents: protectedProcedure
+  saveConsents: voluntarioProcedure
     .input(z.object({
       personId: z.string().uuid(),
       consents: z.array(z.object({
