@@ -212,6 +212,19 @@ supabase gen types typescript \
 
 NEVER a bare `supabase gen types --local` — it adds a graphql_public block that reds
 the types-drift gate. NEVER hand-edit the generated types file — re-run the recipe.
+After regenerating, `head -1` the file: some CLI versions leak a `Connecting to …`
+info line into stdout, corrupting the file — and a regen-and-diff check will NOT
+catch it (both copies carry the same junk line). Strip it; the file must start
+with `export type Json`.
+
+### SECURITY DEFINER functions — DROP+CREATE loses grants
+
+Recreating a function (`DROP FUNCTION … CASCADE; CREATE …`) resets its EXECUTE
+grants: after the standard `REVOKE … FROM PUBLIC, anon, authenticated`, the app's
+`service_role` is left with NO grant and every call 42501s ("permission denied")
+— the failure only appears at runtime, not at migration time. Every convergence
+migration must end with an explicit
+`GRANT EXECUTE ON FUNCTION … TO service_role;` (see `20260723000003`).
 
 ### Workflow: feature
 
