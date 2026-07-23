@@ -1,227 +1,105 @@
 /**
- * programs.session-close-config.test.ts — Schema tests for the
+ * programs.session-close-config.test.ts — contract lock for the
  * `session_close_config` JSONB shape on `programs`.
  *
- * Source of truth for the shape:
- *   Manus_IM/TASK6_EPIC_E_FAMILIA.md §10 (and earlier §8)
+ * SHAPE OWNER (since the "cierre de sesión" feature): the generic config is
+ * defined once in `shared/sessionSchemas.ts` (`SessionCloseConfigSchema`). This
+ * test locks that shape as the contract for the column so downstream readers
+ * (config editor, session-close form, compliance dashboard) share one truth.
  *
- *   interface SessionCloseConfig {
+ *   SessionCloseConfig {
  *     enabled: boolean;
- *     uploads: Array<{
- *       key: string;
- *       label: string;
- *       description?: string;
- *       required: boolean;
- *       ocr_type?: string;
- *     }>;
- *     fields: Array<{
- *       key: string;
- *       label: string;
- *       type: 'text' | 'textarea' | 'number' | 'date';
- *       required: boolean;
- *       default_value?: string | number;
- *     }>;
+ *     fields:  Array<{ slug; label; tipo: numero|kg|contagem_personas|texto|lista_voluntarios; obligatorio }>;
+ *     uploads: Array<{ slug; label; obligatorio }>;   // slug → program_document_types(scope='sesion')
+ *     tema_obligatorio?: boolean;
  *   }
  *
- * IMPORTANT: This is a TEST-ONLY contract lock. We do NOT add a migration
- * or alter the column here. We assert that IF a row has a non-null
- * `session_close_config`, the value parses against the expected Zod shape.
+ * HISTORY: an earlier draft (Manus_IM/TASK6_EPIC_E_FAMILIA.md §10) proposed a
+ * `{key,label,type,required,ocr_type}` shape for a Familia flow that was never
+ * wired to this column (nothing runtime-parsed it; the column stayed opaque
+ * `Json`). The Familia/reparto delivery close keeps its OWN hardcoded preset
+ * (`FAMILIA_SESSION_CLOSE_PRESET` in the families feature) and does NOT read
+ * this column, so the two never collide. OCR uploads are deferred (v1 uses QR
+ * scan for attendance); if a funder later needs digitized signed paper, an
+ * upload slug + an OCR pass can be added without changing this shape. See
+ * ADR-0014.
  *
- * The Zod schema below is co-located with the test (Manus_IM doc remains
- * the single source of truth) so that downstream code adopting this shape
- * has a reference contract to compare against.
+ * This is a TEST-ONLY contract lock: no migration or column alteration here.
+ * The DB default (`{"enabled":false,"uploads":[],"fields":[]}`) parses cleanly.
  */
 import { describe, it, expect } from "vitest";
-import { z } from "zod";
+import {
+  SessionCloseConfigSchema,
+  CLOSE_CONFIG_PRESETS,
+} from "../../../shared/sessionSchemas";
 
-// ─── Reference Zod shape (mirrors TASK6 §10) ─────────────────────────────────
-
-const sessionCloseUploadSchema = z.object({
-  key: z.string().min(1),
-  label: z.string().min(1),
-  description: z.string().optional(),
-  required: z.boolean(),
-  ocr_type: z.string().optional(),
-});
-
-const sessionCloseFieldSchema = z.object({
-  key: z.string().min(1),
-  label: z.string().min(1),
-  type: z.enum(["text", "textarea", "number", "date"]),
-  required: z.boolean(),
-  default_value: z.union([z.string(), z.number()]).optional(),
-});
-
-const sessionCloseConfigSchema = z.object({
-  enabled: z.boolean(),
-  uploads: z.array(sessionCloseUploadSchema),
-  fields: z.array(sessionCloseFieldSchema),
-});
-
-// ─── Fixtures from TASK6 §10 ─────────────────────────────────────────────────
-
-const FAMILIA_SESSION_CLOSE_CONFIG = {
-  enabled: true,
-  uploads: [
-    {
-      key: "albaran",
-      label: "Fotografiar albarán BdeA",
-      required: true,
-      ocr_type: "delivery_albaran",
-      description: "Documento con Nº lote, kg por categoría y código entidad",
-    },
-    {
-      key: "hoja_firmas",
-      label: "Fotografiar hoja de firmas",
-      required: true,
-      ocr_type: "delivery_sheet_collective",
-      description: "Hoja colectiva con firmas de las familias que recogieron hoy",
-    },
-  ],
-  fields: [],
-};
-
-const FORMACION_SESSION_CLOSE_CONFIG = {
-  enabled: true,
-  uploads: [],
-  fields: [
-    {
-      key: "num_attendees",
-      label: "Nº asistentes",
-      type: "number",
-      required: true,
-    },
-    {
-      key: "observations",
-      label: "Novedades / incidencias",
-      type: "textarea",
-      required: false,
-    },
-  ],
-};
-
-const DISABLED_DEFAULT = {
-  enabled: false,
-  uploads: [],
-  fields: [],
-};
-
-// ─── Tests ────────────────────────────────────────────────────────────────────
-
-describe("session_close_config — Familia preset (TASK6 §10)", () => {
-  it("parses the Familia config (two required OCR uploads)", () => {
-    const parsed = sessionCloseConfigSchema.safeParse(FAMILIA_SESSION_CLOSE_CONFIG);
+describe("session_close_config — generic shape (shared/sessionSchemas)", () => {
+  it("parses the DB default ({enabled:false, uploads:[], fields:[]})", () => {
+    const parsed = SessionCloseConfigSchema.safeParse({
+      enabled: false,
+      uploads: [],
+      fields: [],
+    });
     expect(parsed.success).toBe(true);
   });
 
-  it("Familia config contains exactly 2 required uploads", () => {
-    const parsed = sessionCloseConfigSchema.parse(FAMILIA_SESSION_CLOSE_CONFIG);
-    expect(parsed.uploads).toHaveLength(2);
-    expect(parsed.uploads.every(u => u.required)).toBe(true);
-  });
-
-  it("Familia upload keys match BR-D6 spec ('albaran' + 'hoja_firmas')", () => {
-    const parsed = sessionCloseConfigSchema.parse(FAMILIA_SESSION_CLOSE_CONFIG);
-    const keys = parsed.uploads.map(u => u.key);
-    expect(keys).toContain("albaran");
-    expect(keys).toContain("hoja_firmas");
-  });
-});
-
-describe("session_close_config — Formación preset (TASK6 §10)", () => {
-  it("parses the Formación config (fields-only, no uploads)", () => {
-    const parsed = sessionCloseConfigSchema.safeParse(FORMACION_SESSION_CLOSE_CONFIG);
+  it("parses a course edition config (mandatory tema + plan_clase upload)", () => {
+    const parsed = SessionCloseConfigSchema.safeParse({
+      enabled: true,
+      fields: [{ slug: "incidencias", label: "Incidencias", tipo: "texto", obligatorio: false }],
+      uploads: [{ slug: "plan_clase", label: "Plan de la clase", obligatorio: true }],
+      tema_obligatorio: true,
+    });
     expect(parsed.success).toBe(true);
   });
 
-  it("rejects an unknown field type (must be text|textarea|number|date)", () => {
-    const bad = {
-      ...FORMACION_SESSION_CLOSE_CONFIG,
-      fields: [
-        {
-          key: "broken",
-          label: "Broken field",
-          type: "checkbox",
-          required: false,
-        },
-      ],
-    };
-    const parsed = sessionCloseConfigSchema.safeParse(bad);
+  it("rejects an unknown field tipo (must be numero|kg|contagem_personas|texto|lista_voluntarios)", () => {
+    const parsed = SessionCloseConfigSchema.safeParse({
+      enabled: true,
+      fields: [{ slug: "x", label: "X", tipo: "checkbox", obligatorio: false }],
+      uploads: [],
+    });
     expect(parsed.success).toBe(false);
   });
-});
 
-describe("session_close_config — disabled default", () => {
-  it("parses the disabled default ({enabled:false, uploads:[], fields:[]})", () => {
-    const parsed = sessionCloseConfigSchema.safeParse(DISABLED_DEFAULT);
-    expect(parsed.success).toBe(true);
+  it("rejects a bare-string upload (uploads must carry label + obligatorio)", () => {
+    const parsed = SessionCloseConfigSchema.safeParse({
+      enabled: true,
+      fields: [],
+      uploads: ["plan_clase"],
+    });
+    expect(parsed.success).toBe(false);
   });
 
-  it("rejects null (column null is not the same as a stored config object)", () => {
-    const parsed = sessionCloseConfigSchema.safeParse(null);
-    expect(parsed.success).toBe(false);
+  it("rejects null (column null is handled by callers before parsing)", () => {
+    expect(SessionCloseConfigSchema.safeParse(null).success).toBe(false);
   });
 
   it("rejects missing 'enabled' boolean", () => {
-    const parsed = sessionCloseConfigSchema.safeParse({
-      uploads: [],
-      fields: [],
-    });
+    const parsed = SessionCloseConfigSchema.safeParse({ uploads: [], fields: [] });
     expect(parsed.success).toBe(false);
   });
 });
 
-describe("session_close_config — row-shape contract (test-only)", () => {
-  /**
-   * Documents the contract: IF a programs row has a non-null
-   * `session_close_config`, it MUST match the schema. NULL is allowed
-   * at the column level (database default) and is handled by callers
-   * before parsing.
-   */
-  it("upload entry requires key, label, and required flag", () => {
-    const bad = {
-      enabled: true,
-      uploads: [{ label: "missing key", required: true }],
-      fields: [],
-    };
-    expect(sessionCloseConfigSchema.safeParse(bad).success).toBe(false);
+describe("session_close_config — presets per program type", () => {
+  it("every preset validates against the shared schema", () => {
+    for (const [tipo, preset] of Object.entries(CLOSE_CONFIG_PRESETS)) {
+      const result = SessionCloseConfigSchema.safeParse(preset);
+      expect(result.success, `Preset ${tipo} failed: ${JSON.stringify(result)}`).toBe(true);
+    }
   });
 
-  it("field entry requires type to be in the allowed enum", () => {
-    const bad = {
-      enabled: true,
-      uploads: [],
-      fields: [
-        { key: "x", label: "X", type: "email", required: false },
-      ],
-    };
-    expect(sessionCloseConfigSchema.safeParse(bad).success).toBe(false);
+  it("edicion enables close with a mandatory plan_clase upload and tema", () => {
+    const preset = CLOSE_CONFIG_PRESETS.edicion;
+    expect(preset.enabled).toBe(true);
+    expect(preset.tema_obligatorio).toBe(true);
+    const planClase = preset.uploads.find((u) => u.slug === "plan_clase");
+    expect(planClase?.obligatorio).toBe(true);
   });
 
-  it("default_value accepts string OR number, but not boolean", () => {
-    const okString = sessionCloseConfigSchema.safeParse({
-      enabled: true,
-      uploads: [],
-      fields: [
-        { key: "x", label: "X", type: "text", required: false, default_value: "hi" },
-      ],
-    });
-    const okNumber = sessionCloseConfigSchema.safeParse({
-      enabled: true,
-      uploads: [],
-      fields: [
-        { key: "x", label: "X", type: "number", required: false, default_value: 42 },
-      ],
-    });
-    const badBool = sessionCloseConfigSchema.safeParse({
-      enabled: true,
-      uploads: [],
-      fields: [
-        { key: "x", label: "X", type: "text", required: false, default_value: true },
-      ],
-    });
-    expect(okString.success).toBe(true);
-    expect(okNumber.success).toBe(true);
-    expect(badBool.success).toBe(false);
+  it("container-like types (curso/contenedor/basico) default to close disabled", () => {
+    expect(CLOSE_CONFIG_PRESETS.curso.enabled).toBe(false);
+    expect(CLOSE_CONFIG_PRESETS.contenedor.enabled).toBe(false);
+    expect(CLOSE_CONFIG_PRESETS.basico.enabled).toBe(false);
   });
 });

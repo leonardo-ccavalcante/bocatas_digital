@@ -25,6 +25,7 @@ If your work contradicts an Accepted ADR, **surface it explicitly** rather than 
 | [0013](0013-program-tree-single-enrollment-table.md) | Program tree with a single enrollment table | Accepted |
 | [0013b](0013-reparto-flexible-suggested-day-carryover.md) | Reparto flexible list: suggested day + carry-over | Accepted |
 | [0014](0014-seguimiento-required-only-for-renovaciones.md) | Informe-social seguimiento gate applies only to renovaciones | Accepted |
+| [0015](0015-session-lifecycle-magic-link-and-compliance.md) | Session lifecycle: materialized calendar, magic-link professor flow, compliance in the dashboard | Accepted |
 
 > **Provenance.** 0001–0006 were reconstructed from `CLAUDE.md`/project history (decisions already shipped as of 2026-05-21), not authored at decision time. 0007–0010 arise from the Mythos audit (2026-06-11, `d3aff9e`) remediation + reparto (#112). 0011 is from #116/#119. 
 >
