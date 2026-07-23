@@ -1,4 +1,4 @@
-# ADR-0014 — Session lifecycle: materialized calendar, magic-link professor flow, and compliance in the dashboard
+# ADR-0015 — Session lifecycle: materialized calendar, magic-link professor flow, and compliance in the dashboard
 
 - **Status:** Accepted (2026-07-23, Leo) — validated on a live localhost before PR
 - **Deciders:** Leo (Product/Tech Lead)
