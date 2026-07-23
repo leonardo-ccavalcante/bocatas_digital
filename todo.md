@@ -377,3 +377,10 @@
 - [x] Spot-check producción: tipo_id, signed_actas, parent_id, tipo, inscribible, enrollment_events — todos presentes ✅
 - [x] Suite completa: 3297 tests pasan, 0 fallos, TypeScript 0 errores
 - [x] Nota: add_padron_fecha intencionalmente NO aplicada (pendiente aprobación Espe/Sole — cadencia 180 días)
+
+### Bug: Atender en repartos no abre pantalla de firma (sesión 2026-07-23)
+- [x] Root cause: REPARTO_FIRMA_ENABLED no estaba seteada → getFirmaEnabled devuelve { enabled: false } → useSignFlow=false → AttendSignFlow nunca se abre
+- [x] Fix: setear REPARTO_FIRMA_ENABLED=1 en secrets del proyecto (dev + producción)
+- [x] TDD: test que verifica que getFirmaEnabled devuelve enabled:true cuando la env está seteada (ya existe en rounds-signature.test.ts)
+- [x] TDD: test que verifica que CloseoutDayView muestra AttendSignFlow cuando firma está habilitada y hay signerPersonId
+- [x] Suite completa: 3300 tests pasan, 0 fallos
