@@ -65,7 +65,9 @@ informe generado" works without this (reads by family_id + tipo).
   `families.updateNarrative`. Change the generate button to call
   `families.generateSocialReport` (persist) and add a **"Ver informe generado"**
   link (signed URL of the current `informe_valoracion_social` doc). When blocked, show
-  the reason + inline **"Registrar seguimiento"** (opens `FollowUpsPanel`).
+  the reason + inline **"Registrar seguimiento"** (opens `FollowUpsPanel`). The
+  seguimiento blocked-states apply to RENOVACIONES only — a family with no current
+  informe document generates its first informe with just a saved valoración (ADR-0014).
 - **`GenerateDocumentButton.tsx`** — add `persist?: boolean`; when set, call
   `generateSocialReport` and toast "Informe guardado" instead of the base64 download.
 - **`FamiliasInformesSociales.tsx`** — "Generar/actualizar informes de todas las familias

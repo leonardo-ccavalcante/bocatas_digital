@@ -141,12 +141,17 @@ async function generateAndPersist(
 }
 
 export const documentsGenRouter = router({
-  /** Ephemeral generate (download-only) — unchanged; used by nota_entrega/derivación. */
+  /**
+   * Ephemeral generate (download-only) — nota_entrega/derivación ONLY.
+   * informe_social is deliberately excluded: the renovación seguimiento gate
+   * (ADR-0014) keys off persisted document rows, so an ephemeral informe would
+   * sidestep it forever. Informes go through generateSocialReport (persist).
+   */
   generateDocument: adminProcedure
     .input(
       z.object({
         family_id: uuidLike,
-        slug: z.enum(["informe_social", "nota_entrega", "derivacion"] as const),
+        slug: z.enum(["nota_entrega", "derivacion"] as const),
         session_id: uuidLike.optional(),
       })
     )

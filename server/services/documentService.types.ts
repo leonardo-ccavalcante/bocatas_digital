@@ -82,9 +82,13 @@ export type FamilyDocumentContext = {
   valoracion?: string;
   // ── Informe social specific ──
   informe?: {
-    fecha_seguimiento: string; // last family_follow_ups.fecha (ISO)
+    fecha_seguimiento: string; // last family_follow_ups.fecha (ISO); "" when the family has none
     notas_seguimiento: string; // last 3 follow-ups concatenated
     effective_date: string; // same as fecha_seguimiento for freshness gate
+    // True when a current informe document (generated docx OR uploaded PDF) already
+    // exists for the family. The seguimiento freshness gate applies ONLY then
+    // (renovaciones); the first informe needs no seguimiento (ADR-0014).
+    has_informe_previo: boolean;
   };
   // ── Nota de entrega specific ──
   round?: {
