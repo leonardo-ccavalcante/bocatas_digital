@@ -384,3 +384,13 @@
 - [x] TDD: test que verifica que getFirmaEnabled devuelve enabled:true cuando la env está seteada (ya existe en rounds-signature.test.ts)
 - [x] TDD: test que verifica que CloseoutDayView muestra AttendSignFlow cuando firma está habilitada y hay signerPersonId
 - [x] Suite completa: 3300 tests pasan, 0 fallos
+
+### Deploy PRs #133 y #137 desde GitHub (sesión 2026-07-23)
+- [x] Merge github/main → local main (PR #133 fix informe + PR #137 cierre sesión)
+- [x] Aplicar migración 20260723130001 (generalizar program_sessions)
+- [x] Aplicar migración 20260723130002 (attendances.session_id)
+- [x] Aplicar migración 20260723130003 (session_documents tabla)
+- [x] Aplicar migración 20260723130004 (bucket program-documents)
+- [x] TypeScript 0 errores
+- [x] Suite completa de tests pasa (3465 tests, 0 fallos)
+- [x] Checkpoint y deploy a producción
