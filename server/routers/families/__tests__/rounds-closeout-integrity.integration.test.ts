@@ -1,17 +1,16 @@
 /**
- * Integration test for #113 — reparto close-out attendance integrity.
+ * Integration test for #113 — reparto close-out attendance integrity, updated for
+ * the carry-over redesign (ADR-0013, migration 20260723000001).
  *
- * A 'cerrado' turno is finalised: cerrar_turno records its still-pending
- * assignments as no-show (attended=false). Before migration 20260707000005,
- * several paths could still mutate that finalised attendance — markAttendance,
- * undo, bulkMarkAttendance (flip a no-show), reschedule/reassign (move it out,
- * resetting attended=NULL) — corrupting getAbsentismoByRound. The app runs as
- * service_role and the tables carry permissive `authenticated` RLS, so the guard
- * is a DB trigger (bypass-proof for every role).
+ * NEW model: closing a turno LOCKS that day's records only — it does NOT mark
+ * pendientes as no-show; they stay `attended IS NULL` and roll forward, and a
+ * pending suggestion may move OUT of a closed slot (that IS carry-over). Only
+ * close_round marks never-attended families as ausente.
  *
- * These assertions are RED-capable: pre-migration the writes SUCCEED (no error),
- * so `expect(error).toMatch(/turno_cerrado/)` fails. Post-migration the trigger
- * rejects them.
+ * The surviving #113 guarantee: a family FINALISED (attended IS NOT NULL) in a
+ * closed turno is immutable — the guard trigger rejects any later flip. The app
+ * runs as service_role over permissive `authenticated` RLS, so the guard is a DB
+ * trigger (bypass-proof for every role).
  *
  * Requires a real (local) Supabase with migrations applied; skips otherwise
  * (RUN_LOCAL_SUPABASE_TESTS=true). Runs in CI's "DB Integration Tests" job.
@@ -69,7 +68,7 @@ describeDb("reparto close-out integrity (#113) — a closed turno is immutable",
     }
   }
 
-  it("cerrar_turno records no-show, then blocks flipping it back (no-show preserved)", async () => {
+  it("cerrar_turno closes the slot WITHOUT no-show — pending carries over (attended stays NULL)", async () => {
     expect(programId, "seed needs a program").toBeTruthy();
     expect(familyId, "seed needs a family").toBeTruthy();
     await seedActiveRound();
@@ -77,33 +76,37 @@ describeDb("reparto close-out integrity (#113) — a closed turno is immutable",
     const { error: closeErr } = await db!.rpc("cerrar_turno", { p_slot_id: slotId, p_actor: "it-113" });
     expect(closeErr).toBeNull();
     const { data: afterClose } = await db!.from("delivery_round_assignments").select("attended").eq("id", assignmentId).single();
-    expect(afterClose!.attended).toBe(false);
-
-    const { error: flipErr } = await db!.from("delivery_round_assignments").update({ attended: true }).eq("id", assignmentId);
-    expect(flipErr?.message ?? "").toMatch(/turno_cerrado/);
-
-    const { data: afterFlip } = await db!.from("delivery_round_assignments").select("attended").eq("id", assignmentId).single();
-    expect(afterFlip!.attended).toBe(false); // still a recorded no-show
+    // Carry-over (ADR-0013): closing a turno does NOT no-show pendientes — they
+    // stay attended IS NULL and roll forward. Only close_round marks ausentes.
+    expect(afterClose!.attended).toBeNull();
   });
 
-  it("blocks INSERT of a new assignment into a closed slot", async () => {
-    await seedActiveRound(false); // close an empty slot, then try to insert into it
+  it("a family FINALISED before close is immutable afterwards (turno_cerrado)", async () => {
+    await seedActiveRound();
+    // Finalise attendance while the turno is still OPEN…
+    const { error: attendErr } = await db!.from("delivery_round_assignments").update({ attended: true }).eq("id", assignmentId);
+    expect(attendErr).toBeNull();
+    // …then close it. A later flip of the finalised attendance is rejected by the guard.
     await db!.rpc("cerrar_turno", { p_slot_id: slotId, p_actor: "it-113" });
-
-    const { error } = await db!.from("delivery_round_assignments")
-      .insert({ round_id: ROUND_ID, family_id: familyId, assigned_day: DAY, day_slot: 1, total_miembros: 1, turno: "manana" });
-    expect(error?.message ?? "").toMatch(/turno_cerrado/);
+    const { error: flipErr } = await db!.from("delivery_round_assignments").update({ attended: false }).eq("id", assignmentId);
+    expect(flipErr?.message ?? "").toMatch(/turno_cerrado/);
+    const { data: after } = await db!.from("delivery_round_assignments").select("attended").eq("id", assignmentId).single();
+    expect(after!.attended).toBe(true); // finalised attendance preserved
   });
 
-  it("move_assignment_to_open_slot rejects a closed SOURCE slot", async () => {
+  it("move_assignment_to_open_slot ALLOWS carrying a pending row OUT of a closed source slot", async () => {
     await seedActiveRound();
     await db!.from("delivery_round_slots").insert({ round_id: ROUND_ID, slot_date: DAY, turno: "tarde", estado: "abierto" });
     await db!.rpc("cerrar_turno", { p_slot_id: slotId, p_actor: "it-113" }); // close the source (manana)
 
+    // New model: a pending suggestion moving out of a closed source to an open
+    // target is exactly what carry-over needs — it must SUCCEED, not be rejected.
     const { error } = await db!.rpc("move_assignment_to_open_slot", {
       p_assignment_id: assignmentId, p_new_day: DAY, p_new_turno: "tarde", p_actor: "it-113", p_log_entry: {},
     });
-    expect(error?.message ?? "").toMatch(/turno_origen_cerrado/);
+    expect(error).toBeNull();
+    const { data: moved } = await db!.from("delivery_round_assignments").select("turno").eq("id", assignmentId).single();
+    expect(moved!.turno).toBe("tarde");
   });
 
   it("still allows attendance writes while the slot is OPEN (no regression)", async () => {

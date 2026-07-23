@@ -14,8 +14,11 @@ import { documentsGenRouter } from "./documents-gen";
 import { narrativeRouter } from "./narrative";
 import { templateEditorRouter } from "./template-editor";
 import { roundsScheduleRouter } from "./rounds-schedule";
+import { roundsActivationRouter } from "./rounds-activation";
+import { roundsContactoRouter } from "./rounds-contacto";
 import { roundsCloseoutRouter } from "./rounds-closeout";
 import { roundsDocumentsRouter } from "./rounds-documents";
+import { roundsSignatureRouter } from "./rounds-signature";
 import { roundsOcrRouter } from "./rounds-ocr";
 
 // Re-export helpers used by other routers (server/routers/persons.ts imports
@@ -51,7 +54,10 @@ export const familiesRouter = mergeRouters(
   narrativeRouter,
   templateEditorRouter,
   roundsScheduleRouter,
+  roundsActivationRouter,
+  roundsContactoRouter,
   roundsCloseoutRouter,
   roundsDocumentsRouter,
+  roundsSignatureRouter,
   roundsOcrRouter,
 );

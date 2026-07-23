@@ -7,7 +7,8 @@
  * 1. ProgramTabs has "Lista de distribución" as a top-level tab label
  * 2. FamiliasTab no longer has nested tabs (no double tab row)
  * 3. RepartoTab has a clear empty state with "Lista de distribución" language
- * 4. The inner tab for the printed list is "Lista de distribución" (not "Listado interno")
+ * 4. The printable documents are ROUND-LEVEL actas (Citación/Final), not per-day
+ *    Hoja de Firmas / Listado interno tabs.
  */
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "fs";
@@ -65,14 +66,19 @@ describe("UX: Lista de distribución — arquitectura de tabs", () => {
     expect(repartoTabSource).toMatch(/Genera\s+la\s+lista|Crear\s+lista|lista\s+de\s+distribución/i);
   });
 
-  // Test 5: Inner tab label for the printed list
-  it('RepartoTab: el tab del listado imprimible debe llamarse "Lista de distribución"', () => {
-    expect(repartoTabSource).toMatch(
-      /TabsTrigger[^>]*value="listado"[^>]*>[\s\S]*?Lista de distribución[\s\S]*?<\/TabsTrigger>/,
-    );
-    expect(repartoTabSource).not.toMatch(
-      /<TabsTrigger[^>]*value="listado"[^>]*>\s*Listado interno\s*<\/TabsTrigger>/,
-    );
+  // Test 5: Documents are the ROUND-LEVEL actas (citación antes / final después),
+  // not the old per-day "Hoja de Firmas" / "Listado interno" print tabs.
+  it("RepartoTab: los documentos son actas de ronda (Citación/Final), no por día", () => {
+    // The two round-level document tabs exist and render RepartoActaPrint.
+    expect(repartoTabSource).toContain("Acta de Citación");
+    expect(repartoTabSource).toContain("Acta Final");
+    expect(repartoTabSource).toContain('variant="citacion"');
+    expect(repartoTabSource).toContain('variant="final"');
+    expect(repartoTabSource).toContain("Documentos del reparto");
+    // The old per-day print tabs/components are gone.
+    expect(repartoTabSource).not.toContain('value="listado"');
+    expect(repartoTabSource).not.toContain("HojaFirmasPrint");
+    expect(repartoTabSource).not.toContain("ListadoInternoPrint");
   });
 
   // Test 6: Empty state has a "Generar lista" button

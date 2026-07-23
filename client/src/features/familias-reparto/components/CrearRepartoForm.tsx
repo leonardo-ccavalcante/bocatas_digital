@@ -4,12 +4,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { useCreateReparto } from "../hooks/useReparto";
-import { distributeTargets } from "../utils/assignReparto";
+import { useCreateReparto, useEligibleFamilies } from "../hooks/useReparto";
 import { daysInMonth, weekdayLongOf } from "../utils/calendar";
-import { RepartoAvisos } from "./RepartoAvisos";
 import { RepartoDaySlotRow } from "./RepartoDaySlotRow";
 import { RepartoExtrasFields } from "./RepartoExtrasFields";
+import { RepartoFamiliasIncluidas } from "./RepartoFamiliasIncluidas";
 import { RepartoFueraMadrid } from "./RepartoFueraMadrid";
 import { RepartoMonthGrid } from "./RepartoMonthGrid";
 import { RepartoResumenDialog, type ResumenSlot } from "./RepartoResumenDialog";
@@ -30,35 +29,34 @@ const slotKey = (date: string, turno: Turno) => `${date}#${turno}`;
 
 type TurnoMode = "manana" | "tarde" | "ambos";
 
-/** Operator form: enter how many people to serve, pick specific days of a month
- *  (mañana/tarde/ambos per day), and let the total split equally across the
- *  resulting (día × turno) slots. Fixing one slot rebalances the rest; each
- *  slot's number becomes its cupo. The first slot can be reserved for people
- *  from outside Madrid. Builds slots[] and calls createRound. */
+/** Operator form: pick a month, then specific days (mañana/tarde/ambos per day).
+ *  ALL active families are included automatically — no total-personas or per-slot
+ *  cupo input. The first slot can be reserved for fuera-de-Madrid families.
+ *  Calls createRound with cap:null (reference-only); the server activates later. */
 export function CrearRepartoForm({ programId, onCreated }: Props) {
   const createReparto = useCreateReparto();
+  const { data: eligibleFamilies, isLoading: familiesLoading } = useEligibleFamilies(programId);
+
   const [nombre, setNombre] = useState("");
   const [yearMonth, setYearMonth] = useState("");
-  const [totalPersonas, setTotalPersonas] = useState("");
   const [dayConfigs, setDayConfigs] = useState<Record<string, DayConfig>>({});
-  const [overrides, setOverrides] = useState<Record<string, number>>({});
   const [fueraMadridOn, setFueraMadridOn] = useState(false);
-  const [fueraMadridCount, setFueraMadridCount] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [kgAlimentos, setKgAlimentos] = useState("");
   const [kgCarne, setKgCarne] = useState("");
   const [albaranes, setAlbaranes] = useState<string[]>([]);
   const [facturas, setFacturas] = useState<string[]>([]);
 
-  const totalNum = parseNum(totalPersonas);
-  const hasTotal = totalNum != null && Number.isFinite(totalNum) && totalNum > 0;
+  const totalFamilias = eligibleFamilies?.length ?? 0;
+  const totalPersonas = useMemo(
+    () => (eligibleFamilies ?? []).reduce((s, f) => s + f.total_miembros, 0),
+    [eligibleFamilies],
+  );
 
   const days = useMemo(() => daysInMonth(yearMonth), [yearMonth]);
   const selectedDays = useMemo(() => days.filter((d) => !!dayConfigs[d]).sort(), [days, dayConfigs]);
   const tooManyDays = selectedDays.length > 10;
 
-  // Ordered slot list — by date, then turno (mañana before tarde). This is the
-  // exact order the DB assigns ordinals, so the equal split lines up 1:1.
   const slotList = useMemo(() => {
     const arr: { key: string; date: string; turno: Turno }[] = [];
     for (const date of selectedDays) {
@@ -69,41 +67,16 @@ export function CrearRepartoForm({ programId, onCreated }: Props) {
     return arr;
   }, [selectedDays, dayConfigs]);
 
-  // Fuera-de-Madrid reserves the FIRST slot: its people = the fuera count (fixed),
-  // the rest rebalance around it. It's just an override the engine already handles.
+  // The first slot is reserved for fuera-de-Madrid families when the toggle is on.
   const fueraKey = fueraMadridOn && slotList.length > 0 ? slotList[0].key : null;
-  const fueraOverride = Math.max(0, Math.floor(parseNum(fueraMadridCount) || 0));
 
-  const distribution = useMemo(
-    () =>
-      distributeTargets(
-        totalNum ?? 0,
-        slotList.map((s) => ({
-          key: s.key,
-          override: s.key === fueraKey ? fueraOverride : overrides[s.key] ?? null,
-        })),
-      ),
-    [totalNum, slotList, overrides, fueraKey, fueraOverride],
-  );
-  const peopleByKey = useMemo(
-    () => new Map(distribution.slots.map((s) => [s.key, s.people])),
-    [distribution],
-  );
-  const hasZeroSlot = slotList.length > 0 && distribution.slots.some((s) => s.people < 1);
-
-  // Single source of validity — the toast reason, the disabled state and the
-  // preview-dialog gate all read this.
   const blockReason = ((): string | null => {
     if (!nombre.trim()) return "Ponle un nombre al reparto";
-    if (!hasTotal) return "Indica cuántas personas vas a atender";
     if (slotList.length === 0) return "Selecciona al menos un día y turno";
     if (tooManyDays) return "Máximo 10 días de reparto";
-    if (fueraKey && fueraOverride < 1) return "Indica cuántas personas de fuera de Madrid";
-    if (distribution.overCommitted) return "Los cupos fijados superan el total. Bájalos o sube el total";
-    if (hasZeroSlot) return "Hay turnos con 0 personas. Sube el total o quita turnos";
     return null;
   })();
-  const canPreview = hasTotal && slotList.length > 0 && !tooManyDays;
+  const canPreview = slotList.length > 0 && !tooManyDays;
 
   const resumen = useMemo<ResumenSlot[]>(
     () =>
@@ -112,14 +85,12 @@ export function CrearRepartoForm({ programId, onCreated }: Props) {
         weekday: weekdayLongOf(s.date),
         dayNum: parseInt(s.date.split("-")[2], 10),
         turno: s.turno,
-        people: peopleByKey.get(s.key) ?? 0,
         esFueraMadrid: s.key === fueraKey,
       })),
-    [slotList, peopleByKey, fueraKey],
+    [slotList, fueraKey],
   );
 
   const toggleDay = (date: string) => {
-    const wasSelected = !!dayConfigs[date];
     setDayConfigs((prev) => {
       if (prev[date]) {
         const next = { ...prev };
@@ -128,42 +99,21 @@ export function CrearRepartoForm({ programId, onCreated }: Props) {
       }
       return { ...prev, [date]: { manana: true, tarde: false } };
     });
-    if (wasSelected) {
-      setOverrides((prev) => {
-        const next = { ...prev };
-        delete next[slotKey(date, "manana")];
-        delete next[slotKey(date, "tarde")];
-        return next;
-      });
-    }
   };
 
   const setTurno = (date: string, mode: TurnoMode) => {
     const manana = mode === "manana" || mode === "ambos";
     const tarde = mode === "tarde" || mode === "ambos";
     setDayConfigs((prev) => ({ ...prev, [date]: { manana, tarde } }));
-    setOverrides((prev) => {
-      const next = { ...prev };
-      if (!manana) delete next[slotKey(date, "manana")];
-      if (!tarde) delete next[slotKey(date, "tarde")];
-      return next;
-    });
   };
 
-  const setOverride = (key: string, raw: string) =>
-    setOverrides((prev) => {
-      const next = { ...prev };
-      const n = parseNum(raw);
-      if (n == null || !Number.isFinite(n)) delete next[key];
-      else next[key] = Math.max(0, Math.floor(n));
-      return next;
-    });
-
+  // Caps are reference-only under the new model — send null so the server treats
+  // every slot as uncapped when distributing families.
   const buildSlots = () =>
     slotList.map((s) => ({
       slot_date: s.date,
       turno: s.turno,
-      cap: peopleByKey.get(s.key) ?? 0,
+      cap: null as null,
       es_fuera_madrid: s.key === fueraKey,
     }));
 
@@ -203,44 +153,18 @@ export function CrearRepartoForm({ programId, onCreated }: Props) {
           id="reparto-mes"
           type="month"
           value={yearMonth}
-          onChange={(e) => { setYearMonth(e.target.value); setDayConfigs({}); setOverrides({}); }}
+          onChange={(e) => { setYearMonth(e.target.value); setDayConfigs({}); }}
           required
         />
       </div>
 
-      <div className="space-y-1.5">
-        <Label htmlFor="reparto-total">Total de personas a atender *</Label>
-        <Input
-          id="reparto-total"
-          type="number"
-          min={1}
-          step={1}
-          placeholder="p. ej. 200"
-          value={totalPersonas}
-          onChange={(e) => setTotalPersonas(e.target.value)}
-          required
-        />
-        <p className="text-xs text-muted-foreground">
-          Se reparten a partes iguales entre los turnos que elijas.
-        </p>
-      </div>
+      <RepartoFamiliasIncluidas
+        familias={totalFamilias}
+        personas={totalPersonas}
+        isLoading={familiesLoading}
+      />
 
-      {hasTotal && (
-        <RepartoFueraMadrid
-          enabled={fueraMadridOn}
-          count={fueraMadridCount}
-          onToggle={() => setFueraMadridOn((v) => !v)}
-          onCount={setFueraMadridCount}
-        />
-      )}
-
-      {days.length > 0 && !hasTotal && (
-        <p className="text-sm text-muted-foreground">
-          Primero indica cuántas personas vas a atender para elegir los días.
-        </p>
-      )}
-
-      {days.length > 0 && hasTotal && (
+      {days.length > 0 && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <Label>
@@ -257,20 +181,18 @@ export function CrearRepartoForm({ programId, onCreated }: Props) {
         </div>
       )}
 
-      {hasTotal && slotList.length > 0 && (
+      {slotList.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <Label>Turnos y personas por día</Label>
+            <Label>Turnos por día</Label>
             <Badge variant="secondary">
               {slotList.length} turno{slotList.length !== 1 ? "s" : ""}
             </Badge>
           </div>
 
-          <RepartoAvisos
-            total={totalNum ?? 0}
-            overCommitted={distribution.overCommitted}
-            hasZeroSlot={hasZeroSlot}
-            leftover={distribution.leftover}
+          <RepartoFueraMadrid
+            enabled={fueraMadridOn}
+            onToggle={() => setFueraMadridOn((v) => !v)}
           />
 
           {selectedDays.map((date) => {
@@ -281,14 +203,9 @@ export function CrearRepartoForm({ programId, onCreated }: Props) {
                 date={date}
                 mananaActive={cfg.manana}
                 tardeActive={cfg.tarde}
-                mananaPeople={peopleByKey.get(slotKey(date, "manana")) ?? 0}
-                tardePeople={peopleByKey.get(slotKey(date, "tarde")) ?? 0}
-                mananaFixed={overrides[slotKey(date, "manana")] != null}
-                tardeFixed={overrides[slotKey(date, "tarde")] != null}
                 mananaFuera={fueraKey === slotKey(date, "manana")}
                 tardeFuera={fueraKey === slotKey(date, "tarde")}
                 onSetTurno={(mode) => setTurno(date, mode)}
-                onSetPersonas={(turno, raw) => setOverride(slotKey(date, turno), raw)}
               />
             );
           })}
@@ -325,7 +242,6 @@ export function CrearRepartoForm({ programId, onCreated }: Props) {
         open={previewOpen}
         onOpenChange={setPreviewOpen}
         nombre={nombre}
-        total={totalNum ?? 0}
         slots={resumen}
         blockReason={blockReason}
         isPending={createReparto.isPending}
