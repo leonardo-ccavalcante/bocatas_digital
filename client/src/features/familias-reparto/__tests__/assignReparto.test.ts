@@ -22,33 +22,37 @@ function slots(specs: Array<[string, "manana" | "tarde", number?]>): Slot[] {
   return specs.map(([date, turno, cap], i) => ({ date, turno, ordinal: i + 1, cap: cap ?? null }));
 }
 
-describe("assignReparto — balanced across (día × turno) slots", () => {
-  it("balances people evenly across slots when families are equal-sized", () => {
-    const families = Array.from({ length: 8 }, (_, i) => fam(`f${i}`, 2, i + 1));
-    // 2 days, both turnos each => 4 slots
-    const s = slots([
-      ["2026-06-01", "manana"],
-      ["2026-06-01", "tarde"],
-      ["2026-06-02", "manana"],
-      ["2026-06-02", "tarde"],
-    ]);
-
+describe("assignReparto — sequential fill, smallest family first", () => {
+  it("places all families and pours the smallest into the earliest slots", () => {
+    // sizes 1,1,2,2,3,3,4,4 = 20 people across 2 slots ⇒ targets 10,10.
+    const families = [
+      fam("f1", 1, 1), fam("f2", 1, 2), fam("f3", 2, 3), fam("f4", 2, 4),
+      fam("f5", 3, 5), fam("f6", 3, 6), fam("f7", 4, 7), fam("f8", 4, 8),
+    ];
+    const s = slots([["2026-06-01", "manana"], ["2026-06-02", "manana"]]);
     const result = assignReparto(families, s);
 
     expect(result.assignments).toHaveLength(8);
     expect(new Set(result.assignments.map((a) => a.family_id)).size).toBe(8);
-    // 16 people across 4 slots => 4 each, perfectly balanced
-    expect(result.slotLoads.map((d) => d.people)).toEqual([4, 4, 4, 4]);
-    expect(result.needsMoreCapacity).toBe(false);
-    expect(result.unplaced).toEqual([]);
+    // Slot 1 fills with the smaller families until it reaches its target, then slot 2 opens.
+    const slot1Fams = result.assignments.filter((a) => a.day_slot === 1).map((a) => a.total_miembros);
+    const slot2Fams = result.assignments.filter((a) => a.day_slot === 2).map((a) => a.total_miembros);
+    expect(Math.max(...slot1Fams)).toBeLessThanOrEqual(Math.min(...slot2Fams)); // earlier day = smaller families
+    expect(result.slotLoads.reduce((sum, d) => sum + d.people, 0)).toBe(20);
+    expect(result.overCap).toEqual([]);
+  });
+
+  it("the last slot absorbs the remainder — nobody is left unplaced", () => {
+    const families = Array.from({ length: 7 }, (_, i) => fam(`f${i}`, 3, i + 1));
+    const s = slots([["d1", "manana"], ["d2", "manana"]]);
+    const result = assignReparto(families, s);
+    expect(result.assignments).toHaveLength(7); // all placed, none dropped
+    expect(result.slotLoads.reduce((sum, d) => sum + d.families, 0)).toBe(7);
   });
 
   it("carries turno onto every assignment and uses the slot ordinal as day_slot", () => {
     const families = [fam("f1", 3, 1), fam("f2", 2, 2)];
-    const s = slots([
-      ["2026-06-05", "manana"],
-      ["2026-06-05", "tarde"],
-    ]);
+    const s = slots([["2026-06-05", "manana"], ["2026-06-05", "tarde"]]);
     const result = assignReparto(families, s);
     for (const a of result.assignments) {
       expect(["manana", "tarde"]).toContain(a.turno);
@@ -56,63 +60,35 @@ describe("assignReparto — balanced across (día × turno) slots", () => {
     }
   });
 
-  it("balances mixed family sizes tightly (heaviest-first)", () => {
-    const families = [
-      fam("f1", 5, 1),
-      fam("f2", 4, 2),
-      fam("f3", 3, 3),
-      fam("f4", 2, 4),
-      fam("f5", 2, 5),
-      fam("f6", 1, 6),
-      fam("f7", 1, 7),
-    ];
-    const s = slots([
-      ["d1", "manana"],
-      ["d1", "tarde"],
-      ["d2", "manana"],
-    ]);
-    const result = assignReparto(families, s);
-    const loads = result.slotLoads.map((d) => d.people);
-    expect(Math.max(...loads) - Math.min(...loads)).toBeLessThanOrEqual(2);
-    expect(loads.reduce((sum, n) => sum + n, 0)).toBe(18);
-  });
-
   it("is deterministic — same input yields identical assignment", () => {
     const families = [fam("f1", 3, 10), fam("f2", 3, 5), fam("f3", 1, 7), fam("f4", 4, 2)];
     const s = slots([["d1", "manana"], ["d2", "tarde"]]);
     const a = assignReparto(families, s);
     const b = assignReparto(families, s);
-    expect(a.assignments.map((x) => `${x.family_id}@${x.assigned_day}#${x.turno}`)).toEqual(
-      b.assignments.map((x) => `${x.family_id}@${x.assigned_day}#${x.turno}`),
+    expect(a.assignments.map((x) => `${x.family_id}@${x.day_slot}`)).toEqual(
+      b.assignments.map((x) => `${x.family_id}@${x.day_slot}`),
     );
   });
 
-  it("returns empty result when there are no slots", () => {
+  it("returns an empty result when there are no slots", () => {
     const result = assignReparto([fam("f1", 3, 1)], []);
     expect(result.assignments).toEqual([]);
     expect(result.slotLoads).toEqual([]);
-    expect(result.needsMoreCapacity).toBe(false);
+    expect(result.overCap).toEqual([]);
   });
 });
 
-describe("assignReparto — re-assignment over a SUBSET of open slots (atropos regression)", () => {
-  it("keeps each slot's TRUE ordinal — never numbers a family onto a skipped/closed slot", () => {
-    // Full round has ordinals 1..4. Slots 1 and 3 are already closed. The two
-    // pending families must be carried into the still-OPEN slots 2 and 4 only.
-    // The engine must use the slots' true ordinals (2, 4) — the old arithmetic
-    // (slice + offset) would have produced 2, 3 and land a family on closed slot 3.
-    const openRemaining: Slot[] = [
-      { date: "2026-06-02", turno: "manana", ordinal: 2, cap: null },
-      { date: "2026-06-02", turno: "tarde", ordinal: 4, cap: null },
-    ];
-    const pending = [fam("f1", 3, 1), fam("f2", 1, 2)];
-
-    const result = assignReparto(pending, openRemaining);
-
-    const usedOrdinals = new Set(result.assignments.map((a) => a.day_slot));
-    expect([...usedOrdinals].every((o) => o === 2 || o === 4)).toBe(true);
-    expect(usedOrdinals.has(3)).toBe(false); // the closed slot is never reused
-    expect(result.assignments).toHaveLength(2);
+describe("assignReparto — cupos are reference-only (overCap warning, never blocking)", () => {
+  it("reports a slot that ends up over its cap but still places everyone", () => {
+    // slot1 cap=3 (target override 3), slot2 uncapped. 3 families of 2 ⇒ slot1 takes
+    // 2 (=4 people, over cap) before advancing; the third lands on slot2.
+    const families = [fam("f1", 2, 1), fam("f2", 2, 2), fam("f3", 2, 3)];
+    const s = slots([["d1", "manana", 3], ["d2", "manana"]]);
+    const result = assignReparto(families, s);
+    expect(result.assignments).toHaveLength(3); // never blocked
+    const over = result.overCap.find((o) => o.day_slot === 1);
+    expect(over).toBeTruthy();
+    expect(over!.people).toBeGreaterThan(over!.cap);
   });
 });
 
@@ -129,79 +105,15 @@ describe("assignReparto — fuera-de-Madrid reserved slot (derived anchor)", () 
       [famF("fFuera1", 3, 1, true), famF("fFuera2", 2, 2, true), famF("fMad1", 4, 3, false), famF("fMad2", 1, 4, false)],
       s,
     );
-    const fueraSlot = r.slotLoads.find((x) => x.day_slot === 1)!;
-    expect(fueraSlot.people).toBe(5); // 3 + 2 fuera people
-    expect(fueraSlot.families).toBe(2);
     const onReserved = r.assignments.filter((a) => a.day_slot === 1).map((a) => a.family_id).sort();
     expect(onReserved).toEqual(["fFuera1", "fFuera2"]); // no madrid family on the reserved slot
   });
 
-  it("shares the reserved slot's leftover when no family is flagged fuera (empty codigo_postal → still committable, no overflow)", () => {
+  it("still places everyone when no family is flagged fuera (empty codigo_postal → reserved acts normal)", () => {
     const s = slotsF([["d1", 20, true], ["d2"]]);
     const r = assignReparto([famF("a", 3, 1, false), famF("b", 2, 2, false)], s);
-    // Graceful degradation: with 0 detected fuera families the reserved slot acts
-    // as a normal one — everyone is placed, so the round stays committable.
-    expect(r.unplaced).toEqual([]);
-    expect(r.needsMoreCapacity).toBe(false);
+    expect(r.assignments).toHaveLength(2);
     expect(r.slotLoads.reduce((sum, x) => sum + x.people, 0)).toBe(5);
-  });
-
-  it("overflows extra fuera people to normal slots when the reserved cap is too small", () => {
-    const s = slotsF([["d1", 3, true], ["d2"]]);
-    const r = assignReparto([famF("f1", 3, 1, true), famF("f2", 2, 2, true)], s);
-    expect(r.slotLoads.find((x) => x.day_slot === 1)!.people).toBe(3); // cap fits the first fuera family
-    expect(r.slotLoads.find((x) => x.day_slot === 2)!.people).toBe(2); // the other overflows to normal
-  });
-});
-
-describe("assignReparto — preferred day anchors to the first slot of that date", () => {
-  it("places a family on its preferred_day even when LPT would pick another slot", () => {
-    const families = [
-      fam("f1", 5, 1, "2026-06-03"), // heaviest + agreed date
-      fam("f2", 2, 2),
-      fam("f3", 2, 3),
-      fam("f4", 2, 4),
-    ];
-    const s = slots([
-      ["2026-06-01", "manana"],
-      ["2026-06-02", "manana"],
-      ["2026-06-03", "manana"],
-    ]);
-    const result = assignReparto(families, s);
-    const f1 = result.assignments.find((a) => a.family_id === "f1");
-    expect(f1?.assigned_day).toBe("2026-06-03");
-    expect(result.assignments).toHaveLength(4);
-  });
-});
-
-describe("assignReparto — per-slot capacity", () => {
-  it("never exceeds a slot's cap when everyone fits", () => {
-    const families = Array.from({ length: 6 }, (_, i) => fam(`f${i}`, 2, i + 1));
-    const s = slots([
-      ["d1", "manana", 4],
-      ["d1", "tarde", 4],
-      ["d2", "manana", 4],
-    ]);
-    const result = assignReparto(families, s);
-    expect(result.assignments).toHaveLength(6);
-    result.slotLoads.forEach((d) => expect(d.people).toBeLessThanOrEqual(4));
-    expect(result.needsMoreCapacity).toBe(false);
-    expect(result.unplaced).toEqual([]);
-  });
-
-  it("flags needsMoreCapacity and lists unplaced when the caps are too tight", () => {
-    // 6 families of 2, each slot cap=3 (so 1 family per slot), 3 slots => 3 fit.
-    const families = Array.from({ length: 6 }, (_, i) => fam(`f${i}`, 2, i + 1));
-    const s = slots([
-      ["d1", "manana", 3],
-      ["d1", "tarde", 3],
-      ["d2", "manana", 3],
-    ]);
-    const result = assignReparto(families, s);
-    expect(result.needsMoreCapacity).toBe(true);
-    expect(result.unplaced).toHaveLength(3);
-    result.slotLoads.forEach((d) => expect(d.people).toBeLessThanOrEqual(3));
-    expect(result.assignments).toHaveLength(3);
   });
 });
 

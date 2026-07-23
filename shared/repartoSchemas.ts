@@ -86,7 +86,15 @@ export const CrearRepartoSchema = z
 export type CrearReparto = z.infer<typeof CrearRepartoSchema>;
 
 // ─── Contact / attendance ───────────────────────────────────────────────────
-export const EstadoContactoSchema = z.enum(["pendiente", "confirmada", "no_contesta", "reprogramada"]);
+// 'renuncia' = the family declined the whole round during contact (early opt-out).
+// 'no_contesta' already covers "no responde" — reused, not renamed.
+export const EstadoContactoSchema = z.enum([
+  "pendiente",
+  "confirmada",
+  "no_contesta",
+  "reprogramada",
+  "renuncia",
+]);
 export type EstadoContacto = z.infer<typeof EstadoContactoSchema>;
 
 // ─── Assignment row (committed batch) — carries turno ───────────────────────
@@ -127,3 +135,67 @@ export const SetContactEstadoSchema = z.object({
 
 // Close a single turno (slot). The round completes only when all slots close.
 export const CerrarTurnoSchema = z.object({ slot_id: uuidLike });
+
+// ─── Reparto v2 — flexible suggested day, carry-over, activation, signature ──
+// (Additive: these are consumed by the redesigned rounds-activation / -closeout /
+// -signature routers. The legacy AssignmentRow/CommitAssignments schemas above are
+// removed in PR-2 once their callers are gone.)
+
+// Server-authoritative activation: the operator picks nothing — the server derives
+// ALL active families and computes the suggested distribution. Only the round id.
+export const ActivateRoundSchema = z.object({ round_id: uuidLike });
+export const PreviewAssignmentsSchema = z.object({ round_id: uuidLike });
+
+// Close the whole round (last day): marks never-attended families as ausente.
+export const CloseRoundSchema = z.object({
+  round_id: uuidLike,
+  notas: z.string().max(500).optional(),
+});
+
+// Roster for one day's close-out: the slot in view + ALL still-pending families of
+// the round (carry-over), ordered smallest family first.
+export const GetSlotRosterSchema = z.object({ round_id: uuidLike, slot_id: uuidLike });
+
+// Mark attendance now carries the ACTUAL slot the family showed up at (may differ
+// from the suggested day). Kept separate from the legacy MarkAttendanceSchema until
+// its caller migrates.
+export const MarkAttendanceAtSlotSchema = z.object({
+  assignment_id: uuidLike,
+  slot_id: uuidLike,
+  attended: z.boolean(),
+});
+
+export const BulkMarkAttendanceSchema = z.object({
+  round_id: uuidLike,
+  slot_id: uuidLike,
+  assignment_ids: z.array(uuidLike).min(1, "Lista vacía"),
+  attended: z.boolean(),
+});
+
+// Contact outcome: record up to 2 days the family said it can attend, or an early
+// renuncia. Admin-only (contact is admin work). preferred_slot_ids are slot UUIDs.
+export const SetContactoFamiliaSchema = z
+  .object({
+    assignment_id: uuidLike,
+    estado_contacto: EstadoContactoSchema,
+    preferred_slot_ids: z.array(uuidLike).max(2, "Máximo 2 días preferidos").optional(),
+    renuncia: z.boolean().optional(),
+  })
+  .refine((v) => !(v.renuncia && (v.preferred_slot_ids?.length ?? 0) > 0), {
+    message: "Una renuncia no lleva días preferidos",
+    path: ["preferred_slot_ids"],
+  });
+
+// On-screen signature capture at pickup. Static-bitmap PNG/JPEG data URL only (no
+// stroke dynamics — keeps it out of RGPD Art. 9). Size-capped to bound the payload.
+const MAX_SIGNATURE_DATA_URL = 500_000; // ~360 KB decoded
+export const RecordRepartoFirmaSchema = z.object({
+  assignment_id: uuidLike,
+  slot_id: uuidLike,
+  signer_person_id: uuidLike,
+  signature_data_url: z
+    .string()
+    .min(1, "Firma vacía")
+    .max(MAX_SIGNATURE_DATA_URL, "Firma demasiado grande")
+    .regex(/^data:image\/(png|jpe?g);base64,/, "Formato de firma inválido"),
+});
