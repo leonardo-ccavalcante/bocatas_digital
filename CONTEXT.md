@@ -4,7 +4,7 @@ The domain glossary and ubiquitous language for this project. When skills or age
 
 If a concept you need isn't here yet, that's a signal: either you're inventing language the project doesn't use (reconsider), or there's a real gap (note it, then add it via `/grill-with-docs`).
 
-> Scope note: this file is the *domain* source of truth. Stack, agent orchestration, gates, and guard rails live in `CLAUDE.md`. Architectural decisions live in `docs/adr/`.
+> Scope note: this file is the *domain* source of truth. Stack, agent orchestration, gates, and guard rails live in `AGENTS.md`. Architectural decisions live in `docs/adr/`.
 
 ---
 
@@ -30,8 +30,17 @@ Spanish is the operational language of the domain. UI chrome is Spanish-only (th
 | **Service point / comedor** | A physical location where a service (e.g. meals) is delivered and check-ins happen. | "site", "venue" |
 | **Tarjeta de miembro** | The QR card issued to a persona. Carries an internal UUID **only** — never PII. | "tarjeta de beneficiario", "registration card", "ID card" |
 | **Fase de itinerario** | A persona's stage in the social-inclusion journey. ENUM 0–4: 0=Acogida, 1=Estabilización, 2=Formación, 3=Inserción Laboral, 4=Autonomía. Required field. | "status", "stage" (use the Spanish phase names) |
-| **Familia** | A household unit in the Programa de Familia (Gate 2). Has `family_members`, documents, deliveries. Sourced from GUF data, stored locally. | "household" in code identifiers (keep `families`) |
-| **Programa de Familia** | The Gate 2 program serving households; coordinated by Sole. Includes GUF CSV sync, deliveries, compliance cards CM-1..CM-5. | "families module" in user-facing text |
+| **Familia** | A household unit in the Programa de Familia (Gate 2). Has members (table `familia_miembros`), documents, deliveries. Sourced from GUF data, stored locally. | "household" in code identifiers (keep `families`); `family_members` (no such table) |
+| **Programa de Familia** | The Gate 2 program serving households; coordinated by Sole. Includes GUF CSV sync, deliveries, compliance cards CM-1..CM-5. A root node of the program tree; its subsystem is special-cased. | "families module" in user-facing text |
+| **Programa (nodo)** | A node of the program tree (`programs.parent_id`, ≤3 levels). EVERY node is a program — umbrella, course, edition or activity. See ADR-0013. | "category", "module"; creating nodes for monthly lists or waiting lists |
+| **Tipo de programa** | Creation preset for a node: `contenedor`, `curso`, `edicion`, `continuo`, `actividad`, `basico`. Pre-fills enabled states + `inscribible`; not a separate schema. | treating tipo as a table/class |
+| **Edición / promoción** | A course run with dates, plazas and its own funnel (e.g. "Cocina Enero 2026") — a child program of tipo `edicion`. | "cohort" in user-facing text; a new program per year |
+| **Inscripción** | The person↔program link (`program_enrollments`), valid at ANY tree level, carrying estado + fechas + motivo de baja. One row per (person, program); transitions logged in `enrollment_events`. | "matrícula" vs "participación" as different concepts |
+| **Estado de inscripción** | One value from the global catalog (`shared/programEstados.ts`): inscrito, preseleccionado, admitido, lista_espera, activo, pausado, baja, terminado. Each program enables a subset. `baja` always carries a motivo. | per-program invented vocabularies; "completado" for dropouts |
+| **Lista de espera** | `estado='lista_espera'` on an edition's inscription — never a separate list/page/node. | "L.Espera" pages, waitlist tables |
+| **Listado mensual** | A DERIVED view (actives in month + attendances), exportable. Nobody creates monthly lists. | "26/1 Comedor"-style monthly entities |
+| **Reparto de calle** | Root program for street food distribution with a child node per point/route (Cañada Real, Ópera…); sessions count anonymously (+N). Separate from Comedor. | modelling street points inside Comedor |
+| **Etiqueta (programa)** | Transversal label (`programs.etiquetas`) for cross-tree reporting (e.g. all `espanol` contexts). Not a hierarchy. | multi-parent nodes |
 | **GUF** | Banco de Alimentos system. **No API.** Data flows in/out via CSV only. Deletions in GUF are non-recoverable — never treat GUF as source of truth; store locally. | treating GUF as authoritative; "GUF API" |
 | **Delivery / entrega** | A recorded physical handover (e.g. food) to a familia, with a signature scaffold for Banco de Alimentos subsidy verification. | "shipment" |
 | **Reparto** | A delivery cycle for the Programa de Familia: a named `delivery_round` over chosen (non-consecutive, ≤10/month) days, each split into turnos. Replaces the consecutive-day model. See ADR-0010. | "delivery round" in user-facing text |
@@ -61,7 +70,7 @@ Four roles: **superadmin**, **admin**, **voluntario**, **beneficiario**. High-ri
 
 ## Bounded contexts (informal)
 
-Single-product, single-tree (`repo/` = Vite client + Express server). Feature modules, each with `client/src/features/{name}/` and `server/routers/{name}/`:
+Single-product, single-tree (this repo = Vite client + Express server). Feature modules, each with `client/src/features/{name}/` and `server/routers/{name}/`:
 
 - **persons** — registration, duplicate detection, profile 360°, QR.
 - **checkin** — QR scan, XState FSM, visual feedback, manual fallback, offline.

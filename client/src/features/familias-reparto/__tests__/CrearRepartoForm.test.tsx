@@ -9,6 +9,15 @@ vi.mock("@/lib/trpc", () => ({
     families: {
       createRound: { useMutation: () => ({ mutateAsync: vi.fn(), isPending: false }) },
       listRounds: { useQuery: () => ({ data: [], isLoading: false }) },
+      getEligibleFamilies: {
+        useQuery: () => ({
+          data: [
+            { id: "f1", familia_numero: 1, total_miembros: 3, es_fuera_madrid: false },
+            { id: "f2", familia_numero: 2, total_miembros: 4, es_fuera_madrid: false },
+          ],
+          isLoading: false,
+        }),
+      },
     },
     useUtils: () => ({ families: { listRounds: { invalidate: vi.fn() } } }),
   },
@@ -33,53 +42,57 @@ describe("CrearRepartoForm — slot-based model", () => {
     expect(screen.queryByLabelText(/Días de reparto/i)).toBeNull();
   });
 
-  it("asks for the total people to serve", () => {
+  it("shows the live active-families banner instead of a total-personas input", () => {
     render(<CrearRepartoForm programId="00000000-0000-0000-0000-000000000001" onCreated={vi.fn()} />);
-    expect(screen.getByLabelText(/Total de personas a atender/i)).toBeTruthy();
+    // Old total-personas input must NOT be present
+    expect(screen.queryByLabelText(/Total de personas a atender/i)).toBeNull();
+    // Live banner must be present (role=status — families are loaded from the mock)
+    const banner = screen.getByRole("status");
+    expect(banner).toBeTruthy();
+    // Banner should mention "familias activas"
+    expect(banner.textContent).toMatch(/familias? activas?/i);
   });
 
-  it("gates day selection until a total is entered, then reveals the day grid", () => {
+  it("reveals the day grid as soon as a month is selected, without needing a total", () => {
     render(<CrearRepartoForm programId="00000000-0000-0000-0000-000000000001" onCreated={vi.fn()} />);
-    fireEvent.change(screen.getByLabelText(/Mes de reparto/i), { target: { value: "2026-06" } });
-    // month picked but no total yet → gate hint, no day grid
-    expect(screen.getByText(/Primero indica cuántas personas/i)).toBeTruthy();
+    // No month selected → no grid yet
     expect(screen.queryByRole("group", { name: /Días del mes/i })).toBeNull();
-    // enter the total → the day grid appears
-    fireEvent.change(screen.getByLabelText(/Total de personas a atender/i), { target: { value: "200" } });
+    // Pick a month → grid appears immediately (no total required)
+    fireEvent.change(screen.getByLabelText(/Mes de reparto/i), { target: { value: "2026-06" } });
     expect(screen.getByRole("group", { name: /Días del mes/i })).toBeTruthy();
+    // The old "Primero indica cuántas personas" hint must be gone
+    expect(screen.queryByText(/Primero indica cuántas personas/i)).toBeNull();
   });
 
-  it("opens the Visualizar preview with the distributed slots", async () => {
+  it("opens the Visualizar preview listing the slot structure", async () => {
     render(<CrearRepartoForm programId="00000000-0000-0000-0000-000000000001" onCreated={vi.fn()} />);
     fireEvent.change(screen.getByLabelText(/Mes de reparto/i), { target: { value: "2026-06" } });
-    fireEvent.change(screen.getByLabelText(/Total de personas a atender/i), { target: { value: "200" } });
-    // pick the first day cell → one slot carrying all 200 people
     const grid = screen.getByRole("group", { name: /Días del mes/i });
+    // Pick first day cell
     fireEvent.click(within(grid).getAllByRole("button")[0]);
-    expect(screen.getByText(/Turnos y personas por día/i)).toBeTruthy();
-    // open the read-only recap
+    expect(screen.getByText(/Turnos por día/i)).toBeTruthy();
+    // Open the read-only recap dialog
     fireEvent.click(screen.getByRole("button", { name: /^Visualizar$/i }));
     expect(await screen.findByText(/Vista previa del reparto/i)).toBeTruthy();
-    expect(screen.getByText(/200 pers\./i)).toBeTruthy();
+    // Dialog should mention the slot turno (Mañana is the default)
+    expect(screen.getAllByText(/Mañana/i).length).toBeGreaterThan(0);
+    // Old per-slot people badge must NOT appear
+    expect(screen.queryByText(/pers\./i)).toBeNull();
   });
 
-  it("reserves the first slot for fuera de Madrid and rebalances the rest", () => {
+  it("marks the first slot as fuera-de-Madrid when the toggle is enabled", () => {
     render(<CrearRepartoForm programId="00000000-0000-0000-0000-000000000001" onCreated={vi.fn()} />);
     fireEvent.change(screen.getByLabelText(/Mes de reparto/i), { target: { value: "2026-06" } });
-    fireEvent.change(screen.getByLabelText(/Total de personas a atender/i), { target: { value: "200" } });
-    // pick two days → two mañana slots
+    // Pick two days
     const grid = screen.getByRole("group", { name: /Días del mes/i });
     const dayButtons = within(grid).getAllByRole("button");
     fireEvent.click(dayButtons[0]);
     fireEvent.click(dayButtons[1]);
-    // enable fuera de Madrid with a count of 20
+    // Enable fuera de Madrid toggle
     fireEvent.click(screen.getByRole("button", { name: /Hay personas de fuera de Madrid/i }));
-    fireEvent.change(screen.getByLabelText(/¿Cuántas/i), { target: { value: "20" } });
-    // first slot card carries the "Fuera de Madrid" badge, and the two turnos
-    // are 20 (fuera) + 180 (Madrid)
+    // The first slot row must carry the "Fuera de Madrid" badge
     expect(screen.getByText("Fuera de Madrid")).toBeTruthy();
-    const nums = screen.getAllByRole("spinbutton").map((el) => (el as HTMLInputElement).value);
-    expect(nums).toContain("20");
-    expect(nums).toContain("180");
+    // No numeric cupo inputs for personas (cupos are server-side now)
+    expect(screen.queryAllByRole("spinbutton", { name: /Personas/i })).toHaveLength(0);
   });
 });

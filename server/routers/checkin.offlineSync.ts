@@ -5,16 +5,10 @@
  * are unit-testable in isolation and the router stays within the file budget.
  */
 
-// Mirror ProgramaEnum / MetodoEnum in checkin.ts. If those Zod enums ever gain
-// or drop a value, the syncOfflineQueue call site (which passes the validated
-// input here) fails to typecheck — so parity is enforced, not assumed.
-type CheckinPrograma =
-  | "comedor"
-  | "familia"
-  | "formacion"
-  | "atencion_juridica"
-  | "voluntariado"
-  | "acompanamiento";
+// Mirror ProgramaSlug / MetodoEnum in checkin.ts. Program slugs come from the
+// dynamic `programs` catalog (validated by the FK on attendances.programa), so
+// this is a plain string, not a literal union.
+type CheckinPrograma = string;
 type CheckinMetodo = "qr_scan" | "manual_busqueda" | "conteo_anonimo";
 
 export interface OfflineSyncItem {

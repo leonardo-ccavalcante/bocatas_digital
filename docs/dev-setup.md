@@ -27,7 +27,12 @@ supabase start
 supabase db reset
 # Applies all migrations + seeds test data + creates 4 auth.users (see below).
 
-supabase gen types typescript --local > client/src/lib/database.types.ts
+# Regenerate DB types — CANONICAL recipe (matches the ci-types-drift.yml gate).
+# NEVER a bare `supabase gen types --local`: it adds a graphql_public block that
+# fails the types-drift CI gate.
+supabase gen types typescript \
+  --db-url "$(supabase status -o env | grep '^DB_URL=' | cut -d= -f2- | tr -d '"')" \
+  --schema public > client/src/lib/database.types.ts
 ```
 
 ## Test users (local only)
@@ -67,10 +72,15 @@ $EDITOR supabase/migrations/$(date +%Y%m%d%H%M%S)_description.sql
 # 2. Apply locally + verify
 supabase db reset
 
-# 3. Regenerate types
-supabase gen types typescript --local > client/src/lib/database.types.ts
+# 3. Regenerate types — canonical recipe (NEVER bare --local; see First-time setup)
+supabase gen types typescript \
+  --db-url "$(supabase status -o env | grep '^DB_URL=' | cut -d= -f2- | tr -d '"')" \
+  --schema public > client/src/lib/database.types.ts
 
-# 4. Run tests
+# 4. Verify the types-drift gate locally: regen into a tempfile and diff — must be
+#    identical to the committed file BEFORE you commit.
+
+# 5. Run tests
 pnpm test
 ```
 
@@ -94,12 +104,75 @@ The user must sign out + back in to pick up the new role claim in their JWT.
 
 - **`pnpm dev` says port 3000 in use** — set `PORT=3001` in `.env.local`, or kill the offender (`lsof -ti :3000 | xargs kill`).
 - **`supabase start` fails on Docker** — ensure Docker Desktop is running (or `colima start` on macOS).
-- **`supabase db reset` errors mid-replay** — most often a migration ordering issue. Look at the EXPORTED/ folder to see if the file order needs reconciliation. See [`supabase/migrations/EXPORTED/README.md`](../supabase/migrations/EXPORTED/README.md).
+- **`supabase db reset` errors mid-replay** — most often a migration ordering or environment-divergence issue. Migrations must be existence-tolerant (guard undefined_object AND undefined_column AND undefined_table); filename ordering is enforced by the `ci-migration-filenames.yml` gate.
 - **Manus OAuth flow not working in dev** — set `VITE_OAUTH_PORTAL_URL=http://localhost:3001` and run a local OAuth portal, OR use the seeded email/password test users above.
+
+## Cloud VM / Cursor Cloud bringup
+
+For agents running in a fresh cloud VM (e.g. Cursor Cloud). The update script only
+runs `pnpm install` — Docker, the Supabase CLI, MySQL, and all service startup are
+NOT in it; start them yourself each session:
+
+1. **Docker** (not running by default):
+   `sudo dockerd > /tmp/dockerd.log 2>&1 &` then `sudo chmod 666 /var/run/docker.sock`.
+   Docker 29 needs `/etc/docker/daemon.json` with `storage-driver: fuse-overlayfs`
+   and `features.containerd-snapshotter: false`, plus `iptables-legacy`.
+2. **Supabase**: the Supabase config file is git-ignored, so run `supabase init`
+   once, then `supabase start` (prints ANON_KEY / SERVICE_ROLE_KEY).
+   `supabase db reset` applies migrations. The seed file is intentionally empty.
+3. **MySQL auth DB** — the legacy `users`/role store. NOT needed to click through
+   the app locally: use `DEV_ADMIN_LOGIN=1` (see "Authenticated browser session"
+   below), which supplies a synthetic admin with no DB. Only stand up MySQL to run
+   `drizzle-kit` or exercise the real Manus-OAuth callback:
+   `docker run -d --name bocatas-mysql -e MYSQL_ROOT_PASSWORD=rootpass -e MYSQL_DATABASE=bocatas_auth -e MYSQL_USER=user -e MYSQL_PASSWORD=pass -p 3306:3306 mysql:8`
+   then create the schema:
+   `DATABASE_URL="mysql://user:pass@localhost:3306/bocatas_auth" pnpm exec drizzle-kit push`.
+
+### Env-file gotcha (bites every fresh environment)
+
+The **server** loads `.env` via dotenv's default file, NOT `.env.local`. Vite (client)
+reads `.env.local`/`.env`. Server-only vars (`SUPABASE_URL`,
+`SUPABASE_SERVICE_ROLE_KEY`, `JWT_SECRET`, `DATABASE_URL`, `OAUTH_SERVER_URL`,
+`VITE_APP_ID`) must be present in **`.env`** or the server silently runs without DB
+access / with an ephemeral JWT. Simplest: copy `.env.example` to both `.env` and
+`.env.local`, fill in the Supabase keys from `supabase start`, a stable `JWT_SECRET`
+(`openssl rand -base64 48`), the MySQL `DATABASE_URL`, a non-empty `VITE_APP_ID`,
+and `SUPABASE_JWT_SECRET`.
+
+### Authenticated browser session without the OAuth portal
+
+The UI login is Manus-OAuth-only and the portal is not run locally. Two ways in:
+
+**Recommended (no MySQL, no cookie):** set `DEV_ADMIN_LOGIN=1` in `.env` and run
+`pnpm dev` (which sets `NODE_ENV=development`). `server/_core/context.ts` then
+injects a synthetic `role: "admin"` user for every request, so `auth.me` returns a
+user and the client never redirects to the portal. All business data still comes
+from local Supabase Postgres — this bypass only stands in for the MySQL role lookup.
+The bypass is allowlisted to `NODE_ENV === "development"`, so it is inert in any
+deployment. This is the fast path for clicking through the app.
+
+**Real session (needs MySQL — for testing the actual role table / OAuth path):**
+
+1. Seed an admin in MySQL: insert a row into `users` with a known `openId`
+   (e.g. `dev-superadmin`) and `role='superadmin'`.
+2. Forge the httpOnly session cookie `app_session_id` — a JWT signed with
+   `JWT_SECRET` (HS256) containing `{ openId, appId, name }` where `appId` equals
+   `VITE_APP_ID` and `name` is non-empty (see `server/_core/sdk.ts`). Set it via a
+   temporary non-production route or DevTools (`SameSite=Lax`, not `None`, so the
+   browser accepts it over http). `VITE_APP_ID` must be non-empty or session
+   verification fails.
+
+### Dev-server note (regression guard)
+
+`pnpm dev` mounts Vite in middleware mode via `server/_core/vite.ts`, which reads
+`vite.config.ts`. That config is a `defineConfig(fn)` **function** export; the file
+resolves the function before spreading it (previously spreading the function gave an
+empty config → blank page / main-module 404). Keep that resolution in place.
 
 ## Where to look next
 
-- **High-level architecture** — [`README.md`](../README.md)
-- **Plan-driven work history** — [`docs/superpowers/plans/`](./superpowers/plans/)
-- **Schema migration history** — `supabase/migrations/` + `supabase/migrations/EXPORTED/`
-- **What's deferred / archived** — [`docs/archive/2026-05-05/`](./archive/2026-05-05/)
+- **Playbook (all agents)** — [`AGENTS.md`](../AGENTS.md)
+- **High-level architecture** — [`README.md`](../README.md) + [`ARCHITECTURE.md`](../ARCHITECTURE.md)
+- **Plan-driven work history** — [`docs/superpowers/plans/`](./superpowers/plans/) (historical)
+- **Schema migration history** — `supabase/migrations/`
+- **What's deferred / archived** — [`docs/archive/`](./archive/) (historical)

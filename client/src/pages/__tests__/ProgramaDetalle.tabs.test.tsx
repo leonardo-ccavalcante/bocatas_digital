@@ -55,19 +55,25 @@ const { mockGetBySlugUseQuery, mockGetEnrollmentsUseQuery } = vi.hoisted(() => (
 }));
 
 const noopMutation = { mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false };
+const noopQuery = { data: [], isLoading: false, error: null };
 
 vi.mock("@/lib/trpc", () => ({
   trpc: {
     programs: {
       getBySlug: { useQuery: mockGetBySlugUseQuery },
       getEnrollments: { useQuery: mockGetEnrollmentsUseQuery },
+      getAll: { useQuery: () => noopQuery },
+      getAllWithCounts: { useQuery: () => noopQuery },
       update: { useMutation: () => noopMutation },
       deactivate: { useMutation: () => noopMutation },
+      create: { useMutation: () => noopMutation },
     },
     useUtils: () => ({
       programs: {
         getBySlug: { invalidate: vi.fn() },
         getEnrollments: { invalidate: vi.fn() },
+        getAllWithCounts: { invalidate: vi.fn() },
+        getAll: { invalidate: vi.fn() },
       },
     }),
   },
