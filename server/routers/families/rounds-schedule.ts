@@ -1,12 +1,12 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { router, adminProcedure } from "../../_core/trpc";
+import { router, adminProcedure, voluntarioProcedure } from "../../_core/trpc";
 import { createAdminClient } from "../../../client/src/lib/supabase/server";
 import { uuidLike, programIdSchema } from "./_shared";
 import {
   CrearRepartoSchema,
-  CommitAssignmentsSchema,
   CerrarTurnoSchema,
+  CloseRoundSchema,
   EstadoRepartoSchema,
 } from "../../../shared/repartoSchemas";
 import { esFueraDeMadrid } from "../../../shared/madrid/fueraDeMadrid";
@@ -16,8 +16,10 @@ function fail(error: { message: string } | null): never {
 }
 
 export const roundsScheduleRouter = router({
-  // List rounds for a program (newest first).
-  listRounds: adminProcedure
+  // List rounds for a program (newest first). Voluntario-readable: the reparto
+  // close-out flow starts here, and delivery_rounds carries no PII (nombre, kg,
+  // estado). The mutating procedures below stay admin-only.
+  listRounds: voluntarioProcedure
     .input(z.object({ program_id: programIdSchema, estado: EstadoRepartoSchema.optional() }))
     .query(async ({ input }) => {
       const db = createAdminClient();
@@ -70,7 +72,8 @@ export const roundsScheduleRouter = router({
 
   // The (date, turno) slot agenda for a round, ordered; `ordinal` is the 1-based
   // position — the same ordering the engine and commit use for day_slot.
-  listSlots: adminProcedure
+  // Voluntario-readable (no PII) so the close-out day selector works for them.
+  listSlots: voluntarioProcedure
     .input(z.object({ round_id: uuidLike }))
     .query(async ({ input }) => {
       const db = createAdminClient();
@@ -84,59 +87,33 @@ export const roundsScheduleRouter = router({
       return (data ?? []).map((s, i) => ({ ...s, ordinal: i + 1 }));
     }),
 
-  // PRE-1 — families eligible for a reparto: active families with at least one
-  // member enrolled (active) in the program.
-  // Uses a single SQL RPC to avoid PostgREST .in() array size limits (fails at ~100+ items).
+  // ALL active families in the DB are included in a reparto (redesign): the RPC
+  // takes no program filter and sizes each family by its declared members.
+  // Single SQL RPC to avoid PostgREST .in() array-size limits (fails at ~100+).
   getEligibleFamilies: adminProcedure
-    .input(z.object({ program_id: programIdSchema }))
-    .query(async ({ input }) => {
+    .input(z.object({ program_id: programIdSchema }).optional())
+    .query(async () => {
       const db = createAdminClient();
-      const { data, error } = await db.rpc("get_eligible_families_for_reparto", {
-        p_program_id: input.program_id,
-      });
+      const { data, error } = await db.rpc("get_active_families_for_reparto");
       if (error) fail(error);
       const rows = data ?? [];
       return rows.map((f) => ({
         id: f.id,
         familia_numero: f.familia_numero != null ? parseInt(f.familia_numero, 10) : null,
         total_miembros: f.total_miembros,
-        // Derived (hybrid): a valid CP outside Madrid municipality. Empty CPs are
-        // "unknown" → false; the operator covers those with the manual count.
+        // Derived: a valid CP outside Madrid municipality anchors the family to the
+        // reserved fuera slot. Empty CPs are "unknown" → false (treated as Madrid).
         es_fuera_madrid: esFueraDeMadrid(f.codigo_postal),
       }));
     }),
 
-  // Atomically replace this round's assignments (carrying turno) and activate it.
-  // The RPC locks the round, re-checks 'borrador', wipes+reinserts and activates
-  // in one transaction — two concurrent commits serialize, the loser is rejected
-  // instead of silently overwriting the winner.
-  commitAssignments: adminProcedure
-    .input(CommitAssignmentsSchema)
-    .mutation(async ({ input }) => {
-      const db = createAdminClient();
-      const { data: count, error } = await db.rpc("commit_round_assignments", {
-        p_round_id: input.round_id,
-        p_rows: input.assignments,
-      });
-      if (error) {
-        if (error.message.includes("ronda_ya_activada"))
-          throw new TRPCError({ code: "CONFLICT", message: "El reparto ya fue activado; no se puede regenerar la asignación" });
-        if (error.message.includes("ronda_no_encontrada"))
-          throw new TRPCError({ code: "NOT_FOUND", message: "Ronda no encontrada" });
-        fail(error);
-      }
-      return { count: count ?? 0 };
-    }),
-
-  // Close a single turno (slot). Remaining pendientes in that slot (attended IS
-  // NULL) become explicit no-shows so the absentismo metric counts them — a
-  // family should be re-assigned to another open turno BEFORE its turno closes.
+  // Close a single turno (slot). Carry-over model: this ONLY locks the slot —
+  // pending families (attended IS NULL) roll over to the remaining open days.
+  // No family is marked no-show here; that happens only at close_round.
   cerrarTurno: adminProcedure
     .input(CerrarTurnoSchema)
     .mutation(async ({ input, ctx }) => {
       const db = createAdminClient();
-      // Atomic in the RPC: closes the slot AND marks its pendientes (attended IS
-      // NULL) as no-show, in one transaction, under a row lock.
       const { error } = await db.rpc("cerrar_turno", {
         p_slot_id: input.slot_id,
         p_actor: String(ctx.user.id),
@@ -180,40 +157,36 @@ export const roundsScheduleRouter = router({
         round_id: input.round_id,
         round_nombre: (round as { nombre?: string }).nombre ?? null,
         round_estado: round.estado,
-        actor_id: ctx.user.openId,
+        actor_id: ctx.user.openId ?? "",
         actor_name: ctx.user.name ?? null,
         metadata: { program_id: null },
       });
       return { deleted: true };
     }),
 
-  // Close an active round — only once EVERY slot (turno of every day) is closed.
+  // Close the whole round (last day). Atomic in the RPC: requires every slot
+  // closed, marks never-attended families as ausente, then flips to 'cerrada'.
+  // Returns how many families were marked ausente.
   closeRound: adminProcedure
-    .input(z.object({ round_id: uuidLike, notas: z.string().max(500).optional() }))
-    .mutation(async ({ input }) => {
+    .input(CloseRoundSchema)
+    .mutation(async ({ input, ctx }) => {
       const db = createAdminClient();
-      // Completion gate: the reparto is complete only when no slot is still open.
-      const { count, error: ce } = await db
-        .from("delivery_round_slots")
-        .select("id", { count: "exact", head: true })
-        .eq("round_id", input.round_id)
-        .eq("estado", "abierto");
-      if (ce) fail(ce);
-      if ((count ?? 0) > 0)
-        throw new TRPCError({
-          code: "CONFLICT",
-          message: `Faltan ${count} turno(s) por cerrar antes de cerrar el reparto`,
-        });
-
-      const { data, error } = await db
-        .from("delivery_rounds")
-        .update({ estado: "cerrada", notas: input.notas ?? null })
-        .eq("id", input.round_id)
-        .eq("estado", "activa")
-        .select()
-        .single();
-      if (error) fail(error);
-      if (!data) throw new TRPCError({ code: "CONFLICT", message: "Ronda no activa o no encontrada" });
-      return data;
+      const { data: ausentes, error } = await db.rpc("close_round", {
+        p_round_id: input.round_id,
+        p_actor: String(ctx.user.id),
+        p_notas: input.notas ?? "",
+      });
+      if (error) {
+        if (error.message.includes("turnos_abiertos")) {
+          const n = error.message.split(":")[1]?.trim() ?? "";
+          throw new TRPCError({ code: "CONFLICT", message: `Faltan ${n} turno(s) por cerrar antes de cerrar el reparto` });
+        }
+        if (error.message.includes("ronda_no_activa"))
+          throw new TRPCError({ code: "CONFLICT", message: "El reparto no está activo" });
+        if (error.message.includes("ronda_no_encontrada"))
+          throw new TRPCError({ code: "NOT_FOUND", message: "Reparto no encontrado" });
+        fail(error);
+      }
+      return { ausentes: ausentes ?? 0 };
     }),
 });

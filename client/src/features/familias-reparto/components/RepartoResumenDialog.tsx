@@ -14,7 +14,6 @@ export interface ResumenSlot {
   weekday: string; // "Lunes"
   dayNum: number;
   turno: "manana" | "tarde";
-  people: number;
   esFueraMadrid: boolean;
 }
 
@@ -22,7 +21,6 @@ interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   nombre: string;
-  total: number;
   slots: ResumenSlot[];
   /** null when valid; a reason string when creation is blocked */
   blockReason: string | null;
@@ -31,13 +29,12 @@ interface Props {
 }
 
 /** Read-only "así va a quedar" recap shown before the reparto is created:
- *  every slot with its weekday, turno and people. Lets the operator review the
- *  whole plan (and create from here) without leaving the form. */
+ *  every slot with its weekday, turno and fuera indicator. The per-slot
+ *  headcount is computed server-side at activation — not shown here. */
 export function RepartoResumenDialog({
   open,
   onOpenChange,
   nombre,
-  total,
   slots,
   blockReason,
   isPending,
@@ -50,7 +47,7 @@ export function RepartoResumenDialog({
           <DialogTitle>Vista previa del reparto</DialogTitle>
           <DialogDescription>
             {nombre ? `«${nombre}» · ` : ""}
-            {total} personas en {slots.length} turno{slots.length !== 1 ? "s" : ""}
+            {slots.length} turno{slots.length !== 1 ? "s" : ""} — las familias activas se asignarán automáticamente al activar.
           </DialogDescription>
         </DialogHeader>
 
@@ -62,13 +59,12 @@ export function RepartoResumenDialog({
             >
               <span className="font-medium">
                 {s.weekday} {s.dayNum} · {s.turno === "manana" ? "Mañana" : "Tarde"}
-                {s.esFueraMadrid && (
-                  <span className="ml-1 text-xs font-normal text-muted-foreground">· Fuera de Madrid</span>
-                )}
               </span>
-              <Badge variant="secondary">
-                {s.people} pers.
-              </Badge>
+              {s.esFueraMadrid && (
+                <Badge variant="secondary" className="text-xs">
+                  Fuera de Madrid
+                </Badge>
+              )}
             </div>
           ))}
         </div>

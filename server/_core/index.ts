@@ -14,6 +14,7 @@ import { createAdminClient } from "../../client/src/lib/supabase/server";
 import { generateWarningsReport } from "../legacyImportReport";
 import { generateInformesWarningsReport } from "../informesImportReport";
 import type { InformesStashPayload } from "../../shared/legacyFamiliasTypes";
+import { handleRepartoContactoInbound } from "../routers/families/reparto-contacto-inbound";
 import { sdk } from "./sdk";
 
 function isPortAvailable(port: number): Promise<boolean> {
@@ -94,6 +95,22 @@ async function startServer() {
   // OAuth callback under /api/oauth/callback
   registerStorageProxy(app);
   registerOAuthRoutes(app);
+
+  // Inbound n8n webhook: a family's reply with the day(s) they can attend.
+  // Shared-secret auth; inert (503) until N8N_REPARTO_INBOUND_SECRET is set.
+  // The secret is checked BEFORE express.json so unauthenticated requests are
+  // rejected without parsing their (potentially large / hostile) body.
+  app.post(
+    "/api/webhooks/reparto-contacto",
+    (req, res, next) => {
+      const secret = process.env.N8N_REPARTO_INBOUND_SECRET;
+      if (!secret) { res.status(503).json({ error: "inbound webhook not configured" }); return; }
+      if (req.get("x-webhook-secret") !== secret) { res.status(401).json({ error: "unauthorized" }); return; }
+      next();
+    },
+    express.json({ limit: "256kb" }),
+    handleRepartoContactoInbound,
+  );
 
   // ── REST: download warnings/errors Excel report for a legacy import preview ──
   // GET /api/legacy-import/report/:token

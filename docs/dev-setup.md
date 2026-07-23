@@ -120,7 +120,10 @@ NOT in it; start them yourself each session:
 2. **Supabase**: the Supabase config file is git-ignored, so run `supabase init`
    once, then `supabase start` (prints ANON_KEY / SERVICE_ROLE_KEY).
    `supabase db reset` applies migrations. The seed file is intentionally empty.
-3. **MySQL auth DB** (required — role lookups come from it):
+3. **MySQL auth DB** — the legacy `users`/role store. NOT needed to click through
+   the app locally: use `DEV_ADMIN_LOGIN=1` (see "Authenticated browser session"
+   below), which supplies a synthetic admin with no DB. Only stand up MySQL to run
+   `drizzle-kit` or exercise the real Manus-OAuth callback:
    `docker run -d --name bocatas-mysql -e MYSQL_ROOT_PASSWORD=rootpass -e MYSQL_DATABASE=bocatas_auth -e MYSQL_USER=user -e MYSQL_PASSWORD=pass -p 3306:3306 mysql:8`
    then create the schema:
    `DATABASE_URL="mysql://user:pass@localhost:3306/bocatas_auth" pnpm exec drizzle-kit push`.
@@ -138,9 +141,17 @@ and `SUPABASE_JWT_SECRET`.
 
 ### Authenticated browser session without the OAuth portal
 
-The UI login is Manus-OAuth-only and the portal is not run locally. Auth identity
-**and role** come from the MySQL `users` table (`getUserByOpenId`) — without MySQL,
-every protected/admin tRPC call is FORBIDDEN. To get a session:
+The UI login is Manus-OAuth-only and the portal is not run locally. Two ways in:
+
+**Recommended (no MySQL, no cookie):** set `DEV_ADMIN_LOGIN=1` in `.env` and run
+`pnpm dev` (which sets `NODE_ENV=development`). `server/_core/context.ts` then
+injects a synthetic `role: "admin"` user for every request, so `auth.me` returns a
+user and the client never redirects to the portal. All business data still comes
+from local Supabase Postgres — this bypass only stands in for the MySQL role lookup.
+The bypass is allowlisted to `NODE_ENV === "development"`, so it is inert in any
+deployment. This is the fast path for clicking through the app.
+
+**Real session (needs MySQL — for testing the actual role table / OAuth path):**
 
 1. Seed an admin in MySQL: insert a row into `users` with a known `openId`
    (e.g. `dev-superadmin`) and `role='superadmin'`.
