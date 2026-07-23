@@ -554,6 +554,7 @@ export type Database = {
           attended: boolean | null
           attended_at: string | null
           attended_by: string | null
+          attended_slot_id: string | null
           created_at: string
           day_slot: number
           estado_contacto: string
@@ -564,6 +565,7 @@ export type Database = {
           kg_carne: number | null
           notas: string | null
           preferred_day: string | null
+          preferred_slot_ids: string[]
           reschedule_log: Json
           round_id: string
           total_miembros: number
@@ -576,6 +578,7 @@ export type Database = {
           attended?: boolean | null
           attended_at?: string | null
           attended_by?: string | null
+          attended_slot_id?: string | null
           created_at?: string
           day_slot: number
           estado_contacto?: string
@@ -586,6 +589,7 @@ export type Database = {
           kg_carne?: number | null
           notas?: string | null
           preferred_day?: string | null
+          preferred_slot_ids?: string[]
           reschedule_log?: Json
           round_id: string
           total_miembros?: number
@@ -598,6 +602,7 @@ export type Database = {
           attended?: boolean | null
           attended_at?: string | null
           attended_by?: string | null
+          attended_slot_id?: string | null
           created_at?: string
           day_slot?: number
           estado_contacto?: string
@@ -608,6 +613,7 @@ export type Database = {
           kg_carne?: number | null
           notas?: string | null
           preferred_day?: string | null
+          preferred_slot_ids?: string[]
           reschedule_log?: Json
           round_id?: string
           total_miembros?: number
@@ -616,6 +622,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "dra_attended_slot_fkey"
+            columns: ["attended_slot_id"]
+            isOneToOne: false
+            referencedRelation: "delivery_round_slots"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "dra_family_id_fkey"
             columns: ["family_id"]
@@ -2253,6 +2266,68 @@ export type Database = {
           },
         ]
       }
+      reparto_signature_audit: {
+        Row: {
+          assignment_id: string
+          client_ip_hash: string | null
+          created_at: string
+          id: string
+          signed_at: string
+          signer_person_id: string
+          slot_id: string
+          storage_path: string
+        }
+        Insert: {
+          assignment_id: string
+          client_ip_hash?: string | null
+          created_at?: string
+          id?: string
+          signed_at?: string
+          signer_person_id: string
+          slot_id: string
+          storage_path: string
+        }
+        Update: {
+          assignment_id?: string
+          client_ip_hash?: string | null
+          created_at?: string
+          id?: string
+          signed_at?: string
+          signer_person_id?: string
+          slot_id?: string
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reparto_signature_audit_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "delivery_round_assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reparto_signature_audit_signer_person_id_fkey"
+            columns: ["signer_person_id"]
+            isOneToOne: false
+            referencedRelation: "persons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reparto_signature_audit_signer_person_id_fkey"
+            columns: ["signer_person_id"]
+            isOneToOne: false
+            referencedRelation: "persons_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reparto_signature_audit_slot_id_fkey"
+            columns: ["slot_id"]
+            isOneToOne: false
+            referencedRelation: "delivery_round_slots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       report_saved_queries: {
         Row: {
           created_at: string
@@ -2477,6 +2552,16 @@ export type Database = {
         Args: { p_person: Json; p_person_id: string }
         Returns: undefined
       }
+      bulk_mark_attendance: {
+        Args: {
+          p_actor: string
+          p_attended: boolean
+          p_ids: string[]
+          p_round_id: string
+          p_slot_id: string
+        }
+        Returns: number
+      }
       cerrar_turno: {
         Args: { p_actor: string; p_slot_id: string }
         Returns: undefined
@@ -2488,6 +2573,10 @@ export type Database = {
           has_index: boolean
           table_name: string
         }[]
+      }
+      close_round: {
+        Args: { p_actor: string; p_notas: string; p_round_id: string }
+        Returns: number
       }
       commit_round_assignments: {
         Args: { p_round_id: string; p_rows: Json }
@@ -2523,6 +2612,15 @@ export type Database = {
           id: string
           nombre: string
           similarity: number
+        }[]
+      }
+      get_active_families_for_reparto: {
+        Args: never
+        Returns: {
+          codigo_postal: string
+          familia_numero: string
+          id: string
+          total_miembros: number
         }[]
       }
       get_documentos_faltantes: {
@@ -2586,6 +2684,20 @@ export type Database = {
           p_new_turno: string
         }
         Returns: string
+      }
+      record_reparto_pickup: {
+        Args: {
+          p_actor: string
+          p_assignment_id: string
+          p_ip_hash: string
+          p_signer_person_id: string
+          p_slot_id: string
+          p_storage_path: string
+        }
+        Returns: {
+          audit_id: string
+          audit_signed_at: string
+        }[]
       }
       sanitize_audit_error: { Args: { p_msg: string }; Returns: string }
       show_limit: { Args: never; Returns: number }

@@ -1,15 +1,21 @@
 // Reparto assignment engine (Programa de Familia).
 //
-// Distributes families across the delivery SLOTS of a reparto, balanced by
-// PEOPLE (not family count) so each slot carries a similar load. A slot is a
-// (date, turno) pair — days are chosen explicitly (non-consecutive, ≤10/month)
-// and each day may run mañana, tarde, or both. Pure module — no DB, no side
-// effects — so the OR logic is fully unit-testable.
+// Computes a SUGGESTED distribution of families across the delivery SLOTS of a
+// reparto. A slot is a (date, turno) pair — days are chosen explicitly
+// (non-consecutive, ≤10/month) and each day may run mañana, tarde, or both. Pure
+// module — no DB, no side effects — so the logic is fully unit-testable.
 //
-// Greedy Longest-Processing-Time (LPT) bin-packing: families are the unit,
-// weight = total_miembros. Deterministic. Per-slot capacity is honored; when a
-// family cannot fit under any slot's cap it is flagged `unplaced` so the caller
-// can tell the operator to raise the cap or add a turno.
+// Model (sequential fill by ascending family size): every slot gets a target
+// number of people (an equal split of the total, with a slot's `cap` acting as a
+// fixed override). Families are sorted SMALLEST-FIRST and poured into slots in
+// chronological order — a slot takes families until it reaches its target, then
+// the next slot opens. The last slot absorbs whatever remains, so NO family is
+// ever left unplaced. This puts the smaller families on the earlier days and
+// gives each day a predictable headcount. Caps are reference-only: a slot may end
+// up over its cap (reported in `overCap` as a warning), never blocking.
+//
+// The suggested day is NON-BINDING — a family may attend any open day; this engine
+// only seeds the initial suggestion and the per-day headcount forecast.
 
 // Local 2-value literal (kept dependency-free so the pure engine can be imported
 // from both client and server without pulling the @shared alias in). The Zod
@@ -64,74 +70,83 @@ export interface RepartoSlotLoad {
   families: number;
 }
 
+export interface RepartoOverCap {
+  date: string;
+  turno: Turno;
+  day_slot: number;
+  people: number;
+  cap: number;
+}
+
 export interface RepartoResult {
   assignments: RepartoAssignment[];
   slotLoads: RepartoSlotLoad[];
-  /** true when some family could not be placed under the per-slot caps */
-  needsMoreCapacity: boolean;
-  /** family ids that could not be placed */
-  unplaced: string[];
+  /** slots whose suggested people exceed their (reference-only) cap — a warning */
+  overCap: RepartoOverCap[];
 }
 
 interface Bin extends RepartoSlotLoad {
   cap: number | null;
   esFueraMadrid: boolean;
+  target: number;
   assignments: RepartoAssignment[];
 }
 
-const byLPT = (a: FamilyForReparto, b: FamilyForReparto) =>
-  b.total_miembros - a.total_miembros || (a.familia_numero ?? 0) - (b.familia_numero ?? 0);
+/** ascending by family size (smallest first), expediente as a stable tie-break */
+const bySizeAsc = (a: FamilyForReparto, b: FamilyForReparto) =>
+  a.total_miembros - b.total_miembros || (a.familia_numero ?? 0) - (b.familia_numero ?? 0);
+
+const slotKey = (s: Slot) => `${s.ordinal}`;
 
 export function assignReparto(families: FamilyForReparto[], slots: Slot[]): RepartoResult {
-  const bins: Bin[] = slots.map((s) => ({
+  const ordered = [...slots].sort((a, b) => a.ordinal - b.ordinal);
+  if (ordered.length === 0) {
+    return { assignments: [], slotLoads: [], overCap: [] };
+  }
+
+  // Per-slot target headcount: an equal split of the total people, with a slot's
+  // cap acting as a fixed override (distributeTargets handles the remainder).
+  const totalPeople = families.reduce((s, f) => s + f.total_miembros, 0);
+  const targets = distributeTargets(
+    totalPeople,
+    ordered.map((s) => ({ key: slotKey(s), override: s.cap ?? null })),
+  );
+  const targetByKey = new Map(targets.slots.map((t) => [t.key, t.people]));
+
+  const bins: Bin[] = ordered.map((s) => ({
     date: s.date,
     turno: s.turno,
     day_slot: s.ordinal,
     cap: s.cap ?? null,
     esFueraMadrid: s.esFueraMadrid ?? false,
+    target: targetByKey.get(slotKey(s)) ?? 0,
     people: 0,
     families: 0,
     assignments: [],
   }));
 
-  if (bins.length === 0) {
-    return { assignments: [], slotLoads: [], needsMoreCapacity: false, unplaced: [] };
-  }
-
-  const unplaced: string[] = [];
+  // 1. Fuera-de-Madrid families keep first dibs on the reserved fuera slot(s)
+  //    (smallest first, like everyone else). Overflow falls through to the pool.
   const fueraBins = bins.filter((b) => b.esFueraMadrid);
-
-  // 1. Fuera-de-Madrid families get FIRST DIBS on the reserved fuera slot(s),
-  //    heaviest first — that gives them their dedicated earlier time. Overflow
-  //    (more fuera people than the reserved cap) falls through to the general pool.
-  const rest: FamilyForReparto[] = [];
+  const general: FamilyForReparto[] = [];
   if (fueraBins.length > 0) {
-    const fuera = families.filter((f) => f.esFueraMadrid).sort(byLPT);
-    for (const fam of fuera) {
-      const target = leastLoadedWithRoom(fueraBins, fam.total_miembros);
-      if (target) place(target, fam);
-      else rest.push(fam);
+    let fi = 0;
+    for (const fam of families.filter((f) => f.esFueraMadrid).sort(bySizeAsc)) {
+      while (fi < fueraBins.length - 1 && fueraBins[fi].people >= fueraBins[fi].target) fi++;
+      place(fueraBins[fi], fam);
     }
-    rest.push(...families.filter((f) => !f.esFueraMadrid));
+    general.push(...families.filter((f) => !f.esFueraMadrid));
   } else {
-    rest.push(...families);
+    general.push(...families);
   }
 
-  // 2. Everyone else balances across ALL slots. The reserved fuera slot is only
-  //    given PRIORITY to fuera families (step 1); its LEFTOVER capacity is shared
-  //    so the round stays feasible when few/no fuera families are detected (e.g.
-  //    codigo_postal not yet populated → 0 fuera → the reserved slot acts as a
-  //    normal one). preferred_day anchors a family to the first slot of that date.
-  const free: FamilyForReparto[] = [];
-  for (const fam of rest) {
-    const anchor = fam.preferred_day ? firstSlotOfDate(bins, fam.preferred_day, fam.total_miembros) : undefined;
-    if (anchor) place(anchor, fam);
-    else free.push(fam);
-  }
-  for (const fam of [...free].sort(byLPT)) {
-    const bin = leastLoadedWithRoom(bins, fam.total_miembros);
-    if (bin) place(bin, fam);
-    else unplaced.push(fam.id);
+  // 2. Sequential fill of the general pool, smallest family first: pour into the
+  //    current slot until it reaches its target, then advance. The last slot
+  //    absorbs the remainder, so nobody is ever left unplaced.
+  let idx = 0;
+  for (const fam of general.sort(bySizeAsc)) {
+    while (idx < bins.length - 1 && bins[idx].people >= bins[idx].target) idx++;
+    place(bins[idx], fam);
   }
 
   return {
@@ -143,24 +158,10 @@ export function assignReparto(families: FamilyForReparto[], slots: Slot[]): Repa
       people,
       families,
     })),
-    needsMoreCapacity: unplaced.length > 0,
-    unplaced,
+    overCap: bins
+      .filter((b) => b.cap !== null && b.people > b.cap)
+      .map((b) => ({ date: b.date, turno: b.turno, day_slot: b.day_slot, people: b.people, cap: b.cap as number })),
   };
-}
-
-/** First slot on `date` that can still fit `weight` under its cap, else null. */
-function firstSlotOfDate(bins: Bin[], date: string, weight: number): Bin | null {
-  return bins.find((b) => b.date === date && (b.cap === null || b.people + weight <= b.cap)) ?? null;
-}
-
-/**
- * Least-loaded slot that can still fit `weight` under its cap. Uncapped slots
- * always have room. Returns null when nothing fits.
- */
-function leastLoadedWithRoom(bins: Bin[], weight: number): Bin | null {
-  const feasible = bins.filter((b) => b.cap === null || b.people + weight <= b.cap);
-  if (feasible.length === 0) return null;
-  return feasible.reduce((a, b) => (a.people <= b.people ? a : b));
 }
 
 export interface CapacityCheck {
