@@ -173,6 +173,11 @@ that repeatedly bite agents:
 - **Migrations must be existence-tolerant, multi-shape SQL**: environments diverge,
   so guard for undefined_object AND undefined_column AND undefined_table together
   (IF EXISTS / DO-block guards), not just one shape.
+- **Migration versions must be unique across parallel PRs.** `schema_migrations`'
+  PK is the 14-digit version; two same-day PRs can collide, and it only explodes
+  in the PR's merge-preview CI, mid-`db reset`. Before pushing, check
+  `origin/main`'s newest prefixes and renumber YOURS to sort after them — never
+  rename files already merged to main. The filename gate fails fast on duplicates.
 - Physical delivery signatures must remain legally equivalent to wet signatures for
   the Banco de Alimentos subsidy — confirm any format change with the RGPD lawyer.
 - Never auto-import legacy-system data — migration scope is validated with the
