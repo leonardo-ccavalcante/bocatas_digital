@@ -2,9 +2,12 @@
 // both anchored to the same 6-month cadence (Leo, 2026-07-08):
 //
 //  A) SEGUIMIENTO gate (isInformeStale): how old the last follow-up (the
-//     "review") may be for generation to be allowed. An informe must not be
+//     "review") may be for generation to be allowed. A RENOVACIÓN must not be
 //     produced off a review older than the informe's own validity → 6 months.
-//     Server (documentService.validateContext), eligibility, and client
+//     The gate applies ONLY when the family already has a current informe
+//     document (generated docx or uploaded PDF) — the FIRST informe needs no
+//     seguimiento, only the saved valoración (ADR-0014). Server
+//     (documentService.validateContext), eligibility, and client
 //     (SocialReportPanel blockingError) MUST agree — so it lives here.
 //
 //  B) INFORME DOCUMENT validity (informeDocStatus): once made, an informe is

@@ -89,8 +89,12 @@ const DELIVERY_ROW = {
  * we only exercise the `from(table).select(...).eq(...).is(...).*` paths.
  */
 type TableResult = { data: unknown; error: null | { message: string } };
+type RecordedCall = { method: string; args: unknown[] };
 
-function buildDb(tables: Record<string, TableResult>): Db {
+function buildDb(
+  tables: Record<string, TableResult>,
+  calls?: Record<string, RecordedCall[]>
+): Db {
   return {
     from(table: string) {
       const result: TableResult = tables[table] ?? {
@@ -98,6 +102,7 @@ function buildDb(tables: Record<string, TableResult>): Db {
         error: { message: `No mock for table: ${table}` },
       };
       const terminal = Promise.resolve(result);
+      const log = calls ? (calls[table] ??= []) : null;
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       function makeProxy(): any {
@@ -113,8 +118,11 @@ function buildDb(tables: Record<string, TableResult>): Db {
               if (prop === "single" || prop === "maybeSingle") {
                 return () => Promise.resolve(result);
               }
-              // Any chainable query builder method → same proxy
-              return () => makeProxy();
+              // Any chainable query builder method → same proxy (recorded)
+              return (...args: unknown[]) => {
+                log?.push({ method: prop, args });
+                return makeProxy();
+              };
             },
           }
         );
@@ -164,6 +172,7 @@ describe("buildFamilyDataContext — informe_social", () => {
         data: [FOLLOW_UP_1, FOLLOW_UP_2, FOLLOW_UP_3],
         error: null,
       },
+      family_member_documents: { data: [], error: null },
     });
 
     const ctx = await buildFamilyDataContext(db, FAMILY_UUID, { slug: "informe_social" });
@@ -181,6 +190,7 @@ describe("buildFamilyDataContext — informe_social", () => {
       families: { data: FAMILY_ROW, error: null },
       familia_miembros: { data: [], error: null },
       family_follow_ups: { data: [], error: null },
+      family_member_documents: { data: [], error: null },
     });
 
     const ctx = await buildFamilyDataContext(db, FAMILY_UUID, { slug: "informe_social" });
@@ -188,6 +198,87 @@ describe("buildFamilyDataContext — informe_social", () => {
     expect(ctx.informe?.fecha_seguimiento).toBe("");
     expect(ctx.informe?.effective_date).toBe("");
     expect(ctx.informe?.notas_seguimiento).toBe("");
+    expect(ctx.informe?.has_informe_previo).toBe(false);
+  });
+
+  it("sets has_informe_previo=true when a current informe document row exists", async () => {
+    const db = buildDb({
+      families: { data: FAMILY_ROW, error: null },
+      familia_miembros: { data: [], error: null },
+      family_follow_ups: { data: [], error: null },
+      family_member_documents: { data: [{ id: "doc-uuid-1" }], error: null },
+    });
+
+    const ctx = await buildFamilyDataContext(db, FAMILY_UUID, { slug: "informe_social" });
+
+    expect(ctx.informe?.has_informe_previo).toBe(true);
+  });
+
+  it("pins the ADR-0014 prior-informe filter chain (member -1, both tipos, current, not deleted, has URL)", async () => {
+    const calls: Record<string, RecordedCall[]> = {};
+    const db = buildDb(
+      {
+        families: { data: FAMILY_ROW, error: null },
+        familia_miembros: { data: [], error: null },
+        family_follow_ups: { data: [], error: null },
+        family_member_documents: { data: [], error: null },
+      },
+      calls
+    );
+
+    await buildFamilyDataContext(db, FAMILY_UUID, { slug: "informe_social" });
+
+    const chain = (calls.family_member_documents ?? []).map((c) => [c.method, ...c.args]);
+    expect(chain).toEqual(
+      expect.arrayContaining([
+        ["eq", "family_id", FAMILY_UUID],
+        ["eq", "member_index", -1],
+        ["in", "documento_tipo", ["informe_valoracion_social", "informe_social"]],
+        ["eq", "is_current", true],
+        ["is", "deleted_at", null],
+        ["not", "documento_url", "is", null],
+      ])
+    );
+  });
+
+  it("throws INTERNAL_SERVER_ERROR when the follow-ups fetch fails (never a silent first informe)", async () => {
+    const db = buildDb({
+      families: { data: FAMILY_ROW, error: null },
+      familia_miembros: { data: [], error: null },
+      family_follow_ups: { data: null, error: { message: "transient" } },
+      family_member_documents: { data: [], error: null },
+    });
+
+    await expect(
+      buildFamilyDataContext(db, FAMILY_UUID, { slug: "informe_social" })
+    ).rejects.toMatchObject({ code: "INTERNAL_SERVER_ERROR" });
+  });
+
+  it("throws INTERNAL_SERVER_ERROR when the informe-previo lookup fails (never silent false)", async () => {
+    const db = buildDb({
+      families: { data: FAMILY_ROW, error: null },
+      familia_miembros: { data: [], error: null },
+      family_follow_ups: { data: [], error: null },
+      family_member_documents: { data: null, error: { message: "boom" } },
+    });
+
+    await expect(
+      buildFamilyDataContext(db, FAMILY_UUID, { slug: "informe_social" })
+    ).rejects.toMatchObject({ code: "INTERNAL_SERVER_ERROR" });
+  });
+
+  it("derivacion: skips the informe-previo lookup and hardcodes has_informe_previo=false", async () => {
+    // No family_member_documents mock on purpose: buildDb errors on unmocked
+    // tables, so this test proves derivación never runs the doc query.
+    const db = buildDb({
+      families: { data: FAMILY_ROW, error: null },
+      familia_miembros: { data: [], error: null },
+      family_follow_ups: { data: [FOLLOW_UP_1], error: null },
+    });
+
+    const ctx = await buildFamilyDataContext(db, FAMILY_UUID, { slug: "derivacion" });
+
+    expect(ctx.informe?.has_informe_previo).toBe(false);
   });
 
   it("populates titular from persons join using numero_documento", async () => {
@@ -195,6 +286,7 @@ describe("buildFamilyDataContext — informe_social", () => {
       families: { data: FAMILY_ROW, error: null },
       familia_miembros: { data: [], error: null },
       family_follow_ups: { data: [FOLLOW_UP_1], error: null },
+      family_member_documents: { data: [], error: null },
     });
 
     const ctx = await buildFamilyDataContext(db, FAMILY_UUID);
@@ -210,6 +302,7 @@ describe("buildFamilyDataContext — informe_social", () => {
       families: { data: FAMILY_ROW, error: null },
       familia_miembros: { data: [], error: null },
       family_follow_ups: { data: [FOLLOW_UP_1], error: null },
+      family_member_documents: { data: [], error: null },
     });
 
     const ctx = await buildFamilyDataContext(db, FAMILY_UUID);
@@ -226,6 +319,7 @@ describe("buildFamilyDataContext — informe_social", () => {
       families: { data: FAMILY_ROW, error: null },
       familia_miembros: { data: [MIEMBRO_ROW], error: null },
       family_follow_ups: { data: [FOLLOW_UP_1], error: null },
+      family_member_documents: { data: [], error: null },
     });
 
     const ctx = await buildFamilyDataContext(db, FAMILY_UUID);
@@ -241,6 +335,7 @@ describe("buildFamilyDataContext — informe_social", () => {
       families: { data: FAMILY_ROW, error: null },
       familia_miembros: { data: [], error: null },
       family_follow_ups: { data: [FOLLOW_UP_1], error: null },
+      family_member_documents: { data: [], error: null },
     });
 
     const ctx = await buildFamilyDataContext(db, FAMILY_UUID);
@@ -273,6 +368,7 @@ describe("buildFamilyDataContext — informe valoración fields", () => {
       },
       familia_miembros: { data: [{ ...MIEMBRO_ROW, documento: "M-123" }], error: null },
       family_follow_ups: { data: [FOLLOW_UP_1], error: null },
+      family_member_documents: { data: [], error: null },
     });
 
     const ctx = await buildFamilyDataContext(db, FAMILY_UUID, { slug: "informe_social" });
@@ -291,6 +387,7 @@ describe("buildFamilyDataContext — informe valoración fields", () => {
       families: { data: FAMILY_ROW, error: null }, // no fecha_alta / situacion_familiar_texto / extra person cols
       familia_miembros: { data: [MIEMBRO_ROW], error: null },
       family_follow_ups: { data: [FOLLOW_UP_1], error: null },
+      family_member_documents: { data: [], error: null },
     });
 
     const ctx = await buildFamilyDataContext(db, FAMILY_UUID, { slug: "informe_social" });

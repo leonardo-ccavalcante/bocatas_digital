@@ -115,7 +115,7 @@ describe("families.generateDocument", () => {
     const caller = documentsGenRouter.createCaller(ctxWithRole("admin"));
     const result = await caller.generateDocument({
       family_id: FAMILY_ID,
-      slug: "informe_social",
+      slug: "derivacion",
     });
 
     expect(result.bufferBase64).toBe(fakeBuffer.toString("base64"));
@@ -127,14 +127,23 @@ describe("families.generateDocument", () => {
     expect(buildFamilyDataContext).toHaveBeenCalledWith(
       expect.objectContaining({ from: fromMock }),
       FAMILY_ID,
-      expect.objectContaining({ slug: "informe_social" })
+      expect.objectContaining({ slug: "derivacion" })
     );
 
     expect(renderDocument).toHaveBeenCalledWith(
-      "informe_social",
+      "derivacion",
       MOCK_CONTEXT,
       expect.objectContaining({ actorId: "42", familyId: FAMILY_ID })
     );
+  });
+
+  it("rejects slug informe_social — informes must go through generateSocialReport (ADR-0014)", async () => {
+    const caller = documentsGenRouter.createCaller(ctxWithRole("admin"));
+    await expect(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      caller.generateDocument({ family_id: FAMILY_ID, slug: "informe_social" as any })
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(renderDocument).not.toHaveBeenCalled();
   });
 
   it("nota_entrega with session_id — passes session_id to buildFamilyDataContext", async () => {
@@ -172,7 +181,7 @@ describe("families.generateDocument", () => {
 
     const caller = documentsGenRouter.createCaller(ctxWithRole("admin"));
     await expect(
-      caller.generateDocument({ family_id: FAMILY_ID, slug: "informe_social" })
+      caller.generateDocument({ family_id: FAMILY_ID, slug: "derivacion" })
     ).rejects.toMatchObject({
       code: "BAD_REQUEST",
       message: validationError.message,
@@ -184,7 +193,7 @@ describe("families.generateDocument", () => {
 
     const caller = documentsGenRouter.createCaller(ctxWithRole("admin"));
     await expect(
-      caller.generateDocument({ family_id: FAMILY_ID, slug: "informe_social" })
+      caller.generateDocument({ family_id: FAMILY_ID, slug: "derivacion" })
     ).rejects.toMatchObject({
       code: "NOT_FOUND",
       message: "Familia no encontrada",

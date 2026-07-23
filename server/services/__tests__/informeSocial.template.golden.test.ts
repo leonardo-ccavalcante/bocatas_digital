@@ -92,7 +92,12 @@ function context(nMembers: number): FamilyDocumentContext {
       fecha_nacimiento: `200${i % 10}-01-01`,
       documento: `DOC${i}`,
     })),
-    informe: { fecha_seguimiento: RECENT, notas_seguimiento: "seg", effective_date: RECENT },
+    informe: {
+      fecha_seguimiento: RECENT,
+      notas_seguimiento: "seg",
+      effective_date: RECENT,
+      has_informe_previo: true,
+    },
     valoracion: "NARRATIVA_SENTINEL",
     logos: [],
     static_blocks: {},

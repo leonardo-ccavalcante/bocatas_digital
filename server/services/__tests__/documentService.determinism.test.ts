@@ -72,6 +72,7 @@ const CONTEXT: FamilyDocumentContext = {
     fecha_seguimiento: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
     notas_seguimiento: "OK.",
     effective_date: "",
+    has_informe_previo: true,
   },
   logos: [],
   static_blocks: {},
