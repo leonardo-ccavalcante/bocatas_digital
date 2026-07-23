@@ -362,3 +362,18 @@
 - [x] Root cause: programs.created_by was uuid in production, code inserts String(ctx.user.id) = "1" (text) → 22P02 invalid input syntax for type uuid
 - [x] Fix: apply migration 20260507000001_fix_programs_created_by_type.sql to PRODUCTION (ALTER COLUMN created_by TYPE text)
 - [x] Verified: data_type = text in production, 3297 tests pass
+
+### Auditoría de migraciones pendientes — sesión 2026-07-23
+- [x] Identificar todas las migraciones del repo vs producción (comparación completa)
+- [x] Aplicar migration add_tipo_id_to_family_member_documents → columna tipo_id en family_member_documents ✅
+- [x] Aplicar migration add_signed_actas_to_delivery_rounds → columna signed_actas en delivery_rounds ✅
+- [x] Aplicar migration programs_tree → columnas parent_id, tipo, inscribible, estados_habilitados en programs ✅
+- [x] Aplicar migration enrollment_estados_events → tabla enrollment_events ✅
+- [x] Aplicar migration programs_counts_subtree → funciones de conteo en subtree ✅
+- [x] Aplicar migration reparto_carryover_attended_slot → delivery_round_carryover + attended_slot ✅
+- [x] Aplicar migration reparto_eligibility_all_active_families → RPC eligibility ✅
+- [x] Aplicar migration reparto_signature_audit → auditoría de firmas ✅
+- [x] Aplicar migration reparto_bulk_mark_attendance → bulk attendance ✅
+- [x] Spot-check producción: tipo_id, signed_actas, parent_id, tipo, inscribible, enrollment_events — todos presentes ✅
+- [x] Suite completa: 3297 tests pasan, 0 fallos, TypeScript 0 errores
+- [x] Nota: add_padron_fecha intencionalmente NO aplicada (pendiente aprobación Espe/Sole — cadencia 180 días)
