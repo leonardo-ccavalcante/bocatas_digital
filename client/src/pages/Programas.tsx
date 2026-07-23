@@ -16,7 +16,8 @@ import type { ProgramFormValues, ProgramWithCounts } from "@/features/programs/s
 
 export default function Programas() {
   const { user } = useAuth();
-  const isAdmin = user?.role === "admin";
+  // Include superadmin in admin check (task item 8)
+  const isAdmin = user?.role === "admin" || user?.role === "superadmin";
   const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
 
@@ -35,7 +36,12 @@ export default function Programas() {
     },
   });
 
-  const filtered = (programs as ProgramWithCounts[]).filter(
+  // Show only root programs (parent_id == null) — children visible in ProgramaDetalle
+  const roots = (programs as ProgramWithCounts[]).filter(
+    (p: ProgramWithCounts) => !p.parent_id
+  );
+
+  const filtered = roots.filter(
     (p: ProgramWithCounts) =>
       !search ||
       p.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -66,7 +72,7 @@ export default function Programas() {
             </svg>
             <h1 className="text-h2 truncate">Programas</h1>
             <span className="text-xs text-muted-foreground ml-1 shrink-0 tabular-stat">
-              {programs.length}
+              {roots.length}
             </span>
           </div>
           {isAdmin && (
@@ -74,7 +80,7 @@ export default function Programas() {
               <DialogTrigger asChild>
                 <button
                   className="bocatas-btn-primary text-sm px-4 py-2 min-h-[44px] shrink-0"
-                  aria-label="Crear nuevo programa"
+                  aria-label="Crear nuevo programa raíz"
                 >
                   <span className="text-base leading-none" aria-hidden="true">+</span>
                   <span className="hidden sm:inline ml-1">Nuevo programa</span>

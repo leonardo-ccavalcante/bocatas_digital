@@ -25,13 +25,13 @@ export function ProgramSelector({ value, onChange }: ProgramSelectorProps) {
     if (!value && programs && programs.length > 0) {
       const defaultProgram = programs.find((p) => p.is_default) ?? programs[0];
       if (defaultProgram) {
-        onChange(defaultProgram.slug as CheckinPrograma);
+        onChange(defaultProgram.slug);
       }
     }
   }, [programs, value, onChange]);
 
   const handleChange = (slug: string) => {
-    onChange(slug as CheckinPrograma);
+    onChange(slug);
   };
 
   return (

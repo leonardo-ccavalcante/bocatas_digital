@@ -30,13 +30,11 @@ import { assign, createMachine } from "xstate";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type CheckinPrograma =
-  | "comedor"
-  | "familia"
-  | "formacion"
-  | "atencion_juridica"
-  | "voluntariado"
-  | "acompanamiento";
+/** Program slug from the dynamic `programs` catalog (e.g. "comedor",
+ * "curso_cocina_enero"). Deliberately NOT a literal union: programs are
+ * created at runtime via the admin UI, and the server validates the slug
+ * against the catalog (FK on attendances.programa). */
+export type CheckinPrograma = string;
 
 export type CheckinMetodo = "qr_scan" | "manual_busqueda" | "conteo_anonimo";
 

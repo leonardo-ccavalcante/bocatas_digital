@@ -58,3 +58,25 @@ jobs:
           fi
 
           echo "All migration filenames match the required pattern. ✓"
+
+      - name: Verify migration versions are unique
+        run: |
+          set -euo pipefail
+
+          # Two parallel PRs can each add a migration with the same 14-digit
+          # version on the same day; schema_migrations' PK is the version, so
+          # the collision only explodes later, mid-`db reset`, in the PR's
+          # merge preview (seen in #130 vs #125). Fail fast here instead.
+          # Root migrations only — EXPORTED/ legitimately mirrors versions.
+          dupes=$(find supabase/migrations -maxdepth 1 -type f -name "*.sql" \
+            | xargs -n1 basename | cut -d'_' -f1 | sort | uniq -d || true)
+
+          if [ -n "${dupes:-}" ]; then
+            echo "::error::Duplicate migration version prefix(es): ${dupes}"
+            echo "Each migration needs a unique 14-digit version — renumber the"
+            echo "ones from YOUR branch (never files already merged to main)."
+            find supabase/migrations -maxdepth 1 -type f -name "*.sql" | sort
+            exit 1
+          fi
+
+          echo "All migration versions are unique. ✓"

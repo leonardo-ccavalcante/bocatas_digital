@@ -3,17 +3,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -21,8 +10,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { trpc } from "@/lib/trpc";
+import { ESTADO_LABELS } from "@shared/programEstados";
 import { useEnrollPerson, useUnenrollPerson } from "../hooks/useEnrollment";
 import { usePrograms } from "../hooks/usePrograms";
+import { BajaDialog } from "./BajaDialog";
 
 interface EnrollmentPanelProps {
   personId: string;
@@ -31,6 +22,9 @@ interface EnrollmentPanelProps {
 
 export function EnrollmentPanel({ personId, isAdmin }: EnrollmentPanelProps) {
   const [selectedProgramId, setSelectedProgramId] = useState<string>("");
+  const [bajaEnrollmentId, setBajaEnrollmentId] = useState<string | null>(null);
+  const [bajaProgramId, setBajaProgramId] = useState<string | null>(null);
+  const [bajaProgramName, setBajaProgramName] = useState<string>("");
 
   const { data: enrollments, isLoading } = trpc.programs.getPersonEnrollments.useQuery(
     { personId },
@@ -39,23 +33,48 @@ export function EnrollmentPanel({ personId, isAdmin }: EnrollmentPanelProps) {
 
   const { programs } = usePrograms();
 
-  // Programs not yet enrolled
   const enrolledProgramIds = new Set(
     (enrollments ?? [])
       .filter((e) => e.estado === "activo")
       .map((e) => e.program_id)
   );
 
-  const availablePrograms = programs.filter((p) => !enrolledProgramIds.has(p.id) && p.is_active);
+  const availablePrograms = programs.filter(
+    (p) => !enrolledProgramIds.has(p.id) && p.is_active && p.inscribible !== false
+  );
 
   const enroll = useEnrollPerson(selectedProgramId, personId);
-  const unenroll = useUnenrollPerson(selectedProgramId, personId);
+  const unenroll = useUnenrollPerson(bajaProgramId ?? selectedProgramId, personId);
 
-  const handleEnroll = () => {
+  function handleEnroll() {
     if (!selectedProgramId) return;
     enroll.mutate({ personId, programId: selectedProgramId });
     setSelectedProgramId("");
-  };
+  }
+
+  function openBajaDialog(enrollmentId: string, programId: string, programName: string) {
+    setBajaEnrollmentId(enrollmentId);
+    setBajaProgramId(programId);
+    setBajaProgramName(programName);
+  }
+
+  function closeBajaDialog() {
+    setBajaEnrollmentId(null);
+    setBajaProgramId(null);
+    setBajaProgramName("");
+  }
+
+  function handleBajaConfirm(motivo: string, notas?: string) {
+    if (!bajaEnrollmentId) return;
+    unenroll.mutate({ enrollmentId: bajaEnrollmentId, motivo, notas });
+    closeBajaDialog();
+  }
+
+  function estadoBadgeVariant(estado: string): "default" | "secondary" | "destructive" | "outline" {
+    if (estado === "activo" || estado === "admitido") return "default";
+    if (estado === "baja" || estado === "rechazado") return "destructive";
+    return "secondary";
+  }
 
   return (
     <Card>
@@ -63,7 +82,6 @@ export function EnrollmentPanel({ personId, isAdmin }: EnrollmentPanelProps) {
         <CardTitle className="text-base">Programas inscritos</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Current enrollments */}
         {isLoading ? (
           <p className="text-sm text-muted-foreground">Cargando...</p>
         ) : !enrollments?.length ? (
@@ -80,50 +98,29 @@ export function EnrollmentPanel({ personId, isAdmin }: EnrollmentPanelProps) {
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium">{enrollment.programs?.name ?? "—"}</span>
                   <Badge
-                    variant={
-                      enrollment.estado === "activo"
-                        ? "default"
-                        : enrollment.estado === "completado"
-                        ? "secondary"
-                        : "destructive"
-                    }
+                    variant={estadoBadgeVariant(enrollment.estado)}
                     className="text-xs"
+                    aria-label={ESTADO_LABELS[enrollment.estado as keyof typeof ESTADO_LABELS] ?? enrollment.estado}
                   >
-                    {enrollment.estado}
+                    {ESTADO_LABELS[enrollment.estado as keyof typeof ESTADO_LABELS] ?? enrollment.estado}
                   </Badge>
                 </div>
-                {isAdmin && enrollment.estado === "activo" && (
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="sm" className="text-xs text-muted-foreground hover:text-destructive">
-                        Dar de baja
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>¿Dar de baja del programa?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Se marcará la inscripción en <strong>{enrollment.programs?.name}</strong> como completada.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={() => unenroll.mutate({ enrollmentId: enrollment.id })}
-                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                        >
-                          Dar de baja
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                {isAdmin && enrollment.estado !== "baja" && enrollment.estado !== "terminado" && enrollment.estado !== "completado" && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs text-muted-foreground hover:text-destructive"
+                    onClick={() => openBajaDialog(enrollment.id, enrollment.program_id, enrollment.programs?.name ?? "")}
+                    aria-label={`Dar de baja de ${enrollment.programs?.name ?? "programa"}`}
+                  >
+                    Dar de baja
+                  </Button>
                 )}
               </div>
             ))}
           </div>
         )}
 
-        {/* Enroll in new program (admin only) */}
         {isAdmin && availablePrograms.length > 0 && (
           <div className="flex gap-2 pt-2 border-t">
             <Select value={selectedProgramId} onValueChange={setSelectedProgramId}>
@@ -148,6 +145,14 @@ export function EnrollmentPanel({ personId, isAdmin }: EnrollmentPanelProps) {
           </div>
         )}
       </CardContent>
+
+      <BajaDialog
+        open={!!bajaEnrollmentId}
+        onOpenChange={(open) => { if (!open) closeBajaDialog(); }}
+        personName={bajaProgramName || "esta persona"}
+        isLoading={unenroll.isPending}
+        onConfirm={handleBajaConfirm}
+      />
     </Card>
   );
 }

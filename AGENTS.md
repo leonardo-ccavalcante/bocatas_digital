@@ -173,6 +173,11 @@ that repeatedly bite agents:
 - **Migrations must be existence-tolerant, multi-shape SQL**: environments diverge,
   so guard for undefined_object AND undefined_column AND undefined_table together
   (IF EXISTS / DO-block guards), not just one shape.
+- **Migration versions must be unique across parallel PRs.** `schema_migrations`'
+  PK is the 14-digit version; two same-day PRs can collide, and it only explodes
+  in the PR's merge-preview CI, mid-`db reset`. Before pushing, check
+  `origin/main`'s newest prefixes and renumber YOURS to sort after them — never
+  rename files already merged to main. The filename gate fails fast on duplicates.
 - Physical delivery signatures must remain legally equivalent to wet signatures for
   the Banco de Alimentos subsidy — confirm any format change with the RGPD lawyer.
 - Never auto-import legacy-system data — migration scope is validated with the
@@ -212,6 +217,19 @@ supabase gen types typescript \
 
 NEVER a bare `supabase gen types --local` — it adds a graphql_public block that reds
 the types-drift gate. NEVER hand-edit the generated types file — re-run the recipe.
+After regenerating, `head -1` the file: some CLI versions leak a `Connecting to …`
+info line into stdout, corrupting the file — and a regen-and-diff check will NOT
+catch it (both copies carry the same junk line). Strip it; the file must start
+with `export type Json`.
+
+### SECURITY DEFINER functions — DROP+CREATE loses grants
+
+Recreating a function (`DROP FUNCTION … CASCADE; CREATE …`) resets its EXECUTE
+grants: after the standard `REVOKE … FROM PUBLIC, anon, authenticated`, the app's
+`service_role` is left with NO grant and every call 42501s ("permission denied")
+— the failure only appears at runtime, not at migration time. Every convergence
+migration must end with an explicit
+`GRANT EXECUTE ON FUNCTION … TO service_role;` (see `20260723100003`).
 
 ### Workflow: feature
 
