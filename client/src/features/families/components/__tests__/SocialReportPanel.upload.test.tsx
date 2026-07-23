@@ -132,11 +132,15 @@ vi.mock("../DocumentPreviewDialog", () => ({
 
 // Import AFTER mocks are registered.
 import { SocialReportPanel } from "../SocialReportPanel";
+import { useFamilyLevelDocuments } from "@/features/families/hooks/useFamilias";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function setupDefaultMocks(options: {
   latestFollowUp?: { id: string; fecha: string; notas?: string } | null;
   followUpRows?: { id: string; family_id: string; fecha: string; notas?: string }[];
+  familyDocs?: { documento_tipo: string; documento_url: string | null }[];
+  docsLoading?: boolean;
+  savedValoracion?: string;
 } = {}) {
   const invalidate = vi.fn().mockResolvedValue(undefined);
 
@@ -149,8 +153,15 @@ function setupDefaultMocks(options: {
     },
   });
 
+  vi.mocked(useFamilyLevelDocuments).mockReturnValue({
+    data: options.familyDocs ?? [],
+    isLoading: options.docsLoading ?? false,
+  } as never);
+
   mockUpdateDocField.mockReturnValue({ mutate: vi.fn(), isPending: false });
-  mockGetById.mockReturnValue({ data: { situacion_familiar_texto: "" } });
+  mockGetById.mockReturnValue({
+    data: { situacion_familiar_texto: options.savedValoracion ?? "" },
+  });
   mockComposeDraft.mockReturnValue({ mutate: vi.fn(), isPending: false });
   mockUpdateNarrative.mockReturnValue({ mutate: vi.fn(), isPending: false });
   mockGenerateSocialReport.mockReturnValue({ mutate: vi.fn(), isPending: false });
@@ -214,24 +225,98 @@ describe("SocialReportPanel rendering", () => {
     ).toBeInTheDocument();
   });
 
-  // T10-3 ─────────────────────────────────────────────────────────────────────
-  it("when getLatestFollowUp returns null, GenerateDocumentButton is disabled and blocking error is visible", () => {
-    setupDefaultMocks({ latestFollowUp: null });
+  // T10-3 (rewritten for ADR-0014: first informe requires no seguimiento) ─────
+  it("first informe: no follow-ups + no informe docs + saved valoración → button ENABLED, no alert", () => {
+    setupDefaultMocks({ latestFollowUp: null, familyDocs: [], savedValoracion: "Situación." });
     render(
-      <SocialReportPanel
-        familyId="fam-1"
-        informeSocial={false}
-        informeSocialFecha={null}
-      />
+      <SocialReportPanel familyId="fam-1" informeSocial={false} informeSocialFecha={null} />
     );
 
     const btn = screen.getByRole("button", { name: /generar y guardar el informe/i });
-    expect(btn).toBeDisabled();
+    expect(btn).toBeEnabled();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
 
-    const alert = screen.getByRole("alert");
-    expect(alert).toBeInTheDocument();
-    expect(alert).toHaveTextContent(
+  it("first informe: still blocked by the missing valoración (message shown)", () => {
+    setupDefaultMocks({ latestFollowUp: null, familyDocs: [], savedValoracion: "" });
+    render(
+      <SocialReportPanel familyId="fam-1" informeSocial={false} informeSocialFecha={null} />
+    );
+
+    expect(screen.getByRole("button", { name: /generar y guardar el informe/i })).toBeDisabled();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Añade la valoración social (Descripción de la situación familiar) antes de generar.",
+    );
+  });
+
+  it("first informe: a stale follow-up on record does not block generation", () => {
+    setupDefaultMocks({
+      latestFollowUp: { id: "fu-old", fecha: "2024-01-01" },
+      familyDocs: [],
+      savedValoracion: "Situación.",
+    });
+    render(
+      <SocialReportPanel familyId="fam-1" informeSocial={false} informeSocialFecha={null} />
+    );
+
+    expect(screen.getByRole("button", { name: /generar y guardar el informe/i })).toBeEnabled();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("renovación (generated informe exists): no follow-ups → disabled with the seguimiento alert", () => {
+    setupDefaultMocks({
+      latestFollowUp: null,
+      familyDocs: [{ documento_tipo: "informe_valoracion_social", documento_url: "fam-1/-1/informe.docx" }],
+      savedValoracion: "Situación.",
+    });
+    render(
+      <SocialReportPanel familyId="fam-1" informeSocial={true} informeSocialFecha="2026-07-01" />
+    );
+
+    expect(screen.getByRole("button", { name: /generar y guardar el informe/i })).toBeDisabled();
+    expect(screen.getByRole("alert")).toHaveTextContent(
       "Sin seguimientos registrados. Añade un seguimiento para habilitar la generación.",
     );
+  });
+
+  it("renovación (uploaded PDF only): counts as prior informe → seguimiento required", () => {
+    setupDefaultMocks({
+      latestFollowUp: null,
+      familyDocs: [{ documento_tipo: "informe_social", documento_url: "fam-1/-1/informe.pdf" }],
+      savedValoracion: "Situación.",
+    });
+    render(
+      <SocialReportPanel familyId="fam-1" informeSocial={true} informeSocialFecha="2026-07-01" />
+    );
+
+    expect(screen.getByRole("button", { name: /generar y guardar el informe/i })).toBeDisabled();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Sin seguimientos registrados. Añade un seguimiento para habilitar la generación.",
+    );
+  });
+
+  it("manual informe_social flag with NO document row does not count as prior informe", () => {
+    // The «Actualizar» flow can set informe_social=true with no document behind
+    // it — that must not lock a family out of its first informe (ADR-0014).
+    setupDefaultMocks({ latestFollowUp: null, familyDocs: [], savedValoracion: "Situación." });
+    render(
+      <SocialReportPanel familyId="fam-1" informeSocial={true} informeSocialFecha="2026-07-01" />
+    );
+
+    expect(screen.getByRole("button", { name: /generar y guardar el informe/i })).toBeEnabled();
+  });
+
+  it("while the documents query is loading, the generate button stays disabled (no enabled flash)", () => {
+    setupDefaultMocks({
+      latestFollowUp: null,
+      familyDocs: [],
+      docsLoading: true,
+      savedValoracion: "Situación.",
+    });
+    render(
+      <SocialReportPanel familyId="fam-1" informeSocial={false} informeSocialFecha={null} />
+    );
+
+    expect(screen.getByRole("button", { name: /generar y guardar el informe/i })).toBeDisabled();
   });
 });

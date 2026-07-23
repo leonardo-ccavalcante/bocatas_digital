@@ -26,8 +26,8 @@ export type InformeSkipReason =
 export const INFORME_SKIP_REASON_LABEL: Record<InformeSkipReason, string> = {
   SIN_TITULAR: "Sin titular asignado",
   TITULAR_DATOS_INCOMPLETOS: "Datos del titular incompletos (nombre, apellidos o documento)",
-  SIN_SEGUIMIENTO: "Sin seguimiento registrado",
-  SEGUIMIENTO_VENCIDO: "Seguimiento vencido (más de 6 meses)",
+  SIN_SEGUIMIENTO: "Renovación sin seguimiento registrado",
+  SEGUIMIENTO_VENCIDO: "Renovación con seguimiento vencido (más de 6 meses)",
   SIN_DESCRIPCION_SITUACION: "Sin descripción de la situación familiar (valoración)",
   MIEMBRO_DATOS_INCOMPLETOS: "Algún miembro tiene datos incompletos",
   INFORME_AL_DIA: "Informe al día (no requiere renovación todavía)",
@@ -41,6 +41,12 @@ export type InformeReadinessInput = {
   /** Most recent family_follow_ups.fecha (ISO YYYY-MM-DD), or null if none. */
   latest_follow_up_fecha: string | null;
   members: Array<{ nombre: string | null; apellidos: string | null; fecha_nacimiento: string | null }>;
+  /**
+   * True when a current informe document (generated docx OR uploaded PDF)
+   * already exists. The seguimiento rules apply ONLY then (renovaciones) —
+   * the first informe needs no seguimiento (ADR-0014).
+   */
+  has_informe_previo: boolean;
 };
 
 export type InformeReadiness =
@@ -53,7 +59,8 @@ function blank(v: string | null | undefined): boolean {
 
 /**
  * Evaluate a family's readiness. First failing rule wins; READY only when every
- * legally-required datum is present and the seguimiento is fresh.
+ * legally-required datum is present and — for renovaciones — the seguimiento is
+ * fresh. A family with no prior informe document skips the seguimiento rules.
  */
 export function evaluateInformeReadiness(f: InformeReadinessInput): InformeReadiness {
   if (f.titular_id == null || f.titular == null) return { ready: false, reason: "SIN_TITULAR" };
@@ -62,9 +69,13 @@ export function evaluateInformeReadiness(f: InformeReadinessInput): InformeReadi
     return { ready: false, reason: "TITULAR_DATOS_INCOMPLETOS" };
   }
 
-  if (blank(f.latest_follow_up_fecha)) return { ready: false, reason: "SIN_SEGUIMIENTO" };
-  if (isInformeStale(f.latest_follow_up_fecha as string)) {
-    return { ready: false, reason: "SEGUIMIENTO_VENCIDO" };
+  // Seguimiento rules apply only to renovaciones (ADR-0014) — a family's first
+  // informe cannot require a follow-up that would itself presuppose an informe.
+  if (f.has_informe_previo) {
+    if (blank(f.latest_follow_up_fecha)) return { ready: false, reason: "SIN_SEGUIMIENTO" };
+    if (isInformeStale(f.latest_follow_up_fecha as string)) {
+      return { ready: false, reason: "SEGUIMIENTO_VENCIDO" };
+    }
   }
 
   if (blank(f.situacion_familiar_texto)) return { ready: false, reason: "SIN_DESCRIPCION_SITUACION" };

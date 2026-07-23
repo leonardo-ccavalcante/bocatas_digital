@@ -188,10 +188,37 @@ export async function buildFamilyDataContext(
       .filter((n) => n !== "")
       .join("\n");
 
+    // A prior informe = a current REAL document row (generated docx or uploaded
+    // PDF); the manually-settable families.informe_social boolean is not proof
+    // (ADR-0014). Only informe_social is gated — derivación never queries.
+    let hasInformePrevio = false;
+    if (slug === "informe_social") {
+      const { data: prevDocs, error: prevErr } = await db
+        .from("family_member_documents")
+        .select("id")
+        .eq("family_id", familyId)
+        .eq("member_index", -1)
+        .in("documento_tipo", ["informe_valoracion_social", "informe_social"])
+        .eq("is_current", true)
+        .is("deleted_at", null)
+        .not("documento_url", "is", null)
+        .limit(1);
+      // Silently treating a fetch error as "no prior informe" would waive the
+      // legal seguimiento gate on a renovación — fail loudly instead.
+      if (prevErr) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "No se pudo comprobar el informe previo de la familia",
+        });
+      }
+      hasInformePrevio = (prevDocs ?? []).length > 0;
+    }
+
     informeBlock = {
       fecha_seguimiento: mostRecentFecha,
       notas_seguimiento: notasConcatenated,
       effective_date: mostRecentFecha,
+      has_informe_previo: hasInformePrevio,
     };
   }
 
