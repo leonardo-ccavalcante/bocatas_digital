@@ -173,13 +173,22 @@ export async function buildFamilyDataContext(
 
   if (slug === "informe_social" || slug === "derivacion") {
     // Fetch up to last 3 follow-ups, ordered by fecha DESC
-    const { data: followUps } = await db
+    const { data: followUps, error: followUpsErr } = await db
       .from("family_follow_ups")
       .select("fecha, notas")
       .eq("family_id", familyId)
       .is("deleted_at", null)
       .order("fecha", { ascending: false })
       .limit(3);
+    // A swallowed error here is indistinguishable from "no follow-ups", which
+    // since ADR-0014 GENERATES (first informe) instead of blocking — an official
+    // document silently missing its seguimiento section. Fail loudly.
+    if (followUpsErr) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "No se pudieron cargar los seguimientos de la familia",
+      });
+    }
 
     const ups = followUps ?? [];
     const mostRecentFecha = ups.length > 0 ? coerce(ups[0].fecha) : "";

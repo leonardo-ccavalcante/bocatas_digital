@@ -253,10 +253,12 @@ export function SocialReportPanel({ familyId, informeSocial, informeSocialFecha 
             <Button
               size="sm"
               onClick={() => generateSaved.mutate({ family_id: familyId })}
-              // docsQuery.isLoading guard: until the docs load, hasPriorInforme
-              // is a provisional false — never flash an enabled button for a
-              // renovación family.
-              disabled={!!blockingError || generateSaved.isPending || docsQuery.isLoading}
+              // Fail-closed docs guard: while the docs query is pending OR after
+              // it errors, hasPriorInforme is a provisional false — never enable
+              // generation until the prior-informe signal actually loaded.
+              disabled={
+                !!blockingError || generateSaved.isPending || docsQuery.isPending || docsQuery.isError
+              }
               aria-label="Generar y guardar el informe de valoración social"
             >
               {generateSaved.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" aria-hidden="true" /> : <FileDown className="h-4 w-4 mr-1" aria-hidden="true" />}

@@ -140,6 +140,7 @@ function setupDefaultMocks(options: {
   followUpRows?: { id: string; family_id: string; fecha: string; notas?: string }[];
   familyDocs?: { documento_tipo: string; documento_url: string | null }[];
   docsLoading?: boolean;
+  docsError?: boolean;
   savedValoracion?: string;
 } = {}) {
   const invalidate = vi.fn().mockResolvedValue(undefined);
@@ -155,7 +156,8 @@ function setupDefaultMocks(options: {
 
   vi.mocked(useFamilyLevelDocuments).mockReturnValue({
     data: options.familyDocs ?? [],
-    isLoading: options.docsLoading ?? false,
+    isPending: options.docsLoading ?? false,
+    isError: options.docsError ?? false,
   } as never);
 
   mockUpdateDocField.mockReturnValue({ mutate: vi.fn(), isPending: false });
@@ -311,6 +313,22 @@ describe("SocialReportPanel rendering", () => {
       latestFollowUp: null,
       familyDocs: [],
       docsLoading: true,
+      savedValoracion: "Situación.",
+    });
+    render(
+      <SocialReportPanel familyId="fam-1" informeSocial={false} informeSocialFecha={null} />
+    );
+
+    expect(screen.getByRole("button", { name: /generar y guardar el informe/i })).toBeDisabled();
+  });
+
+  it("when the documents query errors, the generate button stays disabled (fail-closed)", () => {
+    // An errored docs query would otherwise read as "no prior informe" and let a
+    // renovación family generate without the seguimiento gate.
+    setupDefaultMocks({
+      latestFollowUp: null,
+      familyDocs: [],
+      docsError: true,
       savedValoracion: "Situación.",
     });
     render(
