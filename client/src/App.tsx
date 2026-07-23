@@ -33,7 +33,6 @@ const ProgramaDetalle = lazy(() => import("./pages/ProgramaDetalle"));
 
 // Admin
 const AdminConsentimientos = lazy(() => import("./pages/AdminConsentimientos"));
-const AdminProgramas = lazy(() => import("./pages/AdminProgramas"));
 const AdminUsuarios = lazy(() => import("./pages/AdminUsuarios"));
 const AdminNovedades = lazy(() => import("./pages/AdminNovedades"));
 const AdminSoftDeleteRecovery = lazy(() => import("./pages/AdminSoftDeleteRecovery").then(m => ({ default: m.AdminSoftDeleteRecovery })));
@@ -151,9 +150,7 @@ function Router() {
           </ProtectedRoute>
         </Route>
         <Route path="/admin/programas">
-          <ProtectedRoute requiredRoles={["superadmin"]}>
-            <AdminProgramas />
-          </ProtectedRoute>
+          <Redirect to="/programas" />
         </Route>
         <Route path="/admin/usuarios">
           <ProtectedRoute requiredRoles={["superadmin"]}>

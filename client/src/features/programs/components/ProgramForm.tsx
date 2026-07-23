@@ -16,8 +16,10 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { ProgramFormSchema, ProgramFormValues, CONSENT_PURPOSES, type Program } from "../schemas";
+import { ProgramFormSchema, CONSENT_PURPOSES } from "../schemas";
+import type { ProgramFormValues } from "../schemas";
 import { slugFromName } from "../utils/slugFromName";
+import { ProgramFormTreeFields } from "./ProgramFormTreeFields";
 
 interface ProgramFormProps {
   defaultValues?: Partial<ProgramFormValues>;
@@ -25,6 +27,8 @@ interface ProgramFormProps {
   isLoading?: boolean;
   onSubmit: (values: ProgramFormValues) => void;
   onCancel?: () => void;
+  /** Name of the parent program (for read-only display in tree fields). */
+  parentName?: string;
 }
 
 export function ProgramForm({
@@ -33,6 +37,7 @@ export function ProgramForm({
   isLoading = false,
   onSubmit,
   onCancel,
+  parentName,
 }: ProgramFormProps) {
   const form = useForm<ProgramFormValues>({
     // tRPC error boundary
@@ -331,6 +336,9 @@ export function ProgramForm({
             )}
           />
         </div>
+
+        {/* Tree / program-hierarchy fields (ADR-0013) */}
+        <ProgramFormTreeFields parentName={parentName} />
 
         {/* Session Close Config */}
         <div className="space-y-4 border-t pt-4">

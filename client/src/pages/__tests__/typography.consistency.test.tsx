@@ -19,7 +19,7 @@ describe("Typography consistency — main pages use design tokens", () => {
     { file: "pages/CheckIn.tsx", pattern: /<h1[^>]*className="[^"]*text-h2[^"]*"/, desc: "CheckIn h1 uses text-h2" },
     { file: "pages/FamiliasList.tsx", pattern: /<h1[^>]*className="[^"]*text-display-2[^"]*"/, desc: "FamiliasList h1 uses text-display-2" },
     { file: "pages/FamiliasCompliance.tsx", pattern: /<h1[^>]*className="[^"]*text-display-2[^"]*"/, desc: "FamiliasCompliance h1 uses text-display-2" },
-    { file: "pages/AdminProgramas.tsx", pattern: /<h1[^>]*className="[^"]*text-h2[^"]*"/, desc: "AdminProgramas h1 uses text-h2" },
+    // AdminProgramas.tsx deleted (replaced by redirect to /programas — task item 6)
     { file: "pages/AdminSoftDeleteRecovery.tsx", pattern: /<h1[^>]*className="[^"]*text-display-2[^"]*"/, desc: "AdminSoftDeleteRecovery h1 uses text-display-2" },
     { file: "pages/AdminUsuarios.tsx", pattern: /<h1[^>]*className="[^"]*text-h2[^"]*"/, desc: "AdminUsuarios h1 uses text-h2" },
     { file: "pages/FamiliasEntregas.tsx", pattern: /<h1[^>]*className="[^"]*text-display-2[^"]*"/, desc: "FamiliasEntregas h1 uses text-display-2" },
@@ -39,7 +39,7 @@ describe("Typography consistency — main pages use design tokens", () => {
       "pages/CheckIn.tsx",
       "pages/FamiliasList.tsx",
       "pages/FamiliasCompliance.tsx",
-      "pages/AdminProgramas.tsx",
+      // "pages/AdminProgramas.tsx" — deleted (task item 6)
       "pages/AdminSoftDeleteRecovery.tsx",
       "pages/AdminUsuarios.tsx",
       "pages/FamiliasEntregas.tsx",
