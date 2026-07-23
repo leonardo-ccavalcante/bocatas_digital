@@ -357,3 +357,8 @@
 - [x] Fix: enviar raw bytes con Content-Length explícito en vez de FormData (docxToPdf.ts)
 - [x] Test actualizado: verifica Uint8Array body + Content-Length header (no FormData)
 - [x] 5/5 tests docxToPdf.remoteWorker pasan, 3297 tests totales pasan
+
+### Bug: programs.create INTERNAL_SERVER_ERROR (febba3cd)
+- [x] Root cause: programs.created_by was uuid in production, code inserts String(ctx.user.id) = "1" (text) → 22P02 invalid input syntax for type uuid
+- [x] Fix: apply migration 20260507000001_fix_programs_created_by_type.sql to PRODUCTION (ALTER COLUMN created_by TYPE text)
+- [x] Verified: data_type = text in production, 3297 tests pass
