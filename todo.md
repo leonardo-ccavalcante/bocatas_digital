@@ -346,3 +346,8 @@
 - [x] Crear migration para bucket document-templates en Supabase Storage
 - [x] Hacer upload del informe-valoracion-social.docx al bucket y registrar en document_templates
 - [x] Verificar que el botón "Generar" funciona en /familias/:id
+
+### Bug: Error interno al generar informe_social (bucket family-documents ausente)
+- [x] Root cause: bucket family-documents no existía en producción (documentado como pendiente en migration 20260430000002)
+- [x] Migration 20260723000002_create_family_documents_bucket.sql — crea el bucket privado con política admin/superadmin
+- [x] Verificar que family_member_documents, document_render_log y document_templates tienen estructura correcta
