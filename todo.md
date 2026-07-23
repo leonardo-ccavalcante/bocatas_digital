@@ -331,3 +331,13 @@
 - [x] TDD: tests for remote worker mode in docxToPdf.ts
 - [x] TypeScript 0 errors, full test suite green
 - [x] Checkpoint + push to GitHub
+
+### Feature: PR #133 — primer informe sin seguimiento (ADR-0014)
+- [x] Merge fix(informe): gate seguimiento solo para renovaciones (ADR-0014)
+- [x] documentContextBuilder: nueva query has_informe_previo + fail-loud en errores DB
+- [x] documentService.validateContext: gate solo cuando has_informe_previo === true
+- [x] informeEligibility: evaluateInformeReadiness recebe has_informe_previo
+- [x] informeBulkData: 4ª query em batch para verificar documentos prévios
+- [x] SocialReportPanel: hasPriorInforme calculado de docs reais; botão desabilitado enquanto docs carregam
+- [x] vite.ts: simplificação — remove resolveViteConfig() redundante
+- [x] Tests: 3297 tests passam, TypeScript 0 erros

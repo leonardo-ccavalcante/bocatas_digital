@@ -85,8 +85,10 @@ const PersonsTableLazy = lazy(() =>
     default: m.PersonsTable,
   }))
 );
+
 function LazyPersonsTable() {
   const [mounted, setMounted] = useState(false);
+
   return (
     <details
       className="mt-8"
