@@ -51,3 +51,12 @@ rule applies unchanged.
 - Bulk skip labels now read as renovación conditions ("Renovación sin
   seguimiento registrado", "Renovación con seguimiento vencido") so operators
   are not told a first-informe family lacks a seguimiento it never needed.
+- **Boundary with the INFORME_AL_DIA bulk policy (deliberate):** the policy
+  layer in `informeBulkData` keeps keying off `informe_social_fecha`. A family
+  with ONLY the manual flag (recent fecha, no document row) is a "first
+  informe" for the GATE (individual generation allowed) but is still skipped
+  by BULK as "al día" — the recorded fecha is the operator's assertion that a
+  recent informe exists outside the app (e.g. on paper), and mass-generating
+  over it would produce duplicates. The gate answers "may we generate?";
+  the policy answers "should bulk touch this family?". They intentionally
+  use different signals.
