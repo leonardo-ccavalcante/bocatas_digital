@@ -341,3 +341,8 @@
 - [x] SocialReportPanel: hasPriorInforme calculado de docs reais; botão desabilitado enquanto docs carregam
 - [x] vite.ts: simplificação — remove resolveViteConfig() redundante
 - [x] Tests: 3297 tests passam, TypeScript 0 erros
+
+### Bug: Plantilla no disponible para informe_social
+- [x] Crear migration para bucket document-templates en Supabase Storage
+- [x] Hacer upload del informe-valoracion-social.docx al bucket y registrar en document_templates
+- [x] Verificar que el botón "Generar" funciona en /familias/:id
