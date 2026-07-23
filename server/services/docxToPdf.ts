@@ -94,16 +94,18 @@ export function convertDocxToPdf(docx: Buffer): Promise<Buffer> {
 
 /**
  * Remote worker mode: POST .docx to the HTTP worker, receive PDF bytes.
- * The worker exposes POST /convert (multipart/form-data, field "file").
+ *
+ * The Python worker reads the body via `self.rfile.read(Content-Length)`, so it
+ * REQUIRES a `Content-Length` header.  Node.js `fetch` with a `FormData` body
+ * uses chunked transfer-encoding and omits `Content-Length`, causing the worker
+ * to block forever waiting for bytes that never arrive.
+ *
+ * Fix: send raw DOCX bytes with an explicit `Content-Length` header instead of
+ * wrapping in FormData.  The worker already accepts raw bytes with the DOCX
+ * content-type (see server.py `do_POST`).
  */
 async function convertViaWorker(docx: Buffer, workerUrl: string): Promise<Buffer> {
   const url = workerUrl.replace(/\/$/, "") + "/convert";
-
-  // Build multipart/form-data manually (no external deps, Node 18+ has FormData).
-  const formData = new FormData();
-  // Use Uint8Array to satisfy TypeScript's BlobPart constraint (Buffer extends Uint8Array).
-  const blob = new Blob([new Uint8Array(docx)], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
-  formData.append("file", blob, `${randomUUID()}.docx`);
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), CONVERT_TIMEOUT_MS);
@@ -112,8 +114,16 @@ async function convertViaWorker(docx: Buffer, workerUrl: string): Promise<Buffer
   try {
     response = await fetch(url, {
       method: "POST",
-      body: formData,
+      // Send raw bytes — the worker reads exactly Content-Length bytes.
+      // Using FormData would omit Content-Length (chunked TE) and hang the worker.
+      body: new Uint8Array(docx),
+      headers: {
+        "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "Content-Length": String(docx.length),
+      },
       signal: controller.signal,
+      // @ts-expect-error — Node 18 fetch requires duplex:'half' for request bodies
+      duplex: "half",
     });
   } catch (err: unknown) {
     clearTimeout(timer);

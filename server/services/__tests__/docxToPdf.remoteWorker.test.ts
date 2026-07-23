@@ -28,7 +28,7 @@ describe("docxToPdf — remote worker mode (LIBREOFFICE_WORKER_URL)", () => {
     vi.unstubAllGlobals();
   });
 
-  it("calls the worker URL /convert endpoint with POST + multipart when LIBREOFFICE_WORKER_URL is set", async () => {
+  it("calls the worker URL /convert endpoint with POST + raw bytes + Content-Length when LIBREOFFICE_WORKER_URL is set", async () => {
     process.env.LIBREOFFICE_WORKER_URL = "http://localhost:7654";
 
     const mockFetch = vi.fn().mockResolvedValue({
@@ -40,10 +40,15 @@ describe("docxToPdf — remote worker mode (LIBREOFFICE_WORKER_URL)", () => {
     const result = await convertDocxToPdf(FAKE_DOCX);
 
     expect(mockFetch).toHaveBeenCalledOnce();
-    const [url, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const [url, options] = mockFetch.mock.calls[0] as [string, RequestInit & { headers: Record<string, string> }];
     expect(url).toBe("http://localhost:7654/convert");
     expect(options.method).toBe("POST");
-    expect(options.body).toBeInstanceOf(FormData);
+    // Must send raw bytes (NOT FormData) so the Python worker can read Content-Length.
+    // FormData uses chunked transfer-encoding and omits Content-Length, causing the
+    // worker to block forever (it calls self.rfile.read(Content-Length)).
+    expect(options.body).toBeInstanceOf(Uint8Array);
+    expect(options.headers["Content-Type"]).toContain("wordprocessingml.document");
+    expect(options.headers["Content-Length"]).toBe(String(FAKE_DOCX.length));
     // Result should be a Buffer containing the PDF bytes
     expect(Buffer.isBuffer(result)).toBe(true);
     expect(result.slice(0, 4).toString()).toBe("%PDF");

@@ -351,3 +351,9 @@
 - [x] Root cause: bucket family-documents no existía en producción (documentado como pendiente en migration 20260430000002)
 - [x] Migration 20260723000002_create_family_documents_bucket.sql — crea el bucket privado con política admin/superadmin
 - [x] Verificar que family_member_documents, document_render_log y document_templates tienen estructura correcta
+
+### Bug: "La vista previa en PDF no está disponible en este servidor" (FormData/Content-Length)
+- [x] Root cause: convertViaWorker usaba FormData que omite Content-Length (chunked TE), el worker Python lee self.rfile.read(Content-Length=0) y cuelga
+- [x] Fix: enviar raw bytes con Content-Length explícito en vez de FormData (docxToPdf.ts)
+- [x] Test actualizado: verifica Uint8Array body + Content-Length header (no FormData)
+- [x] 5/5 tests docxToPdf.remoteWorker pasan, 3297 tests totales pasan
