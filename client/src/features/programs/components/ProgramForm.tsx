@@ -20,6 +20,7 @@ import { ProgramFormSchema, CONSENT_PURPOSES } from "../schemas";
 import type { ProgramFormValues } from "../schemas";
 import { slugFromName } from "../utils/slugFromName";
 import { ProgramFormTreeFields } from "./ProgramFormTreeFields";
+import { CloseConfigEditor } from "./sessions/CloseConfigEditor";
 
 interface ProgramFormProps {
   defaultValues?: Partial<ProgramFormValues>;
@@ -27,6 +28,10 @@ interface ProgramFormProps {
   isLoading?: boolean;
   onSubmit: (values: ProgramFormValues) => void;
   onCancel?: () => void;
+  /** When editing, pass programId so CloseConfigEditor can load/save close config. */
+  programId?: string;
+  /** Whether current user is admin (CloseConfigEditor is admin-only). */
+  isAdmin?: boolean;
   /** Name of the parent program (for read-only display in tree fields). */
   parentName?: string;
 }
@@ -37,6 +42,8 @@ export function ProgramForm({
   isLoading = false,
   onSubmit,
   onCancel,
+  programId,
+  isAdmin = false,
   parentName,
 }: ProgramFormProps) {
   const form = useForm<ProgramFormValues>({
@@ -340,26 +347,18 @@ export function ProgramForm({
         {/* Tree / program-hierarchy fields (ADR-0013) */}
         <ProgramFormTreeFields parentName={parentName} />
 
-        {/* Session Close Config */}
+        {/* Session Close Config — editable when editing a program with a programId */}
         <div className="space-y-4 border-t pt-4">
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
             Cierre de sesión
           </h3>
-          <p className="text-xs text-muted-foreground">
-            Configura cómo se registra el cierre de cada sesión de entrega de este programa.
-          </p>
-          <div className="rounded-lg border bg-muted/30 p-3 space-y-1">
-            <p className="text-xs font-medium">Campos predeterminados del sistema:</p>
-            <ul className="text-xs text-muted-foreground list-disc list-inside space-y-0.5">
-              <li>Familias atendidas (obligatorio)</li>
-              <li>Kg totales distribuidos (obligatorio)</li>
-              <li>Incidencias / observaciones</li>
-              <li>Voluntarios presentes</li>
-            </ul>
-            <p className="text-xs text-muted-foreground mt-2">
-              Para personalizar los campos, contacta con el administrador del sistema.
+          {isEditing && programId ? (
+            <CloseConfigEditor programId={programId} isAdmin={isAdmin} />
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              La configuración de cierre estará disponible tras crear el programa.
             </p>
-          </div>
+          )}
         </div>
         {/* Actions */}
         <div className="flex justify-end gap-3 border-t pt-4">

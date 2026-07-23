@@ -4,6 +4,11 @@ import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useTabParam, PROGRAM_TABS, ENABLED_TABS, type ProgramTab } from "../hooks/useTabParam";
 
+// Lazy-loaded edicion session tabs (Telas 1+4 for inscribible programs)
+const EdicionSessionTabs = lazy(() =>
+  import("./sessions/EdicionSessionTabs").then((m) => ({ default: m.EdicionSessionTabs }))
+);
+
 const FamiliasTab = lazy(() => import("@/features/familias-tab"));
 const InformesTab = lazy(() => import("@/pages/FamiliasInformesSociales"));
 const UploadsTab = lazy(() => import("@/features/uploads-tab"));
@@ -20,6 +25,8 @@ interface Program {
   id: string;
   slug: string;
   nombre: string;
+  /** When true, render the edicion session tabs (Telas 1+4) instead of familia tabs. */
+  inscribible?: boolean;
 }
 
 interface ProgramTabsProps {
@@ -51,6 +58,20 @@ export function ProgramTabs({ program }: ProgramTabsProps) {
   const [tab, setTab] = useTabParam();
   const { user } = useAuth();
   const currentUserId = String(user?.id ?? "");
+  const isAdmin = user?.role === "admin" || user?.role === "superadmin";
+
+  // Edicion/inscribible programs (non-familias): render session calendar + compliance tabs
+  if (program.slug !== "programa_familias" && program.inscribible) {
+    return (
+      <Suspense fallback={<TabFallback />}>
+        <EdicionSessionTabs
+          programId={program.id}
+          programNombre={program.nombre}
+          isAdmin={isAdmin}
+        />
+      </Suspense>
+    );
+  }
 
   if (program.slug !== "programa_familias") {
     return null;

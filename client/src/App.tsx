@@ -60,6 +60,9 @@ const MiQR = lazy(() => import("./pages/MiQR"));
 const Novedades = lazy(() => import("./pages/Novedades"));
 const NovedadDetalle = lazy(() => import("./pages/NovedadDetalle"));
 
+// Cierre de sesión — public magic-link page (no login required)
+const SesionEnlace = lazy(() => import("./pages/SesionEnlace"));
+
 // ─── Shared loading fallback ─────────────────────────────────────────────────
 const PageLoader = () => (
   <div className="flex items-center justify-center h-full min-h-[60vh]">
@@ -87,6 +90,10 @@ function Router() {
       <Switch>
         {/* Public routes */}
         <Route path="/login" component={LoginGuard} />
+        {/* Public magic-link session page — no login required */}
+        <Route path="/s/:sessionId">
+          <SesionEnlace />
+        </Route>
 
         {/* Protected routes */}
         <Route path="/">

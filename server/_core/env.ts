@@ -20,19 +20,24 @@ export const QR_KEY_CONTEXT = "qr-signing-key";
  *
  * - Empty string → empty string (no secret configured at all).
  * - Already ≥ 32 chars → returned unchanged (no expansion needed).
- * - < 32 chars → HMAC-SHA256 with QR_KEY_CONTEXT → 64 hex chars.
+ * - < 32 chars → HMAC-SHA256 with context → 64 hex chars.
  *
- * The expansion is deterministic and unique per input, so a rotated
- * JWT_SECRET automatically rotates the derived QR secret too.
+ * The expansion is deterministic and unique per (secret, context) pair.
+ * A rotated JWT_SECRET automatically rotates all derived secrets.
  *
- * Production SHOULD still set QR_SIGNING_SECRET explicitly (≥ 32 chars)
- * so the QR secret can be rotated independently of the session secret.
+ * IMPORTANT: Pass a unique context string per derived key so that
+ * qrSigningSecret and sessionLinkSecret produce DISTINCT derived values
+ * even when both fall back to the same short JWT_SECRET. Without distinct
+ * contexts, a short shared JWT_SECRET would yield colliding keys.
+ *
+ * Production SHOULD set QR_SIGNING_SECRET and SESSION_LINK_SECRET
+ * explicitly (≥ 32 chars each) so each can be rotated independently.
  * See docs/runbooks/qr-secret-rotation.md.
  */
-export function expandSecret(secret: string): string {
+export function expandSecret(secret: string, context: string = QR_KEY_CONTEXT): string {
   if (!secret) return "";
   if (secret.length >= 32) return secret;
-  return createHmac("sha256", secret).update(QR_KEY_CONTEXT).digest("hex");
+  return createHmac("sha256", secret).update(context).digest("hex");
 }
 
 /**
@@ -117,7 +122,8 @@ export const ENV = {
    * pass the ensureSecret() length check. See expandSecret() above.
    */
   qrSigningSecret: expandSecret(
-    process.env.QR_SIGNING_SECRET ?? process.env.JWT_SECRET ?? ""
+    process.env.QR_SIGNING_SECRET ?? process.env.JWT_SECRET ?? "",
+    "qr-signing-key"
   ),
   /**
    * Supabase JWT secret (HS256) used to sign short-lived impersonation tokens
@@ -126,4 +132,18 @@ export const ENV = {
    * Set via SUPABASE_JWT_SECRET env var (Supabase Dashboard → Settings → API → JWT Secret).
    */
   supabaseJwtSecret: process.env.SUPABASE_JWT_SECRET ?? "",
+  /**
+   * HMAC-SHA256 secret for session enlace (magic-link) tokens (cierre de sesión).
+   * Only the hash of the token is stored in the DB; the plaintext token is
+   * returned once to the coordinator and never persisted.
+   *
+   * Falls back to JWT_SECRET in dev so existing environments work without an
+   * extra env var. Production MUST set SESSION_LINK_SECRET independently so
+   * the link secret can be rotated without invalidating active sessions.
+   * Minimum 32 characters. See shared/sessionEnlace.ts.
+   */
+  sessionLinkSecret: expandSecret(
+    process.env.SESSION_LINK_SECRET ?? process.env.JWT_SECRET ?? "",
+    "session-link-key" // distinct context from qr-signing-key to prevent collision
+  ),
 };
