@@ -322,14 +322,13 @@ describe("checkinRouter — input validation", () => {
     await expect(caller.searchPersons({ query: "" })).rejects.toThrow();
   });
 
-  it("verifyAndInsert rejects invalid programa enum", async () => {
+  it("verifyAndInsert rejects malformed programa slug", async () => {
     await expect(
       caller.verifyAndInsert({
         personId: "b0000000-0000-0000-0000-000000000002",
         locationId: "loc-1",
-        // test mock boundary — Supabase client mock
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        programa: "invalid_program" as any,
+        // uppercase + dash violate the slug format (^[a-z_]+$)
+        programa: "Invalid-Program",
         metodo: "qr_scan",
         isDemoMode: false,
       })
@@ -350,13 +349,12 @@ describe("checkinRouter — input validation", () => {
     ).rejects.toThrow();
   });
 
-  it("anonymousCheckin rejects invalid programa", async () => {
+  it("anonymousCheckin rejects malformed programa slug", async () => {
     await expect(
       caller.anonymousCheckin({
         locationId: "loc-1",
-        // test mock boundary — Supabase client mock
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        programa: "invalid" as any,
+        // spaces violate the slug format (^[a-z_]+$)
+        programa: "not a slug",
         isDemoMode: false,
       })
     ).rejects.toThrow();

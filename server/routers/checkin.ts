@@ -19,23 +19,7 @@ import {
   offlineSyncResults,
 } from "./checkin.offlineSync";
 
-// UUID-like validator that accepts any 8-4-4-4-12 hex string (including synthetic seed IDs)
-const uuidLike = z.string().regex(
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-  "Invalid UUID format"
-);
-
-// ─── Enums matching DB types ──────────────────────────────────────────────────
-const ProgramaEnum = z.enum([
-  "comedor",
-  "familia",
-  "formacion",
-  "atencion_juridica",
-  "voluntariado",
-  "acompanamiento",
-]);
-
-const MetodoEnum = z.enum(["qr_scan", "manual_busqueda", "conteo_anonimo"]);
+import { uuidLike, ProgramaSlug, MetodoEnum } from "./checkin.schemas";
 
 // ─── Router ───────────────────────────────────────────────────────────────────
 export const checkinRouter = router({
@@ -51,7 +35,7 @@ export const checkinRouter = router({
       z.object({
         personId: uuidLike,
         locationId: uuidLike,
-        programa: ProgramaEnum,
+        programa: ProgramaSlug,
         metodo: MetodoEnum.default("qr_scan"),
         isDemoMode: z.boolean().default(false),
         clientId: uuidLike.optional(), // for idempotent offline sync
@@ -195,6 +179,14 @@ export const checkinRouter = router({
           });
           return { status: "duplicate" as const, lastCheckinTime: time };
         }
+        // 23503 = foreign_key_violation — slug not in the programs catalog
+        // (deleted or mistyped program). Surface as a client error, not a 500.
+        if (insertError.code === "23503") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Programa desconocido: no existe en el catálogo de programas",
+          });
+        }
         logProcedureError(ctx, 'Checkin: Failed to insert attendance', insertError as Error, {
           personId: input.personId,
           programa: input.programa,
@@ -226,7 +218,7 @@ export const checkinRouter = router({
     .input(
       z.object({
         locationId: uuidLike,
-        programa: ProgramaEnum,
+        programa: ProgramaSlug,
         isDemoMode: z.boolean().default(false),
       })
     )
@@ -247,6 +239,12 @@ export const checkinRouter = router({
       });
 
       if (error) {
+        if (error.code === "23503") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Programa desconocido: no existe en el catálogo de programas",
+          });
+        }
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: `Error al registrar asistencia anónima: ${error.message}`,
@@ -346,7 +344,7 @@ export const checkinRouter = router({
           clientId: uuidLike,
           personId: uuidLike.nullable(),
           locationId: uuidLike,
-          programa: ProgramaEnum,
+          programa: ProgramaSlug,
           metodo: MetodoEnum,
           isDemoMode: z.boolean().default(false),
           // ISO-8601 instant the check-in was captured ON THE DEVICE. Validated

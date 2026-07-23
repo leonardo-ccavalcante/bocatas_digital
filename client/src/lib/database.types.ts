@@ -1088,6 +1088,44 @@ export type Database = {
         }
         Relationships: []
       }
+      enrollment_events: {
+        Row: {
+          actor: string | null
+          created_at: string
+          enrollment_id: string
+          estado_anterior: string | null
+          estado_nuevo: string
+          id: string
+          motivo: string | null
+        }
+        Insert: {
+          actor?: string | null
+          created_at?: string
+          enrollment_id: string
+          estado_anterior?: string | null
+          estado_nuevo: string
+          id?: string
+          motivo?: string | null
+        }
+        Update: {
+          actor?: string | null
+          created_at?: string
+          enrollment_id?: string
+          estado_anterior?: string | null
+          estado_nuevo?: string
+          id?: string
+          motivo?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "enrollment_events_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "program_enrollments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       familia_miembros: {
         Row: {
           apellidos: string | null
@@ -1996,6 +2034,7 @@ export type Database = {
           fecha_inicio: string
           id: string
           metadata: Json | null
+          motivo_baja: string | null
           notas: string | null
           person_id: string
           program_id: string
@@ -2010,6 +2049,7 @@ export type Database = {
           fecha_inicio?: string
           id?: string
           metadata?: Json | null
+          motivo_baja?: string | null
           notas?: string | null
           person_id: string
           program_id: string
@@ -2024,6 +2064,7 @@ export type Database = {
           fecha_inicio?: string
           id?: string
           metadata?: Json | null
+          motivo_baja?: string | null
           notas?: string | null
           person_id?: string
           program_id?: string
@@ -2119,18 +2160,24 @@ export type Database = {
           deleted_at: string | null
           description: string | null
           display_order: number
+          estados_habilitados: string[]
+          etiquetas: string[]
           fecha_fin: string | null
           fecha_inicio: string | null
           icon: string | null
           id: string
+          inscribible: boolean
           is_active: boolean
           is_default: boolean
           name: string
+          parent_id: string | null
+          plazas: number | null
           requires_consents: string[]
           requires_fields: Json | null
           responsable_id: string | null
           session_close_config: Json | null
           slug: string
+          tipo: string
           updated_at: string | null
           volunteer_can_access: boolean
           volunteer_can_write: boolean
@@ -2143,18 +2190,24 @@ export type Database = {
           deleted_at?: string | null
           description?: string | null
           display_order?: number
+          estados_habilitados?: string[]
+          etiquetas?: string[]
           fecha_fin?: string | null
           fecha_inicio?: string | null
           icon?: string | null
           id?: string
+          inscribible?: boolean
           is_active?: boolean
           is_default?: boolean
           name: string
+          parent_id?: string | null
+          plazas?: number | null
           requires_consents?: string[]
           requires_fields?: Json | null
           responsable_id?: string | null
           session_close_config?: Json | null
           slug: string
+          tipo?: string
           updated_at?: string | null
           volunteer_can_access?: boolean
           volunteer_can_write?: boolean
@@ -2167,24 +2220,38 @@ export type Database = {
           deleted_at?: string | null
           description?: string | null
           display_order?: number
+          estados_habilitados?: string[]
+          etiquetas?: string[]
           fecha_fin?: string | null
           fecha_inicio?: string | null
           icon?: string | null
           id?: string
+          inscribible?: boolean
           is_active?: boolean
           is_default?: boolean
           name?: string
+          parent_id?: string | null
+          plazas?: number | null
           requires_consents?: string[]
           requires_fields?: Json | null
           responsable_id?: string | null
           session_close_config?: Json | null
           slug?: string
+          tipo?: string
           updated_at?: string | null
           volunteer_can_access?: boolean
           volunteer_can_write?: boolean
           volunteer_visible_fields?: string[]
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "programs_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "programs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       report_saved_queries: {
         Row: {
@@ -2480,21 +2547,30 @@ export type Database = {
         Args: never
         Returns: {
           active_enrollments: number
+          children_count: number
           config: Json
           description: string
           display_order: number
+          estados_habilitados: string[]
+          etiquetas: string[]
           fecha_fin: string
           fecha_inicio: string
           icon: string
           id: string
+          inscribible: boolean
           is_active: boolean
           is_default: boolean
           name: string
           new_this_month: number
+          parent_id: string
+          plazas: number
           requires_consents: string[]
           requires_fields: Json
           responsable_id: string
           slug: string
+          subtree_active_persons: number
+          subtree_total_persons: number
+          tipo: string
           total_enrollments: number
           volunteer_can_access: boolean
         }[]
@@ -2584,7 +2660,17 @@ export type Database = {
         | "inestable"
         | "temporal"
         | "estable"
-      estado_enrollment: "activo" | "pausado" | "completado" | "rechazado"
+      estado_enrollment:
+        | "activo"
+        | "pausado"
+        | "completado"
+        | "rechazado"
+        | "inscrito"
+        | "preseleccionado"
+        | "admitido"
+        | "lista_espera"
+        | "baja"
+        | "terminado"
       fase_itinerario:
         | "acogida"
         | "estabilizacion"
@@ -2818,7 +2904,18 @@ export const Constants = {
         "temporal",
         "estable",
       ],
-      estado_enrollment: ["activo", "pausado", "completado", "rechazado"],
+      estado_enrollment: [
+        "activo",
+        "pausado",
+        "completado",
+        "rechazado",
+        "inscrito",
+        "preseleccionado",
+        "admitido",
+        "lista_espera",
+        "baja",
+        "terminado",
+      ],
       fase_itinerario: [
         "acogida",
         "estabilizacion",

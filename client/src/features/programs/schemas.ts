@@ -1,6 +1,22 @@
 import { z } from "zod";
+import {
+  ESTADOS_CATALOGO,
+  ESTADOS_INSCRIPCION,
+  TIPOS_PROGRAMA,
+} from "@shared/programEstados";
 
 // ─── Program ──────────────────────────────────────────────────────────────────
+
+/** Tree fields (ADR-0013) shared by rows and forms. Optional so pre-migration
+ * payloads still parse during rollout. */
+const TreeFieldsSchema = z.object({
+  parent_id: z.string().nullable().optional(),
+  tipo: z.enum(TIPOS_PROGRAMA).optional(),
+  inscribible: z.boolean().optional(),
+  estados_habilitados: z.array(z.string()).optional(),
+  plazas: z.number().nullable().optional(),
+  etiquetas: z.array(z.string()).optional(),
+});
 
 export const ProgramSchema = z.object({
   id: z.string(),
@@ -20,7 +36,7 @@ export const ProgramSchema = z.object({
   session_close_config: z.record(z.string(), z.unknown()).nullable().optional(),
   created_at: z.string().nullable(),
   updated_at: z.string().nullable(),
-});
+}).merge(TreeFieldsSchema);
 
 export type Program = z.infer<typeof ProgramSchema>;
 
@@ -42,20 +58,28 @@ export const ProgramWithCountsSchema = z.object({
   active_enrollments: z.number(),
   total_enrollments: z.number(),
   new_this_month: z.number(),
-});
+  children_count: z.number().nullable().optional(),
+  subtree_active_persons: z.number().nullable().optional(),
+  subtree_total_persons: z.number().nullable().optional(),
+}).merge(TreeFieldsSchema);
 
 export type ProgramWithCounts = z.infer<typeof ProgramWithCountsSchema>;
 
 // ─── Enrollment ───────────────────────────────────────────────────────────────
 
-export const EnrollmentEstadoSchema = z.enum(["activo", "completado", "rechazado"]);
+/** Full global catalog (incl. legacy completado/rechazado on old rows). */
+export const EnrollmentEstadoSchema = z.enum(ESTADOS_CATALOGO);
 export type EnrollmentEstado = z.infer<typeof EnrollmentEstadoSchema>;
+
+/** Canonical states offered by state-change UIs (no legacy values). */
+export const ESTADOS_UI = ESTADOS_INSCRIPCION;
 
 export const EnrollmentSchema = z.object({
   id: z.string(),
   estado: EnrollmentEstadoSchema,
   fecha_inicio: z.string().nullable(),
   fecha_fin: z.string().nullable(),
+  motivo_baja: z.string().nullable().optional(),
   notas: z.string().nullable(),
   created_at: z.string().nullable(),
   persons: z.object({
@@ -76,7 +100,7 @@ export const ProgramFormSchema = z.object({
     .string()
     .min(2)
     .max(50)
-    .regex(/^[a-z_]+$/, "Solo letras minúsculas y guiones bajos"),
+    .regex(/^[a-z0-9_]+$/, "Solo minúsculas, números y guiones bajos"),
   name: z.string().min(2, "El nombre es obligatorio").max(100),
   description: z.string().max(500).optional(),
   icon: z.string().max(10).default("🏠"),
@@ -92,6 +116,14 @@ export const ProgramFormSchema = z.object({
   config: z.record(z.string(), z.unknown()).default({}),
   responsable_id: z.string().nullable().optional(),
   session_close_config: z.record(z.string(), z.unknown()).nullable().optional(),
+  parent_id: z.string().nullable().optional(),
+  tipo: z.enum(TIPOS_PROGRAMA).default("basico"),
+  inscribible: z.boolean().default(true),
+  estados_habilitados: z
+    .array(z.enum(ESTADOS_CATALOGO))
+    .default(["activo", "pausado", "baja", "terminado"]),
+  plazas: z.number().int().min(1).nullable().optional(),
+  etiquetas: z.array(z.string().regex(/^[a-z_]+$/)).default([]),
 });
 
 export type ProgramFormValues = z.infer<typeof ProgramFormSchema>;
