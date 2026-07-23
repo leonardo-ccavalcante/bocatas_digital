@@ -89,12 +89,12 @@ describe("GenerateDocumentButton", () => {
     render(
       <GenerateDocumentButton
         familyId="fam-1"
-        slug="informe_social"
-        label="Generar informe social"
+        slug="derivacion"
+        label="Generar derivación"
       />
     );
 
-    const button = screen.getByRole("button", { name: /generar informe social/i });
+    const button = screen.getByRole("button", { name: /generar derivación/i });
     expect(button).toBeInTheDocument();
     expect(button).not.toBeDisabled();
   });

@@ -11,6 +11,8 @@ function base(): InformeReadinessInput {
     situacion_familiar_texto: "Situación de la familia.",
     latest_follow_up_fecha: RECENT,
     members: [{ nombre: "Ahmed", apellidos: "García", fecha_nacimiento: "2015-01-01" }],
+    // Renovación by default — the seguimiento rules only apply then (ADR-0014).
+    has_informe_previo: true,
   };
 }
 
@@ -70,6 +72,42 @@ describe("evaluateInformeReadiness — ordered skip ladder", () => {
     // Both titular missing AND no seguimiento → SIN_TITULAR wins.
     expect(
       evaluateInformeReadiness({ ...base(), titular_id: null, latest_follow_up_fecha: null }),
+    ).toEqual({ ready: false, reason: "SIN_TITULAR" });
+  });
+});
+
+describe("evaluateInformeReadiness — first informe (no prior informe document)", () => {
+  it("is READY with zero follow-ups", () => {
+    expect(
+      evaluateInformeReadiness({ ...base(), has_informe_previo: false, latest_follow_up_fecha: null }),
+    ).toEqual({ ready: true });
+  });
+
+  it("is READY even with a stale follow-up on record", () => {
+    expect(
+      evaluateInformeReadiness({ ...base(), has_informe_previo: false, latest_follow_up_fecha: OLD }),
+    ).toEqual({ ready: true });
+  });
+
+  it("still requires the valoración narrative", () => {
+    expect(
+      evaluateInformeReadiness({
+        ...base(),
+        has_informe_previo: false,
+        latest_follow_up_fecha: null,
+        situacion_familiar_texto: "  ",
+      }),
+    ).toEqual({ ready: false, reason: "SIN_DESCRIPCION_SITUACION" });
+  });
+
+  it("still requires a titular (ladder order preserved)", () => {
+    expect(
+      evaluateInformeReadiness({
+        ...base(),
+        has_informe_previo: false,
+        latest_follow_up_fecha: null,
+        titular_id: null,
+      }),
     ).toEqual({ ready: false, reason: "SIN_TITULAR" });
   });
 });

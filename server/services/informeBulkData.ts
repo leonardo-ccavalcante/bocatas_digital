@@ -5,8 +5,8 @@
 // is the program; no per-family program_id filter — matches families.getAll and
 // the operator's "todas las familias activas" intent).
 //
-// Batched (3 queries: families + follow-ups + members) to avoid N+1. Pure
-// data-fetching; readiness logic lives in informeEligibility.
+// Batched (4 queries: families + follow-ups + members + informe docs) to avoid
+// N+1. Pure data-fetching; readiness logic lives in informeEligibility.
 
 import type { createAdminClient } from "../../client/src/lib/supabase/server";
 import { informeNeedsRenewal } from "@shared/informeFreshness";
@@ -83,6 +83,25 @@ export async function fetchActiveFamiliesReadiness(db: Db): Promise<FamilyReadin
     }
   }
 
+  // Batched prior-informe check: a current REAL informe document row (generated
+  // docx or uploaded PDF) — the manually-settable informe_social boolean is not
+  // proof (ADR-0014). The seguimiento rules apply only to these families.
+  const hasInforme = new Set<string>();
+  for (const ids100 of chunk(ids, CHUNK)) {
+    const { data, error: docErr } = await db
+      .from("family_member_documents")
+      .select("family_id")
+      .in("family_id", ids100)
+      .eq("member_index", -1)
+      .in("documento_tipo", ["informe_valoracion_social", "informe_social"])
+      .eq("is_current", true)
+      .is("deleted_at", null)
+      .not("documento_url", "is", null);
+    // A silent [] would waive the seguimiento gate on renovaciones — fail loudly.
+    if (docErr) throw new Error(`informe docs fetch failed: ${docErr.message}`);
+    for (const d of data ?? []) hasInforme.add(d.family_id as string);
+  }
+
   return rows.map((r) => {
     const titularRaw = Array.isArray(r.persons) ? r.persons[0] : r.persons;
     const input: InformeReadinessInput = {
@@ -97,6 +116,7 @@ export async function fetchActiveFamiliesReadiness(db: Db): Promise<FamilyReadin
       situacion_familiar_texto: (r.situacion_familiar_texto as string | null) ?? null,
       latest_follow_up_fecha: latestFollowUp.get(r.id as string) ?? null,
       members: members.get(r.id as string) ?? [],
+      has_informe_previo: hasInforme.has(r.id as string),
     };
     const readiness = evaluateInformeReadiness(input);
     // Policy layer (on top of render-ability): a renderable family whose informe

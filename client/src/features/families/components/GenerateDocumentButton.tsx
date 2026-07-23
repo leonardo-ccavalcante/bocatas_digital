@@ -7,7 +7,9 @@ import { DocumentPreviewDialog } from "./DocumentPreviewDialog";
 
 interface GenerateDocumentButtonProps {
   familyId: string;
-  slug: "informe_social" | "nota_entrega" | "derivacion";
+  // informe_social is not accepted: informes must persist (families.generateSocialReport)
+  // so the ADR-0014 renovación gate can see them — the server enum rejects it too.
+  slug: "nota_entrega" | "derivacion";
   sessionId?: string;
   label: string;
   blockingError?: string | null;
