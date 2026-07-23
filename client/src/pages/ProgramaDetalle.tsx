@@ -260,6 +260,8 @@ export default function ProgramaDetalle() {
                   <ProgramForm
                     defaultValues={defaultValues}
                     isEditing
+                    programId={program.id}
+                    isAdmin={isAdmin}
                     isLoading={updateProgram.isPending}
                     parentName={parentName}
                     onSubmit={(v: ProgramFormValues) => updateProgram.mutate({ id: program.id, data: v })}
@@ -457,6 +459,18 @@ export default function ProgramaDetalle() {
           <div className="bocatas-card overflow-hidden px-5 py-4">
             <ListadoMensual programId={program.id} programName={program.name} />
           </div>
+        )}
+
+        {/* Session calendar + compliance tabs for inscribible programs (non-familias) */}
+        {isInscribible && program.slug !== "programa_familias" && (
+          <ProgramTabs
+            program={{
+              id: program.id,
+              slug: program.slug,
+              nombre: program.name,
+              inscribible: true,
+            }}
+          />
         )}
       </div>
     </div>

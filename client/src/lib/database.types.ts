@@ -242,6 +242,7 @@ export type Database = {
           person_id: string | null
           programa: string | null
           registrado_por: string | null
+          session_id: string | null
           updated_at: string
         }
         Insert: {
@@ -258,6 +259,7 @@ export type Database = {
           person_id?: string | null
           programa?: string | null
           registrado_por?: string | null
+          session_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -274,6 +276,7 @@ export type Database = {
           person_id?: string | null
           programa?: string | null
           registrado_por?: string | null
+          session_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -296,6 +299,13 @@ export type Database = {
             columns: ["person_id"]
             isOneToOne: false
             referencedRelation: "persons_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendances_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "program_sessions"
             referencedColumns: ["id"]
           },
           {
@@ -2119,33 +2129,60 @@ export type Database = {
           closed_at: string | null
           closed_by: string | null
           created_at: string
+          en_nombre_de: string | null
+          enlace_expira: string | null
+          enlace_token_hash: string | null
+          estado: string
           fecha: string
+          hora_fin: string | null
+          hora_inicio: string | null
           id: string
           location_id: string | null
+          motivo_cancelacion: string | null
           opened_by: string | null
           program_id: string
+          responsable_nombre: string | null
+          responsable_person_id: string | null
           session_data: Json | null
         }
         Insert: {
           closed_at?: string | null
           closed_by?: string | null
           created_at?: string
+          en_nombre_de?: string | null
+          enlace_expira?: string | null
+          enlace_token_hash?: string | null
+          estado?: string
           fecha?: string
+          hora_fin?: string | null
+          hora_inicio?: string | null
           id?: string
           location_id?: string | null
+          motivo_cancelacion?: string | null
           opened_by?: string | null
           program_id: string
+          responsable_nombre?: string | null
+          responsable_person_id?: string | null
           session_data?: Json | null
         }
         Update: {
           closed_at?: string | null
           closed_by?: string | null
           created_at?: string
+          en_nombre_de?: string | null
+          enlace_expira?: string | null
+          enlace_token_hash?: string | null
+          estado?: string
           fecha?: string
+          hora_fin?: string | null
+          hora_inicio?: string | null
           id?: string
           location_id?: string | null
+          motivo_cancelacion?: string | null
           opened_by?: string | null
           program_id?: string
+          responsable_nombre?: string | null
+          responsable_person_id?: string | null
           session_data?: Json | null
         }
         Relationships: [
@@ -2161,6 +2198,20 @@ export type Database = {
             columns: ["program_id"]
             isOneToOne: false
             referencedRelation: "programs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "program_sessions_responsable_person_id_fkey"
+            columns: ["responsable_person_id"]
+            isOneToOne: false
+            referencedRelation: "persons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "program_sessions_responsable_person_id_fkey"
+            columns: ["responsable_person_id"]
+            isOneToOne: false
+            referencedRelation: "persons_safe"
             referencedColumns: ["id"]
           },
         ]
@@ -2371,6 +2422,47 @@ export type Database = {
             columns: ["programa_id"]
             isOneToOne: false
             referencedRelation: "programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      session_documents: {
+        Row: {
+          created_at: string
+          en_nombre_de: string | null
+          id: string
+          session_id: string
+          subido_por: string
+          tipo_slug: string
+          url: string
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          en_nombre_de?: string | null
+          id?: string
+          session_id: string
+          subido_por: string
+          tipo_slug: string
+          url: string
+          version?: number
+        }
+        Update: {
+          created_at?: string
+          en_nombre_de?: string | null
+          id?: string
+          session_id?: string
+          subido_por?: string
+          tipo_slug?: string
+          url?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "program_sessions"
             referencedColumns: ["id"]
           },
         ]
