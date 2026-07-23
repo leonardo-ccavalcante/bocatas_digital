@@ -224,7 +224,7 @@ grants: after the standard `REVOKE … FROM PUBLIC, anon, authenticated`, the ap
 `service_role` is left with NO grant and every call 42501s ("permission denied")
 — the failure only appears at runtime, not at migration time. Every convergence
 migration must end with an explicit
-`GRANT EXECUTE ON FUNCTION … TO service_role;` (see `20260723000003`).
+`GRANT EXECUTE ON FUNCTION … TO service_role;` (see `20260723100003`).
 
 ### Workflow: feature
 

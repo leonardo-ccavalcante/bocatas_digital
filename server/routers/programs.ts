@@ -86,7 +86,7 @@ const ProgramWithCountsSchema = z.object({
   active_enrollments: z.number().nullable().transform(v => v ?? 0),
   total_enrollments: z.number().nullable().transform(v => v ?? 0),
   new_this_month: z.number().nullable().transform(v => v ?? 0),
-  // Tree columns (appended by 20260723000003; optional so an older RPC shape
+  // Tree columns (appended by 20260723100003; optional so an older RPC shape
   // still parses during rollout)
   parent_id: z.string().nullable().optional(),
   tipo: z.string().optional(),

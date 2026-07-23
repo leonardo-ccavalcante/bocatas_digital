@@ -1,4 +1,4 @@
--- 20260723000003_programs_counts_subtree.sql
+-- 20260723100003_programs_counts_subtree.sql
 --
 -- Wave 1 schema: update get_programs_with_counts() to include tree columns
 -- and subtree aggregations.

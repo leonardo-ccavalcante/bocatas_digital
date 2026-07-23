@@ -1,4 +1,4 @@
--- 20260723000001_programs_tree.sql
+-- 20260723100001_programs_tree.sql
 --
 -- Wave 1 schema for nested programs ("programas dentro de programas").
 -- Adds hierarchical structure to programs: parent_id, tipo, inscribible,

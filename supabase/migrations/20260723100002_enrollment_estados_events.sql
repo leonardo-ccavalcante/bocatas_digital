@@ -1,4 +1,4 @@
--- 20260723000002_enrollment_estados_events.sql
+-- 20260723100002_enrollment_estados_events.sql
 --
 -- Wave 1 schema: extend estado_enrollment enum and create enrollment_events
 -- append-only audit table.
