@@ -15,6 +15,12 @@ import {
   logEnrollmentEvent,
 } from "./programs.enrollmentEstado";
 import { getListadoMensual } from "./programs.listado";
+import { sessionsRouter } from "./programs.sessions";
+import { closeConfigRouter } from "./programs.closeConfig";
+import { enlaceRouter } from "./programs.enlace";
+import { complianceRouter } from "./programs.compliance";
+import { sessionAlertsRouter } from "./programs.sessionAlerts";
+import { sessionDocumentsRouter } from "./programs.sessionDocuments";
 
 type ProgramInsert = Database["public"]["Tables"]["programs"]["Insert"];
 type ProgramUpdate = Database["public"]["Tables"]["programs"]["Update"];
@@ -480,4 +486,19 @@ export const programsRouter = router({
       };
       return applyEstadoChange(supabase, String(ctx.user.id), enrollment, "baja", input.motivo);
     }),
+
+  // ─── Cierre de Sesión (Wave 2) ───────────────────────────────────────────
+  // Sub-routers wired as nested namespaces:
+  //   programs.sessions.*           — session lifecycle
+  //   programs.closeConfig.*        — close config CRUD + presets
+  //   programs.enlace.*             — magic-link + QR-in-session
+  //   programs.compliance.*         — compliance metrics
+  //   programs.sessionAlerts.*      — overdue session alerts (webhook)
+  //   programs.sessionDocuments.*   — session document upload + lesson-plan OCR
+  sessions: sessionsRouter,
+  closeConfig: closeConfigRouter,
+  enlace: enlaceRouter,
+  compliance: complianceRouter,
+  sessionAlerts: sessionAlertsRouter,
+  sessionDocuments: sessionDocumentsRouter,
 });

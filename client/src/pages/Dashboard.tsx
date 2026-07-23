@@ -16,6 +16,7 @@
  */
 import { useState } from "react";
 import { BarChart2, WifiOff, RefreshCw } from "lucide-react";
+import { trpc } from "@/lib/trpc";
 import { useKPIStats } from "@/features/dashboard/hooks/useKPIStats";
 import { useTrendData } from "@/features/dashboard/hooks/useTrendData";
 import { useRealtimeAttendance } from "@/features/dashboard/hooks/useRealtimeAttendance";
@@ -27,6 +28,7 @@ import { DateRangeFilter } from "@/features/dashboard/components/DateRangeFilter
 import { LocationFilter } from "@/features/dashboard/components/LocationFilter";
 import { ProgramFilter } from "@/features/dashboard/components/ProgramFilter";
 import { AbsenceAlertsPanel } from "@/features/dashboard/components/AbsenceAlertsPanel";
+import { SessionCompliancePanel } from "@/features/dashboard/components/SessionCompliancePanel";
 import { CohortRetentionPanel } from "@/features/dashboard/components/CohortRetentionPanel";
 import { HourlyDistributionChart } from "@/features/dashboard/components/HourlyDistributionChart";
 import { SedesPerformanceTable } from "@/features/dashboard/components/SedesPerformanceTable";
@@ -50,6 +52,15 @@ export default function Dashboard() {
 
   // Absence alerts count for header badge
   const { count: alertCount } = useAbsenceAlerts({ locationId, programa });
+
+  // Resolve programa slug → program object when a specific edition is selected.
+  // Used to show SessionCompliancePanel for session-managed editions (inscribible: true).
+  const isProgramSelected = programa !== "all";
+  const { data: selectedProgram } = trpc.programs.getBySlug.useQuery(
+    { slug: programa },
+    { enabled: isProgramSelected, staleTime: 5 * 60 * 1000, retry: false }
+  );
+  const showSessionCompliance = isProgramSelected && selectedProgram?.inscribible === true;
 
   return (
     <div className="min-h-full bg-background">
@@ -168,12 +179,23 @@ export default function Dashboard() {
         <SedesPerformanceTable />
 
         {/* ── Absence alerts ───────────────────────────────────────────────── */}
+        {/* NOTE: AbsenceAlertsPanel is threshold-based (last N days without attendance).
+            SessionCompliancePanel below is session-denominator-based (≥2 consecutive missed
+            sessions). Both are intentional — see SessionCompliancePanel.tsx for details. */}
         <AbsenceAlertsPanel
           locationId={locationId}
           programa={programa}
           thresholdDays={14}
           defaultCollapsed={alertCount === 0}
         />
+
+        {/* ── Session compliance (shown only for a specific session-managed edition) ─ */}
+        {showSessionCompliance && selectedProgram && (
+          <SessionCompliancePanel
+            programId={selectedProgram.id}
+            programName={selectedProgram.name}
+          />
+        )}
 
         {/* ── Export ───────────────────────────────────────────────────────── */}
         <div>
