@@ -43,10 +43,63 @@ const ALLOWED_MIMES = new Set([
 const MAX_BYTES = 8 * 1024 * 1024; // 8 MB decoded
 
 // FIX 2: Cap for OCR image base64 strings (~1.5 MB decoded = 2 MB base64 chars).
-// NOTE: A per-token/per-session rate limit on this paid-LLM public endpoint is a
-// follow-up for /security-review — the current IP-level limit is escapable by
-// IP rotation.
 const MAX_OCR_BASE64_CHARS = 2_097_152; // ceil(1.5 * 1024 * 1024 * 4 / 3)
+
+// MYT-136A: per-token/session rate limit for the public (token-gated) OCR
+// endpoint (gh #136 item 1). enlaceExtractLessonPlan calls a paid vision LLM;
+// the only prior throttle was the Express-level 200 req/15min PER-IP limiter
+// (server/_core/index.ts), which a link-holder can bypass by rotating IPs.
+// This in-memory fixed-window counter is keyed by sessionId+token (not IP),
+// so cost is capped per-enlace regardless of source IP.
+//
+// Reconciles MYT-136B (cd8020b, server/routers/families/sessions.ts): that
+// follow-up deleted `lastClosedSessionByKey`, at the time noting it was "the
+// only module-level, unbounded-lifetime cache in server/routers/". This Map
+// reintroduces one — but unlike that removed cache, assertEnlaceOcrRateLimit()
+// below prunes every expired window on each call (see the loop at its top),
+// so an entry survives only while its 15-min window is still live: the Map's
+// size is bounded by the count of CURRENTLY ACTIVE enlace-token windows, not
+// by the all-time count of links ever used. Same in-process/no-replica caveat
+// as the removed 136B cache (a restart or a different replica starts a fresh
+// counter) — acceptable here because the failure mode is under-limiting one
+// link-holder's counter, not a memory leak; the primary defenses (per-IP
+// Express limiter + the short-lived enlace token itself) are unaffected.
+const OCR_ENLACE_RATE_LIMIT_MAX = 10;
+const OCR_ENLACE_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const ocrEnlaceRateLimits = new Map<string, { count: number; windowStart: number }>();
+
+function assertEnlaceOcrRateLimit(sessionId: string, token: string): void {
+  const key = `${sessionId}:${token}`;
+  const now = Date.now();
+
+  // Prune expired windows before reading/writing so the Map never retains a
+  // permanent entry for a token whose window has long since elapsed.
+  for (const [existingKey, entry] of ocrEnlaceRateLimits) {
+    if (now - entry.windowStart >= OCR_ENLACE_RATE_LIMIT_WINDOW_MS) {
+      ocrEnlaceRateLimits.delete(existingKey);
+    }
+  }
+
+  const existing = ocrEnlaceRateLimits.get(key);
+  if (!existing) {
+    ocrEnlaceRateLimits.set(key, { count: 1, windowStart: now });
+    return;
+  }
+  if (existing.count >= OCR_ENLACE_RATE_LIMIT_MAX) {
+    throw new TRPCError({
+      code: "TOO_MANY_REQUESTS",
+      message: "Demasiadas solicitudes de extracción OCR para este enlace. Inténtalo de nuevo más tarde.",
+    });
+  }
+  existing.count += 1;
+}
+
+// Test-only seam: exposes the rate-limit Map's current size so tests can
+// assert the pruning behavior above without reaching into module internals.
+// Never used by application code.
+export function __ocrEnlaceRateLimitMapSizeForTest(): number {
+  return ocrEnlaceRateLimits.size;
+}
 
 const MIME_TO_EXT: Record<string, string> = {
   "application/pdf": ".pdf",
@@ -299,6 +352,8 @@ export const sessionDocumentsRouter = router({
     }),
 
   // FIX 2: same cap on the public (token-gated) OCR endpoint.
+  // MYT-136A: per-token/session rate limit, enforced after token verification
+  // and BEFORE the paid LLM call — see assertEnlaceOcrRateLimit above.
   enlaceExtractLessonPlan: publicProcedure
     .input(z.object({
       sessionId: uuidLike,
@@ -309,6 +364,7 @@ export const sessionDocumentsRouter = router({
     .mutation(async ({ input }) => {
       const supabase = createAdminClient();
       await resolveAndVerifyEnlace(supabase, input.sessionId, input.token);
+      assertEnlaceOcrRateLimit(input.sessionId, input.token);
       return callLessonPlanOcr(input.base64Image, input.mimeType);
     }),
 });

@@ -22,6 +22,10 @@ import {
   insertFamilyRow,
 } from "./_shared";
 
+// Generous default cap (dataset stays bounded server-side even though
+// client pagination wiring is DEFERRED-E5 — gh #80 / MYT-80-ATL04).
+const GETALL_DEFAULT_LIMIT = 500;
+
 export const crudRouter = router({
   // ─── Job 1: Family List ──────────────────────────────────────────────────
   /** GET /families list with filters */
@@ -34,6 +38,8 @@ export const crudRouter = router({
           sin_alta_guf: z.boolean().optional(),
           sin_informe_social: z.boolean().optional(),
           distrito: z.string().optional(),
+          limit: z.number().int().min(1).max(GETALL_DEFAULT_LIMIT).optional(),
+          offset: z.number().int().min(0).optional(),
         })
         .optional()
     )
@@ -73,8 +79,16 @@ export const crudRouter = router({
         }
       }
 
-      const { data, error } = await query.order("familia_numero", { ascending: true });
+      const offset = input?.offset ?? 0;
+      const { data, error } = await query
+        .order("familia_numero", { ascending: true }).range(offset, offset + (input?.limit ?? GETALL_DEFAULT_LIMIT) - 1);
       if (error) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+      // Exact `total` (count: "exact") is DEFERRED-E5: no caller consumes it
+      // today, and superjson strips non-index properties from an array over
+      // the wire, so an Object.assign(data, { total }) shim can never reach a
+      // real tRPC client. When E5 needs it, follow the wrapped-shape
+      // convention already used by server/routers/entregas/crud.ts and
+      // server/routers/persons/history.ts (`return { data, total }`).
       return data ?? [];
     }),
 
