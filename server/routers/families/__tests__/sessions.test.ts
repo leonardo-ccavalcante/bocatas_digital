@@ -57,7 +57,10 @@ function ctxWithRole(role: AuthenticatedUser["role"]): TrpcContext {
 // REAL constraint shape from the migration: a UNIQUE index on
 // (program_id, fecha, location_id) that only applies WHERE closed_at IS NULL.
 // This is deliberately not a generic chainable mock — it exists to prove the
-// partial index cannot catch an insert that already carries closed_at.
+// partial index cannot catch an insert that already carries closed_at. It also
+// mocks the pre-insert `select().eq(...).not("closed_at","is",null).maybeSingle()`
+// existence check the procedure now runs (MYT-136B fix), matching real
+// PostgREST filter-builder chaining (each call returns the same builder).
 let rows: Array<Record<string, unknown>> = [];
 
 function programSessionsFrom(table: string) {
@@ -65,6 +68,33 @@ function programSessionsFrom(table: string) {
     throw new Error(`unexpected table in this test: ${table}`);
   }
   return {
+    select: () => {
+      const filters: Record<string, unknown> = {};
+      let requireClosedNotNull = false;
+      const builder = {
+        eq: (col: string, val: unknown) => {
+          filters[col] = val;
+          return builder;
+        },
+        is: (col: string, val: unknown) => {
+          filters[col] = val;
+          return builder;
+        },
+        not: (col: string, _op: string, val: unknown) => {
+          if (col === "closed_at" && val === null) requireClosedNotNull = true;
+          return builder;
+        },
+        maybeSingle: () => {
+          const match = rows.find(
+            (r) =>
+              Object.entries(filters).every(([col, val]) => r[col] === val) &&
+              (!requireClosedNotNull || r.closed_at != null)
+          );
+          return Promise.resolve({ data: match ?? null, error: null });
+        },
+      };
+      return builder;
+    },
     insert: (payload: Record<string, unknown>) => ({
       select: () => ({
         single: () => {
