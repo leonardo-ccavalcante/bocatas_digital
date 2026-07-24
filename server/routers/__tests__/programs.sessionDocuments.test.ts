@@ -17,7 +17,7 @@
  * - enlaceExtractLessonPlan: valid token → returns texto
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { initTRPC } from "@trpc/server";
+import { initTRPC, TRPCError } from "@trpc/server";
 import { createAdminClient } from "../../../client/src/lib/supabase/server";
 import type { TrpcContext } from "../../_core/context";
 import { Logger } from "../../_core/logger";
@@ -533,6 +533,60 @@ describe("sessionDocumentsRouter — FIX 2: OCR base64Image size cap", () => {
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
 
     expect(mockInvokeLLM).not.toHaveBeenCalled();
+  });
+});
+
+// ─── MYT-136A — per-token/session rate limit on the public OCR endpoint ─────
+//
+// enlaceExtractLessonPlan is a publicProcedure (token-gated) that calls a paid
+// vision LLM. Today the only throttle is the Express-level 200 req/15min PER
+// IP limiter (server/_core/index.ts) — that limiter never runs inside this
+// resolver test (createCaller bypasses the HTTP/Express layer entirely), and
+// even in production a link-holder can rotate IPs to bypass it. There is NO
+// per-token/session counter anywhere in this resolver, so nothing here stops
+// unbounded LLM-cost amplification by a single link-holder. gh issue #136 item 1.
+describe("sessionDocumentsRouter — MYT-136A: per-token OCR rate limit", () => {
+  it("throttles repeated enlaceExtractLessonPlan calls on the SAME token with TOO_MANY_REQUESTS", async () => {
+    const { token, session } = await sessionWithToken(ID(1), ID(2));
+    mockDb({
+      programs: [{ id: ID(2), volunteer_can_access: true }],
+      program_sessions: [session],
+      session_documents: [],
+    });
+    mockInvokeLLM.mockResolvedValue({
+      choices: [{
+        index: 0, finish_reason: "stop",
+        message: { role: "assistant", content: "## Tema\nOK" },
+      }],
+    });
+
+    const { sessionDocumentsRouter } = await import("../programs.sessionDocuments");
+    const caller = t.createCallerFactory(sessionDocumentsRouter)(buildCtx(null));
+
+    // A legitimate teacher retakes a photo a handful of times at most; 50 rapid
+    // same-token invocations is well beyond any reasonable per-session cap and
+    // must be rejected before reaching the LLM call.
+    const ATTEMPTS = 50;
+    let tooManyRequestsSeen = false;
+    for (let i = 0; i < ATTEMPTS; i++) {
+      try {
+        await caller.enlaceExtractLessonPlan({
+          sessionId: ID(1), token,
+          base64Image: "aGVsbG8=", mimeType: "image/jpeg",
+        });
+      } catch (err) {
+        if (err instanceof TRPCError && err.code === "TOO_MANY_REQUESTS") {
+          tooManyRequestsSeen = true;
+          break;
+        }
+        throw err; // unexpected error shape — fail loudly, don't swallow
+      }
+    }
+
+    expect(tooManyRequestsSeen).toBe(true);
+    // Cost containment: the cap must stop calls BEFORE they reach the paid LLM,
+    // not just report the error after already having paid for the call.
+    expect(mockInvokeLLM.mock.calls.length).toBeLessThan(ATTEMPTS);
   });
 });
 
