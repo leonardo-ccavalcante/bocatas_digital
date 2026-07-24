@@ -284,6 +284,10 @@ export const programsRouter = router({
     .query(async ({ input }) => {
       const supabase = createAdminClient();
 
+      // MYT-136C sweep: `.is("persons.deleted_at", null)` filters the embedded
+      // persons!inner join itself (Art.17 RGPD — erased persons leave all
+      // reports); the plain `.is("deleted_at", null)` below only scopes
+      // program_enrollments rows, same defect shape as programs.listado.ts.
       let query = supabase
         .from("program_enrollments")
         .select(`
@@ -292,6 +296,7 @@ export const programsRouter = router({
         `, { count: "exact" })
         .eq("program_id", input.programId)
         .is("deleted_at", null)
+        .is("persons.deleted_at", null)
         .order("created_at", { ascending: false })
         .range(input.offset, input.offset + input.limit - 1);
 

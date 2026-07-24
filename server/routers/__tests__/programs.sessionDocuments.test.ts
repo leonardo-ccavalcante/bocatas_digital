@@ -17,7 +17,7 @@
  * - enlaceExtractLessonPlan: valid token → returns texto
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { initTRPC } from "@trpc/server";
+import { initTRPC, TRPCError } from "@trpc/server";
 import { createAdminClient } from "../../../client/src/lib/supabase/server";
 import type { TrpcContext } from "../../_core/context";
 import { Logger } from "../../_core/logger";
@@ -533,6 +533,130 @@ describe("sessionDocumentsRouter — FIX 2: OCR base64Image size cap", () => {
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
 
     expect(mockInvokeLLM).not.toHaveBeenCalled();
+  });
+});
+
+// ─── MYT-136A — per-token/session rate limit on the public OCR endpoint ─────
+//
+// enlaceExtractLessonPlan is a publicProcedure (token-gated) that calls a paid
+// vision LLM. Today the only throttle is the Express-level 200 req/15min PER
+// IP limiter (server/_core/index.ts) — that limiter never runs inside this
+// resolver test (createCaller bypasses the HTTP/Express layer entirely), and
+// even in production a link-holder can rotate IPs to bypass it. There is NO
+// per-token/session counter anywhere in this resolver, so nothing here stops
+// unbounded LLM-cost amplification by a single link-holder. gh issue #136 item 1.
+describe("sessionDocumentsRouter — MYT-136A: per-token OCR rate limit", () => {
+  it("throttles repeated enlaceExtractLessonPlan calls on the SAME token with TOO_MANY_REQUESTS", async () => {
+    const { token, session } = await sessionWithToken(ID(1), ID(2));
+    mockDb({
+      programs: [{ id: ID(2), volunteer_can_access: true }],
+      program_sessions: [session],
+      session_documents: [],
+    });
+    mockInvokeLLM.mockResolvedValue({
+      choices: [{
+        index: 0, finish_reason: "stop",
+        message: { role: "assistant", content: "## Tema\nOK" },
+      }],
+    });
+
+    const { sessionDocumentsRouter } = await import("../programs.sessionDocuments");
+    const caller = t.createCallerFactory(sessionDocumentsRouter)(buildCtx(null));
+
+    // A legitimate teacher retakes a photo a handful of times at most; 50 rapid
+    // same-token invocations is well beyond any reasonable per-session cap and
+    // must be rejected before reaching the LLM call.
+    const ATTEMPTS = 50;
+    let tooManyRequestsSeen = false;
+    for (let i = 0; i < ATTEMPTS; i++) {
+      try {
+        await caller.enlaceExtractLessonPlan({
+          sessionId: ID(1), token,
+          base64Image: "aGVsbG8=", mimeType: "image/jpeg",
+        });
+      } catch (err) {
+        if (err instanceof TRPCError && err.code === "TOO_MANY_REQUESTS") {
+          tooManyRequestsSeen = true;
+          break;
+        }
+        throw err; // unexpected error shape — fail loudly, don't swallow
+      }
+    }
+
+    expect(tooManyRequestsSeen).toBe(true);
+    // Cost containment: the cap must stop calls BEFORE they reach the paid LLM,
+    // not just report the error after already having paid for the call.
+    expect(mockInvokeLLM.mock.calls.length).toBeLessThan(ATTEMPTS);
+  });
+});
+
+// ─── MYT-136A follow-up — the rate-limit Map must not grow unboundedly ──────
+//
+// The original MYT-136A fix reset a matched entry's count/windowStart once its
+// window elapsed, but never deleted the entry itself: every DISTINCT
+// sessionId:token that ever called this endpoint left a permanent Map entry —
+// an unbounded, process-lifetime structure. This is the same anti-pattern the
+// SAME wave's MYT-136B follow-up (cd8020b) deliberately removed elsewhere,
+// noting at the time it was "the only module-level, unbounded-lifetime cache
+// in server/routers/". This test proves stale windows are now evicted (not
+// merely reset) so the Map stays bounded by currently-active windows.
+describe("sessionDocumentsRouter — MYT-136A follow-up: bounded rate-limit Map", () => {
+  it("evicts expired per-token windows instead of retaining them forever", async () => {
+    vi.useFakeTimers();
+    try {
+      const sessions = [];
+      for (let i = 0; i < 5; i++) {
+        sessions.push(await sessionWithToken(ID(20 + i), ID(2)));
+      }
+      mockDb({
+        programs: [{ id: ID(2), volunteer_can_access: true }],
+        program_sessions: sessions.map((s) => s.session),
+        session_documents: [],
+      });
+      mockInvokeLLM.mockResolvedValue({
+        choices: [{
+          index: 0, finish_reason: "stop",
+          message: { role: "assistant", content: "## Tema\nOK" },
+        }],
+      });
+
+      const { sessionDocumentsRouter, __ocrEnlaceRateLimitMapSizeForTest } =
+        await import("../programs.sessionDocuments");
+      const caller = t.createCallerFactory(sessionDocumentsRouter)(buildCtx(null));
+
+      // One call per distinct sessionId:token pair — each leaves a live entry.
+      for (let i = 0; i < 5; i++) {
+        await caller.enlaceExtractLessonPlan({
+          sessionId: ID(20 + i), token: sessions[i].token,
+          base64Image: "aGVsbG8=", mimeType: "image/jpeg",
+        });
+      }
+
+      // Advance past the 15-minute window (but within the 1h token expiry
+      // sessionWithToken sets), so all 5 entries above are now stale.
+      vi.advanceTimersByTime(15 * 60 * 1000 + 1);
+
+      // A single call from a brand-new 6th token triggers the prune pass.
+      const sixth = await sessionWithToken(ID(30), ID(2));
+      mockDb({
+        programs: [{ id: ID(2), volunteer_can_access: true }],
+        program_sessions: [...sessions.map((s) => s.session), sixth.session],
+        session_documents: [],
+      });
+      await caller.enlaceExtractLessonPlan({
+        sessionId: ID(30), token: sixth.token,
+        base64Image: "aGVsbG8=", mimeType: "image/jpeg",
+      });
+
+      // If stale entries were merely reset (not evicted), the Map would still
+      // hold one permanent entry per distinct token ever seen. The fix prunes
+      // every expired window on each call, so only the still-live 6th entry
+      // (and any entries from OTHER tests that are also still live, which
+      // there are none of at this point) should remain.
+      expect(__ocrEnlaceRateLimitMapSizeForTest()).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

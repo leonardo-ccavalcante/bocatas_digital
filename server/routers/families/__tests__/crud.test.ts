@@ -51,9 +51,10 @@ function ctxWithRole(role: AuthenticatedUser["role"]): TrpcContext {
   };
 }
 
-// getAll calls: from().select().is().[eq()...].order(). The terminus is
-// .order(), which the router awaits — so it resolves the result. eq() is
-// chainable and records its arguments so we can assert the distrito filter.
+// getAll calls: from().select().is().[eq()...].order().range(). The terminus
+// is .range() (MYT-80-ATL04 pagination cap), which the router awaits — so it
+// resolves the result. eq() is chainable and records its arguments so we can
+// assert the distrito filter.
 function mockGetAllChain() {
   const eq = vi.fn().mockReturnThis();
   const chain = {
@@ -61,7 +62,8 @@ function mockGetAllChain() {
     is: vi.fn().mockReturnThis(),
     eq,
     or: vi.fn().mockReturnThis(),
-    order: vi.fn(() => Promise.resolve({ data: [], error: null })),
+    order: vi.fn().mockReturnThis(),
+    range: vi.fn(() => Promise.resolve({ data: [], error: null, count: 0 })),
   };
   return { chain, eq };
 }

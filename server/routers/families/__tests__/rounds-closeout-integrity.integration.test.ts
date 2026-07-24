@@ -1,6 +1,6 @@
 /**
  * Integration test for #113 — reparto close-out attendance integrity, updated for
- * the carry-over redesign (ADR-0013, migration 20260723000001).
+ * the carry-over redesign (ADR-0016, migration 20260723000001).
  *
  * NEW model: closing a turno LOCKS that day's records only — it does NOT mark
  * pendientes as no-show; they stay `attended IS NULL` and roll forward, and a
@@ -76,7 +76,7 @@ describeDb("reparto close-out integrity (#113) — a closed turno is immutable",
     const { error: closeErr } = await db!.rpc("cerrar_turno", { p_slot_id: slotId, p_actor: "it-113" });
     expect(closeErr).toBeNull();
     const { data: afterClose } = await db!.from("delivery_round_assignments").select("attended").eq("id", assignmentId).single();
-    // Carry-over (ADR-0013): closing a turno does NOT no-show pendientes — they
+    // Carry-over (ADR-0016): closing a turno does NOT no-show pendientes — they
     // stay attended IS NULL and roll forward. Only close_round marks ausentes.
     expect(afterClose!.attended).toBeNull();
   });
