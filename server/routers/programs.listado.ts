@@ -43,12 +43,16 @@ export async function getListadoMensual(
     throw new TRPCError({ code: "NOT_FOUND", message: "Programa no encontrado" });
   }
 
-  // Enrollments whose [fecha_inicio, fecha_fin] window overlaps the month
+  // Enrollments whose [fecha_inicio, fecha_fin] window overlaps the month.
+  // `.is("persons.deleted_at", null)` filters the embedded persons!inner join
+  // itself (Art.17 RGPD — erased persons leave all reports); the plain
+  // `.is("deleted_at", null)` above only scopes program_enrollments rows.
   const { data: enrolls, error: enrollsError } = await supabase
     .from("program_enrollments")
     .select("id, estado, fecha_inicio, fecha_fin, persons!inner(id, nombre, apellidos)")
     .eq("program_id", programId)
     .is("deleted_at", null)
+    .is("persons.deleted_at", null)
     .lte("fecha_inicio", end)
     .or(`fecha_fin.is.null,fecha_fin.gte.${start}`);
   if (enrollsError) {

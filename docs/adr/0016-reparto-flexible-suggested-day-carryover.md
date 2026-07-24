@@ -1,4 +1,8 @@
-# ADR-0013 — Reparto suggested day is non-binding; no-shows carry over; the round marks ausentes at close
+# ADR-0016 — Reparto suggested day is non-binding; no-shows carry over; the round marks ausentes at close
+
+> **Renumbered from 0013 → 0016** (gh #136 item 4): originally shipped as a second
+> `0013` alongside the program-tree ADR (PR #125 vs #130). The program-tree ADR
+> (~20 code/doc references) keeps `0013`; this one moved to the next free number.
 
 - **Status:** Accepted (2026-07-23, Leo)
 - **Deciders:** Leo (Product/Tech Lead)
