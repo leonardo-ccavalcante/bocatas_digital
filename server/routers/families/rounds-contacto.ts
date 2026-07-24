@@ -3,6 +3,7 @@ import { router, adminProcedure } from "../../_core/trpc";
 import { createAdminClient } from "../../../client/src/lib/supabase/server";
 import type { Json } from "../../../client/src/lib/database.types";
 import { notifyRepartoChange } from "./reparto-notify";
+import { applyContactoOutcome } from "./contacto-outcome";
 import { RescheduleSchema, SetContactoFamiliaSchema } from "../../../shared/repartoSchemas";
 
 function fail(error: { message: string } | null): never {
@@ -88,19 +89,12 @@ export const roundsContactoRouter = router({
           throw new TRPCError({ code: "BAD_REQUEST", message: "Un día preferido no pertenece a esta ronda" });
       }
 
-      const { data, error } = await db
-        .from("delivery_round_assignments")
-        .update({
-          estado_contacto: input.estado_contacto,
-          preferred_slot_ids: preferred,
-          ...(isRenuncia ? {
-            attended: false,
-            attended_slot_id: null,
-            attended_at: new Date().toISOString(),
-            attended_by: String(ctx.user.id),
-          } : {}),
-        })
-        .eq("id", input.assignment_id)
+      const { data, error } = await applyContactoOutcome(db, {
+        assignmentId: input.assignment_id,
+        estado: input.estado_contacto,
+        preferredSlotIds: preferred,
+        actor: String(ctx.user.id),
+      })
         .select("id, estado_contacto, preferred_slot_ids, attended")
         .single();
       if (error) failWrite(error);
