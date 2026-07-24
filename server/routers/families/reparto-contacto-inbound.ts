@@ -9,6 +9,7 @@ import type { Request, Response } from "express";
 import { z } from "zod";
 import { createAdminClient } from "../../../client/src/lib/supabase/server";
 import type { Json } from "../../../client/src/lib/database.types";
+import { buildContactoOutcomeUpdate } from "./contacto-outcome";
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
@@ -79,21 +80,17 @@ export async function handleRepartoContactoInbound(req: Request, res: Response):
   }
 
   const estado = estado_contacto ?? "confirmada";
-  const isRenuncia = estado === "renuncia";
   const prevLog = Array.isArray(asg.reschedule_log) ? asg.reschedule_log : [];
   const logEntry = { source: "n8n", at: new Date().toISOString(), estado, preferred_dates: preferred_dates ?? [] };
 
-  // Match the manual setContactoFamilia write exactly: a renuncia CLEARS preferred
-  // slots (else the citación keeps printing the renounced family's old dates) and
-  // stamps attendance as absent.
+  // Shares the contacto-outcome write with the manual setContactoFamilia mutation
+  // (server/routers/families/contacto-outcome.ts) so a renuncia always clears
+  // preferred slots (else the citación keeps printing the renounced family's old
+  // dates) and stamps attendance as absent in exactly one place.
   const { error } = await db
     .from("delivery_round_assignments")
     .update({
-      estado_contacto: estado,
-      preferred_slot_ids: isRenuncia ? [] : preferredSlotIds,
-      ...(isRenuncia
-        ? { attended: false, attended_slot_id: null, attended_at: new Date().toISOString(), attended_by: "n8n" }
-        : {}),
+      ...buildContactoOutcomeUpdate({ estado, preferredSlotIds, actor: "n8n" }),
       reschedule_log: [...prevLog, logEntry] as unknown as Json,
     })
     .eq("id", asg.id);

@@ -56,7 +56,20 @@ export const ANNOUNCEMENT_TYPE_DESCRIPTIONS: Record<TipoAnnouncement, string> = 
 export const ANNOUNCEMENT_ROLES = ["superadmin", "admin", "voluntario", "beneficiario"] as const;
 export type AnnouncementRole = (typeof ANNOUNCEMENT_ROLES)[number];
 
-/** Programs enum values mirrored from the `programa` PostgreSQL enum. Used for DSL validation. */
+/**
+ * Programs enum values mirrored from the `programa` PostgreSQL ENUM type
+ * (migration 20260411081827) — NOT the same thing as the dynamic `programs`
+ * catalog TABLE added later by the program-tree feature (#130, ADR-0013).
+ * `announcement_audiences.programs` is still typed `programa[]` (verified:
+ * no `ALTER TYPE programa` / no column-type migration exists for that table),
+ * so this closed list is still what the DB will actually accept today —
+ * unlike `attendances.programa`, which WAS migrated off this enum to
+ * `text` + FK to `programs.slug` (see `20260520000001_capture_remaining_prod_state.sql`
+ * and `server/routers/checkin.schemas.ts`'s `ProgramaSlug`). Do NOT add/remove
+ * values here to "fix" MYT-131 (gh #131) without a matching migration that
+ * moves `announcement_audiences.programs` to the same text+catalog pattern —
+ * editing only this array would accept slugs the DB still rejects (42804).
+ */
 export const ANNOUNCEMENT_PROGRAMS = [
   "comedor",
   "familia",

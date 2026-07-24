@@ -9,6 +9,19 @@
  *   - Valid form calls add.mutateAsync and invokes onSaved with hojaId.
  *
  * Iron Law: these tests define the contract. Fix the component, never the test.
+ *
+ * MYT-132 (flaky in full suite, stable isolated): every `userEvent.setup()`
+ * call below passes `{ delay: null }`. user-event's default `delay: 0` still
+ * schedules a real `setTimeout` between each interaction step (keystroke /
+ * pointer stage) — see `wait()` in
+ * node_modules/@testing-library/user-event/dist/cjs/utils/misc/wait.js,
+ * which only skips the timer when `typeof delay !== 'number'`. Under
+ * full-suite load (many concurrent Vitest fork workers competing for CPU)
+ * those 0ms real timers are subject to OS scheduling jitter and can stall
+ * long enough to blow past assertion/test timing, while an isolated run has
+ * spare CPU and resolves them instantly. `delay: null` makes `wait()` a
+ * no-op, removing the real-timer dependency instead of papering over it with
+ * a bigger timeout or a retry.
  */
 
 import React from "react";
@@ -116,7 +129,9 @@ afterEach(() => {
 describe("NuevaIntervencionForm contract", () => {
   // 0 ──────────────────────────────────────────────────────────────────────────
   it("renders error state and retry/close buttons when startIntervention fails", async () => {
-    const user = userEvent.setup();
+    // delay: null — see MYT-132 note above; skips user-event's real setTimeout
+    // wait between interaction steps.
+    const user = userEvent.setup({ delay: null });
     const onCancel = vi.fn();
     const refetch = vi.fn().mockResolvedValue({});
 
@@ -251,7 +266,9 @@ describe("NuevaIntervencionForm contract", () => {
 
   // 4 ──────────────────────────────────────────────────────────────────────────
   it("shows error toast and does not call mutateAsync when tipoSlug is empty", async () => {
-    const user = userEvent.setup();
+    // delay: null — see MYT-132 note above; skips user-event's real setTimeout
+    // wait between interaction steps.
+    const user = userEvent.setup({ delay: null });
     const mutateAsync = vi.fn();
     mockStartUseQuery.mockReturnValue({ isLoading: false, data: startData });
     defaultAddMock(mutateAsync);
@@ -286,7 +303,9 @@ describe("NuevaIntervencionForm contract", () => {
 
   // 5 ──────────────────────────────────────────────────────────────────────────
   it("shows error toast and does not call mutateAsync when descripcion is empty", async () => {
-    const user = userEvent.setup();
+    // delay: null — see MYT-132 note above; skips user-event's real setTimeout
+    // wait between interaction steps.
+    const user = userEvent.setup({ delay: null });
     const mutateAsync = vi.fn();
     mockStartUseQuery.mockReturnValue({ isLoading: false, data: startData });
     defaultAddMock(mutateAsync);
@@ -314,7 +333,9 @@ describe("NuevaIntervencionForm contract", () => {
 
   // 6 ──────────────────────────────────────────────────────────────────────────
   it("calls mutateAsync with correct payload and invokes onSaved with hojaId", async () => {
-    const user = userEvent.setup();
+    // delay: null — see MYT-132 note above; skips user-event's real setTimeout
+    // wait between interaction steps.
+    const user = userEvent.setup({ delay: null });
     const hojaId = "hoja-abc";
     const mutateAsync = vi.fn().mockResolvedValue({ hojaId });
     mockStartUseQuery.mockReturnValue({ isLoading: false, data: startData });
@@ -384,7 +405,9 @@ describe("NuevaIntervencionForm contract", () => {
 
   // 7 ──────────────────────────────────────────────────────────────────────────
   it("renders 'Cancelar' button that calls onCancel", async () => {
-    const user = userEvent.setup();
+    // delay: null — see MYT-132 note above; skips user-event's real setTimeout
+    // wait between interaction steps.
+    const user = userEvent.setup({ delay: null });
     const onCancel = vi.fn();
     mockStartUseQuery.mockReturnValue({ isLoading: false, data: startData });
     defaultAddMock();
