@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, adminProcedure, voluntarioProcedure } from "../../_core/trpc";
 import { createAdminClient } from "../../../client/src/lib/supabase/server";
-import { hashClientIp } from "../../../shared/ipHash";
+import { resolveClientIpHash } from "../../../shared/ipHash";
 import { dataUrlToImageBuffer, sniffImage } from "../../../shared/imageIngest";
 import { RecordRepartoFirmaSchema } from "../../../shared/repartoSchemas";
 
@@ -61,13 +61,7 @@ export const roundsSignatureRouter = router({
       if (!kind) throw new TRPCError({ code: "BAD_REQUEST", message: "Formato de firma inválido" });
 
       // ── Hash client IP with the daily salt (minimisation — no raw IP stored) ──
-      const rawIp =
-        (ctx.req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ??
-        ctx.req.socket?.remoteAddress ??
-        null;
-      const { data: saltRow } = await db
-        .from("app_settings").select("value").eq("key", "ip_daily_salt").maybeSingle();
-      const ipHash = hashClientIp(rawIp, saltRow?.value ?? null);
+      const ipHash = await resolveClientIpHash(db, ctx.req);
 
       // ── Upload the bitmap (opaque path; upsert:false). A pre-existing object
       // means a retry — keep it and let the idempotent RPC reconcile. ──

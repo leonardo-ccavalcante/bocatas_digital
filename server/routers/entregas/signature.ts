@@ -2,7 +2,7 @@
 import { TRPCError } from "@trpc/server";
 import { voluntarioProcedure, router } from "../../_core/trpc";
 import { createAdminClient } from "../../../client/src/lib/supabase/server";
-import { hashClientIp } from "../../../shared/ipHash";
+import { resolveClientIpHash } from "../../../shared/ipHash";
 import { dataUrlToImageBuffer } from "../../../shared/imageIngest";
 import { RecordSignatureInputSchema } from "../../../client/src/features/families/schemas/signatureCapture";
 
@@ -47,20 +47,7 @@ export const signatureRouter = router({
       }
 
       // ── [2] Hash client IP ───────────────────────────────────────────────
-      const rawIp =
-        (ctx.req.headers["x-forwarded-for"] as string | undefined)
-          ?.split(",")[0]
-          ?.trim() ??
-        ctx.req.socket?.remoteAddress ??
-        null;
-
-      const { data: saltRow } = await db
-        .from("app_settings")
-        .select("value")
-        .eq("key", "ip_daily_salt")
-        .maybeSingle();
-
-      const clientIpHash = hashClientIp(rawIp, saltRow?.value ?? null);
+      const clientIpHash = await resolveClientIpHash(db, ctx.req);
 
       // ── [3] Upload signature to firmas-entregas bucket ───────────────────
       const today = new Date().toISOString().slice(0, 10);
