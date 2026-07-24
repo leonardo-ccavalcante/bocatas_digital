@@ -8,11 +8,17 @@
  * this is an unbounded payload — and FamiliasList.tsx renders it with a plain
  * .map() with no virtualization.
  *
- * Fix hint (retrocompatible): accept optional { limit, offset } input, apply
- * a generous default cap (e.g. 500) when omitted, and return a `total` exact
- * count alongside the page so pagination is possible without silently
- * truncating today's client (which ignores `total` and just consumes the
- * array, as it does today).
+ * Fix (retrocompatible): accept optional { limit, offset } input and apply a
+ * generous default cap (e.g. 500) when omitted, so the server never returns
+ * an unbounded payload again. The response stays a bare array — no `total`/
+ * exact count is added here: no caller consumes it today, and superjson (the
+ * app's actual tRPC transformer, server/_core/trpc.ts) strips non-index
+ * properties from arrays over the wire, so an Object.assign(data, { total })
+ * shim can never reach a real client (only an in-process createCaller test
+ * would see it — a false-green). Exact `total` is DEFERRED-E5; when needed,
+ * follow the wrapped-shape convention already used by
+ * server/routers/entregas/crud.ts and server/routers/persons/history.ts
+ * (`return { data, total }`) and migrate the callers together.
  *
  * Client wiring (FamiliasList.tsx / ProgramaDetalle.tsx) is OUT OF SCOPE here
  * — PROHIBITED per the wave-9 finding (E5 uncommitted work in repo/) and
@@ -120,13 +126,14 @@ describe("families.getAll — pagination contract (MYT-80-ATL04)", () => {
     expect(range).toHaveBeenCalledWith(20, 29);
   });
 
-  it("returns a `total` exact count alongside the page, not just a bare array", async () => {
+  it("returns a bare array (no `total` field) — exact count is DEFERRED-E5", async () => {
     const { chain } = mockGetAllChain({ data: [{ id: "f1" }], count: 137 });
     fromMock.mockReturnValueOnce(chain);
 
     const caller = crudRouter.createCaller(ctxAdmin());
     const result = await caller.getAll({});
 
-    expect((result as unknown as { total?: number }).total).toBe(137);
+    expect(Array.isArray(result)).toBe(true);
+    expect((result as unknown as { total?: number }).total).toBeUndefined();
   });
 });

@@ -52,8 +52,7 @@ export const crudRouter = router({
            persona_recoge, autorizado, alta_en_guf, fecha_alta_guf,
            informe_social, informe_social_fecha, guf_cutoff_day, guf_verified_at,
            created_at, deleted_at,
-           persons!titular_id(id, nombre, apellidos, telefono)`,
-          { count: "exact" }
+           persons!titular_id(id, nombre, apellidos, telefono)`
         )
         .is("deleted_at", null);
 
@@ -81,13 +80,16 @@ export const crudRouter = router({
       }
 
       const offset = input?.offset ?? 0;
-      const { data, error, count } = await query
+      const { data, error } = await query
         .order("familia_numero", { ascending: true }).range(offset, offset + (input?.limit ?? GETALL_DEFAULT_LIMIT) - 1);
       if (error) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
-      // Retrocompatible: existing callers consume this as a bare array
-      // (.map/.filter/.find) — attach `total` on the array itself instead of
-      // wrapping in { data, total } so no call site needs to change.
-      return Object.assign(data ?? [], { total: count ?? 0 });
+      // Exact `total` (count: "exact") is DEFERRED-E5: no caller consumes it
+      // today, and superjson strips non-index properties from an array over
+      // the wire, so an Object.assign(data, { total }) shim can never reach a
+      // real tRPC client. When E5 needs it, follow the wrapped-shape
+      // convention already used by server/routers/entregas/crud.ts and
+      // server/routers/persons/history.ts (`return { data, total }`).
+      return data ?? [];
     }),
 
   // ─── Job 1: Family Detail ────────────────────────────────────────────────
