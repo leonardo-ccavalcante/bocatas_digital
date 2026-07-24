@@ -27,7 +27,8 @@ const describeDb = getRealSupabaseDescribe();
 const PROGRAM = "0be9a17e-0000-4000-8000-000000000001";
 const FAM_A = "0be9a17e-0000-4000-8000-00000000000a"; // size 1 (smaller)
 const FAM_B = "0be9a17e-0000-4000-8000-00000000000b"; // size 3 (larger)
-const SIGNER = "0be9a17e-0000-4000-8000-00000000000e";
+const SIGNER = "0be9a17e-0000-4000-8000-00000000000e"; // member of FAM_A and FAM_B
+const MEMBER_B2 = "0be9a17e-0000-4000-8000-00000000000f"; // a SECOND member of FAM_B
 const ROUND = "0be9a17e-0000-4000-8000-000000000010";
 const SLOT1 = "0be9a17e-0000-4000-8000-000000000021"; // day 1
 const SLOT2 = "0be9a17e-0000-4000-8000-000000000022"; // day 2
@@ -47,7 +48,19 @@ async function seed() {
     { id: FAM_A, familia_numero: 90001, estado: "activa", num_adultos: 1, num_menores_18: 0 },
     { id: FAM_B, familia_numero: 90002, estado: "activa", num_adultos: 2, num_menores_18: 1 },
   ]);
-  await db!.from("persons").upsert({ id: SIGNER, nombre: "Firmante", apellidos: "IT" });
+  await db!.from("persons").upsert([
+    { id: SIGNER, nombre: "Firmante", apellidos: "IT" },
+    { id: MEMBER_B2, nombre: "Firmante Dos", apellidos: "IT" },
+  ]);
+  // familia_miembros links exercised by the DB-level firmante_ajeno guard added in
+  // record_reparto_pickup (MYT-129A): the signer must be a non-deleted member of the
+  // assignment's family. SIGNER belongs to both families; MEMBER_B2 is a second FAM_B
+  // member so the firma_conflicto branch (different signer, same assignment) is reachable.
+  await db!.from("familia_miembros").upsert([
+    { id: "0be9a17e-0000-4000-8000-000000000041", familia_id: FAM_A, person_id: SIGNER, nombre: "Firmante", rol: "titular", deleted_at: null },
+    { id: "0be9a17e-0000-4000-8000-000000000042", familia_id: FAM_B, person_id: SIGNER, nombre: "Firmante", rol: "titular", deleted_at: null },
+    { id: "0be9a17e-0000-4000-8000-000000000043", familia_id: FAM_B, person_id: MEMBER_B2, nombre: "Firmante Dos", rol: "dependent", deleted_at: null },
+  ]);
   await db!.from("delivery_rounds").upsert({
     id: ROUND, program_id: PROGRAM, nombre: "R-IT", fecha_inicio: "2026-08-01", estado: "activa", creado_por: "1",
   });
@@ -64,8 +77,8 @@ async function seed() {
 async function cleanup() {
   if (!db) return;
   await db.from("delivery_rounds").delete().eq("id", ROUND); // cascades slots/assignments/audit
-  await db.from("families").delete().in("id", [FAM_A, FAM_B]);
-  await db.from("persons").delete().eq("id", SIGNER);
+  await db.from("families").delete().in("id", [FAM_A, FAM_B]); // cascades familia_miembros
+  await db.from("persons").delete().in("id", [SIGNER, MEMBER_B2]);
   await db.from("programs").delete().eq("id", PROGRAM);
 }
 
@@ -157,9 +170,11 @@ describeDb("reparto carry-over + close + signature (RPC/trigger integrity)", () 
     expect(retry.error).toBeNull();
     expect((retry.data as Array<{ audit_id: string }>)[0].audit_id).toBe(firstId); // idempotent
 
-    // A DIFFERENT signer on the already-signed pickup is a real conflict.
+    // A DIFFERENT signer on the already-signed pickup is a real conflict. The signer
+    // must still belong to FAM_B (MEMBER_B2) — otherwise the firmante_ajeno guard fires
+    // first and the firma_conflicto branch under test is never reached.
     const conflict = await db!.rpc("record_reparto_pickup", {
-      p_assignment_id: ASG_B, p_slot_id: SLOT2, p_signer_person_id: FAM_A /* any other person id */,
+      p_assignment_id: ASG_B, p_slot_id: SLOT2, p_signer_person_id: MEMBER_B2,
       p_storage_path: "repartos/it/b3.png", p_ip_hash: null, p_actor: "1",
     });
     expect(conflict.error).not.toBeNull();
