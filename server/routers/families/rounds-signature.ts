@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { router, adminProcedure, voluntarioProcedure } from "../../_core/trpc";
 import { createAdminClient } from "../../../client/src/lib/supabase/server";
 import { hashClientIp } from "../../../shared/ipHash";
+import { dataUrlToImageBuffer, sniffImage } from "../../../shared/imageIngest";
 import { RecordRepartoFirmaSchema } from "../../../shared/repartoSchemas";
 
 const uuid = z.string().uuid();
@@ -17,13 +18,6 @@ function assertFirmaEnabled() {
       code: "PRECONDITION_FAILED",
       message: "La firma digital no está habilitada",
     });
-}
-
-// Defence-in-depth over the Zod dataURL regex: check the real decoded bytes.
-function sniffImage(buffer: Buffer): "png" | "jpeg" | null {
-  if (buffer.length >= 4 && buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) return "png";
-  if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) return "jpeg";
-  return null;
 }
 
 export const roundsSignatureRouter = router({
@@ -62,8 +56,7 @@ export const roundsSignatureRouter = router({
         throw new TRPCError({ code: "FORBIDDEN", message: "El firmante no pertenece a esta familia" });
 
       // ── Decode + validate the bytes (magic bytes, not just the MIME prefix) ──
-      const base64 = input.signature_data_url.replace(/^data:image\/\w+;base64,/, "");
-      const buffer = Buffer.from(base64, "base64");
+      const buffer = dataUrlToImageBuffer(input.signature_data_url);
       const kind = sniffImage(buffer);
       if (!kind) throw new TRPCError({ code: "BAD_REQUEST", message: "Formato de firma inválido" });
 

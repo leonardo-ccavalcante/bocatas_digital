@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { voluntarioProcedure, router } from "../../_core/trpc";
 import { createAdminClient } from "../../../client/src/lib/supabase/server";
 import { hashClientIp } from "../../../shared/ipHash";
+import { dataUrlToImageBuffer } from "../../../shared/imageIngest";
 import { RecordSignatureInputSchema } from "../../../client/src/features/families/schemas/signatureCapture";
 
 export const signatureRouter = router({
@@ -65,11 +66,7 @@ export const signatureRouter = router({
       const today = new Date().toISOString().slice(0, 10);
       const storagePath = `firmas-entregas/${input.deliveryId}/${today}.png`;
 
-      const base64Data = input.signatureDataUrl.replace(
-        /^data:image\/\w+;base64,/,
-        ""
-      );
-      const buffer = Buffer.from(base64Data, "base64");
+      const buffer = dataUrlToImageBuffer(input.signatureDataUrl);
 
       const { error: uploadErr } = await db.storage
         .from("firmas-entregas")
