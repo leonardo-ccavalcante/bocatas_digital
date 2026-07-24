@@ -19,15 +19,36 @@ import {
 
 export const OCRResultSchema = z.object({
   success: z.boolean(),
+  // MYT-135A: fields are `.nullish()` (string | null | undefined). server/routers/
+  // ocr.ts instructs the LLM to emit per-field `null` for illegible/absent fields
+  // ("use null for missing") and marks every field `type: ["string", "null"]`.
+  // With `.optional()` (which rejects `null`) a SINGLE null field — e.g. an
+  // unreadable country code on a worn/foreign document scanned on a low-end
+  // Android — failed the whole `data` parse, so the resolver discarded every
+  // correctly-extracted field and returned `{ success:false, data:{} }`.
+  // `.nullish()` keeps the good fields; consumers already guard with truthy
+  // checks (`if (data.x)`), so `null` maps to "not set" as intended.
   data: z.object({
-    nombre: z.string().max(100).optional(),
-    apellidos: z.string().max(150).optional(),
-    fecha_nacimiento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    nombre: z.string().max(100).nullish(),
+    apellidos: z.string().max(150).nullish(),
+    fecha_nacimiento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullish(),
     // OCR returns lowercase values from LLM — use OcrTipoDocumentoSchema
-    tipo_documento: OcrTipoDocumentoSchema.optional(),
-    numero_documento: z.string().max(30).optional(),
-    pais_origen: z.string().optional(), // OCR may return full name — mapped to ISO-2 before insert
-    pais_documento: z.string().length(2).optional(), // ISO 3166-1 alpha-2 country code of document origin
+    tipo_documento: OcrTipoDocumentoSchema.nullish(),
+    numero_documento: z.string().max(30).nullish(),
+    pais_origen: z.string().nullish(), // OCR may return full name — mapped to ISO-2 before insert
+    pais_documento: z.string().length(2).nullish(), // ISO 3166-1 alpha-2 country code of document origin
+    // Emitted by the OCR LLM (ocr.ts genero enum) — key declared here so it
+    // survives the parse; MYT-135B maps it into the registration form.
+    // `.nullish().catch(undefined)`: ocr.ts:93 sends `strict:false`, so the API
+    // does NOT enforce the enum — the LLM can return a non-canonical genero
+    // ('Masculino', 'male'). A bare `GeneroSchema.nullish()` would reject those
+    // and fail the WHOLE `data` parse (the exact MYT-135A bug class), discarding
+    // every other extracted field. `.catch(undefined)` coerces any off-enum
+    // value to undefined ("not set") while passing canonical values (and
+    // null/undefined) through, so one bad genero never nukes the good fields.
+    // (Order matters: `.catch` must wrap the nullish schema so `undefined`
+    // typechecks as the fallback for zod's enum `.catch`.)
+    genero: GeneroSchema.nullish().catch(undefined),
   }),
 });
 
