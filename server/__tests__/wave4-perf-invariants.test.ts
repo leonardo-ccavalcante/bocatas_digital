@@ -57,4 +57,28 @@ describe("Wave 4 perf invariants", () => {
     // Placeholders inside comments are fine; a real tag attribute is not.
     expect(src).not.toMatch(/src="%VITE_/);
   });
+
+  // MYTHOS: MYT-80-ATL01
+  // Regression guard, NOT a RED test: this finding (QRScanner statically
+  // bundled into /checkin's initial chunk, 348KB gzip) was already fixed on
+  // origin/main by 735cf77 ("perf(wave-4) ... Lighthouse gate re-armed
+  // (ATL-01/02/06/07)", PR #103, 2026-06-12) — an ancestor of this branch's
+  // HEAD (`git merge-base --is-ancestor 735cf77 HEAD` succeeds). Re-verified
+  // at HEAD via `pnpm build`: QRScanner ships as its own chunk
+  // (assets/QRScanner-*.js, 137.53KB / 49.40KB gzip) referenced only through
+  // Vite's `__vite__mapDeps` dynamic-import map inside the CheckIn chunk, and
+  // is absent from index.html's <link rel="modulepreload"> list. This
+  // assertion pins CheckIn.tsx's `lazy()` wrapper so a future edit can't
+  // silently revert to a static import (the gap wave4-perf-invariants.test.ts
+  // left: it covered ATL-01/02/06/07 config invariants but never asserted
+  // the QRScanner lazy-boundary itself).
+  it("CheckIn.tsx lazy-loads QRScanner, not a static/eager import", () => {
+    const src = read("client/src/pages/CheckIn.tsx");
+    expect(src).not.toMatch(
+      /^import\s*\{\s*QRScanner\s*\}\s*from\s*["']@\/features\/checkin\/components\/QRScanner["'];?/m
+    );
+    expect(src).toMatch(
+      /const QRScanner = lazy\(\(\) =>\s*\n\s*import\("@\/features\/checkin\/components\/QRScanner"\)/
+    );
+  });
 });
