@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Eye } from "lucide-react";
 import { toast } from "sonner";
+import { PERSONS_DIRECTORY_FULL_LIMIT } from "@/features/persons/constants";
 
 const ROLE_LABELS: Record<string, string> = {
   user: "Usuario",
@@ -32,11 +33,15 @@ export function PersonsTable() {
   const isAdmin = user?.role === "admin" || user?.role === "superadmin";
 
   // MYT-80-ATL03: getAll now returns a bounded, server-paginated page
-  // ({ data, total }) instead of the full table — see server/routers/persons/crud.ts.
-  // staleTime avoids re-fetching this admin-only management table on every
+  // ({ data, total }) instead of an unbounded fetch — see
+  // server/routers/persons/crud.ts. This table manages role/fase over the
+  // FULL person set (not a paginated UI), so it explicitly requests
+  // PERSONS_DIRECTORY_FULL_LIMIT rows rather than the server's bounded
+  // default, which would silently drop everyone past the cutoff from role
+  // management. staleTime avoids re-fetching this admin-only table on every
   // focus/mount within the same minute.
   const { data: getAllResponse, isLoading, error } = trpc.persons.getAll.useQuery(
-    undefined,
+    { limit: PERSONS_DIRECTORY_FULL_LIMIT },
     { staleTime: 60_000 }
   );
   const persons = getAllResponse?.data ?? [];

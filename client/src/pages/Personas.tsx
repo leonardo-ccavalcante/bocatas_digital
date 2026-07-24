@@ -34,6 +34,7 @@ import { Loader2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { usePersonsData } from "@/pages/Personas.hooks";
 import { VirtualizedDesktopList, VirtualizedMobileList } from "@/pages/Personas.lists";
+import { PERSONS_DIRECTORY_FULL_LIMIT } from "@/features/persons/constants";
 import type { BocatasRole } from "@/components/layout/ProtectedRoute";
 import type { EstadoFilter, SortBy } from "@/features/persons/components/PersonsFilterBar";
 
@@ -113,11 +114,17 @@ export default function Personas() {
   // ── Data fetching ─────────────────────────────────────────────────────────
   // Admin path: getAll + client-side filter.
   // MYT-80-ATL03: getAll is now server-paginated ({ data, total }) instead of
-  // returning the full table (707+ rows and growing) on every call — see
-  // server/routers/persons/crud.ts. staleTime avoids re-fetching on every
-  // focus/mount within the same minute.
+  // an unbounded fetch — see server/routers/persons/crud.ts. This page
+  // filters/counts/searches over the FULL person set client-side (not a
+  // paginated UI — see Personas.hooks.ts usePersonsData), so it explicitly requests
+  // PERSONS_DIRECTORY_FULL_LIMIT rows rather than relying on the server's
+  // bounded default, which would silently truncate the directory. staleTime
+  // avoids re-fetching on every focus/mount within the same minute.
   const { data: getAllResponse, isLoading: loadingAll } =
-    trpc.persons.getAll.useQuery(undefined, { enabled: isAdmin, staleTime: 60_000 });
+    trpc.persons.getAll.useQuery(
+      { limit: PERSONS_DIRECTORY_FULL_LIMIT },
+      { enabled: isAdmin, staleTime: 60_000 }
+    );
   const allPersons = getAllResponse?.data ?? [];
 
   // Non-admin path: search query (requires ≥2 chars)
