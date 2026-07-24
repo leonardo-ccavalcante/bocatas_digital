@@ -51,6 +51,19 @@ const MAX_OCR_BASE64_CHARS = 2_097_152; // ceil(1.5 * 1024 * 1024 * 4 / 3)
 // (server/_core/index.ts), which a link-holder can bypass by rotating IPs.
 // This in-memory fixed-window counter is keyed by sessionId+token (not IP),
 // so cost is capped per-enlace regardless of source IP.
+//
+// Reconciles MYT-136B (cd8020b, server/routers/families/sessions.ts): that
+// follow-up deleted `lastClosedSessionByKey`, at the time noting it was "the
+// only module-level, unbounded-lifetime cache in server/routers/". This Map
+// reintroduces one — but unlike that removed cache, assertEnlaceOcrRateLimit()
+// below prunes every expired window on each call (see the loop at its top),
+// so an entry survives only while its 15-min window is still live: the Map's
+// size is bounded by the count of CURRENTLY ACTIVE enlace-token windows, not
+// by the all-time count of links ever used. Same in-process/no-replica caveat
+// as the removed 136B cache (a restart or a different replica starts a fresh
+// counter) — acceptable here because the failure mode is under-limiting one
+// link-holder's counter, not a memory leak; the primary defenses (per-IP
+// Express limiter + the short-lived enlace token itself) are unaffected.
 const OCR_ENLACE_RATE_LIMIT_MAX = 10;
 const OCR_ENLACE_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 const ocrEnlaceRateLimits = new Map<string, { count: number; windowStart: number }>();
@@ -58,8 +71,17 @@ const ocrEnlaceRateLimits = new Map<string, { count: number; windowStart: number
 function assertEnlaceOcrRateLimit(sessionId: string, token: string): void {
   const key = `${sessionId}:${token}`;
   const now = Date.now();
+
+  // Prune expired windows before reading/writing so the Map never retains a
+  // permanent entry for a token whose window has long since elapsed.
+  for (const [existingKey, entry] of ocrEnlaceRateLimits) {
+    if (now - entry.windowStart >= OCR_ENLACE_RATE_LIMIT_WINDOW_MS) {
+      ocrEnlaceRateLimits.delete(existingKey);
+    }
+  }
+
   const existing = ocrEnlaceRateLimits.get(key);
-  if (!existing || now - existing.windowStart >= OCR_ENLACE_RATE_LIMIT_WINDOW_MS) {
+  if (!existing) {
     ocrEnlaceRateLimits.set(key, { count: 1, windowStart: now });
     return;
   }
@@ -70,6 +92,13 @@ function assertEnlaceOcrRateLimit(sessionId: string, token: string): void {
     });
   }
   existing.count += 1;
+}
+
+// Test-only seam: exposes the rate-limit Map's current size so tests can
+// assert the pruning behavior above without reaching into module internals.
+// Never used by application code.
+export function __ocrEnlaceRateLimitMapSizeForTest(): number {
+  return ocrEnlaceRateLimits.size;
 }
 
 const MIME_TO_EXT: Record<string, string> = {

@@ -590,6 +590,76 @@ describe("sessionDocumentsRouter — MYT-136A: per-token OCR rate limit", () => 
   });
 });
 
+// ─── MYT-136A follow-up — the rate-limit Map must not grow unboundedly ──────
+//
+// The original MYT-136A fix reset a matched entry's count/windowStart once its
+// window elapsed, but never deleted the entry itself: every DISTINCT
+// sessionId:token that ever called this endpoint left a permanent Map entry —
+// an unbounded, process-lifetime structure. This is the same anti-pattern the
+// SAME wave's MYT-136B follow-up (cd8020b) deliberately removed elsewhere,
+// noting at the time it was "the only module-level, unbounded-lifetime cache
+// in server/routers/". This test proves stale windows are now evicted (not
+// merely reset) so the Map stays bounded by currently-active windows.
+describe("sessionDocumentsRouter — MYT-136A follow-up: bounded rate-limit Map", () => {
+  it("evicts expired per-token windows instead of retaining them forever", async () => {
+    vi.useFakeTimers();
+    try {
+      const sessions = [];
+      for (let i = 0; i < 5; i++) {
+        sessions.push(await sessionWithToken(ID(20 + i), ID(2)));
+      }
+      mockDb({
+        programs: [{ id: ID(2), volunteer_can_access: true }],
+        program_sessions: sessions.map((s) => s.session),
+        session_documents: [],
+      });
+      mockInvokeLLM.mockResolvedValue({
+        choices: [{
+          index: 0, finish_reason: "stop",
+          message: { role: "assistant", content: "## Tema\nOK" },
+        }],
+      });
+
+      const { sessionDocumentsRouter, __ocrEnlaceRateLimitMapSizeForTest } =
+        await import("../programs.sessionDocuments");
+      const caller = t.createCallerFactory(sessionDocumentsRouter)(buildCtx(null));
+
+      // One call per distinct sessionId:token pair — each leaves a live entry.
+      for (let i = 0; i < 5; i++) {
+        await caller.enlaceExtractLessonPlan({
+          sessionId: ID(20 + i), token: sessions[i].token,
+          base64Image: "aGVsbG8=", mimeType: "image/jpeg",
+        });
+      }
+
+      // Advance past the 15-minute window (but within the 1h token expiry
+      // sessionWithToken sets), so all 5 entries above are now stale.
+      vi.advanceTimersByTime(15 * 60 * 1000 + 1);
+
+      // A single call from a brand-new 6th token triggers the prune pass.
+      const sixth = await sessionWithToken(ID(30), ID(2));
+      mockDb({
+        programs: [{ id: ID(2), volunteer_can_access: true }],
+        program_sessions: [...sessions.map((s) => s.session), sixth.session],
+        session_documents: [],
+      });
+      await caller.enlaceExtractLessonPlan({
+        sessionId: ID(30), token: sixth.token,
+        base64Image: "aGVsbG8=", mimeType: "image/jpeg",
+      });
+
+      // If stale entries were merely reset (not evicted), the Map would still
+      // hold one permanent entry per distinct token ever seen. The fix prunes
+      // every expired window on each call, so only the still-live 6th entry
+      // (and any entries from OTHER tests that are also still live, which
+      // there are none of at this point) should remain.
+      expect(__ocrEnlaceRateLimitMapSizeForTest()).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
 // ─── FIX 4 — Android octet-stream / empty mime fallback ──────────────────────
 
 describe("sessionDocumentsRouter — FIX 4: server-side mime inference from filename", () => {
