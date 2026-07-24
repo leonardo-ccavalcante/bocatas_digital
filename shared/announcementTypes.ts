@@ -81,40 +81,6 @@ export const ANNOUNCEMENT_PROGRAMS = [
 export type AnnouncementProgram = (typeof ANNOUNCEMENT_PROGRAMS)[number];
 
 /**
- * Format-only rule for a dynamic `programs.slug` value (mirrors
- * `server/routers/programs.ts`'s `slugSchema` and `checkin.schemas.ts`'s
- * `ProgramaSlug` — the pattern the check-in fix used for #130). NOT yet wired
- * to any enforcement point for announcements: existence-checking still needs
- * the `announcement_audiences.programs` migration described above (MYT-131
- * follow-up, schema-agent lane). Consumers must not treat format-validity
- * alone as proof a program exists.
- */
-export const ANNOUNCEMENT_PROGRAM_SLUG_REGEX = /^[a-z0-9_]+$/;
-
-export function isValidAnnouncementProgramSlugFormat(slug: string): boolean {
-  return ANNOUNCEMENT_PROGRAM_SLUG_REGEX.test(slug);
-}
-
-/**
- * `programs.slug` 'familia' was renamed to 'programa_familias' by migration
- * 20260507000002 — but that rename only touched the dynamic `programs`
- * catalog table, not the `programa` enum (still has 'familia' as a member,
- * see above). Historical announcements created before the rename may carry
- * the dead slug in their audience rules; any code resolving a program slug to
- * a display name / catalog row for READING/rendering an existing announcement
- * must alias it through this map first so old audiences don't render broken.
- * Never use this map to accept 'familia' as a valid choice for NEW writes.
- */
-export const ANNOUNCEMENT_PROGRAM_LEGACY_SLUG_ALIASES: Readonly<Record<string, string>> = {
-  familia: "programa_familias",
-};
-
-/** Read-time-only resolution of a possibly-legacy program slug to its current equivalent. */
-export function resolveAnnouncementProgramSlug(slug: string): string {
-  return ANNOUNCEMENT_PROGRAM_LEGACY_SLUG_ALIASES[slug] ?? slug;
-}
-
-/**
  * One audience targeting rule. Empty `roles` = "any role"; empty `programs` = "any program".
  * A user matches the rule when:
  *   (cardinality(roles)=0 OR userRole IN roles)
