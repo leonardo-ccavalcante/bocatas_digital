@@ -163,4 +163,17 @@ describe("families sessionsRouter.closeSession — MYT-136B duplicate closed ses
     // and the L34 catch("23505") can never trigger for an already-closed insert.
     expect(closedForKey.length).toBe(1);
   });
+
+  // MYT-136B — KNOWN RESIDUAL (concurrency, P3). The SELECT-then-INSERT dedupe is
+  // NOT atomic: the test above proves the SERIAL case (second call sees the first
+  // call's committed row), which is the common one (double-click / retry). Two
+  // TRULY SIMULTANEOUS requests can both pass the pre-insert SELECT before either
+  // INSERT commits (TOCTOU) → two closed rows. Closing that needs a DB-level TOTAL
+  // unique constraint on (program_id, fecha, location_id) covering closed rows,
+  // deferred pending a prod duplicate audit (see sessions.ts header + #136 item 2).
+  // Left as it.todo — not silently skipped — because it can only be exercised
+  // against real concurrent Postgres, which this in-memory harness cannot stage.
+  it.todo(
+    "does not leave two closed sessions under TWO CONCURRENT closeSession calls (needs DB total-unique constraint; requires real Postgres)"
+  );
 });

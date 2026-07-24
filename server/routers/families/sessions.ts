@@ -11,14 +11,23 @@ import { uuidLike, programIdSchema } from "./_shared";
  * for rows that are themselves open. closeSession always inserts a row that is
  * ALREADY closed (`closed_at` set at insert time, L below), so it never
  * participates in that index and the constraint can never reject a duplicate
- * closed row for the same (program_id, fecha, location_id). A DB-level total
- * constraint would close this properly, but adding one requires auditing prod for
- * preexisting duplicates first (no agent DB access) — see the issue. Dedupe is
- * therefore enforced with the house SELECT-then-INSERT pattern instead (mirrors
+ * closed row for the same (program_id, fecha, location_id).
+ *
+ * Dedupe is enforced with the house SELECT-then-INSERT pattern (mirrors
  * server/routers/programs.sessions.ts ADR-0007/0013 and
- * server/routers/families/rounds-closeout.ts / rounds-signature.ts): a pre-insert
- * read for an existing closed row is a real DB check, so — unlike a process-local
- * cache — it also holds across concurrent requests, replicas, and restarts.
+ * server/routers/families/rounds-closeout.ts / rounds-signature.ts). Because the
+ * pre-insert read is a real DB query (not a process-local cache), it holds across
+ * replicas and restarts.
+ *
+ * KNOWN RESIDUAL (P3, honest scope): this is a read-then-write check, NOT atomic.
+ * It fully covers the common case — a SERIAL double-submit (double-click, client
+ * retry, at-least-once webhook redelivery), where the second call's SELECT sees
+ * the first call's committed row. It does NOT close the TOCTOU window for two
+ * TRULY SIMULTANEOUS requests: both can pass `.maybeSingle()` before either INSERT
+ * commits, yielding two closed rows. Fully closing that requires a DB-level TOTAL
+ * unique constraint on (program_id, fecha, location_id) covering closed rows —
+ * deferred because applying it first needs a prod audit for preexisting duplicates
+ * (no agent DB access; see the issue). Tracked as a follow-up on #136 item 2.
  */
 export const sessionsRouter = router({
   // ─── Job 10: Session Close ───────────────────────────────────────────────
