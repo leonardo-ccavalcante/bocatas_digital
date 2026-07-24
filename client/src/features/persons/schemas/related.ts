@@ -39,7 +39,16 @@ export const OCRResultSchema = z.object({
     pais_documento: z.string().length(2).nullish(), // ISO 3166-1 alpha-2 country code of document origin
     // Emitted by the OCR LLM (ocr.ts genero enum) — key declared here so it
     // survives the parse; MYT-135B maps it into the registration form.
-    genero: GeneroSchema.nullish(),
+    // `.nullish().catch(undefined)`: ocr.ts:93 sends `strict:false`, so the API
+    // does NOT enforce the enum — the LLM can return a non-canonical genero
+    // ('Masculino', 'male'). A bare `GeneroSchema.nullish()` would reject those
+    // and fail the WHOLE `data` parse (the exact MYT-135A bug class), discarding
+    // every other extracted field. `.catch(undefined)` coerces any off-enum
+    // value to undefined ("not set") while passing canonical values (and
+    // null/undefined) through, so one bad genero never nukes the good fields.
+    // (Order matters: `.catch` must wrap the nullish schema so `undefined`
+    // typechecks as the fallback for zod's enum `.catch`.)
+    genero: GeneroSchema.nullish().catch(undefined),
   }),
 });
 

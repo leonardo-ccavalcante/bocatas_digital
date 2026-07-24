@@ -47,4 +47,40 @@ describe("OCRResultSchema — MYT-135A null-field tolerance", () => {
       expect(result.data.data.pais_origen).toBe("MA");
     }
   });
+
+  it("does NOT let a non-canonical genero from the LLM invalidate the 6 good fields", () => {
+    // ocr.ts:93 sends `strict:false`, so the API does not enforce the genero
+    // enum: the LLM can legitimately return a title-cased or English value
+    // ('Masculino', 'male') that is NOT one of the DB enum members. A strict
+    // `GeneroSchema.nullish()` would reject it and fail the WHOLE `data` parse —
+    // reintroducing the MYT-135A bug through the added `genero` key. `.catch(
+    // undefined)` must coerce the off-enum value to undefined and keep the rest.
+    const llmLikeResponse = {
+      success: true,
+      data: {
+        nombre: "Fatima",
+        apellidos: "El Amrani",
+        fecha_nacimiento: "1990-05-12",
+        tipo_documento: "documento_extranjero",
+        numero_documento: "AB123456",
+        pais_origen: "MA",
+        pais_documento: "MA",
+        genero: "Masculino", // off-enum casing the LLM may emit
+      },
+    };
+
+    const result = OCRResultSchema.safeParse(llmLikeResponse);
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      // The off-enum genero is dropped to undefined (not set)…
+      expect(result.data.data.genero).toBeUndefined();
+      // …while every correctly-extracted field survives.
+      expect(result.data.data.nombre).toBe("Fatima");
+      expect(result.data.data.apellidos).toBe("El Amrani");
+      expect(result.data.data.numero_documento).toBe("AB123456");
+      expect(result.data.data.pais_origen).toBe("MA");
+      expect(result.data.data.pais_documento).toBe("MA");
+    }
+  });
 });
