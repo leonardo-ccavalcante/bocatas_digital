@@ -9,14 +9,13 @@
 // the other.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "../../../client/src/lib/database.types";
+import type { EstadoContacto } from "../../../shared/repartoSchemas";
 
 type AssignmentsUpdate = Database["public"]["Tables"]["delivery_round_assignments"]["Update"];
 
-export type ContactoEstado = "pendiente" | "confirmada" | "no_contesta" | "reprogramada" | "renuncia";
-
 export interface ContactoOutcomeInput {
   assignmentId: string;
-  estado: ContactoEstado;
+  estado: EstadoContacto;
   preferredSlotIds: string[];
   actor: string;
 }
