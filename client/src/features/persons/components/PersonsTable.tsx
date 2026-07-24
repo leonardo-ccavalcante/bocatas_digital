@@ -31,7 +31,15 @@ export function PersonsTable() {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin" || user?.role === "superadmin";
 
-  const { data: persons = [], isLoading, error } = trpc.persons.getAll.useQuery();
+  // MYT-80-ATL03: getAll now returns a bounded, server-paginated page
+  // ({ data, total }) instead of the full table — see server/routers/persons/crud.ts.
+  // staleTime avoids re-fetching this admin-only management table on every
+  // focus/mount within the same minute.
+  const { data: getAllResponse, isLoading, error } = trpc.persons.getAll.useQuery(
+    undefined,
+    { staleTime: 60_000 }
+  );
+  const persons = getAllResponse?.data ?? [];
   const updateRoleMutation = trpc.persons.updateRole.useMutation();
   const updateFaseItinerarioMutation = trpc.persons.updateFaseItinerario.useMutation();
 

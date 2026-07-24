@@ -44,6 +44,23 @@ export function getAllColumnsForRole(role: string | undefined | null): string {
     : PERSONS_GETALL_BASE_COLUMNS;
 }
 
+/**
+ * MYT-80-ATL03 (P1, gh #80) — `persons.getAll` had no `.limit()`/`.range()`
+ * and dragged every non-deleted row (707+ and growing) on every call.
+ * Optional, backward-compatible input: a caller with no args still gets a
+ * bounded default page (never "everything"); `limit` is hard-capped at 200
+ * so a caller cannot opt back into an unbounded fetch.
+ */
+export const PERSONS_GETALL_DEFAULT_LIMIT = 50;
+export const PERSONS_GETALL_MAX_LIMIT = 200;
+
+export const PersonsGetAllInput = z
+  .object({
+    limit: z.number().int().min(1).max(PERSONS_GETALL_MAX_LIMIT).default(PERSONS_GETALL_DEFAULT_LIMIT),
+    offset: z.number().int().min(0).default(0),
+  })
+  .optional();
+
 export function getPersonValidationWarnings(
   personData: Pick<
     z.infer<typeof PersonCreateInput>,
@@ -254,19 +271,24 @@ export const crudRouter = router({
     }),
 
   /**
-   * Get all persons (admin view).
+   * Get all persons (admin view), server-side paginated (MYT-80-ATL03).
    * Uses service role key to bypass RLS — the role gate is enforced at
    * the tRPC layer so the admin column list only ships to admin/superadmin
-   * callers.
+   * callers. `input` is optional for backward compatibility: an omitted
+   * input still applies the bounded default page, it never falls back to
+   * an unbounded fetch.
    */
-  getAll: adminProcedure.query(async ({ ctx }) => {
+  getAll: adminProcedure.input(PersonsGetAllInput).query(async ({ ctx, input }) => {
     const supabase = createAdminClient();
+    const limit = input?.limit ?? PERSONS_GETALL_DEFAULT_LIMIT;
+    const offset = input?.offset ?? 0;
 
-    const { data, error } = await supabase
+    const { data, error, count } = await supabase
       .from("persons")
-      .select(getAllColumnsForRole(ctx.user.role))
+      .select(getAllColumnsForRole(ctx.user.role), { count: "exact" })
       .is("deleted_at", null)
-      .order("nombre");
+      .order("nombre")
+      .range(offset, offset + limit - 1);
 
     if (error) {
       throw new TRPCError({
@@ -275,7 +297,7 @@ export const crudRouter = router({
       });
     }
 
-    return data ?? [];
+    return { data: data ?? [], total: count ?? 0 };
   }),
 
   /**

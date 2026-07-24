@@ -111,9 +111,14 @@ export default function Personas() {
   const [activePersonId, setActivePersonId] = useState<string | null>(null);
 
   // ── Data fetching ─────────────────────────────────────────────────────────
-  // Admin path: getAll + client-side filter
-  const { data: allPersons = [], isLoading: loadingAll } =
-    trpc.persons.getAll.useQuery(undefined, { enabled: isAdmin });
+  // Admin path: getAll + client-side filter.
+  // MYT-80-ATL03: getAll is now server-paginated ({ data, total }) instead of
+  // returning the full table (707+ rows and growing) on every call — see
+  // server/routers/persons/crud.ts. staleTime avoids re-fetching on every
+  // focus/mount within the same minute.
+  const { data: getAllResponse, isLoading: loadingAll } =
+    trpc.persons.getAll.useQuery(undefined, { enabled: isAdmin, staleTime: 60_000 });
+  const allPersons = getAllResponse?.data ?? [];
 
   // Non-admin path: search query (requires ≥2 chars)
   const { data: searchResults, isLoading: loadingSearch, isFetching } =
