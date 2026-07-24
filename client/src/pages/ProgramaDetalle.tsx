@@ -44,6 +44,7 @@ export default function ProgramaDetalle() {
   const { slug } = useParams<{ slug: string }>();
   const { user } = useAuth();
   const isAdmin = user?.role === "admin" || user?.role === "superadmin";
+  const isSuperAdmin = user?.role === "superadmin";
   const [editOpen, setEditOpen] = useState(false);
   const [enrollOpen, setEnrollOpen] = useState(false);
   const [createChildOpen, setCreateChildOpen] = useState(false);
@@ -247,7 +248,7 @@ export default function ProgramaDetalle() {
             </div>
           </div>
 
-          {isAdmin && (
+          {isSuperAdmin && (
             <div className="flex items-center gap-2 shrink-0">
               <Dialog open={editOpen} onOpenChange={setEditOpen}>
                 <DialogTrigger asChild>
@@ -260,8 +261,6 @@ export default function ProgramaDetalle() {
                   <ProgramForm
                     defaultValues={defaultValues}
                     isEditing
-                    programId={program.id}
-                    isAdmin={isAdmin}
                     isLoading={updateProgram.isPending}
                     parentName={parentName}
                     onSubmit={(v: ProgramFormValues) => updateProgram.mutate({ id: program.id, data: v })}
@@ -459,18 +458,6 @@ export default function ProgramaDetalle() {
           <div className="bocatas-card overflow-hidden px-5 py-4">
             <ListadoMensual programId={program.id} programName={program.name} />
           </div>
-        )}
-
-        {/* Session calendar + compliance tabs for inscribible programs (non-familias) */}
-        {isInscribible && program.slug !== "programa_familias" && (
-          <ProgramTabs
-            program={{
-              id: program.id,
-              slug: program.slug,
-              nombre: program.name,
-              inscribible: true,
-            }}
-          />
         )}
       </div>
     </div>

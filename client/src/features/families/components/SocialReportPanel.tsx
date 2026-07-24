@@ -43,8 +43,7 @@ export function SocialReportPanel({ familyId, informeSocial, informeSocialFecha 
   const [previewOpen, setPreviewOpen] = useState(false); // generated informe preview (PDF)
   const utils = trpc.useUtils();
 
-  const docsQuery = useFamilyLevelDocuments(familyId);
-  const familyDocs = docsQuery.data ?? [];
+  const { data: familyDocs = [] } = useFamilyLevelDocuments(familyId);
   const { data: family } = trpc.families.getById.useQuery({ id: familyId }, { enabled: !!familyId });
 
   // situacion_familiar_texto is Art.9 admin-only; getById returns it for admins.
@@ -57,30 +56,23 @@ export function SocialReportPanel({ familyId, informeSocial, informeSocialFecha 
     { enabled: !!familyId },
   );
 
-  const informeRow = familyDocs.find((d) => d.documento_tipo === "informe_social" && d.documento_url);
-  const generatedRow = familyDocs.find(
-    (d) => d.documento_tipo === "informe_valoracion_social" && d.documento_url,
-  );
-  // A prior informe = a current REAL document row (generated docx or uploaded
-  // PDF) — never the manually-settable informe_social boolean (ADR-0014).
-  const hasPriorInforme = !!(informeRow || generatedRow);
-
   const blockingError: string | null = (() => {
-    // Seguimiento rules apply only to renovaciones; the first informe of a
-    // family needs no seguimiento (ADR-0014).
-    if (hasPriorInforme) {
-      if (latest == null) {
-        return "Sin seguimientos registrados. Añade un seguimiento para habilitar la generación.";
-      }
-      if (isInformeStale(latest.fecha)) {
-        return `El informe social está vencido (último seguimiento: ${latest.fecha}). Registra un seguimiento reciente.`;
-      }
+    if (latest == null) {
+      return "Sin seguimientos registrados. Añade un seguimiento para habilitar la generación.";
+    }
+    if (isInformeStale(latest.fecha)) {
+      return `El informe social está vencido (último seguimiento: ${latest.fecha}). Registra un seguimiento reciente.`;
     }
     if (savedValoracion.trim() === "") {
       return "Añade la valoración social (Descripción de la situación familiar) antes de generar.";
     }
     return null;
   })();
+
+  const informeRow = familyDocs.find((d) => d.documento_tipo === "informe_social" && d.documento_url);
+  const generatedRow = familyDocs.find(
+    (d) => d.documento_tipo === "informe_valoracion_social" && d.documento_url,
+  );
 
   const updateDoc = trpc.families.updateDocField.useMutation({
     onSuccess: () => {
@@ -253,12 +245,7 @@ export function SocialReportPanel({ familyId, informeSocial, informeSocialFecha 
             <Button
               size="sm"
               onClick={() => generateSaved.mutate({ family_id: familyId })}
-              // Fail-closed docs guard: while the docs query is pending OR after
-              // it errors, hasPriorInforme is a provisional false — never enable
-              // generation until the prior-informe signal actually loaded.
-              disabled={
-                !!blockingError || generateSaved.isPending || docsQuery.isPending || docsQuery.isError
-              }
+              disabled={!!blockingError || generateSaved.isPending}
               aria-label="Generar y guardar el informe de valoración social"
             >
               {generateSaved.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" aria-hidden="true" /> : <FileDown className="h-4 w-4 mr-1" aria-hidden="true" />}

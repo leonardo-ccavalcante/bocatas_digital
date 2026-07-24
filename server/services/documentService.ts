@@ -72,34 +72,22 @@ export function validateContext(
     );
   }
 
-  // Freshness gate: only for informe_social, and only for renovaciones — the
-  // first informe of a family needs no seguimiento (ADR-0014).
+  // Freshness gate: only for informe_social.
   if (template.slug === "informe_social") {
-    const informe = context.informe;
-    if (!informe) {
-      // Builder contract: buildFamilyDataContext always assembles the informe
-      // block for this slug; its absence is a programming error, not user input.
+    const fechaSeguimiento = context.informe?.fecha_seguimiento;
+    if (!fechaSeguimiento) {
       throw new DocumentValidationError(
         "MISSING_PLACEHOLDER",
-        "Faltan datos requeridos para generar el documento",
-        { missing: ["informe"] }
+        "El informe social requiere un seguimiento registrado",
+        { missing: ["informe.fecha_seguimiento"] }
       );
     }
-    if (informe.has_informe_previo) {
-      if (!informe.fecha_seguimiento) {
-        throw new DocumentValidationError(
-          "MISSING_PLACEHOLDER",
-          "La renovación del informe social requiere un seguimiento registrado",
-          { missing: ["informe.fecha_seguimiento"] }
-        );
-      }
-      if (isInformeStale(informe.fecha_seguimiento)) {
-        throw new DocumentValidationError(
-          "STALE_INFORME",
-          `El informe social está vencido (último seguimiento: ${informe.fecha_seguimiento}). Registra un seguimiento reciente antes de generar.`,
-          { effective_date: [informe.fecha_seguimiento] }
-        );
-      }
+    if (isInformeStale(fechaSeguimiento)) {
+      throw new DocumentValidationError(
+        "STALE_INFORME",
+        `El informe social está vencido (último seguimiento: ${fechaSeguimiento}). Registra un seguimiento reciente antes de generar.`,
+        { effective_date: [fechaSeguimiento] }
+      );
     }
   }
 }

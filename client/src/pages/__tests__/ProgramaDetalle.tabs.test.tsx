@@ -4,20 +4,12 @@
  * Spec source: CLAUDE.md Phase 1 Task 6.
  * Branch: feat/programa-familia-5-tab-surface
  *
- * Updated for Wave 3 (feat/cierre-sesion): ProgramTabs now also mounts for
- * non-familias programs with inscribible=true (EdicionSessionTabs inside).
- * The discriminator for "session-managed" is inscribible, not slug alone.
- *
- * Iron Law: these tests define the contract. Fix the component, never the test
- * — EXCEPT on semantics-changing branches where the old contract no longer
- * applies. Stale tests should be updated to the new intent (AGENTS.md).
+ * Iron Law: these tests define the contract. Fix the component, never the test.
  *
  * What is tested:
  *  1. When program.slug === "programa_familias" → <ProgramTabs /> is mounted.
- *  2. When program.inscribible === false → <ProgramTabs /> is NOT mounted
- *     (representing attendance-only programs like comedor).
- *  3. For non-programa_familias inscribible=false slugs → <EnrolledPersonsTable />
- *     is NOT rendered (non-inscribible programs have no enrollment table).
+ *  2. When program.slug !== "programa_familias" → <ProgramTabs /> is NOT mounted.
+ *  3. For non-programa_familias slugs → <EnrolledPersonsTable /> IS rendered.
  *  4. For programa_familias → <EnrolledPersonsTable /> is NOT rendered.
  *  5. Header (program name) is always rendered regardless of slug.
  *  6. ProgramTabs receives program.nombre mapped from tRPC program.name.
@@ -184,11 +176,9 @@ describe("ProgramaDetalle conditional tab surface", () => {
   });
 
   // 2 ──────────────────────────────────────────────────────────────────────────
-  // Wave 3 update: ProgramTabs now mounts for inscribible programs (EdicionSessionTabs).
-  // This test uses inscribible:false (attendance-only comedor) to verify no ProgramTabs.
-  it("does NOT mount ProgramTabs for non-inscribible programs (e.g. comedor)", async () => {
+  it("does NOT mount ProgramTabs when program.slug = 'comedor'", async () => {
     mockGetBySlugUseQuery.mockReturnValue({
-      data: makeProgram("comedor", { name: "Comedor", inscribible: false }),
+      data: makeProgram("comedor", { name: "Comedor" }),
       isLoading: false,
       error: null,
     });

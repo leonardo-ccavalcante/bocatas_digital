@@ -61,13 +61,10 @@ import * as storageModule from "../../storage";
 
 // ── Shared contexts ──────────────────────────────────────────────────────────
 
-// Mirrors the published placeholder list (scripts/publish-informe-template.mjs) —
-// the live template declares NO informe.* placeholder; the seguimiento rule is the
-// hardcoded slug gate, not the generic loop.
 const MINIMAL_TEMPLATE = {
   id: "t1",
   slug: "informe_social" as const,
-  placeholders: ["titular.nombre", "titular.apellidos", "titular.documento", "familia.numero", "valoracion"],
+  placeholders: ["titular.nombre", "titular.apellidos", "familia.numero", "informe.fecha_seguimiento"],
   static_blocks: {},
 };
 
@@ -83,12 +80,10 @@ const VALID_CONTEXT: FamilyDocumentContext = {
     estado: "activa",
   },
   miembros: [],
-  valoracion: "La unidad familiar está compuesta por 3 personas.",
   informe: {
     fecha_seguimiento: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
     notas_seguimiento: "Bien.",
     effective_date: "",
-    has_informe_previo: true,
   },
   logos: [],
   static_blocks: {},
@@ -114,7 +109,7 @@ describe("validateContext", () => {
     }
   });
 
-  it("renovación: throws STALE_INFORME when fecha_seguimiento is stale", () => {
+  it("throws STALE_INFORME when fecha_seguimiento is >365 days ago", () => {
     const staleDate = new Date(Date.now() - 400 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     const ctx: FamilyDocumentContext = {
       ...VALID_CONTEXT,
@@ -128,58 +123,11 @@ describe("validateContext", () => {
     }
   });
 
-  it("renovación: throws MISSING_PLACEHOLDER when fecha_seguimiento is empty", () => {
-    const ctx: FamilyDocumentContext = {
-      ...VALID_CONTEXT,
-      informe: { ...VALID_CONTEXT.informe!, fecha_seguimiento: "", effective_date: "" },
-    };
-    expect(() => validateContext(MINIMAL_TEMPLATE, ctx)).toThrowError(DocumentValidationError);
-    try {
-      validateContext(MINIMAL_TEMPLATE, ctx);
-    } catch (e) {
-      expect((e as DocumentValidationError).code).toBe("MISSING_PLACEHOLDER");
-      expect((e as DocumentValidationError).details.missing).toEqual(["informe.fecha_seguimiento"]);
-    }
-  });
-
-  it("throws MISSING_PLACEHOLDER when the informe block is missing entirely", () => {
+  it("throws MISSING_PLACEHOLDER when informe.fecha_seguimiento is missing entirely", () => {
     const ctx = { ...VALID_CONTEXT, informe: undefined };
     expect(() => validateContext(MINIMAL_TEMPLATE, ctx as never)).toThrowError(
       DocumentValidationError
     );
-    try {
-      validateContext(MINIMAL_TEMPLATE, ctx as never);
-    } catch (e) {
-      expect((e as DocumentValidationError).code).toBe("MISSING_PLACEHOLDER");
-      expect((e as DocumentValidationError).details.missing).toEqual(["informe"]);
-    }
-  });
-
-  it("first informe: passes with zero seguimientos (empty fecha_seguimiento)", () => {
-    const ctx: FamilyDocumentContext = {
-      ...VALID_CONTEXT,
-      informe: {
-        fecha_seguimiento: "",
-        notas_seguimiento: "",
-        effective_date: "",
-        has_informe_previo: false,
-      },
-    };
-    expect(() => validateContext(MINIMAL_TEMPLATE, ctx)).not.toThrow();
-  });
-
-  it("first informe: passes even with a stale seguimiento on record", () => {
-    const staleDate = new Date(Date.now() - 400 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-    const ctx: FamilyDocumentContext = {
-      ...VALID_CONTEXT,
-      informe: {
-        fecha_seguimiento: staleDate,
-        notas_seguimiento: "Antiguo.",
-        effective_date: staleDate,
-        has_informe_previo: false,
-      },
-    };
-    expect(() => validateContext(MINIMAL_TEMPLATE, ctx)).not.toThrow();
   });
 });
 
