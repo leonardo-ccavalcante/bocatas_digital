@@ -56,7 +56,20 @@ export const ANNOUNCEMENT_TYPE_DESCRIPTIONS: Record<TipoAnnouncement, string> = 
 export const ANNOUNCEMENT_ROLES = ["superadmin", "admin", "voluntario", "beneficiario"] as const;
 export type AnnouncementRole = (typeof ANNOUNCEMENT_ROLES)[number];
 
-/** Programs enum values mirrored from the `programa` PostgreSQL enum. Used for DSL validation. */
+/**
+ * Programs enum values mirrored from the `programa` PostgreSQL ENUM type
+ * (migration 20260411081827) — NOT the same thing as the dynamic `programs`
+ * catalog TABLE added later by the program-tree feature (#130, ADR-0013).
+ * `announcement_audiences.programs` is still typed `programa[]` (verified:
+ * no `ALTER TYPE programa` / no column-type migration exists for that table),
+ * so this closed list is still what the DB will actually accept today —
+ * unlike `attendances.programa`, which WAS migrated off this enum to
+ * `text` + FK to `programs.slug` (see `20260520000001_capture_remaining_prod_state.sql`
+ * and `server/routers/checkin.schemas.ts`'s `ProgramaSlug`). Do NOT add/remove
+ * values here to "fix" MYT-131 (gh #131) without a matching migration that
+ * moves `announcement_audiences.programs` to the same text+catalog pattern —
+ * editing only this array would accept slugs the DB still rejects (42804).
+ */
 export const ANNOUNCEMENT_PROGRAMS = [
   "comedor",
   "familia",
@@ -66,6 +79,40 @@ export const ANNOUNCEMENT_PROGRAMS = [
   "acompanamiento",
 ] as const;
 export type AnnouncementProgram = (typeof ANNOUNCEMENT_PROGRAMS)[number];
+
+/**
+ * Format-only rule for a dynamic `programs.slug` value (mirrors
+ * `server/routers/programs.ts`'s `slugSchema` and `checkin.schemas.ts`'s
+ * `ProgramaSlug` — the pattern the check-in fix used for #130). NOT yet wired
+ * to any enforcement point for announcements: existence-checking still needs
+ * the `announcement_audiences.programs` migration described above (MYT-131
+ * follow-up, schema-agent lane). Consumers must not treat format-validity
+ * alone as proof a program exists.
+ */
+export const ANNOUNCEMENT_PROGRAM_SLUG_REGEX = /^[a-z0-9_]+$/;
+
+export function isValidAnnouncementProgramSlugFormat(slug: string): boolean {
+  return ANNOUNCEMENT_PROGRAM_SLUG_REGEX.test(slug);
+}
+
+/**
+ * `programs.slug` 'familia' was renamed to 'programa_familias' by migration
+ * 20260507000002 — but that rename only touched the dynamic `programs`
+ * catalog table, not the `programa` enum (still has 'familia' as a member,
+ * see above). Historical announcements created before the rename may carry
+ * the dead slug in their audience rules; any code resolving a program slug to
+ * a display name / catalog row for READING/rendering an existing announcement
+ * must alias it through this map first so old audiences don't render broken.
+ * Never use this map to accept 'familia' as a valid choice for NEW writes.
+ */
+export const ANNOUNCEMENT_PROGRAM_LEGACY_SLUG_ALIASES: Readonly<Record<string, string>> = {
+  familia: "programa_familias",
+};
+
+/** Read-time-only resolution of a possibly-legacy program slug to its current equivalent. */
+export function resolveAnnouncementProgramSlug(slug: string): string {
+  return ANNOUNCEMENT_PROGRAM_LEGACY_SLUG_ALIASES[slug] ?? slug;
+}
 
 /**
  * One audience targeting rule. Empty `roles` = "any role"; empty `programs` = "any program".
