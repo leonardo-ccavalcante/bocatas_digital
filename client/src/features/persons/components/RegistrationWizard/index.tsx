@@ -186,6 +186,11 @@ export function RegistrationWizard() {
         if (normalized) setValue("tipo_documento", normalized);
       }
       if (data.pais_documento) setValue("pais_documento", data.pais_documento);
+      // MYT-135B: genero survives OCRResultSchema's server-side parse already
+      // normalized to a canonical GeneroSchema value (server/routers/ocr.ts
+      // `.catch(undefined)` — see related.ts) — no extra validation needed here,
+      // just wire it into the form like every other extracted field.
+      if (data.genero) setValue("genero", data.genero);
       setOcrUsed(true);
     },
     [setValue]
