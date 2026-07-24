@@ -22,6 +22,10 @@ import {
   insertFamilyRow,
 } from "./_shared";
 
+// Generous default cap (dataset stays bounded server-side even though
+// client pagination wiring is DEFERRED-E5 — gh #80 / MYT-80-ATL04).
+const GETALL_DEFAULT_LIMIT = 500;
+
 export const crudRouter = router({
   // ─── Job 1: Family List ──────────────────────────────────────────────────
   /** GET /families list with filters */
@@ -34,6 +38,8 @@ export const crudRouter = router({
           sin_alta_guf: z.boolean().optional(),
           sin_informe_social: z.boolean().optional(),
           distrito: z.string().optional(),
+          limit: z.number().int().min(1).max(GETALL_DEFAULT_LIMIT).optional(),
+          offset: z.number().int().min(0).optional(),
         })
         .optional()
     )
@@ -46,7 +52,8 @@ export const crudRouter = router({
            persona_recoge, autorizado, alta_en_guf, fecha_alta_guf,
            informe_social, informe_social_fecha, guf_cutoff_day, guf_verified_at,
            created_at, deleted_at,
-           persons!titular_id(id, nombre, apellidos, telefono)`
+           persons!titular_id(id, nombre, apellidos, telefono)`,
+          { count: "exact" }
         )
         .is("deleted_at", null);
 
@@ -73,9 +80,14 @@ export const crudRouter = router({
         }
       }
 
-      const { data, error } = await query.order("familia_numero", { ascending: true });
+      const offset = input?.offset ?? 0;
+      const { data, error, count } = await query
+        .order("familia_numero", { ascending: true }).range(offset, offset + (input?.limit ?? GETALL_DEFAULT_LIMIT) - 1);
       if (error) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
-      return data ?? [];
+      // Retrocompatible: existing callers consume this as a bare array
+      // (.map/.filter/.find) — attach `total` on the array itself instead of
+      // wrapping in { data, total } so no call site needs to change.
+      return Object.assign(data ?? [], { total: count ?? 0 });
     }),
 
   // ─── Job 1: Family Detail ────────────────────────────────────────────────
