@@ -337,3 +337,10 @@
 - [x] Backend: programs.update y programs.deactivate → superadminProcedure
 - [x] TDD: test que verifica FORBIDDEN para admin en update y deactivate
 - [x] TypeScript 0 errores, tests pasan (3277 tests, 0 fallos)
+
+### Deploy PRs #138, #139, #140 desde GitHub (sesión 2026-07-25)
+- [ ] Merge github/main → local main (PRs #138 wave8 + #139 wave9 + #140 wave10)
+- [ ] Aplicar migración 20260724100000 (family_documents_bucket)
+- [ ] Aplicar migración 20260724110000 (record_reparto_pickup_family_check)
+- [ ] TypeScript 0 errores, tests pasan
+- [ ] Checkpoint y deploy a producción
