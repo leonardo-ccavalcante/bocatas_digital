@@ -169,6 +169,35 @@ deployment. This is the fast path for clicking through the app.
 resolves the function before spreading it (previously spreading the function gave an
 empty config → blank page / main-module 404). Keep that resolution in place.
 
+## Storage buckets & document templates
+
+Storage buckets are provisioned by migrations, so a fresh `supabase db reset`
+creates them — no manual Storage-API step:
+
+| Bucket | Created by | Holds |
+|---|---|---|
+| `firmas-entregas`, `documentos-fisicos-entregas` | `20260413121828_..._create_storage_buckets.sql` | Delivery signatures / physical docs |
+| `program-documents` | `20260723130004_cierre_sesion_session_documents_bucket.sql` | Session close-out documents |
+| `family-documents` | `20260724100000_family_documents_bucket.sql` | Family PII docs (informe_social, documento_identidad, actas) — **private** |
+
+`family-documents` previously had no migration: older files
+(`20260430000001`, `20260430000002`, `20260521090003`) only *asserted in comments*
+that it "must be created separately", so a fresh local stack raised
+`StorageApiError: Bucket not found` and prod had it only via a manual
+`POST /storage/v1/bucket` workaround (gh #134). The migration now provisions it
+every reset. It is private; access is gated at the tRPC layer (adminProcedure) +
+short-lived signed URLs, not by storage RLS (ADR-0002 — RLS is not the boundary).
+
+The `informe_social` .docx **template** is *content*, not schema, so it is NOT in a
+migration. Publish it into the `document-templates` bucket with:
+
+```bash
+SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... node scripts/publish-informe-template.mjs
+```
+
+Idempotent — a no-op when the fixture already matches the active template. Needed
+before the live informe tests (`RUN_LIVE_INFORME_TESTS=1`) can render.
+
 ## Where to look next
 
 - **Playbook (all agents)** — [`AGENTS.md`](../AGENTS.md)

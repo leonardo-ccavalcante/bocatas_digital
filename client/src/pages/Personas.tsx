@@ -18,30 +18,25 @@
  * `persons.search` procedure only accepts { query: string } — no estado/fase
  * param. Adding one would change the server contract; per task rules we must
  * not do that. `persons.getAll` (admin path) likewise has no filter params.
+ *
+ * MYT-121 (gh #121): the virtualized list components and the filter/counts
+ * memos were extracted to Personas.lists.tsx / Personas.hooks.ts to bring this
+ * file back under the 300-line max-lines cap. Behavior is UNCHANGED — see
+ * those files for the relocated perf-critical code.
  */
-import { useState, useMemo, useCallback, useEffect, useLayoutEffect, useRef, lazy, Suspense } from "react";
-import { useVirtualizer } from "@tanstack/react-virtual";
+import { useState, useCallback, useEffect, useRef, lazy, Suspense } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useSearchPersons } from "@/features/persons/hooks/useSearchPersons";
 import { PersonsFilterBar } from "@/features/persons/components/PersonsFilterBar";
-import { PersonRowDesktop } from "@/features/persons/components/PersonRowDesktop";
-import { PersonCardMobile } from "@/features/persons/components/PersonCardMobile";
 import { PersonasSearchView } from "@/features/persons/components/PersonasSearchView";
+import { PersonsEmptyState } from "@/features/persons/components/PersonsEmptyState";
 import { Loader2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
-import type { Database } from "@/lib/database.types";
-
-/**
- * persons.getAll uses .select(dynamicString) server-side, which causes
- * Supabase's type-level parser to emit GenericStringError instead of a real
- * row type. We use the database Row type directly — it is the accurate runtime
- * shape and the canonical source of truth for this table.
- */
-type PersonRow = Database["public"]["Tables"]["persons"]["Row"];
-import { PersonsEmptyState } from "@/features/persons/components/PersonsEmptyState";
+import { usePersonsData } from "@/pages/Personas.hooks";
+import { VirtualizedDesktopList, VirtualizedMobileList } from "@/pages/Personas.lists";
+import { PERSONS_DIRECTORY_FULL_LIMIT } from "@/features/persons/constants";
 import type { BocatasRole } from "@/components/layout/ProtectedRoute";
 import type { EstadoFilter, SortBy } from "@/features/persons/components/PersonsFilterBar";
-import type { PersonRowData } from "@/features/persons/components/PersonRowDesktop";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -49,26 +44,6 @@ const SCROLL_KEY = "personas-scroll-top";
 /** Estimated row heights for the virtualizer (actual heights may vary slightly). */
 const ROW_HEIGHT_DESKTOP = 57; // py-3 + content ≈ 57px
 const ROW_HEIGHT_MOBILE = 74;  // p-3 + content ≈ 74px
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function deriveEstado(p: PersonRowData): string {
-  return p.fase_itinerario ? "Activa" : "Inactiva";
-}
-
-/**
- * Hook that resolves the AppShell <main> scroll container via a layout effect,
- * so the ref is always populated before the virtualizer reads it.
- * This avoids the null-on-first-render bug that caused the virtualizer to
- * render 0 items and then re-render all of them.
- */
-function useScrollContainer(): React.RefObject<HTMLElement | null> {
-  const ref = useRef<HTMLElement | null>(null);
-  useLayoutEffect(() => {
-    ref.current = document.querySelector("main.flex-1.overflow-y-auto") as HTMLElement | null;
-  }, []);
-  return ref;
-}
 
 // ─── Lazy PersonsTable ────────────────────────────────────────────────────────
 
@@ -135,104 +110,35 @@ export default function Personas() {
   const [activePersonId, setActivePersonId] = useState<string | null>(null);
 
   // ── Data fetching ─────────────────────────────────────────────────────────
-  // Admin path: getAll + client-side filter
-  const { data: allPersons = [], isLoading: loadingAll } =
-    trpc.persons.getAll.useQuery(undefined, { enabled: isAdmin });
+  // Admin path: getAll + client-side filter.
+  // MYT-80-ATL03: getAll is now server-paginated ({ data, total }) instead of
+  // an unbounded fetch — see server/routers/persons/crud.ts. This page
+  // filters/counts/searches over the FULL person set client-side (not a
+  // paginated UI — see Personas.hooks.ts usePersonsData), so it explicitly requests
+  // PERSONS_DIRECTORY_FULL_LIMIT rows rather than relying on the server's
+  // bounded default, which would silently truncate the directory. staleTime
+  // avoids re-fetching on every focus/mount within the same minute.
+  const { data: getAllResponse, isLoading: loadingAll } =
+    trpc.persons.getAll.useQuery(
+      { limit: PERSONS_DIRECTORY_FULL_LIMIT },
+      { enabled: isAdmin, staleTime: 60_000 }
+    );
+  const allPersons = getAllResponse?.data ?? [];
 
   // Non-admin path: search query (requires ≥2 chars)
   const { data: searchResults, isLoading: loadingSearch, isFetching } =
     useSearchPersons(query);
 
-  // ── Normalise to PersonRowData ────────────────────────────────────────────
-  const adminRows: PersonRowData[] = useMemo(() => (allPersons as unknown as PersonRow[]).map((p) => ({
-    id: p.id,
-    nombre: p.nombre,
-    apellidos: p.apellidos ?? null,
-    fase_itinerario: p.fase_itinerario ?? null,
-    created_at: p.created_at ?? null,
-    foto_perfil_url: p.foto_perfil_url ?? null,
-  })), [allPersons]);
-
-  const searchRows: PersonRowData[] = useMemo(() =>
-    (searchResults ?? []).map((p) => ({
-      id: p.id,
-      nombre: p.nombre,
-      apellidos: p.apellidos ?? null,
-      fase_itinerario: p.fase_itinerario ?? null,
-      created_at: null,
-      foto_perfil_url: p.foto_perfil_url ?? null,
-    })),
-    [searchResults],
-  );
-
-  // ── Client-side filtering (admin path only — search is server-filtered) ───
-  const filteredRows: PersonRowData[] = useMemo(() => {
-    if (!isAdmin) return searchRows;
-
-    let rows = adminRows;
-
-    // Text filter over getAll rows when query is typed
-    if (query.trim().length >= 1) {
-      const q = query.trim().toLowerCase();
-      rows = rows.filter((p) =>
-        [p.nombre, p.apellidos ?? "", p.id]
-          .join(" ")
-          .toLowerCase()
-          .includes(q)
-      );
-    }
-
-    // Estado filter
-    if (estadoFilter !== "todas") {
-      rows = rows.filter((p) => deriveEstado(p) === estadoFilter);
-    }
-
-    // Fase filter
-    if (faseFilter !== "todas") {
-      rows = rows.filter((p) => p.fase_itinerario === faseFilter);
-    }
-
-    // Sort — pre-compute timestamps to avoid new Date() inside comparator
-    if (sortBy === "name") {
-      rows = [...rows].sort((a, b) =>
-        (a.apellidos ?? a.nombre).localeCompare(b.apellidos ?? b.nombre, "es")
-      );
-    } else {
-      // recent: newest created_at first — pre-compute ms timestamps O(N)
-      const withTs = rows.map((p) => ({
-        p,
-        ts: p.created_at ? new Date(p.created_at).getTime() : 0,
-      }));
-      withTs.sort((a, b) => b.ts - a.ts);
-      rows = withTs.map((x) => x.p);
-    }
-
-    return rows;
-  }, [isAdmin, adminRows, searchRows, query, estadoFilter, faseFilter, sortBy]);
-
-  // ── Counts for filter pills — single O(N) pass ────────────────────────────
-  const counts = useMemo(() => {
-    const base = isAdmin ? adminRows : searchRows;
-
-    // Single pass: accumulate all counts simultaneously
-    const byEstado: Record<EstadoFilter, number> = { todas: base.length, Activa: 0, Inactiva: 0 };
-    const byFase: Record<string, number> = { todas: base.length };
-    const faseSet = new Set<string>();
-
-    for (const p of base) {
-      const estado = deriveEstado(p);
-      if (estado === "Activa") byEstado.Activa++;
-      else byEstado.Inactiva++;
-
-      if (p.fase_itinerario) {
-        faseSet.add(p.fase_itinerario);
-        byFase[p.fase_itinerario] = (byFase[p.fase_itinerario] ?? 0) + 1;
-      }
-    }
-
-    const fases = Array.from(faseSet).sort();
-    return { total: base.length, filtered: filteredRows.length, byEstado, byFase, fases };
-  }, [isAdmin, adminRows, searchRows, filteredRows]);
+  // ── Normalise + filter + counts (extracted — MYT-121) ─────────────────────
+  const { searchRows, filteredRows, counts } = usePersonsData({
+    isAdmin,
+    allPersons,
+    searchResults,
+    query,
+    estadoFilter,
+    faseFilter,
+    sortBy,
+  });
 
   // ── Reset cursor when filters change ─────────────────────────────────────
   useEffect(() => { setActivePersonId(null); }, [query, estadoFilter, faseFilter, sortBy]);
@@ -369,114 +275,5 @@ export default function Personas() {
         )}
       </div>
     </div>
-  );
-}
-
-// ─── Virtualized Desktop List ─────────────────────────────────────────────────
-
-interface VirtualizedDesktopListProps {
-  rows: PersonRowData[];
-  activePersonId: string | null;
-  onMouseEnter: (id: string) => void;
-  rowHeight: number;
-}
-
-function VirtualizedDesktopList({
-  rows,
-  activePersonId,
-  onMouseEnter,
-  rowHeight,
-}: VirtualizedDesktopListProps) {
-  // Fix 2: resolve scroll container via layout effect so it's never null on
-  // first render (null → virtualizer renders 0 items → re-render all items).
-  const scrollContainerRef = useScrollContainer();
-
-  const virtualizer = useVirtualizer({
-    count: rows.length,
-    getScrollElement: () => scrollContainerRef.current,
-    estimateSize: () => rowHeight,
-    overscan: 5,
-  });
-
-  const items = virtualizer.getVirtualItems();
-  const totalHeight = virtualizer.getTotalSize();
-
-  return (
-    <ul
-      aria-label="Lista de personas"
-      className="relative"
-      style={{ height: `${totalHeight}px` }}
-    >
-      {items.map((virtualItem) => {
-        const p = rows[virtualItem.index];
-        return (
-          <PersonRowDesktop
-            key={p.id}
-            person={p}
-            active={activePersonId === p.id}
-            compact={false}
-            onMouseEnter={() => onMouseEnter(p.id)}
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              width: "100%",
-              height: `${virtualItem.size}px`,
-              transform: `translateY(${virtualItem.start}px)`,
-              borderBottom: "1px solid var(--border)",
-            }}
-          />
-        );
-      })}
-    </ul>
-  );
-}
-
-// ─── Virtualized Mobile List ──────────────────────────────────────────────────
-
-interface VirtualizedMobileListProps {
-  rows: PersonRowData[];
-  rowHeight: number;
-}
-
-function VirtualizedMobileList({ rows, rowHeight }: VirtualizedMobileListProps) {
-  // Fix 2: same scroll container resolution via layout effect
-  const scrollContainerRef = useScrollContainer();
-
-  const virtualizer = useVirtualizer({
-    count: rows.length,
-    getScrollElement: () => scrollContainerRef.current,
-    estimateSize: () => rowHeight,
-    overscan: 5,
-  });
-
-  const items = virtualizer.getVirtualItems();
-  const totalHeight = virtualizer.getTotalSize();
-
-  return (
-    <ul
-      aria-label="Lista de personas"
-      className="sm:hidden relative"
-      style={{ height: `${totalHeight}px` }}
-    >
-      {items.map((virtualItem) => {
-        const p = rows[virtualItem.index];
-        return (
-          <li
-            key={p.id}
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              width: "100%",
-              transform: `translateY(${virtualItem.start}px)`,
-              paddingBottom: "8px",
-            }}
-          >
-            <PersonCardMobile person={p} />
-          </li>
-        );
-      })}
-    </ul>
   );
 }
