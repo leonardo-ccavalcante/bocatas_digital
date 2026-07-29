@@ -349,12 +349,12 @@
 - [x] Checkpoint y deploy a producción
 
 ### Fix: Informe social incluye observaciones + colapsar metadatos PersonaDetalle (2026-07-29)
-- [ ] narrativeComposer: agregar campo observaciones a NarrativeInput y composeSituacion()
-- [ ] documentContextBuilder: fetch persons.observaciones y pasarlo al contexto del informe
-- [ ] documentService: pasar observaciones al narrativeComposer
-- [ ] PersonaDetalle: colapsar bloque Visitas/Idioma/Empadronado/Fase en Collapsible
-- [ ] TDD: tests para narrativeComposer con observaciones
-- [ ] TypeScript 0 errores, tests pasan
+- [x] narrativeComposer: agregar campo observaciones a NarrativeInput y composeSituacion()
+- [x] documentContextBuilder: fetch persons.observaciones y pasarlo al contexto del informe
+- [x] documentService: pasar observaciones al narrativeComposer
+- [x] PersonaDetalle: colapsar bloque Visitas/Idioma/Empadronado/Fase en Collapsible
+- [x] TDD: tests para narrativeComposer con observaciones
+- [x] TypeScript 0 errores, tests pasan
 
 ### Fix: Observaciones pasan por agente LLM antes de incluirse en informe (2026-07-29)
 - [x] Crear server/services/observacionesReviewer.ts — servicio LLM que reformula observaciones con lenguaje de trabajo social profesional, sin inventar información
@@ -363,3 +363,11 @@
 - [x] TDD: 9 tests para observacionesReviewer (mock invokeLLM) — verifica que no inventa información, que reformula correctamente, que retorna null si observaciones está vacía
 - [x] PersonaHeader: colapsar bloque KPI (Visitas/Idioma/Empadronado/Fase) en Collapsible
 - [x] TypeScript 0 errores, 3495 tests pasan, 0 fallos
+
+### Mejora narrativa informe social + generación masiva (2026-07-29)
+- [x] Reescribir composeSituacion() con prosa fluida y storytelling de trabajo social profesional
+- [x] Mantener todos los tests existentes en GREEN (assertions sobre contenido, no estructura)
+- [x] Agregar test de calidad narrativa: verifica que no hay frases mecánicas yuxtapuestas
+- [x] Mejorar UX BulkInformeGenerator: texto de ayuda + botón cambia a "Actualizar lista" tras previsualizar
+- [x] TypeScript 0 errores, 3496 tests pasan, 0 fallos
+- [x] Checkpoint y deploy a producción

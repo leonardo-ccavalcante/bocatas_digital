@@ -136,61 +136,94 @@ function endSentence(s: string): string {
   return /[.!?…]$/.test(t) ? t : `${t}.`;
 }
 
-/** Compose the intake block: family composition + titular situation. */
+/** Compose the intake block: family composition + titular situation.
+ * Generates fluent, cohesive prose in the style of a professional social worker
+ * rather than a mechanical dump of fields. Clauses are woven together with
+ * natural connectors so the coordinator has a readable starting point to review.
+ */
 function composeSituacion(input: NarrativeInput): string {
   const { familia, titular } = input;
   const adultos = familia.num_adultos ?? 0;
   const menores = familia.num_menores_18 ?? 0;
 
-  const composicion = `La unidad familiar está compuesta por ${adultos} ${
-    adultos === 1 ? "persona adulta" : "personas adultas"
-  }${menores > 0 ? ` y ${menores} ${menores === 1 ? "menor" : "menores"}` : ""}${
-    familia.distrito ? `, con residencia en el distrito de ${familia.distrito}` : ""
-  }.`;
+  // ── Household composition sentence ──────────────────────────────────────────
+  // Build a single opening sentence that introduces the family unit.
+  const miembrosDesc = [
+    adultos > 0 ? `${adultos} ${adultos === 1 ? "persona adulta" : "personas adultas"}` : null,
+    menores > 0 ? `${menores} ${menores === 1 ? "menor" : "menores"}` : null,
+  ]
+    .filter(Boolean)
+    .join(" y ");
 
   const pais = paisEs(titular.pais_origen);
   const llegada = fmtDate(titular.fecha_llegada_espana);
-  // "procede de {país}" avoids the gentilicio problem (Intl gives country names,
-  // not demonyms) and stays gender-neutral, unlike "de nacionalidad {país}".
-  const origen = pais
-    ? `La persona titular procede de ${pais}${
-        llegada ? ` y llegó a España el ${llegada}` : ""
-      }.`
-    : null;
 
+  // Weave origin and arrival into the opening sentence when available.
+  const origenClause = pais
+    ? llegada
+      ? `, cuya persona titular es originaria de ${pais} y llegó a España el ${llegada}`
+      : `, cuya persona titular procede de ${pais}`
+    : "";
+
+  const distritoClause = familia.distrito
+    ? `, con residencia en el distrito de ${familia.distrito}`
+    : "";
+
+  const composicion = `La unidad familiar está compuesta por ${miembrosDesc}${origenClause}${distritoClause}.`;
+
+  // ── Socioeconomic situation paragraph ────────────────────────────────────────
+  // Combine housing, employment, income and education into flowing prose.
   const vivienda = titular.tipo_vivienda ? TIPO_VIVIENDA[titular.tipo_vivienda] : null;
   const laboral = titular.situacion_laboral ? SITUACION_LABORAL[titular.situacion_laboral] : null;
   const ingresos = titular.nivel_ingresos ? NIVEL_INGRESOS[titular.nivel_ingresos] : null;
   const estudios = titular.nivel_estudios ? NIVEL_ESTUDIOS[titular.nivel_estudios] : null;
 
-  const socio = joinClauses([
-    vivienda ? `Reside ${vivienda}.` : null,
+  // Housing + employment + income woven into one sentence.
+  const situacionLaboral =
     laboral || ingresos
-      ? `Se encuentra ${laboral ?? "en situación laboral no especificada"}${
+      ? `${laboral ?? "en situación laboral no especificada"}${
           ingresos ? `, con ingresos ${ingresos}` : ""
-        }.`
-      : null,
-    estudios ? `Tiene ${estudios}.` : null,
-    titular.empadronado === true
-      ? "Consta empadronada."
-      : titular.empadronado === false
-        ? "No consta empadronada."
-        : null,
-  ]);
+        }`
+      : null;
 
+  const socioPartes: Array<string | null> = [];
+
+  if (vivienda && situacionLaboral) {
+    socioPartes.push(`En cuanto a su situación socioeconómica, reside ${vivienda} y se encuentra ${situacionLaboral}.`);
+  } else if (vivienda) {
+    socioPartes.push(`En cuanto a su situación socioeconómica, reside ${vivienda}.`);
+  } else if (situacionLaboral) {
+    socioPartes.push(`En cuanto a su situación socioeconómica, se encuentra ${situacionLaboral}.`);
+  }
+
+  if (estudios) {
+    socioPartes.push(`Cuenta con ${estudios}.`);
+  }
+
+  const empadronamientoClause =
+    titular.empadronado === true
+      ? "Consta empadronada en el municipio."
+      : titular.empadronado === false
+        ? "No consta empadronada en el municipio."
+        : null;
+  if (empadronamientoClause) socioPartes.push(empadronamientoClause);
+
+  const socio = socioPartes.filter(Boolean).join(" ");
+
+  // ── Needs and contextual notes ───────────────────────────────────────────────
   // Dietary restrictions (RGPD Art.9) are intentionally NOT emitted here.
   // observaciones (interviewer intake notes) are included as contextual background
   // for the coordinator to review/edit before generating the official informe.
-  const extras = joinClauses([
-    titular.necesidades_principales
-      ? `Necesidades principales: ${endSentence(titular.necesidades_principales)}`
-      : null,
-    titular.observaciones && titular.observaciones.trim()
-      ? `Observaciones: ${endSentence(titular.observaciones.trim())}`
-      : null,
-  ]);
+  const necesidades = titular.necesidades_principales
+    ? `Entre las necesidades principales identificadas destaca: ${endSentence(titular.necesidades_principales)}`
+    : null;
 
-  return joinClauses([composicion, origen, socio, extras]);
+  const observaciones =
+    titular.observaciones && titular.observaciones.trim()
+      ? endSentence(titular.observaciones.trim())
+      : null;
+
+  return joinClauses([composicion, socio || null, necesidades, observaciones]);
 }
 
 /**

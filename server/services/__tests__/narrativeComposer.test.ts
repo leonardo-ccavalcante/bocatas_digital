@@ -154,7 +154,8 @@ describe("composeSituacionFamiliar", () => {
       ...FULL,
       titular: { ...FULL.titular, pais_origen: "zz" },
     });
-    expect(out).toMatch(/procede de \S/);
+    // New narrative uses "originaria de" or "procede de" — either is valid
+    expect(out).toMatch(/originaria de \S|procede de \S/);
     expect(out).not.toMatch(/undefined|null|NaN/);
   });
 
@@ -164,5 +165,22 @@ describe("composeSituacionFamiliar", () => {
       followUps: [{ fecha: "2026-05-02", notas: "   " }, { fecha: "2026-01-10", notas: null }],
     });
     expect(out).not.toContain("Seguimiento del proceso:");
+  });
+
+  it("generates fluent narrative prose (not mechanical field-by-field dump)", () => {
+    const out = composeSituacionFamiliar(FULL);
+    // The opening sentence should weave composition + origin into one clause
+    expect(out).toMatch(/La unidad familiar está compuesta por .+ cuya persona titular/);
+    // Socioeconomic situation uses a connector phrase, not a bare sentence start
+    expect(out).toMatch(/En cuanto a su situación socioeconómica/);
+    // Needs use a narrative framing, not a label
+    expect(out).toMatch(/Entre las necesidades principales identificadas/);
+    // Must NOT contain the old mechanical label patterns
+    expect(out).not.toMatch(/^La persona titular procede de/m);
+    expect(out).not.toMatch(/^Reside /m);
+    expect(out).not.toMatch(/^Se encuentra /m);
+    expect(out).not.toMatch(/^Tiene estudios/m);
+    expect(out).not.toMatch(/^Necesidades principales:/m);
+    expect(out).not.toMatch(/^Observaciones:/m);
   });
 });

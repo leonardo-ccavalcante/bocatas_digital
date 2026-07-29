@@ -66,6 +66,11 @@ export function BulkInformeGenerator() {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
+        {!p && (
+          <p className="text-xs text-muted-foreground mb-2">
+            Haz click en <strong>Previsualizar</strong> para ver cuántas familias están listas para generar su informe.
+          </p>
+        )}
         <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
@@ -74,13 +79,14 @@ export function BulkInformeGenerator() {
             disabled={preview.isFetching || running}
           >
             {preview.isFetching ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" aria-hidden="true" /> : null}
-            Previsualizar
+            {p ? "Actualizar lista" : "Previsualizar"}
           </Button>
           <Button
             size="sm"
             onClick={runAll}
             disabled={running || !p?.ready.length}
             aria-label="Generar y actualizar informes de todas las familias activas listas"
+            title={!p ? "Haz click en Previsualizar primero" : undefined}
           >
             {running ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" aria-hidden="true" /> : null}
             Generar/actualizar todas ({p?.ready.length ?? 0})
