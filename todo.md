@@ -396,3 +396,11 @@
 - [x] Fix: añadir regla 8 de "especificidad obligatoria" — si las notas dicen "Renta Mínima Vital", escribir "Renta Mínima Vital"; si no especifican cuál, omitir en lugar de generalizar
 - [x] TDD GREEN: 16/16 tests observacionesReviewer pasan
 - [x] Suite completa: TypeScript 0 errores, 3503 tests pasan
+
+## Feature: Buscador de persona en listas de procesos/programas (sesión 2026-07-29)
+- [x] TDD RED: test que verifica que CloseoutRosterList filtra la lista pendientes por query de búsqueda
+- [x] TDD RED: test que verifica que ContactoPanel filtra la lista por query de búsqueda
+- [x] Implementar buscador en CloseoutRosterList (Input + filtro local sobre pending y attendedHere)
+- [x] Implementar buscador en ContactoPanel (Input + filtro local sobre data.rows)
+- [x] TDD GREEN: 9/9 tests personSearch pasan
+- [x] Suite completa: TypeScript 0 errores, 3512 tests pasan
