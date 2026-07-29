@@ -371,3 +371,10 @@
 - [x] Mejorar UX BulkInformeGenerator: texto de ayuda + botón cambia a "Actualizar lista" tras previsualizar
 - [x] TypeScript 0 errores, 3496 tests pasan, 0 fallos
 - [x] Checkpoint y deploy a producción
+
+### Fix: Eliminar restricción SIN_SEGUIMIENTO de informeEligibility (2026-07-29)
+- [x] informeEligibility.ts: eliminar SIN_SEGUIMIENTO y SEGUIMIENTO_VENCIDO del evaluador
+- [x] Tests: actualizar test SIN_SEGUIMIENTO → ahora devuelve READY si demás datos completos
+- [x] Tests: eliminar test SEGUIMIENTO_VENCIDO (ya no aplica al evaluador)
+- [x] TypeScript 0 errores, tests pasan
+- [x] Checkpoint y deploy a producción

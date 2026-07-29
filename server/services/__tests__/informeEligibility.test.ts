@@ -32,18 +32,13 @@ describe("evaluateInformeReadiness — ordered skip ladder", () => {
     ).toEqual({ ready: false, reason: "TITULAR_DATOS_INCOMPLETOS" });
   });
 
-  it("SIN_SEGUIMIENTO when there is no follow-up", () => {
-    expect(evaluateInformeReadiness({ ...base(), latest_follow_up_fecha: null })).toEqual({
-      ready: false,
-      reason: "SIN_SEGUIMIENTO",
-    });
+  it("is READY when there is no follow-up (seguimiento is optional for first-time generation)", () => {
+    // Rule change: seguimiento is enrichment, not a prerequisite for generating the informe.
+    expect(evaluateInformeReadiness({ ...base(), latest_follow_up_fecha: null })).toEqual({ ready: true });
   });
 
-  it("SEGUIMIENTO_VENCIDO when the last follow-up is >365 days old", () => {
-    expect(evaluateInformeReadiness({ ...base(), latest_follow_up_fecha: OLD })).toEqual({
-      ready: false,
-      reason: "SEGUIMIENTO_VENCIDO",
-    });
+  it("is READY even when the last follow-up is old (seguimiento staleness is not a blocker)", () => {
+    expect(evaluateInformeReadiness({ ...base(), latest_follow_up_fecha: OLD })).toEqual({ ready: true });
   });
 
   it("SIN_DESCRIPCION_SITUACION when the valoración narrative is empty", () => {

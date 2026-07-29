@@ -62,10 +62,8 @@ export function evaluateInformeReadiness(f: InformeReadinessInput): InformeReadi
     return { ready: false, reason: "TITULAR_DATOS_INCOMPLETOS" };
   }
 
-  if (blank(f.latest_follow_up_fecha)) return { ready: false, reason: "SIN_SEGUIMIENTO" };
-  if (isInformeStale(f.latest_follow_up_fecha as string)) {
-    return { ready: false, reason: "SEGUIMIENTO_VENCIDO" };
-  }
+  // NOTE: seguimiento (follow-up) is enrichment context, not a prerequisite.
+  // Families without any follow-up can still generate their first informe.
 
   if (blank(f.situacion_familiar_texto)) return { ready: false, reason: "SIN_DESCRIPCION_SITUACION" };
 
