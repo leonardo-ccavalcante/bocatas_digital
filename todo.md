@@ -378,3 +378,12 @@
 - [x] Tests: eliminar test SEGUIMIENTO_VENCIDO (ya no aplica al evaluador)
 - [x] TypeScript 0 errores, tests pasan
 - [x] Checkpoint y deploy a producción
+
+## Bug fix: Duplicación de texto en informe social (sesión 2026-07-29)
+- [x] TDD RED: añadir test en observacionesReviewer.test.ts que verifica que el prompt incluye el contexto estructurado (num_adultos, num_menores, pais_origen, distrito)
+- [x] TDD RED: añadir test que verifica que el prompt instruye al LLM a NO repetir la información ya cubierta
+- [x] Fix: actualizar firma de reviewObservaciones para aceptar StructuredContext opcional
+- [x] Fix: actualizar SYSTEM_PROMPT para incluir instrucción explícita de no repetir info estructurada
+- [x] Fix: actualizar narrative.ts para pasar el contexto estructurado al reviewer
+- [x] TDD GREEN: todos los tests pasan (13/13 observacionesReviewer, 3500 suite completa)
+- [x] Suite completa: TypeScript 0 errores, 3500 tests pasan

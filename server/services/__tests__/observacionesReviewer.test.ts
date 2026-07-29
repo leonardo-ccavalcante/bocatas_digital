@@ -2,8 +2,8 @@
  * Tests for observacionesReviewer — the LLM-based reformulation service.
  *
  * Strategy: mock `invokeLLM` so tests are deterministic and free.
- * We verify the contract (null guards, pass-through, error resilience)
- * without actually calling the LLM.
+ * We verify the contract (null guards, pass-through, error resilience,
+ * structured-context deduplication).
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
@@ -131,5 +131,88 @@ describe("reviewObservaciones", () => {
     const callArgs = mockInvokeLLM.mock.calls[0][0];
     const userMessage = callArgs.messages.find((m) => m.role === "user");
     expect(userMessage?.content).toContain(rawText);
+  });
+
+  // ── Structured context deduplication tests ──────────────────────────────────
+  // These tests verify that when structured context is provided, the LLM prompt
+  // explicitly instructs the model NOT to repeat information already covered by
+  // the compositor (family composition, origin, district).
+
+  it("includes structured context in the system prompt when provided", async () => {
+    mockInvokeLLM.mockResolvedValueOnce(
+      makeLLMResponse("Han iniciado el trámite para la Renta Mínima Vital.")
+    );
+
+    await reviewObservaciones(
+      "Matrimonio con una hija menor de dos años. Residen en España desde hace seis años. Han iniciado el trámite para la RMV.",
+      {
+        num_adultos: 2,
+        num_menores: 1,
+        pais_origen: "PH",
+        distrito: "puente-de-vallecas",
+      }
+    );
+
+    const callArgs = mockInvokeLLM.mock.calls[0][0];
+    const systemMessage = callArgs.messages.find((m) => m.role === "system");
+    expect(systemMessage?.content).toContain("2 personas adultas");
+    expect(systemMessage?.content).toContain("1 menor");
+    expect(systemMessage?.content).toContain("Filipinas");
+    expect(systemMessage?.content).toContain("puente-de-vallecas");
+  });
+
+  it("system prompt instructs LLM to NOT repeat structured info when context provided", async () => {
+    mockInvokeLLM.mockResolvedValueOnce(
+      makeLLMResponse("Han iniciado el trámite para la Renta Mínima Vital.")
+    );
+
+    await reviewObservaciones(
+      "Matrimonio con una hija menor de dos años. Han iniciado el trámite para la RMV.",
+      {
+        num_adultos: 2,
+        num_menores: 1,
+        pais_origen: "PH",
+        distrito: "puente-de-vallecas",
+      }
+    );
+
+    const callArgs = mockInvokeLLM.mock.calls[0][0];
+    const systemMessage = callArgs.messages.find((m) => m.role === "system");
+    // The prompt must explicitly forbid repeating the structured info
+    expect(systemMessage?.content).toMatch(/NO repitas|no repitas|no vuelvas a mencionar|omite.*ya.*cubierta/i);
+  });
+
+  it("does NOT include structured context block in system prompt when context is omitted", async () => {
+    mockInvokeLLM.mockResolvedValueOnce(
+      makeLLMResponse("La familia presenta necesidades socioeconómicas.")
+    );
+
+    await reviewObservaciones("familia con muchas necesidades");
+
+    const callArgs = mockInvokeLLM.mock.calls[0][0];
+    const systemMessage = callArgs.messages.find((m) => m.role === "system");
+    // Without context, the prompt should NOT contain the "ya cubierta" dedup block
+    expect(systemMessage?.content).not.toContain("ya está cubierta");
+  });
+
+  it("works correctly when context has null fields (partial context)", async () => {
+    mockInvokeLLM.mockResolvedValueOnce(
+      makeLLMResponse("La familia presenta necesidades de vivienda.")
+    );
+
+    const result = await reviewObservaciones(
+      "Familia sin vivienda estable, buscan piso de alquiler.",
+      {
+        num_adultos: 1,
+        num_menores: 0,
+        pais_origen: null,
+        distrito: null,
+      }
+    );
+
+    expect(result).toBe("La familia presenta necesidades de vivienda.");
+    const callArgs = mockInvokeLLM.mock.calls[0][0];
+    const systemMessage = callArgs.messages.find((m) => m.role === "system");
+    expect(systemMessage?.content).toContain("1 persona adulta");
   });
 });
