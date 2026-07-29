@@ -387,3 +387,12 @@
 - [x] Fix: actualizar narrative.ts para pasar el contexto estructurado al reviewer
 - [x] TDD GREEN: todos los tests pasan (13/13 observacionesReviewer, 3500 suite completa)
 - [x] Suite completa: TypeScript 0 errores, 3500 tests pasan
+
+## Mejora: Los 4 acuerdos como baseline del LLM — integridad del texto generado (sesión 2026-07-29)
+- [x] TDD RED: test que verifica que el prompt prohíbe expresamente asumir información no presente en los datos (acuerdo 1: sé impecable con tus palabras)
+- [x] TDD RED: test que verifica que el prompt prohíbe frases vagas o ambiguas como "el subsidio correspondiente", "la ayuda recibida", "los trámites habituales" sin especificar cuál (acuerdo 3: no hagas suposiciones)
+- [x] TDD RED: test que verifica que el prompt exige especificar el nombre exacto de cualquier prestación, trámite o apoyo mencionado en las notas originales
+- [x] Fix: reescribir BASE_SYSTEM_PROMPT en observacionesReviewer.ts con los 4 acuerdos como principios implícitos
+- [x] Fix: añadir regla 8 de "especificidad obligatoria" — si las notas dicen "Renta Mínima Vital", escribir "Renta Mínima Vital"; si no especifican cuál, omitir en lugar de generalizar
+- [x] TDD GREEN: 16/16 tests observacionesReviewer pasan
+- [x] Suite completa: TypeScript 0 errores, 3503 tests pasan

@@ -12,8 +12,14 @@
  *  - Output: a reformulated paragraph in professional, impersonal, third-person
  *    social-work language — OR null if the input is empty, too short to be useful,
  *    or contains nothing appropriate for an official document.
- *  - STRICT: the LLM must NEVER invent, infer, or add information not present in
- *    the input. Only reformulation of existing content is allowed.
+ *  - STRICT integrity (the 4 agreements as implicit baseline):
+ *      1. Impeccable with words — only write what is explicitly stated; name things
+ *         exactly as they appear in the notes (no vague filler like "el subsidio
+ *         correspondiente" when the notes don't name the specific benefit).
+ *      2. Don't take anything personally — impersonal, third-person prose only.
+ *      3. Don't make assumptions — if a detail is not in the notes, omit it; never
+ *         infer, generalise, or complete with plausible-sounding information.
+ *      4. Always do your best — professional, precise, concise output.
  *  - RGPD Art.9: the LLM prompt explicitly forbids including health, legal status,
  *    migration history, or other Art.9 sensitive data in the output.
  *
@@ -54,6 +60,18 @@ export type StructuredContext = {
   distrito: string | null;
 };
 
+/**
+ * The base system prompt embeds the 4 agreements as implicit behavioural rules —
+ * without naming them — so the LLM produces precise, honest, assumption-free prose.
+ *
+ * Key principles woven in:
+ *  • Impeccable with words: name every benefit, procedure, or support exactly as
+ *    stated in the notes; never substitute with vague filler.
+ *  • Don't make assumptions: if a detail is absent, omit it — never infer or
+ *    complete with plausible-sounding information.
+ *  • Don't take anything personally: strict third-person, impersonal register.
+ *  • Always do your best: concise, professional, legally appropriate output.
+ */
 const BASE_SYSTEM_PROMPT = `Eres un trabajador social profesional que redacta informes de valoración social oficiales en España.
 
 Tu tarea es revisar unas notas de observación internas escritas por un entrevistador y reformularlas en lenguaje profesional de trabajo social, adecuado para un documento oficial.
@@ -65,7 +83,8 @@ REGLAS ESTRICTAS:
 4. NO incluyas datos de salud, situación legal, historial migratorio, ni ningún dato especialmente sensible (RGPD Art.9) — si los hay en las notas, omítelos.
 5. Si las notas no contienen información relevante para un informe social oficial, o son demasiado breves/vagas, devuelve null.
 6. El resultado debe ser un párrafo conciso (máximo 3-4 frases), no una lista.
-7. Si el resultado sería prácticamente idéntico a las notas originales (ya están bien redactadas), devuélvelas con mínimos ajustes de formato.`;
+7. Si el resultado sería prácticamente idéntico a las notas originales (ya están bien redactadas), devuélvelas con mínimos ajustes de formato.
+8. ESPECIFICIDAD OBLIGATORIA: nombra cada prestación, trámite o apoyo exactamente tal como aparece en las notas originales. Si las notas dicen "Renta Mínima Vital", escribe "Renta Mínima Vital" — nunca "el subsidio correspondiente", "la ayuda recibida" ni ninguna otra expresión vaga. Si las notas no especifican el nombre exacto, omite la referencia en lugar de generalizar con términos vagos o imprecisos.`;
 
 /** Build the system prompt, injecting a deduplication block when structured
  *  context is available. This prevents the reviewer from repeating information
@@ -103,7 +122,7 @@ function buildSystemPrompt(ctx: StructuredContext | undefined): string {
   const coveredList = coveredParts.join(", ");
 
   const dedupBlock = `
-8. INFORMACIÓN YA CUBIERTA — NO repitas en tu respuesta la siguiente información, porque ya está cubierta por el texto estructurado del informe: ${coveredList}. Céntrate ÚNICAMENTE en información adicional que NO esté ya cubierta: circunstancias específicas, procesos en curso, deudas, apoyos recibidos, dinámicas familiares relevantes, etc.`;
+9. INFORMACIÓN YA CUBIERTA — NO repitas en tu respuesta la siguiente información, porque ya está cubierta por el texto estructurado del informe: ${coveredList}. Céntrate ÚNICAMENTE en información adicional que NO esté ya cubierta: circunstancias específicas, procesos en curso, deudas, apoyos recibidos, dinámicas familiares relevantes, etc.`;
 
   return BASE_SYSTEM_PROMPT + dedupBlock;
 }

@@ -2,8 +2,11 @@
  * Tests for observacionesReviewer — the LLM-based reformulation service.
  *
  * Strategy: mock `invokeLLM` so tests are deterministic and free.
- * We verify the contract (null guards, pass-through, error resilience,
- * structured-context deduplication).
+ * We verify:
+ *   - null guards, pass-through, error resilience
+ *   - structured-context deduplication (no repetition of compositor fields)
+ *   - integrity rules: no assumptions, no vague references, no invented data
+ *     (the 4 agreements as implicit baseline)
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
@@ -39,6 +42,8 @@ describe("reviewObservaciones", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
+
+  // ── Basic contract ──────────────────────────────────────────────────────────
 
   it("returns null immediately for null input (no LLM call)", async () => {
     const result = await reviewObservaciones(null);
@@ -133,10 +138,7 @@ describe("reviewObservaciones", () => {
     expect(userMessage?.content).toContain(rawText);
   });
 
-  // ── Structured context deduplication tests ──────────────────────────────────
-  // These tests verify that when structured context is provided, the LLM prompt
-  // explicitly instructs the model NOT to repeat information already covered by
-  // the compositor (family composition, origin, district).
+  // ── Structured context deduplication ────────────────────────────────────────
 
   it("includes structured context in the system prompt when provided", async () => {
     mockInvokeLLM.mockResolvedValueOnce(
@@ -178,7 +180,6 @@ describe("reviewObservaciones", () => {
 
     const callArgs = mockInvokeLLM.mock.calls[0][0];
     const systemMessage = callArgs.messages.find((m) => m.role === "system");
-    // The prompt must explicitly forbid repeating the structured info
     expect(systemMessage?.content).toMatch(/NO repitas|no repitas|no vuelvas a mencionar|omite.*ya.*cubierta/i);
   });
 
@@ -191,7 +192,6 @@ describe("reviewObservaciones", () => {
 
     const callArgs = mockInvokeLLM.mock.calls[0][0];
     const systemMessage = callArgs.messages.find((m) => m.role === "system");
-    // Without context, the prompt should NOT contain the "ya cubierta" dedup block
     expect(systemMessage?.content).not.toContain("ya está cubierta");
   });
 
@@ -214,5 +214,51 @@ describe("reviewObservaciones", () => {
     const callArgs = mockInvokeLLM.mock.calls[0][0];
     const systemMessage = callArgs.messages.find((m) => m.role === "system");
     expect(systemMessage?.content).toContain("1 persona adulta");
+  });
+
+  // ── Integrity rules: los 4 acuerdos como baseline ───────────────────────────
+  // These tests verify that the system prompt enforces strict integrity:
+  // no assumptions, no vague references, no invented data.
+
+  it("system prompt explicitly forbids inventing or inferring data not in the notes", async () => {
+    mockInvokeLLM.mockResolvedValueOnce(makeLLMResponse("Texto."));
+
+    await reviewObservaciones("familia con dificultades económicas");
+
+    const callArgs = mockInvokeLLM.mock.calls[0][0];
+    const systemMessage = callArgs.messages.find((m) => m.role === "system");
+    const content = systemMessage?.content as string;
+
+    // Must explicitly forbid inventing or inferring
+    expect(content).toMatch(/NO inventes|no inventes/i);
+    expect(content).toMatch(/NO inferas|no inferas/i);
+  });
+
+  it("system prompt forbids vague references to benefits/procedures without naming them", async () => {
+    mockInvokeLLM.mockResolvedValueOnce(makeLLMResponse("Texto."));
+
+    await reviewObservaciones("familia con dificultades económicas");
+
+    const callArgs = mockInvokeLLM.mock.calls[0][0];
+    const systemMessage = callArgs.messages.find((m) => m.role === "system");
+    const content = systemMessage?.content as string;
+
+    // Must instruct to name things exactly as stated in the notes
+    expect(content).toMatch(
+      /nombre exacto|tal como aparece|exactamente como|sin generalizar|sin parafrasear con términos vagos/i
+    );
+  });
+
+  it("system prompt instructs to omit rather than generalize when specifics are missing", async () => {
+    mockInvokeLLM.mockResolvedValueOnce(makeLLMResponse("Texto."));
+
+    await reviewObservaciones("familia con dificultades económicas");
+
+    const callArgs = mockInvokeLLM.mock.calls[0][0];
+    const systemMessage = callArgs.messages.find((m) => m.role === "system");
+    const content = systemMessage?.content as string;
+
+    // Must instruct to omit rather than invent vague filler
+    expect(content).toMatch(/omite|omítelo|no incluyas|deja fuera/i);
   });
 });
