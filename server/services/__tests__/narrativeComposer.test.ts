@@ -86,15 +86,21 @@ describe("composeSituacionFamiliar", () => {
     expect(out).toContain("Apoyo alimentario.");
   });
 
-  it("never emits the interviewer's internal observaciones (not for an official document)", () => {
+  it("includes observaciones (intake notes) in the narrative when provided", () => {
     const out = composeSituacionFamiliar({
       ...FULL,
-      // @ts-expect-error — observaciones is intentionally not part of NarrativeInput;
-      // even if a caller smuggles it in, it must never reach the official document.
-      titular: { ...FULL.titular, observaciones: "NOTA_INTERNA_ENTREVISTADOR" },
+      titular: { ...FULL.titular, observaciones: "Familia en situación de vulnerabilidad extrema. Necesita seguimiento urgente." },
     });
-    expect(out).not.toContain("NOTA_INTERNA_ENTREVISTADOR");
-    expect(out).not.toMatch(/observaci/i);
+    expect(out).toContain("vulnerabilidad extrema");
+    expect(out).toContain("seguimiento urgente");
+  });
+
+  it("omits observaciones block when observaciones is null or empty", () => {
+    const outNull = composeSituacionFamiliar({ ...FULL, titular: { ...FULL.titular, observaciones: null } });
+    const outEmpty = composeSituacionFamiliar({ ...FULL, titular: { ...FULL.titular, observaciones: "" } });
+    // Should not add a blank "Observaciones:" heading
+    expect(outNull).not.toMatch(/Observaciones:/i);
+    expect(outEmpty).not.toMatch(/Observaciones:/i);
   });
 
   it("includes a 'Cambios desde el último informe' block when changes are provided", () => {

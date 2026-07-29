@@ -110,6 +110,10 @@ export type NarrativeInput = {
     nivel_estudios: string | null;
     empadronado: boolean | null;
     necesidades_principales: string | null;
+    /** Free-text intake notes from the interviewer. Included in the draft as
+     *  contextual background for the coordinator to review/edit before generating
+     *  the official informe. */
+    observaciones?: string | null;
   };
   followUps: Array<{ fecha: string; notas: string | null }>;
   /** Structured changes since the last informe (empleo, vivienda, …), if any. */
@@ -174,12 +178,15 @@ function composeSituacion(input: NarrativeInput): string {
         : null,
   ]);
 
-  // Dietary restrictions and the interviewer's `observaciones` are intentionally
-  // NOT emitted here — see the module header. Only the family's principal needs
-  // belong in this socioeconomic résumé.
+  // Dietary restrictions (RGPD Art.9) are intentionally NOT emitted here.
+  // observaciones (interviewer intake notes) are included as contextual background
+  // for the coordinator to review/edit before generating the official informe.
   const extras = joinClauses([
     titular.necesidades_principales
       ? `Necesidades principales: ${endSentence(titular.necesidades_principales)}`
+      : null,
+    titular.observaciones && titular.observaciones.trim()
+      ? `Observaciones: ${endSentence(titular.observaciones.trim())}`
       : null,
   ]);
 

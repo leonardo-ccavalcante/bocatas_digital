@@ -4,6 +4,7 @@ import { router, adminProcedure } from "../../_core/trpc";
 import { createAdminClient } from "../../../client/src/lib/supabase/server";
 import { uuidLike } from "./_shared";
 import { composeSituacionFamiliar } from "../../services/narrativeComposer";
+import { reviewObservaciones } from "../../services/observacionesReviewer";
 import {
   computeSituacionChanges,
   lastSnapshot,
@@ -40,7 +41,8 @@ export const narrativeRouter = router({
           `num_adultos, num_menores_18, distrito, metadata,
            persons!titular_id(pais_origen, fecha_llegada_espana, tipo_vivienda,
                               situacion_laboral, nivel_ingresos, nivel_estudios,
-                              empadronado, direccion, necesidades_principales)`,
+                              empadronado, direccion, necesidades_principales,
+                              observaciones)`,
         )
         .eq("id", input.id)
         .is("deleted_at", null)
@@ -78,6 +80,12 @@ export const narrativeRouter = router({
       const historial = getInformeHistorial(metadata);
       const ultimoInformeFecha = historial.length > 0 ? historial[historial.length - 1].fecha : null;
 
+      // Run the observaciones through the LLM reviewer before passing to the
+      // composer. The reviewer reformulates raw intake notes into professional
+      // social-work language, omitting anything not suitable for an official
+      // document. Falls back to null (omit block) on LLM error.
+      const observacionesRevisadas = await reviewObservaciones(t?.observaciones ?? null);
+
       const draft = composeSituacionFamiliar({
         familia: {
           num_adultos: family.num_adultos,
@@ -93,6 +101,7 @@ export const narrativeRouter = router({
           nivel_estudios: t?.nivel_estudios ?? null,
           empadronado: t?.empadronado ?? null,
           necesidades_principales: t?.necesidades_principales ?? null,
+          observaciones: observacionesRevisadas,
         },
         followUps: (followUps ?? []).map((f) => ({ fecha: f.fecha, notas: f.notas })),
         cambios,
