@@ -15,7 +15,7 @@ import { generateWarningsReport } from "../legacyImportReport";
 import { generateInformesWarningsReport } from "../informesImportReport";
 import type { InformesStashPayload } from "../../shared/legacyFamiliasTypes";
 import { handleRepartoContactoInbound } from "../routers/families/reparto-contacto-inbound";
-import { authenticateRequest } from "./authenticateRequest";
+import { sdk } from "./sdk";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -118,7 +118,7 @@ async function startServer() {
   app.get("/api/legacy-import/report/:token", async (req, res) => {
     try {
       // Auth: verify session cookie via sdk (same as tRPC context)
-      const user = await authenticateRequest(req).catch(() => null);
+      const user = await sdk.authenticateRequest(req).catch(() => null);
       if (!user || user.role !== "admin") {
         res.status(403).json({ error: "Forbidden" });
         return;
@@ -157,7 +157,7 @@ async function startServer() {
   // Requires a valid session cookie (admin only). Accepts error_details JSON, returns .xlsx.
   app.post("/api/legacy-import/confirm-report", express.json({ limit: "1mb" }), async (req, res) => {
     try {
-      const user = await authenticateRequest(req).catch(() => null);
+      const user = await sdk.authenticateRequest(req).catch(() => null);
       if (!user || user.role !== "admin") {
         res.status(403).json({ error: "Forbidden" });
         return;
@@ -215,7 +215,7 @@ async function startServer() {
   // Requires a valid session cookie (admin only). Returns an .xlsx file.
   app.get("/api/informes-import/report/:token", async (req, res) => {
     try {
-      const user = await authenticateRequest(req).catch(() => null);
+      const user = await sdk.authenticateRequest(req).catch(() => null);
       if (!user || user.role !== "admin") {
         res.status(403).json({ error: "Forbidden" });
         return;

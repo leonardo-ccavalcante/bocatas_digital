@@ -7,7 +7,7 @@
 
 /** Returns the user's display name, falling back to "Usuario <id>". */
 export function resolveProfesionalNombre(user: {
-  id: string | number;
+  id: number;
   name: string | null;
 }): string {
   return user.name ?? `Usuario ${String(user.id)}`;
