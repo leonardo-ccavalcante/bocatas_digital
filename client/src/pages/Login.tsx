@@ -34,7 +34,13 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
 
-    const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
+    let authError: Error | null = null;
+    try {
+      const result = await supabase.auth.signInWithPassword({ email, password });
+      authError = result.error;
+    } catch (e: unknown) {
+      authError = e instanceof Error ? e : new Error("Error de conexión");
+    }
 
     if (authError) {
       setError(
