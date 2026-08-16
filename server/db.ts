@@ -1,94 +1,124 @@
-import { eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
-import { ENV } from './_core/env';
+/**
+ * User database helpers — backed by Supabase PostgreSQL (public.app_users).
+ * Replaces the legacy drizzle/mysql2 implementation.
+ */
+import { createClient } from "@supabase/supabase-js";
 
-let _db: ReturnType<typeof drizzle> | null = null;
-
-// Lazily create the drizzle instance so local tooling can run without a DB.
-export async function getDb() {
-  if (!_db && process.env.DATABASE_URL) {
-    try {
-      _db = drizzle(process.env.DATABASE_URL);
-    } catch (error) {
-      console.warn("[Database] Failed to connect:", error);
-      _db = null;
-    }
-  }
-  return _db;
+/** Untyped admin client for app_users (table not yet in generated Database types) */
+function getAppUsersClient() {
+  const url = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? "";
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+  return createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
 }
 
-export async function upsertUser(user: InsertUser): Promise<void> {
-  if (!user.openId) {
-    throw new Error("User openId is required for upsert");
-  }
+export interface AppUser {
+  id: string;
+  legacy_mysql_id: number | null;
+  open_id: string | null;
+  name: string | null;
+  email: string | null;
+  login_method: string | null;
+  role: "user" | "admin" | "superadmin" | "voluntario" | "beneficiario";
+  created_at: string;
+  updated_at: string;
+  last_signed_in: string;
+}
 
-  const db = await getDb();
-  if (!db) {
-    console.warn("[Database] Cannot upsert user: database not available");
-    return;
-  }
+/**
+ * Backward-compatible User type that matches the shape expected by ctx.user consumers.
+ * - `id` is now the UUID string (was MySQL int)
+ * - `openId` maps to `open_id` (preserved for transition)
+ */
+export type User = {
+  id: string;
+  openId: string;
+  name: string | null;
+  email: string | null;
+  loginMethod: string | null;
+  role: "user" | "admin" | "superadmin" | "voluntario" | "beneficiario";
+  createdAt: Date;
+  updatedAt: Date;
+  lastSignedIn: Date;
+};
 
-  try {
-    const values: InsertUser = {
-      openId: user.openId,
-    };
-    const updateSet: Record<string, unknown> = {};
+function toUser(row: AppUser): User {
+  return {
+    id: row.id,
+    openId: row.open_id ?? row.id,
+    name: row.name,
+    email: row.email,
+    loginMethod: row.login_method,
+    role: row.role,
+    createdAt: new Date(row.created_at),
+    updatedAt: new Date(row.updated_at),
+    lastSignedIn: new Date(row.last_signed_in),
+  };
+}
 
-    const textFields = ["name", "email", "loginMethod"] as const;
-    type TextField = (typeof textFields)[number];
+/**
+ * Get a user by their Supabase Auth UUID.
+ */
+export async function getUserById(authId: string): Promise<User | undefined> {
+  const db = getAppUsersClient();
+  const { data, error } = await db
+    .from("app_users")
+    .select("*")
+    .eq("id", authId)
+    .single();
 
-    const assignNullable = (field: TextField) => {
-      const value = user[field];
-      if (value === undefined) return;
-      const normalized = value ?? null;
-      values[field] = normalized;
-      updateSet[field] = normalized;
-    };
+  if (error || !data) return undefined;
+  return toUser(data as AppUser);
+}
 
-    textFields.forEach(assignNullable);
+/**
+ * Get a user by their legacy Manus openId (for transition period).
+ */
+export async function getUserByOpenId(openId: string): Promise<User | undefined> {
+  const db = getAppUsersClient();
+  const { data, error } = await db
+    .from("app_users")
+    .select("*")
+    .eq("open_id", openId)
+    .single();
 
-    if (user.lastSignedIn !== undefined) {
-      values.lastSignedIn = user.lastSignedIn;
-      updateSet.lastSignedIn = user.lastSignedIn;
-    }
-    if (user.role !== undefined) {
-      values.role = user.role;
-      updateSet.role = user.role;
-    } else if (user.openId === ENV.ownerOpenId) {
-      values.role = 'admin';
-      updateSet.role = 'admin';
-    }
+  if (error || !data) return undefined;
+  return toUser(data as AppUser);
+}
 
-    if (!values.lastSignedIn) {
-      values.lastSignedIn = new Date();
-    }
+/**
+ * Upsert a user in app_users. Used during auth callback.
+ */
+export async function upsertUser(user: {
+  id: string; // auth.users UUID
+  openId?: string;
+  name?: string | null;
+  email?: string | null;
+  loginMethod?: string | null;
+  role?: string;
+  lastSignedIn?: Date;
+}): Promise<void> {
+  const db = getAppUsersClient();
 
-    if (Object.keys(updateSet).length === 0) {
-      updateSet.lastSignedIn = new Date();
-    }
+  const row: Record<string, unknown> = { id: user.id };
+  if (user.openId !== undefined) row.open_id = user.openId;
+  if (user.name !== undefined) row.name = user.name;
+  if (user.email !== undefined) row.email = user.email;
+  if (user.loginMethod !== undefined) row.login_method = user.loginMethod;
+  if (user.role !== undefined) row.role = user.role;
+  if (user.lastSignedIn !== undefined) row.last_signed_in = user.lastSignedIn.toISOString();
+  row.updated_at = new Date().toISOString();
 
-    await db.insert(users).values(values).onDuplicateKeyUpdate({
-      set: updateSet,
-    });
-  } catch (error) {
-    console.error("[Database] Failed to upsert user:", error);
+  const { error } = await db.from("app_users").upsert(row, { onConflict: "id" });
+  if (error) {
+    console.error("[Database] Failed to upsert user:", error.message);
     throw error;
   }
 }
 
-export async function getUserByOpenId(openId: string) {
-  const db = await getDb();
-  if (!db) {
-    console.warn("[Database] Cannot get user: database not available");
-    return undefined;
-  }
-
-  const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
-
-  return result.length > 0 ? result[0] : undefined;
+// Legacy compatibility: getDb is no longer needed but some test files may reference it.
+export async function getDb() {
+  console.warn("[Database] getDb() is deprecated — use Supabase client directly");
+  return null;
 }
-
-// NOTE: Delivery (entregas) helpers were removed — all delivery CRUD now goes
-// through the canonical `deliveries` Supabase table via createAdminClient().
-// See server/routers/entregas.ts for the tRPC procedures.

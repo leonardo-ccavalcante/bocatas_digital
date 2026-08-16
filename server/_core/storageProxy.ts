@@ -1,6 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { ENV } from "./env";
-import { sdk } from "./sdk";
+import { authenticateRequest } from "./authenticateRequest";
 import { isElevatedRole } from "./rlsRedaction";
 
 // Key prefixes a non-elevated session may presign through this proxy. Everything
@@ -42,7 +42,7 @@ export async function handleStorageProxy(req: Request, res: Response) {
   // Require a valid session — same mechanism as the tRPC context and the other
   // authenticated REST routes (sdk.authenticateRequest). Anonymous → 401, and we
   // return BEFORE calling the forge presign so no signed URL is ever minted.
-  const user = await sdk.authenticateRequest(req).catch(() => null);
+  const user = await authenticateRequest(req).catch(() => null);
   if (!user) {
     res.status(401).json({ error: "Unauthorized" });
     return;
