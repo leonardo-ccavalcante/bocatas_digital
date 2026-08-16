@@ -20,7 +20,7 @@ const t = initTRPC.context<TrpcContext>().create({
 const createCaller = t.createCallerFactory(programsRouter);
 const caller = createCaller({
   user: {
-    id: 1,
+    id: "test-user-1",
     openId: "test-open-id",
     name: "Test Admin",
     email: "test@test.com",
@@ -197,7 +197,7 @@ describe("programs.enrollPerson — inscribible gate + estado inicial + event", 
     expect(inserts["enrollment_events"]?.[0]).toMatchObject({
       estado_anterior: null,
       estado_nuevo: "inscrito",
-      actor: "1",
+      actor: "test-user-1",
     });
   });
 });
@@ -237,7 +237,7 @@ describe("programs.updateEnrollmentEstado — catalog + motivo + events", () => 
       estado_anterior: "admitido",
       estado_nuevo: "baja",
       motivo: "encontró trabajo",
-      actor: "1",
+      actor: "test-user-1",
     });
   });
 

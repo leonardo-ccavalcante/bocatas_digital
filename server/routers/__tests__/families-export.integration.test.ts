@@ -17,7 +17,7 @@ describe("Families Export Integration", () => {
     // Create a test context with admin user
     const mockCtx: TrpcContext = {
       user: {
-        id: 1,
+        id: "test-user-1",
         openId: "test-user",
         name: "Test User",
         email: "test@example.com",

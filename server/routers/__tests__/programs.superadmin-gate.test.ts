@@ -24,7 +24,7 @@ const createCaller = t.createCallerFactory(programsRouter);
 function makeCtx(role: "admin" | "superadmin"): TrpcContext {
   return {
     user: {
-      id: 1,
+      id: "test-user-1",
       openId: "test-open-id",
       name: "Test User",
       email: "test@test.com",

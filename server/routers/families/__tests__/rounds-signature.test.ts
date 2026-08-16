@@ -35,7 +35,7 @@ const { roundsSignatureRouter } = await import("../rounds-signature");
 
 function buildUser(role: User["role"], id = 5): User {
   return { id, openId: `m${id}`, name: "T", email: "t@e.com", loginMethod: "manus", role,
-    createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() } as User;
+    createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() } as unknown as User;
 }
 function ctx(u: User | null): TrpcContext {
   return { req: { headers: {}, socket: {} } as never, res: {} as never, user: u,

@@ -1,6 +1,6 @@
 import type { CreateExpressContextOptions } from "@trpc/server/adapters/express";
-import type { User } from "../../drizzle/schema";
-import { sdk } from "./sdk";
+import type { User } from "../db";
+import { authenticateRequest } from "./authenticateRequest";
 import { Logger } from "./logger";
 import { randomUUID } from "crypto";
 
@@ -20,23 +20,19 @@ export async function createContext(
   const logger = new Logger();
 
   try {
-    user = await sdk.authenticateRequest(opts.req);
-  } catch (error) {
-    // Authentication is optional for public procedures.
+    user = await authenticateRequest(opts.req);
+  } catch {
     user = null;
   }
 
-  // DEV-ONLY admin bypass. Manus OAuth is unavailable in local dev, so when it is
-  // explicitly opted in (DEV_ADMIN_LOGIN=1) AND NODE_ENV is exactly "development"
-  // (allowlist — a deployment with NODE_ENV unset/mis-set stays locked), inject a
-  // synthetic admin session. `pnpm dev` sets NODE_ENV=development.
+  // DEV-ONLY admin bypass
   if (
     !user &&
     process.env.NODE_ENV === "development" &&
     process.env.DEV_ADMIN_LOGIN === "1"
   ) {
     user = {
-      id: 999999,
+      id: "dev-admin-uuid",
       openId: "dev-admin",
       name: "Dev Admin",
       email: "dev@localhost",
@@ -46,16 +42,8 @@ export async function createContext(
       updatedAt: new Date(),
       lastSignedIn: new Date(),
     } as User;
-    console.warn(
-      "[Auth] DEV_ADMIN_LOGIN=1 — injecting a synthetic admin session (non-production only).",
-    );
+    console.warn("[Auth] DEV_ADMIN_LOGIN=1 — injecting synthetic admin session.");
   }
 
-  return {
-    req: opts.req,
-    res: opts.res,
-    user,
-    logger,
-    correlationId,
-  };
+  return { req: opts.req, res: opts.res, user, logger, correlationId };
 }

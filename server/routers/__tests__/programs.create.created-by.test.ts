@@ -48,7 +48,7 @@ vi.mock("../../../client/src/lib/supabase/server", () => ({
 
 function buildAdminUser(): User {
   return {
-    id: 42,
+    id: "test-user-42",
     openId: "manus-admin-openid",
     email: "admin@example.com",
     name: "Admin Fixture",
@@ -97,6 +97,6 @@ describe("programs.create — created_by payload contract", () => {
     // The contract: created_by is the stringified caller.id (a Manus MySQL int).
     // After migration 20260507000001 the column is `text`, so this is the
     // canonical value to write.
-    expect(capturedPayload?.created_by).toBe("42");
+    expect(capturedPayload?.created_by).toBe("test-user-42");
   });
 });

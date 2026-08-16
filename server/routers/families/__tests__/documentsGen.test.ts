@@ -52,7 +52,7 @@ type AuthenticatedUser = NonNullable<TrpcContext["user"]>;
 
 function ctxWithRole(role: AuthenticatedUser["role"]): TrpcContext {
   const user: AuthenticatedUser = {
-    id: 42,
+    id: "test-user-42",
     openId: "test-user",
     email: `${role}@bocatas.org`,
     name: role,
@@ -133,7 +133,7 @@ describe("families.generateDocument", () => {
     expect(renderDocument).toHaveBeenCalledWith(
       "informe_social",
       MOCK_CONTEXT,
-      expect.objectContaining({ actorId: "42", familyId: FAMILY_ID })
+      expect.objectContaining({ actorId: "test-user-42", familyId: FAMILY_ID })
     );
   });
 

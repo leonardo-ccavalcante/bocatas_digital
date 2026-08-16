@@ -61,7 +61,7 @@ import { bulkImportRouter } from "../routers/announcements/bulk-import";
 
 const ADMIN_CTX = {
   user: {
-    id: 1,
+    id: "test-user-1",
     openId: "test-open-id",
     name: "Test Admin",
     email: "admin@bocatas.org",

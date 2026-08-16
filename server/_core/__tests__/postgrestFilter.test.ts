@@ -98,7 +98,7 @@ import { Logger } from "../logger";
 function authCtx(): TrpcContext {
   return {
     user: {
-      id: 1,
+      id: "test-user-1",
       openId: "test-open-id",
       email: "test@bocatas.org",
       name: "Test User",

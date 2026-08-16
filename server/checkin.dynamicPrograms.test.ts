@@ -27,7 +27,7 @@ const createCaller = t.createCallerFactory(checkinRouter);
 
 const caller = createCaller({
   user: {
-    id: 1,
+    id: "test-user-1",
     openId: "test-open-id",
     name: "Test User",
     email: "test@test.com",
