@@ -37,6 +37,11 @@ const AdminUsuarios = lazy(() => import("./pages/AdminUsuarios"));
 const AdminNovedades = lazy(() => import("./pages/AdminNovedades"));
 const AdminSoftDeleteRecovery = lazy(() => import("./pages/AdminSoftDeleteRecovery").then(m => ({ default: m.AdminSoftDeleteRecovery })));
 const AdminLogs = lazy(() => import("./pages/admin/LogsPage").then(m => ({ default: m.LogsPage })));
+const LLMSettingsPage = lazy(() =>
+  import("./pages/admin/LLMSettingsPage").then((m) => ({
+    default: m.LLMSettingsPage,
+  }))
+);
 const ProgramaTiposDocumento = lazy(() =>
   import("./pages/admin/ProgramaTiposDocumentoPage").then((m) => ({
     default: m.ProgramaTiposDocumentoPage,
@@ -165,6 +170,11 @@ function Router() {
         <Route path="/admin/logs">
           <ProtectedRoute requiredRoles={["admin", "superadmin"]}>
             <AdminLogs />
+          </ProtectedRoute>
+        </Route>
+        <Route path="/admin/llm">
+          <ProtectedRoute requiredRoles={["superadmin"]}>
+            <LLMSettingsPage />
           </ProtectedRoute>
         </Route>
 

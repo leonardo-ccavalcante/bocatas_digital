@@ -19,6 +19,7 @@ import { reportsRouter } from "./routers/reports";
 import { derivarRouter } from "./routers/derivar";
 import { institucionesRouter } from "./routers/instituciones";
 import { tiposIntervencionRouter } from "./routers/tiposIntervencion";
+import { llmSettingsRouter } from "./routers/llm-settings";
 
 export const appRouter = router({
   // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -50,6 +51,7 @@ export const appRouter = router({
   derivar: derivarRouter,
   instituciones: institucionesRouter,
   tiposIntervencion: tiposIntervencionRouter,
+  llmSettings: llmSettingsRouter,
 });
 
 export type AppRouter = typeof appRouter;

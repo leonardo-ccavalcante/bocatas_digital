@@ -20,6 +20,7 @@ import {
   Bell,
   User,
   Megaphone,
+  Brain,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -89,6 +90,12 @@ const NAV_ITEMS: NavItem[] = [
     label: "Usuarios",
     href: "/admin/usuarios",
     icon: <UserCog className="h-5 w-5" />,
+    roles: ["superadmin"],
+  },
+  {
+    label: "Config. LLM",
+    href: "/admin/llm",
+    icon: <Brain className="h-5 w-5" />,
     roles: ["superadmin"],
   },
 ];
