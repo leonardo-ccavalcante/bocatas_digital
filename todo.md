@@ -404,3 +404,16 @@
 - [x] Implementar buscador en ContactoPanel (Input + filtro local sobre data.rows)
 - [x] TDD GREEN: 9/9 tests personSearch pasan
 - [x] Suite completa: TypeScript 0 errores, 3512 tests pasan
+
+## Migración: Deploy Railway (2026-08-16)
+- [x] Verificar la conexión Railway CLI, proyecto objetivo y repositorio activo
+- [x] Auditar el contrato de producción y preparar configuración Railway reproducible (Railpack, pnpm build/start, /health y restart ON_FAILURE)
+- [ ] Configurar variables de entorno de staging en Railway sin exponer secretos
+- [ ] Desplegar un servicio de staging y verificar salud, login, OCR e informe social
+- [ ] Documentar checklist de cutover y rollback antes de cambiar el dominio
+
+## Migración: GitHub → Railway staging (2026-08-16)
+- [ ] Verificar el estado Git y la rama main antes de publicar la configuración Railway
+- [ ] Publicar en GitHub main railway.json, health check y sus pruebas verificadas
+- [ ] Conectar bocatas-web/staging al repositorio GitHub y a main
+- [ ] Desplegar staging a partir del commit de GitHub y validar el health check público

@@ -16,6 +16,7 @@ import { generateInformesWarningsReport } from "../informesImportReport";
 import type { InformesStashPayload } from "../../shared/legacyFamiliasTypes";
 import { handleRepartoContactoInbound } from "../routers/families/reparto-contacto-inbound";
 import { authenticateRequest } from "./authenticateRequest";
+import { registerHealthRoute } from "./health";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -59,6 +60,8 @@ const authLimiter = rateLimit({
 async function startServer() {
   const app = express();
   const server = createServer(app);
+
+  registerHealthRoute(app);
 
   // ATL (Wave 4): gzip responses — the node server served 384KB-raw JS chunks
   // uncompressed (117KB gzipped). Applies to static assets AND JSON API
