@@ -15,13 +15,13 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("../_core/sdk", () => ({ sdk: { authenticateRequest: vi.fn() } }));
+vi.mock("../_core/authenticateRequest", () => ({ authenticateRequest: vi.fn() }));
 vi.mock("../_core/env", () => ({
   ENV: { forgeApiUrl: "https://forge.test", forgeApiKey: "forge-key" },
 }));
 
 import { handleStorageProxy } from "../_core/storageProxy";
-import { sdk } from "../_core/sdk";
+import { authenticateRequest } from "../_core/authenticateRequest";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mockRes(): any {
@@ -42,8 +42,8 @@ describe("storageProxy auth — CAS-02 regression", () => {
 
   it("rejects an anonymous request with 401 and NEVER mints a presigned URL", async () => {
     // No valid session → authenticateRequest rejects (its real failure mode).
-    (sdk.authenticateRequest as ReturnType<typeof vi.fn>).mockRejectedValue(
-      new Error("no session"),
+    (authenticateRequest as ReturnType<typeof vi.fn>).mockResolvedValue(
+      null,
     );
     const fetchSpy = vi
       .spyOn(globalThis, "fetch")
@@ -64,8 +64,8 @@ describe("storageProxy auth — CAS-02 regression", () => {
   });
 
   it("allows an authenticated session and redirects to the signed URL", async () => {
-    (sdk.authenticateRequest as ReturnType<typeof vi.fn>).mockResolvedValue({
-      id: 1,
+    (authenticateRequest as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: "test-user-1",
       role: "voluntario",
     });
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
@@ -104,8 +104,8 @@ describe("storageProxy per-key authz — CAS-02b regression", () => {
   }
 
   it("forbids a voluntario from presigning a high-risk document key (403, no presign)", async () => {
-    (sdk.authenticateRequest as ReturnType<typeof vi.fn>).mockResolvedValue({
-      id: 7,
+    (authenticateRequest as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: "test-user-7",
       role: "voluntario",
     });
     const fetchSpy = vi
@@ -126,8 +126,8 @@ describe("storageProxy per-key authz — CAS-02b regression", () => {
   });
 
   it("allows an admin to presign the same high-risk document key", async () => {
-    (sdk.authenticateRequest as ReturnType<typeof vi.fn>).mockResolvedValue({
-      id: 1,
+    (authenticateRequest as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: "test-user-1",
       role: "admin",
     });
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
@@ -147,8 +147,8 @@ describe("storageProxy per-key authz — CAS-02b regression", () => {
   });
 
   it("allows a voluntario to presign a low-risk avatar key (allowlisted)", async () => {
-    (sdk.authenticateRequest as ReturnType<typeof vi.fn>).mockResolvedValue({
-      id: 7,
+    (authenticateRequest as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: "test-user-7",
       role: "voluntario",
     });
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
@@ -167,8 +167,8 @@ describe("storageProxy per-key authz — CAS-02b regression", () => {
   });
 
   it("rejects a traversal key that targets a high-risk prefix from an allowlisted one (400, no presign)", async () => {
-    (sdk.authenticateRequest as ReturnType<typeof vi.fn>).mockResolvedValue({
-      id: 7,
+    (authenticateRequest as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: "test-user-7",
       role: "voluntario",
     });
     const fetchSpy = vi
@@ -189,8 +189,8 @@ describe("storageProxy per-key authz — CAS-02b regression", () => {
   it("forbids a voluntario from a sibling key that rides the allowlist boundary (403)", async () => {
     // `madrid-distritos_` carries its own boundary: `madrid-distritos-evil/...`
     // must NOT match the allowlist and falls through to the elevated-role gate.
-    (sdk.authenticateRequest as ReturnType<typeof vi.fn>).mockResolvedValue({
-      id: 7,
+    (authenticateRequest as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: "test-user-7",
       role: "voluntario",
     });
     const fetchSpy = vi
@@ -208,8 +208,8 @@ describe("storageProxy per-key authz — CAS-02b regression", () => {
   });
 
   it("rejects a percent-encoded key before the prefix check (400, no presign)", async () => {
-    (sdk.authenticateRequest as ReturnType<typeof vi.fn>).mockResolvedValue({
-      id: 7,
+    (authenticateRequest as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: "test-user-7",
       role: "voluntario",
     });
     const fetchSpy = vi
