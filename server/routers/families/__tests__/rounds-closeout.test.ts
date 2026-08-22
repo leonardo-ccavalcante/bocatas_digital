@@ -45,9 +45,9 @@ vi.mock("../../../../client/src/lib/supabase/server", () => ({
 
 const { roundsCloseoutRouter } = await import("../rounds-closeout");
 
-function buildUser(role: User["role"], id = 1): User {
+function buildUser(role: User["role"], id = "test-user-1"): User {
   return { id, openId: `m${id}`, name: "T", email: "t@e.com", loginMethod: "manus", role,
-    createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() } as User;
+    createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() } as unknown as User;
 }
 function ctx(u: User | null): TrpcContext {
   return { req: {} as never, res: {} as never, user: u,
@@ -70,14 +70,14 @@ describe("rounds-closeout — markAttendance", () => {
   it("stamps attended_slot_id and appends one undo_log entry (prev + prev_slot_id)", async () => {
     tableResults["delivery_round_assignments"] = { data: { id: A, round_id: R, attended: null, attended_slot_id: null, undo_log: [] }, error: null };
     tableResults["delivery_round_slots"] = { data: { round_id: R }, error: null }; // slot∈round fence
-    const caller = roundsCloseoutRouter.createCaller(ctx(buildUser("voluntario", 9)));
+    const caller = roundsCloseoutRouter.createCaller(ctx(buildUser("voluntario", "test-user-9")));
     await caller.markAttendance({ assignment_id: A, slot_id: S, attended: true });
     const upd = captured.find((c) => c.op === "update");
     const log = upd?.payload.undo_log as Array<{ prev: unknown; prev_slot_id: unknown; by: string }>;
     expect(log).toHaveLength(1);
     expect(log[0].prev).toBeNull();
     expect(log[0].prev_slot_id).toBeNull();
-    expect(log[0].by).toBe("9");
+    expect(log[0].by).toBe("test-user-9");
     expect(upd?.payload.attended).toBe(true);
     expect(upd?.payload.attended_slot_id).toBe(S);
   });
@@ -125,7 +125,7 @@ describe("rounds-closeout — bulkMarkAttendance (atomic RPC)", () => {
   const RR = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
   it("delegates to the atomic bulk_mark_attendance RPC with the slot + actor", async () => {
     rpcResults["bulk_mark_attendance"] = 2;
-    const caller = roundsCloseoutRouter.createCaller(ctx(buildUser("voluntario", 5)));
+    const caller = roundsCloseoutRouter.createCaller(ctx(buildUser("voluntario", "test-user-5")));
     const res = await caller.bulkMarkAttendance({
       round_id: RR, slot_id: S,
       assignment_ids: ["aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"],
@@ -133,7 +133,7 @@ describe("rounds-closeout — bulkMarkAttendance (atomic RPC)", () => {
     });
     const call = rpcCalls.find((c) => c.name === "bulk_mark_attendance");
     expect(call?.args.p_slot_id).toBe(S);
-    expect(call?.args.p_actor).toBe("5");
+    expect(call?.args.p_actor).toBe("test-user-5");
     expect(res.count).toBe(2);
   });
 

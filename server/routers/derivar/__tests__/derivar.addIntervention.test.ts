@@ -42,7 +42,7 @@ type AuthenticatedUser = NonNullable<TrpcContext["user"]>;
 
 function ctxWithRole(role: AuthenticatedUser["role"]): TrpcContext {
   const user: AuthenticatedUser = {
-    id: 1,
+    id: "test-user-1",
     openId: "test-user",
     email: `${role}@bocatas.org`,
     name: "Test Pro",
@@ -173,7 +173,7 @@ describe("derivar.addIntervention — role guard", () => {
     const caller = intervencionesRouter.createCaller(
       // Force incorrect role by casting — this is testing the middleware, not TS.
       {
-        user: { id: 1, openId: "x", email: "v@b.org", name: "V", loginMethod: "manus", role: "voluntario", createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() },
+        user: { id: "test-user-1", openId: "x", email: "v@b.org", name: "V", loginMethod: "manus", role: "voluntario", createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() },
         logger: new Logger(),
         correlationId: "t",
         req: {} as TrpcContext["req"],

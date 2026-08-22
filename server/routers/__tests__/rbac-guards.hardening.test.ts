@@ -44,7 +44,7 @@ vi.mock("../../../client/src/lib/supabase/server", () => {
 
 function buildUser(role: User["role"]): User {
   return {
-    id: 42,
+    id: "test-user-42",
     openId: "manus-openid",
     email: "u@example.com",
     name: "Fixture",

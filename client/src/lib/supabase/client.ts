@@ -1,4 +1,4 @@
-import { createBrowserClient } from "@supabase/ssr";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "../database.types";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
@@ -10,12 +10,19 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   );
 }
 
-// Singleton to avoid creating multiple GoTrueClient instances
-let _client: ReturnType<typeof createBrowserClient<Database>> | null = null;
+// Singleton — uses localStorage for session persistence (survives page reloads)
+let _client: ReturnType<typeof createSupabaseClient<Database>> | null = null;
 
 export function createClient() {
   if (!_client) {
-    _client = createBrowserClient<Database>(SUPABASE_URL!, SUPABASE_ANON_KEY!);
+    _client = createSupabaseClient<Database>(SUPABASE_URL!, SUPABASE_ANON_KEY!, {
+      auth: {
+        persistSession: true,
+        storageKey: "bocatas-auth",
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+      },
+    });
   }
   return _client;
 }

@@ -26,7 +26,7 @@ type AuthenticatedUser = NonNullable<TrpcContext["user"]>;
 
 function ctxWithRole(role: AuthenticatedUser["role"]): TrpcContext {
   const user: AuthenticatedUser = {
-    id: 99,
+    id: "test-user-99",
     openId: "test-user",
     email: `${role}@bocatas.org`,
     name: role,
@@ -149,7 +149,7 @@ describe("families.publishTemplate — superadmin publish flow", () => {
 
     // update was called to deactivate the old active row
     expect(updateSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ is_active: false, updated_by: "99" })
+      expect.objectContaining({ is_active: false, updated_by: "test-user-99" })
     );
 
     // insert was called with the correct payload
@@ -158,7 +158,7 @@ describe("families.publishTemplate — superadmin publish flow", () => {
         slug: "informe_social",
         version: 3,
         is_active: true,
-        created_by: "99",
+        created_by: "test-user-99",
       })
     );
   });
@@ -280,7 +280,7 @@ describe("families.listTemplateVersions", () => {
         nombre: "v3",
         version: 3,
         is_active: true,
-        created_by: "99",
+        created_by: "test-user-99",
         created_at: "2026-05-21T00:00:00Z",
       },
       {
@@ -289,7 +289,7 @@ describe("families.listTemplateVersions", () => {
         nombre: "v2",
         version: 2,
         is_active: false,
-        created_by: "99",
+        created_by: "test-user-99",
         created_at: "2026-05-20T00:00:00Z",
       },
     ];

@@ -34,9 +34,9 @@ vi.mock("../reparto-notify", () => ({ notifyRepartoChange: vi.fn() }));
 
 const { roundsContactoRouter } = await import("../rounds-contacto");
 
-function buildUser(role: User["role"], id = 1): User {
+function buildUser(role: User["role"], id = "test-user-1"): User {
   return { id, openId: `m${id}`, name: "T", email: "t@e.com", loginMethod: "manus", role,
-    createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() } as User;
+    createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() } as unknown as User;
 }
 function ctx(u: User | null): TrpcContext {
   return { req: {} as never, res: {} as never, user: u,

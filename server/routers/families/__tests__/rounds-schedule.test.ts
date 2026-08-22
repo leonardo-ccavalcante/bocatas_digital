@@ -45,9 +45,9 @@ vi.mock("../../../../client/src/lib/supabase/server", () => ({
 // Import AFTER the mock is registered.
 const { roundsScheduleRouter } = await import("../rounds-schedule");
 
-function buildUser(role: User["role"], id = 1): User {
+function buildUser(role: User["role"], id = "test-user-1"): User {
   return { id, openId: `manus-${id}`, name: "T", email: "t@e.com", loginMethod: "manus", role,
-    createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() } as User;
+    createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() } as unknown as User;
 }
 function buildCtx(user: User | null): TrpcContext {
   return { req: {} as never, res: {} as never, user,
@@ -75,7 +75,7 @@ describe("rounds-schedule — auth", () => {
 describe("rounds-schedule — createRound", () => {
   it("derives fecha_inicio=min(slot_date), passes creado_por STRING + slots to the atomic RPC", async () => {
     rpcResults["create_round_with_slots"] = "new-round-id";
-    const caller = roundsScheduleRouter.createCaller(buildCtx(buildUser("admin", 42)));
+    const caller = roundsScheduleRouter.createCaller(buildCtx(buildUser("admin", "test-user-42")));
     const res = await caller.createRound({
       program_id: PROG,
       nombre: "Hoja de Firmas Mayo",
@@ -87,7 +87,7 @@ describe("rounds-schedule — createRound", () => {
     expect(res.id).toBe("new-round-id");
     const call = rpcCalls.find((c) => c.name === "create_round_with_slots");
     const args = call?.args as { p_round: Record<string, unknown>; p_slots: unknown[] };
-    expect(args.p_round.creado_por).toBe("42");
+    expect(args.p_round.creado_por).toBe("test-user-42");
     expect(typeof args.p_round.creado_por).toBe("string");
     expect(args.p_round.fecha_inicio).toBe("2026-05-05"); // earliest slot date
     expect(args.p_slots).toHaveLength(2);
@@ -176,7 +176,7 @@ describe("rounds-schedule — deleteRound", () => {
 
   it("inserts an audit log row with actor_id and round snapshot", async () => {
     tableResults["delivery_rounds"] = { data: { id: "r1", estado: "borrador", nombre: "Hoja_Test" }, error: null };
-    const adminUser = buildUser("admin", 42);
+    const adminUser = buildUser("admin", "test-user-42");
     const caller = roundsScheduleRouter.createCaller(buildCtx(adminUser));
     await caller.deleteRound({ round_id: "11111111-1111-4111-8111-111111111111" });
     const auditInsert = captured.find(
@@ -213,11 +213,11 @@ describe("rounds-schedule — closeRound (atomic RPC, marks ausentes)", () => {
 
   it("returns the number of ausentes marked when every slot is cerrado", async () => {
     rpcResults["close_round"] = 4;
-    const caller = roundsScheduleRouter.createCaller(buildCtx(buildUser("admin", 9)));
+    const caller = roundsScheduleRouter.createCaller(buildCtx(buildUser("admin", "test-user-9")));
     const res = await caller.closeRound({ round_id: R, notas: "fin" });
     expect(res.ausentes).toBe(4);
     const call = rpcCalls.find((c) => c.name === "close_round");
-    expect((call?.args as Record<string, unknown>).p_actor).toBe("9");
+    expect((call?.args as Record<string, unknown>).p_actor).toBe("test-user-9");
   });
 
   it("maps ronda_no_activa → CONFLICT (double close)", async () => {
@@ -230,14 +230,14 @@ describe("rounds-schedule — closeRound (atomic RPC, marks ausentes)", () => {
 describe("rounds-schedule — cerrarTurno", () => {
   const S = "44444444-4444-4444-8444-444444444444";
   it("delegates to the atomic cerrar_turno RPC with the slot id and actor", async () => {
-    const caller = roundsScheduleRouter.createCaller(buildCtx(buildUser("admin", 9)));
+    const caller = roundsScheduleRouter.createCaller(buildCtx(buildUser("admin", "test-user-9")));
     const res = await caller.cerrarTurno({ slot_id: S });
     expect(res.closed).toBe(true);
     const call = rpcCalls.find((c) => c.name === "cerrar_turno");
     expect(call).toBeDefined();
     const args = call?.args as Record<string, unknown>;
     expect(args.p_slot_id).toBe(S);
-    expect(args.p_actor).toBe("9");
+    expect(args.p_actor).toBe("test-user-9");
   });
 
   it("maps the RPC's 'turno_ya_cerrado' raise to CONFLICT", async () => {

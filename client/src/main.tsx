@@ -7,6 +7,7 @@ import { createRoot } from "react-dom/client";
 import superjson from "superjson";
 import App from "./App";
 import { getLoginUrl } from "./const";
+import { createClient } from "@/lib/supabase/client";
 import { PostHogProvider } from "./lib/posthog";
 import { registerSwUpdateToast } from "./lib/swUpdate";
 import "./index.css";
@@ -52,9 +53,16 @@ const trpcClient = trpc.createClient({
     httpBatchLink({
       url: "/api/trpc",
       transformer: superjson,
-      fetch(input, init) {
+      async fetch(input, init) {
+        const supabase = createClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        const headers = new Headers((init as RequestInit)?.headers);
+        if (session?.access_token) {
+          headers.set("Authorization", `Bearer ${session.access_token}`);
+        }
         return globalThis.fetch(input, {
           ...(init ?? {}),
+          headers,
           credentials: "include",
         });
       },

@@ -18,8 +18,16 @@ export const trpcVanilla = createTRPCClient<AppRouter>({
     httpBatchLink({
       url: "/api/trpc",
       transformer: superjson,
-      fetch: (input, init) =>
-        globalThis.fetch(input, { ...(init ?? {}), credentials: "include" }),
+      async fetch(input, init) {
+        const { createClient } = await import("@/lib/supabase/client");
+        const supabase = createClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        const headers = new Headers((init as RequestInit)?.headers);
+        if (session?.access_token) {
+          headers.set("Authorization", `Bearer ${session.access_token}`);
+        }
+        return globalThis.fetch(input, { ...(init ?? {}), headers, credentials: "include" });
+      },
     }),
   ],
 });

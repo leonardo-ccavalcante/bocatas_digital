@@ -49,7 +49,7 @@ const INFORMES_CSV =
 function adminCtx(): TrpcContext {
   return {
     user: {
-      id: 1,
+      id: "test-user-1",
       openId: "e2e-admin-open-id",
       email: "e2e@bocatas.org",
       name: "E2E Admin",
