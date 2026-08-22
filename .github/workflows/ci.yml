@@ -86,8 +86,10 @@ jobs:
       - name: Build
         run: pnpm build
         env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          # CI only needs syntactically valid public values to bundle and render
+          # /login. Production values are supplied by Railway at its own build.
+          VITE_SUPABASE_URL: http://localhost
+          VITE_SUPABASE_ANON_KEY: ph.ph.ph
           VITE_APP_ID: ci-build
           VITE_OAUTH_PORTAL_URL: https://placeholder.manus.im
 
@@ -109,8 +111,10 @@ jobs:
         run: npx --yes @lhci/cli@0.13.x autorun
         env:
           LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          # Mirrors Build above. No live Supabase credential is needed for a
+          # public, unauthenticated Lighthouse audit of /login.
+          VITE_SUPABASE_URL: http://localhost
+          VITE_SUPABASE_ANON_KEY: ph.ph.ph
           VITE_APP_ID: ci-build
           VITE_OAUTH_PORTAL_URL: https://placeholder.manus.im
           JWT_SECRET: ${{ env.LHCI_JWT_SECRET }}
