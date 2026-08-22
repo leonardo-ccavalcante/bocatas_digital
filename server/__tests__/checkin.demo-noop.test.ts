@@ -58,7 +58,7 @@ const t = initTRPC.context<TrpcContext>().create({
 });
 const caller = t.createCallerFactory(checkinRouter)({
   user: {
-    id: 1,
+    id: "test-user-1",
     openId: "o",
     name: "T",
     email: "t@t.com",

@@ -35,7 +35,7 @@ const t = initTRPC.context<TrpcContext>().create({
 function buildCtx(role: "admin" | "voluntario"): TrpcContext {
   return {
     user: {
-      id: 1, openId: "test", name: "Test", email: "t@t.com",
+      id: "test-user-1", openId: "test", name: "Test", email: "t@t.com",
       role, loginMethod: "google",
       createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date(),
     },

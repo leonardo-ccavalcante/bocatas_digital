@@ -296,3 +296,15 @@ describe("App.tsx /admin/programas/:slug/tipos-documento route", () => {
     });
   });
 });
+
+describe("App.tsx public login route", () => {
+  it("renders /login while the background authentication lookup is loading", () => {
+    authState.user = null;
+    authState.loading = true;
+    authState.isAuthenticated = false;
+
+    renderAtPath("/login");
+
+    expect(screen.getByTestId("login-page")).toBeInTheDocument();
+  });
+});

@@ -70,7 +70,7 @@ const LOCATION_ID = "b0000000-0000-0000-0000-000000000001";
 function voluntarioCtx(): TrpcContext {
   return {
     user: {
-      id: 42,
+      id: "test-user-42",
       openId: "voluntario-open-id",
       name: "Voluntario Test",
       email: "voluntario@bocatas.org",

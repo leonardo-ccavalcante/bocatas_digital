@@ -60,7 +60,7 @@ import { checkinRouter } from "../../routers/checkin";
 
 function buildUser(role: User["role"]): User {
   return {
-    id: 1,
+    id: "test-user-1",
     openId: "manus-1",
     name: "Vol",
     email: "v@example.com",
@@ -69,7 +69,7 @@ function buildUser(role: User["role"]): User {
     createdAt: new Date(),
     updatedAt: new Date(),
     lastSignedIn: new Date(),
-  } as User;
+  } as unknown as User;
 }
 
 function buildCtx(role: User["role"]): TrpcContext {

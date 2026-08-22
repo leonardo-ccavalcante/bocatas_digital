@@ -31,7 +31,7 @@ import { crudRouter } from "../persons/crud";
 
 function adminCtx(): TrpcContext {
   const user: NonNullable<TrpcContext["user"]> = {
-    id: 1,
+    id: "test-user-1",
     openId: "test-admin",
     email: "admin@bocatas.org",
     name: "admin",

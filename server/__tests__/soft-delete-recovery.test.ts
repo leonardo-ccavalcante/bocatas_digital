@@ -9,7 +9,7 @@ const itDb = hasRealSupabaseEnv() ? it : it.skip;
 function createAdminContext(): TrpcContext {
   return {
     user: {
-      id: 1,
+      id: "test-user-1",
       openId: "admin-user",
       email: "admin@test.com",
       name: "Admin User",
@@ -34,7 +34,7 @@ function createAdminContext(): TrpcContext {
 function createUserContext(): TrpcContext {
   return {
     user: {
-      id: 2,
+      id: "test-user-2",
       openId: "user",
       email: "user@test.com",
       name: "Regular User",

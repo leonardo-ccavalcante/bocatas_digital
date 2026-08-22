@@ -48,7 +48,7 @@ type AuthenticatedUser = NonNullable<TrpcContext["user"]>;
 
 function makeCtx(role: AuthenticatedUser["role"]): TrpcContext {
   const user: AuthenticatedUser = {
-    id: 99,
+    id: "test-user-99",
     openId: `test-${role}-open-id`,
     email: `${role}@bocatas.org`,
     name: `Test ${role}`,

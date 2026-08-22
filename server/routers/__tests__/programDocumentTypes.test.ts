@@ -93,7 +93,7 @@ function buildUser(role: User["role"], id = 1): User {
     createdAt: new Date(),
     updatedAt: new Date(),
     lastSignedIn: new Date(),
-  } as User;
+  } as unknown as User;
 }
 
 function buildCtx(user: User | null): TrpcContext {

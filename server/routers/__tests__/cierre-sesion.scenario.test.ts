@@ -62,7 +62,7 @@ function buildCtx(role: "admin" | "voluntario" | null): TrpcContext {
   return {
     user: role
       ? {
-          id: 1, openId: "scenario-test", name: "Test User", email: "t@t.com",
+          id: "test-user-1", openId: "scenario-test", name: "Test User", email: "t@t.com",
           role, loginMethod: "google",
           createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date(),
         }

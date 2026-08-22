@@ -50,7 +50,7 @@ function adminCtx(): TrpcContext {
   return {
     req: {} as never,
     res: {} as never,
-    user: { id: 1, role: "admin", name: "TES-08", email: "t@t.com" } as never,
+    user: { id: "test-user-1", role: "admin", name: "TES-08", email: "t@t.com" } as never,
     logger: { info() {}, warn() {}, error() {} } as never,
     correlationId: "tes08",
   } as TrpcContext;

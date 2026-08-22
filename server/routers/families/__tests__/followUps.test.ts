@@ -26,7 +26,7 @@ type AuthenticatedUser = NonNullable<TrpcContext["user"]>;
 
 function ctxWithRole(role: AuthenticatedUser["role"]): TrpcContext {
   const user: AuthenticatedUser = {
-    id: 42,
+    id: "test-user-42",
     openId: "test-user",
     email: `${role}@bocatas.org`,
     name: role,
@@ -84,7 +84,7 @@ describe("families.createFollowUp", () => {
       expect.objectContaining({
         family_id: FAMILY_ID,
         fecha: VALID_DATE,
-        created_by: "42",
+        created_by: "test-user-42",
       })
     );
   });
@@ -118,7 +118,7 @@ describe("families.createFollowUp", () => {
 describe("families.listFollowUps", () => {
   it("returns rows for a family", async () => {
     const rows = [
-      { id: FOLLOW_UP_ID, family_id: FAMILY_ID, fecha: VALID_DATE, notas: null, created_by: "42", created_at: "" },
+      { id: FOLLOW_UP_ID, family_id: FAMILY_ID, fecha: VALID_DATE, notas: null, created_by: "test-user-42", created_at: "" },
     ];
 
     const chain = {

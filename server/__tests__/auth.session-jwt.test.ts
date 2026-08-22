@@ -50,7 +50,7 @@ function buildContext(user: User | null): TrpcContext {
 
 function buildUser(role: AuthenticatedUser["role"]): AuthenticatedUser {
   return {
-    id: 42,
+    id: "test-user-42",
     openId: "voluntario-fixture",
     email: "voluntario@example.com",
     name: "Voluntario Fixture",

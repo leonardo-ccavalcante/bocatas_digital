@@ -24,7 +24,7 @@ const t = initTRPC.context<TrpcContext>().create({
 
 const adminCtx: TrpcContext = {
   user: {
-    id: 1, openId: "admin", name: "Admin", email: "a@b.com",
+    id: "test-user-1", openId: "admin", name: "Admin", email: "a@b.com",
     role: "admin", loginMethod: "google",
     createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date(),
   },

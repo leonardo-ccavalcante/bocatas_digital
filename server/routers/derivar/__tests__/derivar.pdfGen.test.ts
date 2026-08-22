@@ -58,7 +58,7 @@ type AuthenticatedUser = NonNullable<TrpcContext["user"]>;
 
 function ctxWithRole(role: AuthenticatedUser["role"]): TrpcContext {
   const user: AuthenticatedUser = {
-    id: 1,
+    id: "test-user-1",
     openId: "test-user",
     email: `${role}@bocatas.org`,
     name: "Test Pro",
@@ -168,7 +168,7 @@ describe("derivar.generateDocx — role guard", () => {
   it("rejects voluntario with FORBIDDEN", async () => {
     const caller = pdfGenRouter.createCaller({
       user: {
-        id: 1,
+        id: "test-user-1",
         openId: "v",
         email: "v@b.org",
         name: "V",

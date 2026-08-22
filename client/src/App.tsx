@@ -1,11 +1,10 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
-import { Route, Switch, useLocation, Redirect } from "wouter";
+import { Route, Switch, Redirect } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
-import { useEffect, lazy, Suspense } from "react";
-import { useAuth } from "@/_core/hooks/useAuth";
+import { lazy, Suspense } from "react";
 import { useIdentifyStaff } from "@/lib/posthog";
 
 // Layout
@@ -70,17 +69,8 @@ const PageLoader = () => (
   </div>
 );
 
-/** Redirect /login → / when already authenticated */
+/** Public auth entry point: must render even while background auth checks are pending. */
 function LoginGuard() {
-  const { user, loading, isAuthenticated } = useAuth();
-  const [, navigate] = useLocation();
-
-  useEffect(() => {
-    if (!loading && isAuthenticated) navigate("/");
-  }, [loading, isAuthenticated, navigate]);
-
-  if (loading) return null;
-  if (user) return null;
   return <LoginPage />;
 }
 
