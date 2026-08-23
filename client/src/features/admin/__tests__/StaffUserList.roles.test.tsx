@@ -72,7 +72,7 @@ describe("StaffUserList — cambio de rol", () => {
     // Labelled per row: without an accessible name, a screen-reader user cannot
     // tell which person a combobox belongs to (WCAG 2.1 AA).
     expect(
-      screen.getByRole("combobox", { name: /Rol de Vol Untaria/i })
+      screen.getByRole("combobox", { name: /Rol de Vol Untaria, vol@bocatas\.test/i })
     ).toBeInTheDocument();
   });
 
@@ -89,7 +89,7 @@ describe("StaffUserList — cambio de rol", () => {
     const user = userEvent.setup();
     render(<StaffUserList />);
 
-    await user.click(screen.getByRole("combobox", { name: /Rol de Vol Untaria/i }));
+    await user.click(screen.getByRole("combobox", { name: /Rol de Vol Untaria, vol@bocatas\.test/i }));
     await user.click(await screen.findByRole("option", { name: "Admin" }));
 
     // Dialog is open, nothing written yet.
@@ -110,7 +110,7 @@ describe("StaffUserList — cambio de rol", () => {
     const user = userEvent.setup();
     render(<StaffUserList />);
 
-    await user.click(screen.getByRole("combobox", { name: /Rol de Vol Untaria/i }));
+    await user.click(screen.getByRole("combobox", { name: /Rol de Vol Untaria, vol@bocatas\.test/i }));
     await user.click(await screen.findByRole("option", { name: "Superadmin" }));
 
     const dialog = await screen.findByRole("alertdialog");
@@ -122,11 +122,68 @@ describe("StaffUserList — cambio de rol", () => {
     const user = userEvent.setup();
     render(<StaffUserList />);
 
-    await user.click(screen.getByRole("combobox", { name: /Rol de Vol Untaria/i }));
+    await user.click(screen.getByRole("combobox", { name: /Rol de Vol Untaria, vol@bocatas\.test/i }));
     await user.click(await screen.findByRole("option", { name: "Admin" }));
     await screen.findByRole("alertdialog");
     await user.click(screen.getByRole("button", { name: /Cancelar/i }));
 
     expect(setUserRoleMutate).not.toHaveBeenCalled();
+  });
+});
+
+describe("StaffUserList — accesibilidad", () => {
+  it("returns focus to the originating combobox after the dialog closes", async () => {
+    // El AlertDialog es totalmente controlado y no tiene AlertDialogTrigger, así
+    // que Radix restaura el foco a lo que fuera activeElement al montarse — una
+    // carrera con el cierre del Select. Sin esto, cancelar deja el foco en <body>
+    // y quien navega con teclado vuelve al principio del documento.
+    const user = userEvent.setup();
+    render(<StaffUserList />);
+    const trigger = screen.getByRole("combobox", { name: /Rol de Vol Untaria/i });
+
+    await user.click(trigger);
+    await user.click(await screen.findByRole("option", { name: "Admin" }));
+    await screen.findByRole("alertdialog");
+    await user.click(screen.getByRole("button", { name: /Cancelar/i }));
+
+    await waitFor(() => expect(trigger).toHaveFocus());
+  });
+
+  it("keeps each combobox distinguishable when two people share a name", () => {
+    // `nombre` sale de user_metadata y no es único; el email sí lo es.
+    render(<StaffUserList />);
+
+    const names = screen
+      .getAllByRole("combobox")
+      .map((el) => el.getAttribute("aria-label"));
+
+    expect(new Set(names).size).toBe(names.length);
+    expect(names.every((n) => n?.includes("@"))).toBe(true);
+  });
+
+  it("explains to a screen reader why the current user has no selector", () => {
+    render(<StaffUserList />);
+
+    expect(screen.getByText("No puedes cambiar tu propio rol.")).toBeInTheDocument();
+  });
+
+  it("wraps the table so it can scroll instead of clipping on a narrow screen", () => {
+    const { container } = render(<StaffUserList />);
+
+    // Se comprueba el envoltorio de la tabla concretamente: el propio Badge de
+    // shadcn lleva `overflow-hidden` en sus clases base, así que un querySelector
+    // suelto sobre la clase daría un falso positivo.
+    const table = container.querySelector("table");
+    const wrapper = table?.parentElement;
+    expect(wrapper?.className).toContain("overflow-x-auto");
+    expect(wrapper?.className).not.toContain("overflow-hidden");
+  });
+
+  it("marks the column headers with scope", () => {
+    render(<StaffUserList />);
+
+    const headers = screen.getAllByRole("columnheader");
+    expect(headers.length).toBeGreaterThan(0);
+    expect(headers.every((h) => h.getAttribute("scope") === "col")).toBe(true);
   });
 });

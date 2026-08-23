@@ -16,19 +16,39 @@ invierte quién manda. Cualquier usuario cuyo acceso dependa **solo** de su fila
 
 **Un arreglo P0 que deja al equipo fuera es peor que el defecto que arregla.**
 
-## La idea que hace esto seguro: dos fases, sin ventana de riesgo
+## Dos fases — y la primera ya concede privilegios
 
-**El código que hay hoy en producción no lee `app_metadata`.** Escribir ese campo es
-puramente aditivo: no altera en absoluto el comportamiento actual. Así que el relleno no
-hay que coordinarlo con el despliegue — se hace antes, con calma, y se verifica:
+> **Corrección.** Una versión anterior de esta sección decía que escribir
+> `app_metadata` era "puramente aditivo" y no cambiaba nada hasta el despliegue.
+> **Es falso, y conviene saberlo antes de ejecutar nada.**
 
-| | Qué se hace | Qué pasa si algo falla |
+`app_metadata` viaja dentro del access token, y **toda la capa RLS lo lee**:
+
+```sql
+get_user_role() = COALESCE(auth.jwt() -> 'app_metadata' ->> 'role', 'beneficiario')
+-- supabase/migrations/20260411082006_20260410121100_create_rls_helpers.sql:6-9
+```
+
+Esa función gobierna políticas en **45 ficheros de migración** (persons, attendances,
+consents, familia_miembros, deliveries y cinco buckets de Storage), y el cliente del
+navegador mantiene una sesión de usuario real
+(`client/src/lib/supabase/client.ts:20`) con la que sube ficheros directamente a
+Storage. En cuanto el token de una persona se refresca — automático, dentro de la hora,
+sin volver a entrar — su rol nuevo **ya cuenta** en RLS y en Storage.
+
+Tampoco es aditivo en una sola dirección: escribir `role='user'` sustituye el valor por
+defecto `'beneficiario'` por uno que no casa con **ninguna** política, así que esa
+persona pierde lecturas que hoy tiene. El script lo avisa.
+
+| | Qué se hace | Qué implica |
 |---|---|---|
-| **Fase 1** (hoy, sin desplegar) | Rellenar `app_metadata.role` y `user_metadata.nombre` desde `app_users` | Nada. El camino viejo sigue leyendo `app_users`, intacta. Revertir es no hacer nada |
-| **Fase 2** (cuando quieras) | Desplegar #144 | Todo el mundo ya tiene su rol donde el código nuevo lo busca |
+| **Fase 1** (antes de desplegar) | Rellenar `app_metadata.role` y `user_metadata.nombre` | **Concede permisos RLS/Storage reales** al refrescarse cada token. Es un cambio de producción, no un ensayo |
+| **Fase 2** (cuando quieras) | Desplegar #144 | Nadie se queda fuera: ya tienen el rol donde el servidor nuevo lo busca |
 
-Entre una y otra **los dos caminos funcionan a la vez**. No hay corte, ni coordinación, ni
-prisa. La fase 1 se puede repetir tantas veces como haga falta: es idempotente.
+**El orden sigue siendo el correcto** — al revés, desplegar primero deja sin acceso a
+todo el que solo esté en `app_users`. Lo que cambia es cómo tratar la fase 1: con la
+misma seriedad que cualquier cambio de permisos, no como un paso preparatorio inocuo.
+Sigue siendo idempotente y repetible.
 
 ## Fase 1 — el script
 
@@ -45,24 +65,29 @@ node scripts/backfill-auth-roles.mjs --verify
 
 > ### Esto concede permisos — mira la lista antes de aplicarla
 >
-> **Confirmado con el product owner: no se ha revocado a nadie**, así que `app_users`
-> refleja a quien debe tener acceso y la lista se puede aplicar entera.
+> El product owner confirma que **no se ha revocado a nadie**. El script ya no depende de
+> esa afirmación: la comprueba. `revokeStaffAccess` escribe `app_metadata.role = null`, y
+> eso **es distinguible** de "nunca tuvo rol" (clave ausente), así que las cuentas
+> revocadas salen marcadas `REVOCADO` y **no se rellenan** salvo `--incluir-revocados`.
+> Si el recuento de revocadas es 0, la afirmación queda verificada con los datos.
 >
-> El dry-run sigue siendo un paso obligatorio por un motivo distinto: como
-> `revokeStaffAccess` nunca revocó de verdad (#144), la tabla tampoco distingue "sigue en
-> la organización" de "se fue y nadie lo quitó". Dos minutos de vista a la lista bastan
-> para detectar a alguien que ya no esté, y tras el corte el rol de `app_metadata` sí
-> manda de verdad.
+> Lo que sigue exigiendo criterio humano es distinto: como revocar nunca funcionó, la
+> tabla tampoco distingue "sigue en la organización" de "se fue y nadie lo quitó". Dos
+> minutos de vista a la lista bastan para detectar a alguien que ya no esté.
 >
 > ```bash
 > node scripts/backfill-auth-roles.mjs --exclude <uuid> --exclude <uuid> --apply --yes
 > ```
 >
-> Este es el único paso del proceso que exige criterio humano. El resto es mecánico.
+> El id va en la primera columna de la tabla. Un `--exclude` que no case con ninguna fila
+> **aborta** en vez de seguir en silencio: creer que alguien quedó fuera cuando en realidad
+> se le concede acceso es el peor fallo posible aquí.
 
-El script se niega a continuar si el resultado dejaría **cero superadmins** — la
-aplicación no ofrece ninguna vía para conceder ese rol (`createStaffUser` acepta solo
-`admin|voluntario`), así que sin superadmin no habría recuperación desde dentro.
+El script se niega a continuar si quedarían **cero superadmins**, y lo vuelve a comprobar
+contra la base **después** de escribir (el bucle se salta fallos individuales, así que la
+cuenta previa era una predicción). Con cero superadmins nadie puede llamar a `setUserRole`
+—es superadmin-only— y `createStaffUser` solo concede `admin|voluntario`: no habría
+recuperación desde dentro.
 
 Los pasos manuales que siguen son la verificación equivalente en SQL, por si prefieres
 mirarlo directamente en el editor de Supabase o contrastar lo que hizo el script.
@@ -134,8 +159,9 @@ Cada usuario de ese grupo **funciona hoy y dejaría de funcionar**. Para cada un
 
 ## Paso 3 — Rellenar (idempotente)
 
-Preferible desde la propia UI de administración (`admin.setUserRole`), que ya escribe en
-`app_metadata` — así el camino queda ejercitado. Para un lote, vía Admin API:
+Con el script (arriba) o, para un caso suelto, vía Admin API. **Todavía no desde la UI**:
+la pantalla de administración ya permite cambiar roles, pero solo lista a quien *ya* tiene
+rol en `app_metadata` — es decir, a nadie de este grupo. Consulta para ver qué tocaría:
 
 ```sql
 -- Comprobar ANTES qué tocaría (dry-run).
@@ -150,18 +176,16 @@ El relleno se hace con `supabase.auth.admin.updateUserById(id, { app_metadata: {
 por cada fila — **no** con un `UPDATE` directo sobre `auth.users`: GoTrue es el dueño de esa
 tabla y escribir a mano en su JSON se sale del contrato.
 
-> **No lo intentes desde la UI.** `admin.setUserRole` existe en el servidor pero **no tiene
-> ningún llamador en el cliente** (`grep -rn "setUserRole" client/src/` → vacío). La única
-> pantalla de administración (`client/src/pages/AdminUsuarios.tsx`) cablea solo
-> `getStaffUsers`, `createStaffUser` y `revokeStaffAccess`. Y `getStaffUsers` filtra por
-> `app_metadata.role` ∈ {admin, voluntario, superadmin}, así que **los usuarios que hay que
-> arreglar son justo los que no aparecen en esa lista**. Usa la Admin API o el panel de
-> Supabase.
+> **La UI no sirve para ESTE paso, aunque ya permita cambiar roles.** La pantalla de
+> administración ahora tiene selector de rol y sí puede conceder `superadmin` — pero
+> `getStaffUsers` filtra por `app_metadata.role` ∈ {admin, voluntario, superadmin}, así
+> que **los usuarios que hay que arreglar son justo los que todavía no aparecen en esa
+> lista**. Para el relleno usa el script o la Admin API.
 >
-> Corolario que conviene tener presente: `createStaffUser` acepta solo
-> `admin | voluntario`, así que **la aplicación no ofrece ninguna vía para conceder
-> `superadmin`**. Si el corte deja sin acceso al último superadmin, la recuperación pasa
-> obligatoriamente por fuera de la app.
+> Una vez rellenados, sí aparecen, y a partir de ahí la gestión de roles se hace desde la
+> app. Solo queda un caso sin salida interna: con **cero** superadmins nadie puede llamar
+> a `setUserRole` (es superadmin-only) y `createStaffUser` solo concede
+> `admin | voluntario` — de ahí el criterio de salida de más abajo.
 
 ### 3b — Rellenar también el nombre (`veredicto_nombre = AVISO`)
 
@@ -318,9 +342,13 @@ asumas que las dos capas coinciden.
 
 ## Retroceso
 
-El cambio es solo de código y no toca el esquema: `public.app_users` se queda intacta y sin
-uso, así que revertir el despliegue no pierde datos, y los roles rellenados en
-`app_metadata` son aditivos y no estorban al camino antiguo.
+El cambio de código no toca el esquema: `public.app_users` se queda intacta y sin uso, así
+que revertir el despliegue no pierde datos.
+
+**Pero revertir el despliegue NO deshace la fase 1.** Los roles escritos en `app_metadata`
+siguen ahí y siguen concediendo acceso en RLS y en Storage (ver la sección de las dos
+fases). Si hay que deshacer un permiso concedido por error, se retira explícitamente —
+revertir el código no lo hace.
 
 **Pero revertir no es gratis:** reinstaura los tres defectos de #144 (personal nuevo sin
 permisos, revocación que no revoca, cambio de rol que no se aplica) y, si el paso 6 salió

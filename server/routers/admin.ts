@@ -16,9 +16,58 @@ import { createAdminClient } from "../../client/src/lib/supabase/server";
 import { softDeleteRecoveryRouter } from "./admin/soft-delete-recovery";
 import { logAudit, logProcedureError } from "../\_core/logging-middleware";
 
+// NOTE the `i` flag: an uppercase UUID is accepted here and resolves to the same
+// row in Postgres. Any comparison against a user id MUST therefore normalise —
+// GoTrue always returns lowercase, so a raw `===` against an uppercased input
+// silently fails to match the same person. Use `sameUser()` below, never `===`.
 const uuidLike = z
   .string()
   .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, "Invalid UUID format");
+
+/** Case-insensitive identity compare for auth UUIDs. See the note above. */
+function sameUser(a: string | undefined, b: string | undefined): boolean {
+  return !!a && !!b && a.toLowerCase() === b.toLowerCase();
+}
+
+/**
+ * Refuse an action that would remove the last superadmin.
+ *
+ * Since #144 the role in `app_metadata` is what actually grants access, so
+ * demoting or revoking the final superadmin is irreversible from inside the app:
+ * `setUserRole` and `revokeStaffAccess` are both superadmin-only, and
+ * `createStaffUser` can only grant `admin | voluntario`. Recovery would need the
+ * Supabase dashboard.
+ *
+ * RESIDUAL RACE, accepted: this is a read-then-write with no transaction, so two
+ * superadmins demoting each other in overlapping requests can still both pass.
+ * The Admin API offers no atomic alternative; this closes the sequential case,
+ * which is the realistic one. A DB-level invariant would need the role to live
+ * in a table we control — see #144's follow-up on retiring `app_users`.
+ */
+async function assertNotLastSuperadmin(
+  supabase: ReturnType<typeof createAdminClient>,
+  targetUserId: string
+): Promise<void> {
+  const { data, error } = await supabase.auth.admin.listUsers({ page: 1, perPage: 200 });
+  if (error) {
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: `Error al comprobar los superadmins: ${error.message}`,
+    });
+  }
+  const superadmins = (data.users ?? []).filter(
+    (u) => (u.app_metadata?.role as string | undefined) === "superadmin"
+  );
+  // Only a change that touches a CURRENT superadmin can reduce the count.
+  if (!superadmins.some((u) => sameUser(u.id, targetUserId))) return;
+  if (superadmins.length <= 1) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message:
+        "Es el último superadmin. Nombra a otro superadmin antes de cambiar o revocar este acceso.",
+    });
+  }
+}
 
 // Using exported superadminProcedure from server/_core/trpc
 
@@ -143,10 +192,10 @@ export const adminRouter = router({
     .mutation(async ({ input, ctx }) => {
       // No self-demotion. Since #144 the role in app_metadata is what actually
       // grants access, so a superadmin demoting themselves takes effect on their
-      // very next request — and if they were the last one, nobody can undo it:
-      // this procedure is superadmin-only and createStaffUser cannot grant the
-      // role back. Changing your own role must go through another superadmin.
-      if (input.userId === ctx.user.id) {
+      // very next request. Compared case-insensitively: `uuidLike` accepts an
+      // uppercase UUID that resolves to the same row, so a raw `===` would let
+      // the guard be walked straight past.
+      if (sameUser(input.userId, ctx.user.id)) {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "No puedes cambiar tu propio rol. Pídeselo a otro superadmin.",
@@ -154,6 +203,9 @@ export const adminRouter = router({
       }
 
       const supabase = createAdminClient();
+      // Blocking yourself is not enough: superadmin A demoting superadmin B is
+      // just as final when B is the last one left.
+      await assertNotLastSuperadmin(supabase, input.userId);
       const { error } = await supabase.auth.admin.updateUserById(input.userId, {
         app_metadata: { role: input.role },
       });
@@ -231,7 +283,19 @@ export const adminRouter = router({
       })
     )
     .mutation(async ({ input, ctx }) => {
+      // Same two guards as setUserRole. Revocation is the more lethal of the
+      // pair — it nulls the role outright — and it had neither: the only thing
+      // stopping a superadmin from revoking themselves was the UI hiding the
+      // button for superadmin rows, which binds nothing for a direct API call.
+      if (sameUser(input.userId, ctx.user.id)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "No puedes revocarte el acceso a ti mismo. Pídeselo a otro superadmin.",
+        });
+      }
+
       const supabase = createAdminClient();
+      await assertNotLastSuperadmin(supabase, input.userId);
 
       const { error } = await supabase.auth.admin.updateUserById(input.userId, {
         app_metadata: {

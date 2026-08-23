@@ -17,15 +17,32 @@ import type { User } from "../../db";
 import { Logger } from "../../_core/logger";
 
 const updateUserById = vi.fn();
+const listUsers = vi.fn();
 
 vi.mock("../../../client/src/lib/supabase/server", () => ({
-  createAdminClient: () => ({ auth: { admin: { updateUserById } } }),
+  createAdminClient: () => ({ auth: { admin: { updateUserById, listUsers } } }),
 }));
 
 const { adminRouter } = await import("../admin");
 
-const SUPERADMIN_ID = "11111111-1111-4111-8111-111111111111";
-const OTHER_ID = "22222222-2222-4222-8222-222222222222";
+// Deliberately contains hex LETTERS: a digits-only uuid is unchanged by
+// toUpperCase(), which would make the casing tests vacuously pass.
+const SUPERADMIN_ID = "3f1c0a5e-2b7d-4c8a-9e10-5d6b7c8a9f01";
+const OTHER_ID = "a4d2e6b8-1c3f-4a5b-8d7e-9f0a1b2c3d4e";
+const SECOND_SUPER_ID = "b5e3f7c9-2d4a-4b6c-9e8f-0a1b2c3d4e5f";
+
+/** What auth.admin.listUsers returns — only role and id matter to the guard. */
+function withSuperadmins(...ids: string[]) {
+  listUsers.mockResolvedValue({
+    data: {
+      users: [
+        ...ids.map((id) => ({ id, app_metadata: { role: "superadmin" } })),
+        { id: OTHER_ID, app_metadata: { role: "voluntario" } },
+      ],
+    },
+    error: null,
+  });
+}
 
 function ctx(userId = SUPERADMIN_ID): TrpcContext {
   const user = {
@@ -51,6 +68,10 @@ function ctx(userId = SUPERADMIN_ID): TrpcContext {
 beforeEach(() => {
   updateUserById.mockReset();
   updateUserById.mockResolvedValue({ error: null });
+  listUsers.mockReset();
+  // Two superadmins by default, so the last-superadmin guard is not what a test
+  // trips over unless it means to.
+  withSuperadmins(SUPERADMIN_ID, SECOND_SUPER_ID);
 });
 
 describe("admin.setUserRole", () => {
@@ -118,5 +139,106 @@ describe("admin.setUserRole", () => {
     await expect(
       caller.setUserRole({ userId: OTHER_ID, role: "admin" })
     ).rejects.toMatchObject({ code: "INTERNAL_SERVER_ERROR" });
+  });
+
+  it("refuses a self-change sent with an UPPERCASE uuid", async () => {
+    // `uuidLike` carries the /i flag, so an uppercased uuid passes validation and
+    // resolves to the SAME Postgres row — but a case-sensitive `===` does not
+    // match it. That walked straight past the guard.
+    const caller = adminRouter.createCaller(ctx());
+
+    await expect(
+      caller.setUserRole({ userId: SUPERADMIN_ID.toUpperCase(), role: "voluntario" })
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+
+    expect(updateUserById).not.toHaveBeenCalled();
+  });
+});
+
+describe("admin.setUserRole — last superadmin", () => {
+  it("refuses to demote the last superadmin", async () => {
+    // Blocking self-demotion is not enough: superadmin A demoting superadmin B
+    // is just as final when B is the only one left.
+    withSuperadmins(SECOND_SUPER_ID);
+    const caller = adminRouter.createCaller(ctx());
+
+    await expect(
+      caller.setUserRole({ userId: SECOND_SUPER_ID, role: "voluntario" })
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+
+    expect(updateUserById).not.toHaveBeenCalled();
+  });
+
+  it("allows demoting a superadmin while another remains", async () => {
+    withSuperadmins(SUPERADMIN_ID, SECOND_SUPER_ID);
+    const caller = adminRouter.createCaller(ctx());
+
+    await caller.setUserRole({ userId: SECOND_SUPER_ID, role: "admin" });
+
+    expect(updateUserById).toHaveBeenCalled();
+  });
+
+  it("matches the last superadmin case-insensitively", async () => {
+    withSuperadmins(SECOND_SUPER_ID);
+    const caller = adminRouter.createCaller(ctx());
+
+    await expect(
+      caller.setUserRole({ userId: SECOND_SUPER_ID.toUpperCase(), role: "voluntario" })
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
+
+  it("does not block changing a NON-superadmin when only one superadmin exists", async () => {
+    withSuperadmins(SUPERADMIN_ID);
+    const caller = adminRouter.createCaller(ctx());
+
+    await caller.setUserRole({ userId: OTHER_ID, role: "admin" });
+
+    expect(updateUserById).toHaveBeenCalled();
+  });
+});
+
+describe("admin.revokeStaffAccess — same guards", () => {
+  it("refuses self-revocation", async () => {
+    // The UI hides the revoke button on superadmin rows, but that binds nothing
+    // for a direct API call. This procedure had no server-side guard at all.
+    const caller = adminRouter.createCaller(ctx());
+
+    await expect(
+      caller.revokeStaffAccess({ userId: SUPERADMIN_ID })
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+
+    expect(updateUserById).not.toHaveBeenCalled();
+  });
+
+  it("refuses self-revocation with an UPPERCASE uuid", async () => {
+    const caller = adminRouter.createCaller(ctx());
+
+    await expect(
+      caller.revokeStaffAccess({ userId: SUPERADMIN_ID.toUpperCase() })
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+
+    expect(updateUserById).not.toHaveBeenCalled();
+  });
+
+  it("refuses to revoke the last superadmin", async () => {
+    withSuperadmins(SECOND_SUPER_ID);
+    const caller = adminRouter.createCaller(ctx());
+
+    await expect(
+      caller.revokeStaffAccess({ userId: SECOND_SUPER_ID })
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+
+    expect(updateUserById).not.toHaveBeenCalled();
+  });
+
+  it("still revokes an ordinary staff user", async () => {
+    const caller = adminRouter.createCaller(ctx());
+
+    const result = await caller.revokeStaffAccess({ userId: OTHER_ID });
+
+    expect(updateUserById).toHaveBeenCalledWith(OTHER_ID, {
+      app_metadata: { role: null },
+    });
+    expect(result).toEqual({ success: true, userId: OTHER_ID });
   });
 });
