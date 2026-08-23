@@ -4,9 +4,23 @@
  */
 import { z } from "zod";
 
-/** Roles available for staff users */
+/** Roles available when INVITING a staff user (server: admin.createStaffUser). */
 export const StaffRoleSchema = z.enum(["admin", "voluntario"]);
 export type StaffRole = z.infer<typeof StaffRoleSchema>;
+
+/**
+ * Roles assignable to an EXISTING staff user (server: admin.setUserRole).
+ *
+ * Wider than StaffRoleSchema because superadmin can only be granted here — the
+ * invite flow deliberately cannot create one. Before #144 this had no client
+ * caller at all, so the only way to move someone between roles was the Supabase
+ * dashboard, and superadmin could not be granted from the app at all.
+ *
+ * `beneficiario` is intentionally absent: removing staff status is what
+ * "Revocar" is for, and offering two ways to do it invites mistakes.
+ */
+export const AssignableRoleSchema = z.enum(["voluntario", "admin", "superadmin"]);
+export type AssignableRole = z.infer<typeof AssignableRoleSchema>;
 
 /** Schema for inviting a new staff user (Job 6, AC3) */
 export const CreateStaffUserSchema = z.object({

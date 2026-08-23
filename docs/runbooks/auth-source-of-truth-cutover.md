@@ -43,14 +43,16 @@ node scripts/backfill-auth-roles.mjs --apply --yes
 node scripts/backfill-auth-roles.mjs --verify
 ```
 
-> ### ⚠️ Esto concede permisos. Revisa la lista, no la apliques a ciegas.
+> ### Esto concede permisos — mira la lista antes de aplicarla
 >
-> `revokeStaffAccess` **nunca revocó de verdad** — ese es justamente el bug #144. Por
-> tanto `app_users` puede contener a personas a las que se quiso retirar el acceso y que
-> lo conservaron. Copiar esa tabla sin mirar volvería a concedérselo, y esta vez **de
-> forma efectiva**, porque tras el corte el rol de `app_metadata` sí manda.
+> **Confirmado con el product owner: no se ha revocado a nadie**, así que `app_users`
+> refleja a quien debe tener acceso y la lista se puede aplicar entera.
 >
-> Repasa la lista con alguien que sepa quién debe seguir entrando, y deja fuera al resto:
+> El dry-run sigue siendo un paso obligatorio por un motivo distinto: como
+> `revokeStaffAccess` nunca revocó de verdad (#144), la tabla tampoco distingue "sigue en
+> la organización" de "se fue y nadie lo quitó". Dos minutos de vista a la lista bastan
+> para detectar a alguien que ya no esté, y tras el corte el rol de `app_metadata` sí
+> manda de verdad.
 >
 > ```bash
 > node scripts/backfill-auth-roles.mjs --exclude <uuid> --exclude <uuid> --apply --yes

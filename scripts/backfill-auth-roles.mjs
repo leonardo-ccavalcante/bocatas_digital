@@ -16,18 +16,19 @@
  * Y si algo sale mal en la fase 1, revertir es no hacer nada: el camino viejo
  * sigue leyendo `app_users`, intacta.
  *
- * ⚠️ ESTO CONCEDE PERMISOS. LÉELO ANTES DE USAR `--apply`.
+ * ESTO CONCEDE PERMISOS — mira la lista antes de `--apply`
  * --------------------------------------------------------
- * `admin.revokeStaffAccess` nunca revocó de verdad (ese es el bug #144), así
- * que `app_users` puede contener a gente a la que SÍ se quiso retirar el
- * acceso y que lo conservó. Copiar esa tabla a ciegas volvería a concedérselo,
- * y esta vez de forma efectiva. Por eso:
+ * Contexto confirmado por el product owner: **no se ha revocado a nadie**, así
+ * que `app_users` refleja a quien debe tener acceso y se puede aplicar entera.
+ *
+ * Por qué el dry-run sigue siendo obligatorio de todos modos: `revokeStaffAccess`
+ * nunca revocó de verdad (ese es el bug #144), de modo que la tabla no distingue
+ * "sigue en la organización" de "se fue y nadie lo quitó". Dos minutos de vista
+ * a la lista bastan para detectar a alguien que ya no esté.
  *
  *   - por defecto NO escribe nada: imprime la tabla de revisión y sale;
  *   - `--apply` exige además `--yes`;
  *   - `--exclude <uuid>` (repetible) deja fuera a quien no deba recuperar acceso.
- *
- * Revisa la lista con alguien que sepa quién debe seguir teniendo acceso.
  *
  * USO
  *   node scripts/backfill-auth-roles.mjs                    # revisión (dry-run)
@@ -166,9 +167,11 @@ async function main() {
   console.log(`a rellenar         : ${pending.length}`);
   if (skipped.length) console.log(`excluidas (--exclude): ${skipped.length}`);
 
-  // Guarda: nadie debe quedarse sin vía de recuperación. `createStaffUser` solo
-  // concede admin|voluntario, así que si no queda ningún superadmin con el rol
-  // en app_metadata, no hay forma de recuperarlo desde la aplicación.
+  // Guarda: nadie debe quedarse sin vía de recuperación. La pantalla de admin sí
+  // permite conceder superadmin (`admin.setUserRole`), pero ese procedure es
+  // superadmin-only — con cero superadmins no queda nadie que pueda llamarlo, y
+  // `createStaffUser` solo concede admin|voluntario. Cero es irrecuperable desde
+  // dentro de la aplicación.
   const superadminsAfter = rows.filter(
     (r) =>
       (r.hasValidAuthRole && r.authRole === "superadmin") ||
@@ -177,9 +180,10 @@ async function main() {
   console.log(`superadmins tras el relleno: ${superadminsAfter}`);
   if (superadminsAfter === 0) {
     console.error(
-      "\n⛔ Quedarían CERO superadmins. La app no ofrece ninguna vía para conceder ese rol\n" +
-        "   (createStaffUser acepta solo admin|voluntario), así que no habría recuperación\n" +
-        "   desde dentro. Resuélvelo antes de continuar."
+      "\n⛔ Quedarían CERO superadmins. Conceder ese rol requiere ser superadmin\n" +
+        "   (admin.setUserRole es superadmin-only) y createStaffUser solo concede\n" +
+        "   admin|voluntario: no habría recuperación desde dentro de la aplicación.\n" +
+        "   Resuélvelo antes de continuar."
     );
     process.exit(1);
   }
@@ -191,10 +195,10 @@ async function main() {
   if (!APPLY) {
     console.log(
       "\nDRY-RUN: no se ha escrito nada.\n" +
-        "⚠️  Antes de `--apply --yes`: revocar NUNCA funcionó (#144), así que esta lista\n" +
-        "    puede incluir a gente a la que se quiso retirar el acceso. Repásala con\n" +
-        "    alguien que sepa quién debe seguir entrando y excluye al resto con\n" +
-        "    `--exclude <uuid>`."
+        "    Confirmado que no se ha revocado a nadie, así que la lista se puede aplicar\n" +
+        "    entera. Aun así, échale un vistazo: revocar nunca funcionó (#144), de modo\n" +
+        "    que la tabla tampoco distingue a quien ya no esté en la organización.\n" +
+        "    Excluye a quien haga falta con `--exclude <uuid>`, y luego `--apply --yes`."
     );
     return;
   }

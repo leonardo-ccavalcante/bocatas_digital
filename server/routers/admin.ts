@@ -141,6 +141,18 @@ export const adminRouter = router({
       })
     )
     .mutation(async ({ input, ctx }) => {
+      // No self-demotion. Since #144 the role in app_metadata is what actually
+      // grants access, so a superadmin demoting themselves takes effect on their
+      // very next request — and if they were the last one, nobody can undo it:
+      // this procedure is superadmin-only and createStaffUser cannot grant the
+      // role back. Changing your own role must go through another superadmin.
+      if (input.userId === ctx.user.id) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "No puedes cambiar tu propio rol. Pídeselo a otro superadmin.",
+        });
+      }
+
       const supabase = createAdminClient();
       const { error } = await supabase.auth.admin.updateUserById(input.userId, {
         app_metadata: { role: input.role },
