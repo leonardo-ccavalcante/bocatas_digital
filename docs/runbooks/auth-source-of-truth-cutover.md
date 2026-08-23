@@ -1,8 +1,8 @@
 # Runbook — corte a `auth.users` como fuente única de identidad y rol
 
-> Precondición **bloqueante** del arreglo de #144 (BR-1). Ejecutar **antes** de desplegar.
-> No es opcional: el cambio hace que un usuario sin `app_metadata.role` quede **denegado**,
-> y hoy hay usuarios que funcionan sin él.
+> Precondición **bloqueante** del arreglo de #144 (BR-1). La **fase 1** se ejecuta antes
+> de desplegar. No es opcional: tras el corte, un usuario sin `app_metadata.role` queda
+> **denegado**, y hoy hay gente —incluida la dirección de Bocatas— que funciona sin él.
 
 ## Por qué existe este runbook
 
@@ -16,7 +16,56 @@ invierte quién manda. Cualquier usuario cuyo acceso dependa **solo** de su fila
 
 **Un arreglo P0 que deja al equipo fuera es peor que el defecto que arregla.**
 
-## Paso 1 — Inventario (solo lectura)
+## La idea que hace esto seguro: dos fases, sin ventana de riesgo
+
+**El código que hay hoy en producción no lee `app_metadata`.** Escribir ese campo es
+puramente aditivo: no altera en absoluto el comportamiento actual. Así que el relleno no
+hay que coordinarlo con el despliegue — se hace antes, con calma, y se verifica:
+
+| | Qué se hace | Qué pasa si algo falla |
+|---|---|---|
+| **Fase 1** (hoy, sin desplegar) | Rellenar `app_metadata.role` y `user_metadata.nombre` desde `app_users` | Nada. El camino viejo sigue leyendo `app_users`, intacta. Revertir es no hacer nada |
+| **Fase 2** (cuando quieras) | Desplegar #144 | Todo el mundo ya tiene su rol donde el código nuevo lo busca |
+
+Entre una y otra **los dos caminos funcionan a la vez**. No hay corte, ni coordinación, ni
+prisa. La fase 1 se puede repetir tantas veces como haga falta: es idempotente.
+
+## Fase 1 — el script
+
+```bash
+# 1. Revisión (no escribe nada)
+node scripts/backfill-auth-roles.mjs
+
+# 2. Tras revisar la lista (ver el aviso de abajo), escribir
+node scripts/backfill-auth-roles.mjs --apply --yes
+
+# 3. Comprobar que no queda nadie pendiente
+node scripts/backfill-auth-roles.mjs --verify
+```
+
+> ### ⚠️ Esto concede permisos. Revisa la lista, no la apliques a ciegas.
+>
+> `revokeStaffAccess` **nunca revocó de verdad** — ese es justamente el bug #144. Por
+> tanto `app_users` puede contener a personas a las que se quiso retirar el acceso y que
+> lo conservaron. Copiar esa tabla sin mirar volvería a concedérselo, y esta vez **de
+> forma efectiva**, porque tras el corte el rol de `app_metadata` sí manda.
+>
+> Repasa la lista con alguien que sepa quién debe seguir entrando, y deja fuera al resto:
+>
+> ```bash
+> node scripts/backfill-auth-roles.mjs --exclude <uuid> --exclude <uuid> --apply --yes
+> ```
+>
+> Este es el único paso del proceso que exige criterio humano. El resto es mecánico.
+
+El script se niega a continuar si el resultado dejaría **cero superadmins** — la
+aplicación no ofrece ninguna vía para conceder ese rol (`createStaffUser` acepta solo
+`admin|voluntario`), así que sin superadmin no habría recuperación desde dentro.
+
+Los pasos manuales que siguen son la verificación equivalente en SQL, por si prefieres
+mirarlo directamente en el editor de Supabase o contrastar lo que hizo el script.
+
+## Paso 1 — Inventario en SQL (solo lectura, equivalente al dry-run del script)
 
 En el SQL editor de Supabase, contra **producción**:
 
@@ -226,17 +275,27 @@ Retirar la tabla es un follow-up aparte, no parte de este corte.
 
 ## Criterio de salida
 
-- [ ] Los tres recuentos del paso 1, anotados en #144
+**Fase 1 — antes de desplegar:**
+
+- [ ] Los recuentos del dry-run (o del paso 1), anotados en #144
+- [ ] Lista de relleno **revisada con una persona** que sepa quién debe seguir teniendo
+      acceso, y los que no deban recuperarlo excluidos con `--exclude`
 - [ ] `veredicto_acceso = RIESGO` → 0 casos, o cada uno resuelto con decisión explícita de Leo
 - [ ] `veredicto_nombre = AVISO` → 0 casos (paso 3b), hecho **antes** de desplegar
+- [ ] `node scripts/backfill-auth-roles.mjs --verify` sale con código 0
 - [ ] Ningún beneficiario legítimo en `sin_rol`
 - [ ] **Al menos un `superadmin` con `app_metadata.role` correcto** — verificado por consulta,
       no por suposición. Si el corte deja cero, no hay vía dentro de la app para recuperarlo
 - [ ] `disable_signup = true` en producción (paso 5, bloqueante)
 - [ ] Resultado del paso 6 anotado en #144
-- [ ] Prueba end-to-end en producción tras desplegar: crear un usuario de personal desde la
-      UI, entrar con él **sin insertar nada a mano**, revocarle el acceso y confirmar que la
-      petición siguiente es `UNAUTHORIZED`
+
+**Fase 2 — tras desplegar:**
+
+- [ ] Prueba end-to-end en producción: crear un usuario de personal desde la UI, entrar
+      con él **sin insertar nada a mano**, revocarle el acceso y confirmar que la petición
+      siguiente es `UNAUTHORIZED`
+- [ ] Confirmar con una persona de dirección que sigue entrando con normalidad — es la
+      población que motivó la fase 1
 
 ## Nota para quien venga después: dos capas, direcciones de fallo opuestas
 
