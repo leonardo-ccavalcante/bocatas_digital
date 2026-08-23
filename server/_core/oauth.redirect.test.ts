@@ -1,52 +1,31 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Express, Request, Response } from "express";
-
-const exchangeCodeForSession = vi.fn();
-
-vi.mock("@supabase/supabase-js", () => ({
-  createClient: () => ({ auth: { exchangeCodeForSession } }),
-}));
-
-vi.mock("../db", () => ({ upsertUser: vi.fn() }));
-
+import { describe, expect, it, vi } from "vitest";
+import type { Express } from "express";
 import { registerOAuthRoutes } from "./oauth";
 
+/**
+ * Regression guard for the Google OAuth PKCE bug (fix/google-oauth-pkce-callback):
+ * the server must NOT own /auth/callback. The code→session exchange needs the
+ * browser's one-time code_verifier, so it lives client-side
+ * (client/src/pages/AuthCallback.tsx). A server-side GET /auth/callback attempts an
+ * exchange it cannot complete and always fails OAuth login — if it is ever
+ * reintroduced, this test fails.
+ */
 describe("registerOAuthRoutes", () => {
-  beforeEach(() => {
-    exchangeCodeForSession.mockResolvedValue({
-      data: {
-        user: {
-          id: "test-user-id",
-          email: "user@example.com",
-          user_metadata: {},
-          app_metadata: { provider: "google" },
-        },
-        session: { access_token: "access", refresh_token: "refresh" },
-      },
-      error: null,
-    });
+  function register() {
+    const get = vi.fn();
+    const post = vi.fn();
+    registerOAuthRoutes({ get, post } as unknown as Express);
+    return { get, post };
+  }
+
+  it("does NOT register a server-side GET /auth/callback (PKCE exchange must run in the browser)", () => {
+    const { get } = register();
+    const callback = get.mock.calls.find(([path]) => path === "/auth/callback");
+    expect(callback).toBeUndefined();
   });
 
-  it("rejects an external next URL after a successful OAuth callback", async () => {
-    const get = vi.fn();
-    const app = { get, post: vi.fn() } as unknown as Express;
-    registerOAuthRoutes(app);
-
-    const handler = get.mock.calls.find(([path]) => path === "/auth/callback")?.[1];
-    const res = {
-      cookie: vi.fn(),
-      redirect: vi.fn(),
-    } as unknown as Response;
-
-    await handler(
-      {
-        query: { code: "one-time-code", next: "https://attacker.example" },
-        protocol: "https",
-        headers: {},
-      } as unknown as Request,
-      res
-    );
-
-    expect(res.redirect).toHaveBeenCalledWith(302, "/");
+  it("still exposes POST /api/auth/logout", () => {
+    const { post } = register();
+    expect(post.mock.calls.some(([path]) => path === "/api/auth/logout")).toBe(true);
   });
 });

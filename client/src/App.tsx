@@ -13,6 +13,7 @@ import ProtectedRoute from "./components/layout/ProtectedRoute";
 // ─── Eager (small, always needed) ────────────────────────────────────────────
 import Home from "./pages/Home";
 import LoginPage from "./pages/Login";
+import AuthCallback from "./pages/AuthCallback";
 
 // ─── Lazy (code-split by route) ───────────────────────────────────────────────
 // Personas
@@ -80,6 +81,8 @@ function Router() {
       <Switch>
         {/* Public routes */}
         <Route path="/login" component={LoginGuard} />
+        {/* OAuth/magic-link return — client completes the PKCE exchange (no auth yet) */}
+        <Route path="/auth/callback" component={AuthCallback} />
         {/* Public magic-link session page — no login required */}
         <Route path="/s/:sessionId">
           <SesionEnlace />
