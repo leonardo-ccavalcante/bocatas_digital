@@ -168,3 +168,99 @@ rol en `app_metadata` pierde acceso en el despliegue.
 | `server/db.ts` y `server/_core/sdk.ts` son código muerto y siguen contando para cobertura | Follow-up de retirada, ya anotado en `db.ts` |
 | `families.getDeliveryDocuments` llama a `getDb()`, que devuelve `null`, y lanza siempre | Hallazgo lateral, sin relación con esta onda: merece issue propio |
 | Los tres handlers REST de `_core/index.ts` comprueban `role !== "admin"`, así que deniegan a `superadmin` | Incoherencia preexistente con `adminProcedure` |
+
+---
+
+# SAT — Onda 1b (UI de roles + script de relleno)
+
+**Alcance:** `scripts/backfill-auth-roles.mjs`, el cableado de `admin.setUserRole` en la
+pantalla de administración, y el runbook del corte.
+**Revisores en paralelo:** seguridad · accesibilidad · Devil's Advocacy.
+
+## Resumen
+
+Nueve hallazgos corregidos antes de entregar. **Dos de ellos refutaron afirmaciones que yo
+mismo había escrito** — una de ellas era la premisa sobre la que descansaba el runbook
+entero.
+
+## El que más importa: la premisa era falsa
+
+Escribí que rellenar `app_metadata` era "puramente aditivo" y no cambiaba nada hasta el
+despliegue, y construí sobre eso una tabla de "dos fases sin ventana de riesgo".
+
+Verificado: **falso**. `app_metadata` viaja dentro del access token, y
+`get_user_role() = COALESCE(auth.jwt() -> 'app_metadata' ->> 'role', 'beneficiario')`
+(`20260411082006_20260410121100_create_rls_helpers.sql:6-9`) gobierna políticas en **45
+ficheros de migración**. El navegador mantiene sesión de usuario real
+(`client/src/lib/supabase/client.ts:20`) y habla directamente con Storage. En cuanto el
+token se refresca, el rol nuevo ya cuenta.
+
+Tampoco es aditivo en una sola dirección: `role='user'` sustituye el defecto
+`'beneficiario'` por un valor que no casa con ninguna política, quitando lecturas.
+
+El **orden** de las fases sigue siendo correcto — al revés se queda gente fuera. Lo que
+cambia es tratar la fase 1 como cambio de permisos en producción, y que revertir el
+despliegue **no deshace** lo concedido.
+
+## Bloqueo de la organización — la UI abría una puerta que la guarda no cerraba
+
+| # | Hallazgo | Estado |
+|---|---|---|
+| DA-10 | La guarda de auto-cambio se salta con un uuid en **mayúsculas**: `uuidLike` lleva `/i`, Postgres resuelve la misma fila, y `===` no casa. Verificado ejecutándolo | CORREGIDO — `sameUser()` |
+| DA-11 | No había guarda de **último superadmin**: A rebaja a B, y si B era el último no queda nadie que pueda revertirlo (`setUserRole` es superadmin-only) | CORREGIDO en `setUserRole` y `revokeStaffAccess` |
+| DA-12 | `revokeStaffAccess` no tenía **ninguna** guarda de servidor — su única protección era que la UI ocultara el botón | CORREGIDO |
+
+**Carrera residual, aceptada y documentada:** `assertNotLastSuperadmin` es un
+read-then-write sin transacción, así que dos superadmins rebajándose mutuamente en
+peticiones solapadas pueden pasar los dos. La Admin API no ofrece alternativa atómica;
+esto cierra el caso secuencial, que es el realista.
+
+## Script de relleno
+
+| # | Hallazgo | Estado |
+|---|---|---|
+| DA-13 | Confundía **REVOCADO** (`role: null`) con "nunca tuvo rol" (clave ausente) → re-concedía acceso retirado a propósito. Y son distinguibles | CORREGIDO — se marcan y no se rellenan salvo `--incluir-revocados` |
+| DA-14 | `--exclude` fallaba **en abierto**: sin validar, sensible a caja, y la tabla no imprimía los ids que el flag necesita | CORREGIDO — normaliza, imprime `id`, y aborta si no casa |
+| DA-15 | La cuenta de superadmins era una predicción previa a las escrituras, y el bucle se salta fallos: podía anunciar 1 y dejar 0 | CORREGIDO — se re-lee de la base tras escribir |
+| DA-16 | Paginación terminaba en página *corta*; un `GOTRUE_MAX_ROWS` bajo truncaba el censo en silencio | CORREGIDO — termina en página vacía |
+| DA-17 | Deriva inversa (`app_users` sin cuenta de auth) era invisible | CORREGIDO — se reporta |
+
+Sobre "no se ha revocado a nadie": el product owner lo confirmó, y el script ya **no
+depende** de esa afirmación — la comprueba con los datos.
+
+## Accesibilidad
+
+WCAG 2.1 AA es no negociable aquí, y el gate de Lighthouse **solo audita `/login`**
+(`lighthouserc.json:6`), así que esta pantalla no tiene cobertura automática ninguna.
+
+| # | Hallazgo | Estado |
+|---|---|---|
+| IRIS-1 | `overflow-hidden` donde el repo usa `overflow-x-auto`: la columna de rol añade ~150px y en un Android de 360px el resto quedaba recortado e inalcanzable (1.4.10) | CORREGIDO + test |
+| IRIS-2 | Foco perdido al cerrar el diálogo (2.4.3). **Confirmado con un test antes de arreglarlo** | CORREGIDO — se restaura por id, no capturando `activeElement` |
+| IRIS-3 | Nombres accesibles duplicables: `nombre` sale de `user_metadata` y no es único (4.1.2) | CORREGIDO — el email va siempre |
+| IRIS-4 | El `(tú)` no explicaba por qué falta el control (3.3.2) | CORREGIDO — `sr-only` |
+| IRIS-5 | Sin `scope="col"` (1.3.1) · objetivo táctil 32px · `text-xs` en un control de permisos | CORREGIDO |
+| IRIS-6 | `text-emerald-600` sobre el fondo da ~3.7:1, bajo el 4.5:1 (1.4.3). Preexistente, a un `<td>` del código nuevo | CORREGIDO |
+
+## Redacción engañosa
+
+El diálogo decía que el rol nuevo "se aplica en su próxima petición". Cierto en la app;
+**falso** para Storage/PostgREST, que usan el token viejo hasta refrescarse. Para una
+**rebaja** eso es una afirmación de seguridad, no de UX. Corregido.
+
+## Lo que no se pudo refutar
+
+- La paginación del script (`length === 0`) es correcta en todos los múltiplos exactos.
+- El parsing de `--exclude` era correcto; lo que fallaba era la validación.
+- Ejecuciones concurrentes o interrumpidas: las escrituras son idempotentes por usuario.
+- La autorización de `setUserRole` es sólida: `superadminProcedure` exige igualdad estricta,
+  la ruta `/admin/usuarios` es `requiredRoles={["superadmin"]}`, y el rol se re-deriva de
+  `auth.users` en cada petición.
+
+## Deuda dejada abierta, con dueño
+
+| Qué | Dónde |
+|---|---|
+| `logAudit` escribe en un buffer por petición que nadie lee → conceder superadmin no deja rastro | **#150** |
+| `getStaffUsers` trunca en 200 sin paginar, y ahora es la pantalla de permisos | **#151** |
+| Carrera residual en `assertNotLastSuperadmin` (read-then-write sin transacción) | Documentada en el código |
