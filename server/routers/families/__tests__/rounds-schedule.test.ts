@@ -185,7 +185,10 @@ describe("rounds-schedule — deleteRound", () => {
     expect(auditInsert).toBeDefined();
     const payload = auditInsert?.payload as Record<string, unknown>;
     expect(payload.action).toBe("delete_round");
-    expect(payload.actor_id).toBe(adminUser.openId);
+    // actor_id is the auth UUID, matching the sibling p_actor sites in this
+    // router (cerrarTurno / closeRound). It used to write `openId`, a leftover
+    // Manus identity that no longer exists (#144).
+    expect(payload.actor_id).toBe(String(adminUser.id));
     expect(payload.round_nombre).toBe("Hoja_Test");
     expect(payload.round_estado).toBe("borrador");
   });
