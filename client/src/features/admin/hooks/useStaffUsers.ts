@@ -44,6 +44,28 @@ export function useRevokeStaffAccess() {
 }
 
 /**
+ * Mutation to change an existing staff user's role (server: admin.setUserRole).
+ *
+ * The procedure existed since T7-E1 but had no client caller, so role changes
+ * could only be made from the Supabase dashboard and superadmin could not be
+ * granted from the app at all. Wired up alongside #144, which is what makes the
+ * new role take effect on the user's next request.
+ */
+export function useSetUserRole() {
+  const utils = trpc.useUtils();
+
+  return trpc.admin.setUserRole.useMutation({
+    onSuccess: () => {
+      toast.success("Rol actualizado. Se aplicará en su próxima petición.");
+      utils.admin.getStaffUsers.invalidate();
+    },
+    onError: (error) => {
+      toast.error(error.message ?? "Error al cambiar el rol");
+    },
+  });
+}
+
+/**
  * Mutation to create/invite a new staff user.
  */
 export function useCreateStaffUser() {

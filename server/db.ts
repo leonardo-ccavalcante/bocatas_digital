@@ -1,9 +1,20 @@
 /**
- * User database helpers — backed by Supabase PostgreSQL (public.app_users).
- * Replaces the legacy drizzle/mysql2 implementation.
+ * The `User` type used by `ctx.user` across the app.
  *
- * The app_users table was created in a previous session and populated with
- * all 11 users migrated from MySQL.
+ * ⚠️ The `public.app_users` helpers below are DEAD (#144). `authenticateRequest`
+ * no longer reads that table — `auth.users` is the single source of truth for
+ * identity and role, because that is where the admin UI writes them. While the
+ * app read `app_users` and the UI wrote `app_metadata`, new staff could log in
+ * with no permissions, `revokeStaffAccess` never revoked, and `setUserRole`
+ * never applied.
+ *
+ * Do NOT wire these helpers back up, and do NOT add a second user store. The
+ * table still exists in production, unused, pending retirement; it has never
+ * had a migration in this repo, so it does not exist locally or in CI at all.
+ *
+ * `upsertUser` / `getUserByOpenId` are reachable only from `server/_core/sdk.ts`
+ * (the Manus OAuth path), which itself has zero importers. Retiring all of it is
+ * a follow-up, kept out of the #144 fix to keep a P0 diff small.
  */
 import { createClient } from "@supabase/supabase-js";
 
