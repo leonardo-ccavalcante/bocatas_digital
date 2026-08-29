@@ -7,7 +7,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { useProgramsWithCounts } from "@/features/programs/hooks/usePrograms";
+import { usePrograms, useProgramsWithCounts } from "@/features/programs/hooks/usePrograms";
 import { ProgramCard } from "@/features/programs/components/ProgramCard";
 import { ProgramForm } from "@/features/programs/components/ProgramForm";
 import { trpc } from "@/lib/trpc";
@@ -21,7 +21,19 @@ export default function Programas() {
   const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
 
-  const { programs, isLoading } = useProgramsWithCounts();
+  const admin = useProgramsWithCounts(isAdmin);
+  const volunteer = usePrograms(!isAdmin);
+  const isLoading = isAdmin ? admin.isLoading : volunteer.isLoading;
+  // getAll rows carry no counts — pad with zeros. ProgramCard only renders
+  // counts when isAdmin, so voluntarios never see the padded values.
+  const programs = isAdmin
+    ? admin.programs
+    : volunteer.programs.map((p) => ({
+        ...p,
+        active_enrollments: 0,
+        total_enrollments: 0,
+        new_this_month: 0,
+      }));
   const utils = trpc.useUtils();
 
   const createProgram = trpc.programs.create.useMutation({

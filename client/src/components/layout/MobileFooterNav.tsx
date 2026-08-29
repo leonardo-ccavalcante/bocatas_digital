@@ -1,21 +1,37 @@
 import { Link, useLocation } from "wouter";
 import { Home, QrCode, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { BocatasRole } from "./ProtectedRoute";
 
 interface FooterNavItem {
   label: string;
   href: string;
   icon: React.ReactNode;
+  /** Omitted → visible to every role (mirrors AppShell NAV_ITEMS). */
+  roles?: BocatasRole[];
 }
 
 const FOOTER_NAV_ITEMS: FooterNavItem[] = [
   { label: "Inicio", href: "/", icon: <Home className="h-5 w-5" /> },
-  { label: "Check-in", href: "/checkin", icon: <QrCode className="h-5 w-5" /> },
-  { label: "Personas", href: "/personas", icon: <Users className="h-5 w-5" /> },
+  {
+    label: "Check-in",
+    href: "/checkin",
+    icon: <QrCode className="h-5 w-5" />,
+    roles: ["voluntario", "admin", "superadmin"],
+  },
+  {
+    label: "Personas",
+    href: "/personas",
+    icon: <Users className="h-5 w-5" />,
+    roles: ["voluntario", "admin", "superadmin"],
+  },
 ];
 
-export default function MobileFooterNav() {
+export default function MobileFooterNav({ role }: { role: BocatasRole }) {
   const [location] = useLocation();
+  const items = FOOTER_NAV_ITEMS.filter(
+    (item) => !item.roles || item.roles.includes(role)
+  );
 
   return (
     <nav
@@ -23,7 +39,7 @@ export default function MobileFooterNav() {
       aria-label="Navegación principal"
     >
       <div className="flex items-center justify-around h-16">
-        {FOOTER_NAV_ITEMS.map((item) => {
+        {items.map((item) => {
           const active =
             location === item.href ||
             (item.href !== "/" && location.startsWith(item.href));

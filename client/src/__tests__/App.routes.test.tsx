@@ -308,3 +308,57 @@ describe("App.tsx public login route", () => {
     expect(screen.getByTestId("login-page")).toBeInTheDocument();
   });
 });
+
+describe("App.tsx staff routes are role-gated (RC-07: F011/F046/F113)", () => {
+  it("beneficiario at /checkin is sent home — check-in page never renders", async () => {
+    authState.user = { id: "u4", role: "beneficiario", name: "Bene" };
+    renderAtPath("/checkin");
+    await waitFor(() => {
+      expect(screen.getByTestId("home-page")).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId("checkin-page")).toBeNull();
+  });
+
+  it("beneficiario at /personas is sent home — personas page never renders", async () => {
+    authState.user = { id: "u4", role: "beneficiario", name: "Bene" };
+    renderAtPath("/personas");
+    await waitFor(() => {
+      expect(screen.getByTestId("home-page")).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId("personas-page")).toBeNull();
+  });
+
+  it("beneficiario at /programas is sent home — programas page never renders", async () => {
+    authState.user = { id: "u4", role: "beneficiario", name: "Bene" };
+    renderAtPath("/programas");
+    await waitFor(() => {
+      expect(screen.getByTestId("home-page")).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId("programas-page")).toBeNull();
+  });
+
+  it("unknown 'user' role (Manus default) is normalized to beneficiario and blocked", async () => {
+    authState.user = { id: "u5", role: "user", name: "Nuevo" };
+    renderAtPath("/checkin");
+    await waitFor(() => {
+      expect(screen.getByTestId("home-page")).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId("checkin-page")).toBeNull();
+  });
+
+  it("voluntario at /checkin renders the check-in page", async () => {
+    authState.user = { id: "u2", role: "voluntario", name: "Vol" };
+    renderAtPath("/checkin");
+    await waitFor(() => {
+      expect(screen.getByTestId("checkin-page")).toBeInTheDocument();
+    });
+  });
+
+  it("voluntario at /programas renders the programas page", async () => {
+    authState.user = { id: "u2", role: "voluntario", name: "Vol" };
+    renderAtPath("/programas");
+    await waitFor(() => {
+      expect(screen.getByTestId("programas-page")).toBeInTheDocument();
+    });
+  });
+});

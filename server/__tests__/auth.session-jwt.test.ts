@@ -127,7 +127,7 @@ describe("auth.session-jwt contract", () => {
         expect(err).toBeInstanceOf(TRPCError);
         const trpcErr = err as TRPCError;
         expect(trpcErr.code).toBe("FORBIDDEN");
-        expect(trpcErr.message).toBe("Superadmin access required");
+        expect(trpcErr.message).toBe("Se requiere permiso de superadministrador");
         // Sanity: it's NOT the admin-procedure error message (different gate).
         expect(trpcErr.message).not.toBe(NOT_ADMIN_ERR_MSG);
       }

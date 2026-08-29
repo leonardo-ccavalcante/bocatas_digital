@@ -22,9 +22,10 @@ const ESTADO_VARIANT: Record<string, "secondary" | "default" | "outline"> = {
 interface Props {
   programId: string;
   onSelect: (roundId: string) => void;
+  isAdmin: boolean;
 }
 
-export function RepartoList({ programId, onSelect }: Props) {
+export function RepartoList({ programId, onSelect, isAdmin }: Props) {
   const { data, isLoading } = useRepartos(programId);
   const deleteRound = useDeleteReparto();
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
@@ -48,14 +49,16 @@ export function RepartoList({ programId, onSelect }: Props) {
               <Button variant="ghost" size="sm" onClick={() => onSelect(r.id)}>
                 Abrir
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-destructive hover:text-destructive"
-                onClick={() => setPendingDeleteId(r.id)}
-              >
-                Eliminar
-              </Button>
+              {isAdmin && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive hover:text-destructive"
+                  onClick={() => setPendingDeleteId(r.id)}
+                >
+                  Eliminar
+                </Button>
+              )}
             </div>
           </li>
         ))}

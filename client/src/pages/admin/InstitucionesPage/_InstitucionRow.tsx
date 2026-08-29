@@ -59,14 +59,16 @@ export function InstitucionRowComponent({
       </TableCell>
       <TableCell>
         <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onEdit(inst)}
-            aria-label={`Editar ${inst.nombre}`}
-          >
-            Editar
-          </Button>
+          {isSuperadmin && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onEdit(inst)}
+              aria-label={`Editar ${inst.nombre}`}
+            >
+              Editar
+            </Button>
+          )}
           {isSuperadmin && inst.is_active && (
             <Button
               variant="ghost"

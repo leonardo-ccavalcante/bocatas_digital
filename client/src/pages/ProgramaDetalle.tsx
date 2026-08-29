@@ -167,11 +167,18 @@ export default function ProgramaDetalle() {
   }
 
   if (error || !program) {
+    const isForbidden = error?.data?.code === "FORBIDDEN";
     return (
       <div className="max-w-5xl mx-auto px-4 py-16 text-center">
-        <p className="text-h3 text-foreground">Programa no encontrado</p>
+        <p className="text-h3 text-foreground">
+          {isForbidden ? "No tienes permiso para ver este programa" : "Programa no encontrado"}
+        </p>
         <p className="text-body text-muted-foreground mt-1">
-          El programa <strong>{slug}</strong> no existe o fue eliminado.
+          {isForbidden ? (
+            "Este programa no está habilitado para tu rol."
+          ) : (
+            <>El programa <strong>{slug}</strong> no existe o fue eliminado.</>
+          )}
         </p>
         <BackLink href="/programas" label="Volver a programas" className="mt-4 mx-auto" />
       </div>
