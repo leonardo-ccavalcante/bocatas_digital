@@ -9,7 +9,7 @@ import {
 import { redactHighRiskFields, isElevatedRole } from "../../_core/rlsRedaction";
 import { createAdminClient } from "../../../client/src/lib/supabase/server";
 import { logProcedureAction } from "../../_core/logging-middleware";
-import { ilikeForOr } from "../../_core/postgrestFilter";
+import { parseFamilySearch, titularEmbedFor } from "./titular-search";
 import { isMemberAdult } from "../../families-doc-helpers";
 import {
   uuidLike,
@@ -46,18 +46,9 @@ export const crudRouter = router({
     .query(async ({ input }) => {
       const db = createAdminClient();
 
-      // RC-08: a titular-name search must filter PARENT rows through the
-      // embedded resource, which PostgREST only does with an !inner embed;
-      // the plain list and numeric search keep left-join semantics so
-      // families without titular (titular_id is nullable) still appear.
-      // A top-level .or() on embedded dotted paths is a PGRST100 parse
-      // error → 500 on every text search — the or() must be scoped with
-      // { referencedTable: "persons" }.
-      const searchNum = input?.search ? parseInt(input.search) : NaN;
-      const isNameSearch = Boolean(input?.search) && isNaN(searchNum);
-      const titularEmbed = isNameSearch
-        ? "persons!titular_id!inner(id, nombre, apellidos, telefono)"
-        : "persons!titular_id(id, nombre, apellidos, telefono)";
+      // RC-08: see titular-search.ts for why a name search needs !inner and a
+      // referencedTable-scoped .or().
+      const search = parseFamilySearch(input?.search);
 
       let query = db
         .from("families")
@@ -66,7 +57,7 @@ export const crudRouter = router({
            persona_recoge, autorizado, alta_en_guf, fecha_alta_guf,
            informe_social, informe_social_fecha, guf_cutoff_day, guf_verified_at,
            created_at, deleted_at,
-           ${titularEmbed}`
+           ${titularEmbedFor(search)}`
         )
         .is("deleted_at", null);
 
@@ -82,15 +73,10 @@ export const crudRouter = router({
       if (input?.distrito) {
         query = query.eq("distrito", input.distrito);
       }
-      if (input?.search) {
-        if (!isNaN(searchNum)) {
-          query = query.eq("familia_numero", searchNum);
-        } else {
-          const token = ilikeForOr(input.search);
-          query = query.or(`nombre.ilike.${token},apellidos.ilike.${token}`, {
-            referencedTable: "persons",
-          });
-        }
+      if (search.kind === "numero") {
+        query = query.eq("familia_numero", search.numero);
+      } else if (search.kind === "nombre") {
+        query = query.or(search.orFilter, { referencedTable: "persons" });
       }
 
       const offset = input?.offset ?? 0;
