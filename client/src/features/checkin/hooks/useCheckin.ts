@@ -13,6 +13,27 @@ import type { CheckinPrograma, CheckinMetodo } from "../machine/checkinMachine";
 import { useCheckinStore } from "../store/useCheckinStore";
 import { categorizeSyncResults } from "./syncResults";
 
+// ── Error classification (F028) ──────────────────────────────────────────────
+// navigator.onLine stays true on weak signal / captive portals, so a request
+// that dies in transit reaches onError while `isOnline` is still true. A tRPC
+// client error that carries no server-sent `data` never got a server response
+// (browser "Failed to fetch", DNS failure, aborted socket) — treat it exactly
+// like being offline and queue the check-in instead of losing it.
+type CheckinClientError = { message: string; data?: { code?: string } | null };
+
+function isTransportError(err: CheckinClientError): boolean {
+  return err.data == null;
+}
+
+// Spanish-only UI: never surface raw DB/browser text to the volunteer.
+// Non-500 server errors (BAD_REQUEST, NOT_FOUND…) already carry Spanish
+// messages written by our routers, so pass those through.
+function checkinErrorMessage(err: CheckinClientError): string {
+  return err.data?.code === "INTERNAL_SERVER_ERROR"
+    ? "No se pudo registrar el check-in. Inténtalo de nuevo."
+    : err.message;
+}
+
 export function useCheckin() {
   const [state, send] = useActor(checkinMachine);
   const { offlineQueue, failedClientIds, enqueue, dequeue, markFailed, setIsSyncing, isSyncing } =
@@ -55,28 +76,28 @@ export function useCheckin() {
       return;
     }
 
+    // Shared by the navigator-offline paths AND the transport-error fallbacks
+    // (F028): enqueue locally and move the machine to the queued-offline state.
+    const queueOffline = (queuedPersonId: string | null, metodo: CheckinMetodo) => {
+      const clientId = enqueue({ personId: queuedPersonId, locationId, programa, metodo, isDemoMode });
+      send({
+        type: "OFFLINE",
+        queueItem: {
+          clientId,
+          personId: queuedPersonId,
+          locationId,
+          programa,
+          metodo,
+          isDemoMode,
+          queuedAt: new Date().toISOString(),
+        },
+      });
+    };
+
     // Anonymous check-in (no personId)
     if (!personId) {
       if (!isOnline) {
-        const clientId = enqueue({
-          personId: null,
-          locationId,
-          programa,
-          metodo: "conteo_anonimo",
-          isDemoMode,
-        });
-        send({
-          type: "OFFLINE",
-          queueItem: {
-            clientId,
-            personId: null,
-            locationId,
-            programa,
-            metodo: "conteo_anonimo",
-            isDemoMode,
-            queuedAt: new Date().toISOString(),
-          },
-        });
+        queueOffline(null, "conteo_anonimo");
         return;
       }
 
@@ -87,7 +108,10 @@ export function useCheckin() {
             if (!isDemoMode) capture("checkin_completed", { method: "anonymous" });
             send({ type: "RESULT", result: { status: "registered", restriccionesAlimentarias: null } });
           },
-          onError: (err) => send({ type: "ERROR", message: err.message }),
+          onError: (err) => {
+            if (isTransportError(err)) queueOffline(null, "conteo_anonimo");
+            else send({ type: "ERROR", message: checkinErrorMessage(err) });
+          },
         }
       );
       return;
@@ -103,19 +127,7 @@ export function useCheckin() {
     }
 
     if (!isOnline) {
-      const clientId = enqueue({ personId, locationId, programa, metodo, isDemoMode });
-      send({
-        type: "OFFLINE",
-        queueItem: {
-          clientId,
-          personId,
-          locationId,
-          programa,
-          metodo,
-          isDemoMode,
-          queuedAt: new Date().toISOString(),
-        },
-      });
+      queueOffline(personId, metodo);
       return;
     }
 
@@ -139,23 +151,11 @@ export function useCheckin() {
           send({ type: "RESULT", result });
         },
         onError: (err) => {
-          if (!isOnline) {
-            const clientId = enqueue({ personId, locationId, programa, metodo, isDemoMode });
-            send({
-              type: "OFFLINE",
-              queueItem: {
-                clientId,
-                personId,
-                locationId,
-                programa,
-                metodo,
-                isDemoMode,
-                queuedAt: new Date().toISOString(),
-              },
-            });
-          } else {
-            send({ type: "ERROR", message: err.message });
-          }
+          // "Failed to fetch" while navigator.onLine is still true (weak
+          // signal, captive portal, server unreachable) must queue, not
+          // lose the check-in (F028).
+          if (!isOnline || isTransportError(err)) queueOffline(personId, metodo);
+          else send({ type: "ERROR", message: checkinErrorMessage(err) });
         },
       }
     );
