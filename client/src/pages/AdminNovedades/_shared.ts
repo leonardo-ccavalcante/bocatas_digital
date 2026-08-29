@@ -3,15 +3,19 @@ import { z } from "zod";
 export const PROGRAMS = ["comedor", "familia", "formacion", "atencion_juridica", "voluntariado", "acompanamiento"] as const;
 export const ROLES = ["superadmin", "admin", "voluntario", "beneficiario"] as const;
 
+// react-hook-form submits "" for untouched <input type="date"> fields; treat
+// "" as "not provided" so the optional dates validate (QA F001/F106/F228).
+const emptyToUndefined = (v: unknown) => (v === "" ? undefined : v);
+
 export const FormSchema = z.object({
   titulo: z.string().min(1, "Título requerido").max(200),
   contenido: z.string().min(1, "Contenido requerido").max(5000),
   tipo: z.enum(["info", "evento", "cierre_servicio", "convocatoria"]),
   es_urgente: z.boolean().default(false),
   fijado: z.boolean().default(false),
-  fecha_fin: z.string().optional(),
-  published_at: z.string().date().optional(),
-  expires_at: z.string().date().optional(),
+  fecha_fin: z.preprocess(emptyToUndefined, z.string().date("Formato: AAAA-MM-DD").optional()),
+  published_at: z.preprocess(emptyToUndefined, z.string().date("Formato: AAAA-MM-DD").optional()),
+  expires_at: z.preprocess(emptyToUndefined, z.string().date("Formato: AAAA-MM-DD").optional()),
   image_url: z.string().url().optional().nullable(),
   audiences: z.array(
     z.object({
@@ -35,6 +39,18 @@ export const FormSchema = z.object({
 );
 
 export type FormValues = z.infer<typeof FormSchema>;
+
+/**
+ * Serialises parsed form values into the payload announcements.create/update
+ * expect: the server wants fecha_fin as a full ISO datetime, while the date
+ * input emits YYYY-MM-DD (or undefined after the ""-preprocess above).
+ */
+export function toAnnouncementPayload(values: FormValues) {
+  return {
+    ...values,
+    fecha_fin: values.fecha_fin ? `${values.fecha_fin}T00:00:00.000Z` : undefined,
+  };
+}
 
 export const TIPO_LABELS: Record<string, string> = {
   info: "Información",

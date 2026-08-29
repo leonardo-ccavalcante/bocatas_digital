@@ -100,7 +100,7 @@ export function IntakeWizard({ titularId }: IntakeWizardProps) {
         consent_bocatas: values.consent_bocatas,
         consent_banco_alimentos: values.consent_banco_alimentos,
         autorizado: values.autorizado,
-        persona_recoge: values.persona_recoge ?? "",
+        persona_recoge: values.persona_recoge?.trim() || undefined,
         program_id: values.program_id,
       });
       toast.success(`Familia #${result.familia_numero} registrada correctamente`);

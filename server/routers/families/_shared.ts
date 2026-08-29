@@ -240,3 +240,29 @@ export const DeactivateFamilyInputSchema = z
     message: "Debe especificar el motivo",
     path: ["otros_detalle"],
   });
+
+// ─── families.create input (intake wizard) ──────────────────────────────────
+// persona_recoge is only required when autorizado=true — the common household
+// has nobody authorised, and the wizard's untouched input submits "" (QA
+// F158/F190). '' / whitespace are coerced to null at insert time in crud.ts.
+export const FamilyCreateInputSchema = z
+  .object({
+    titular_id: uuidLike,
+    miembros: z.array(FamilyMemberSchema).default([]),
+    num_adultos: z.number().int().min(1),
+    num_menores_18: z.number().int().min(0),
+    persona_recoge: z.string().optional().nullable(),
+    autorizado: z.boolean().default(false),
+    program_id: programIdSchema,
+    consent_bocatas: z.boolean().default(false),
+    consent_banco_alimentos: z.boolean().default(false),
+    docs_identidad: z.boolean().default(false),
+    padron_recibido: z.boolean().default(false),
+    justificante_recibido: z.boolean().default(false),
+    informe_social: z.boolean().default(false),
+    informe_social_fecha: z.string().optional(),
+  })
+  .refine((d) => !d.autorizado || (d.persona_recoge ?? "").trim().length > 0, {
+    path: ["persona_recoge"],
+    message: "Indica el nombre de la persona autorizada para recoger",
+  });

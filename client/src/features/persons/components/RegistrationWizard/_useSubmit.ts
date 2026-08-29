@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
-import type { ConsentTemplate, PersonCreate } from "../../schemas";
+import { PersonCreateSchema, type ConsentTemplate, type PersonCreate } from "../../schemas";
 import { useCreatePerson } from "../../hooks/useCreatePerson";
 import { useEnrollPerson } from "../../hooks/useEnrollPerson";
 import { trpc } from "@/lib/trpc";
@@ -47,10 +47,19 @@ export function useRegistrationSubmit(args: UseSubmitArgs) {
       return;
     }
 
+    // Submit the Zod-PARSED values, never the raw form values: the schema's
+    // transforms (e.g. fecha_llegada_espana "" → null) only run through parse,
+    // and the server copy rejects what the transform would have fixed (F024).
+    const parsed = PersonCreateSchema.safeParse(args.getValues());
+    if (!parsed.success) {
+      const campos = [...new Set(parsed.error.issues.map((i) => i.path.join(".")))].join(", ");
+      toast.error(`Revisa los campos: ${campos}`);
+      return;
+    }
+    const data = parsed.data;
+
     setIsSubmitting(true);
     try {
-      const data = args.getValues();
-
       // 1. Upload profile photo if captured
       let fotoPerfilUrl: string | null = null;
       if (args.profilePhotoBase64) {
