@@ -54,7 +54,7 @@ export async function handleRepartoContactoInbound(req: Request, res: Response):
 
   const { data: asg } = await db
     .from("delivery_round_assignments")
-    .select("id, reschedule_log")
+    .select("id, reschedule_log, estado_contacto")
     .eq("round_id", round_id)
     .eq("family_id", fid)
     .maybeSingle();
@@ -90,7 +90,7 @@ export async function handleRepartoContactoInbound(req: Request, res: Response):
   const { error } = await db
     .from("delivery_round_assignments")
     .update({
-      ...buildContactoOutcomeUpdate({ estado, preferredSlotIds, actor: "n8n" }),
+      ...buildContactoOutcomeUpdate({ estado, preferredSlotIds, actor: "n8n", previousEstado: asg.estado_contacto }),
       reschedule_log: [...prevLog, logEntry] as unknown as Json,
     })
     .eq("id", asg.id);
