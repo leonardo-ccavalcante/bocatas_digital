@@ -12,8 +12,21 @@ import { storagePut } from "../../storage";
  */
 const BUCKETS = ["fotos-perfil", "documentos-consentimiento"] as const;
 
-/** Matches the bucket file_size_limit (8 MiB decoded). */
-const MAX_BYTES = 8 * 1024 * 1024;
+/**
+ * Decoded-size ceiling per bucket. These MUST match `file_size_limit` on the
+ * real buckets (verified in production 2026-08-29): a guard that is more
+ * permissive than the bucket accepts a photo here and then fails in the storage
+ * layer, so the volunteer takes the photo, the form accepts it, and the save
+ * dies afterwards.
+ *
+ * Note the request-body cap binds first for the larger bucket: base64 inflates
+ * ~33% and `/api/trpc/persons.uploadPhoto` is allow-listed at a 10 MB JSON body
+ * (server/_core/index.ts), so ~7.5 MiB decoded is the effective ceiling there.
+ */
+const MAX_BYTES_BY_BUCKET: Record<(typeof BUCKETS)[number], number> = {
+  "fotos-perfil": 5 * 1024 * 1024,
+  "documentos-consentimiento": 10 * 1024 * 1024,
+};
 
 export const photoRouter = router({
   /**
@@ -31,8 +44,12 @@ export const photoRouter = router({
       if (buffer.length === 0) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "La foto está vacía" });
       }
-      if (buffer.length > MAX_BYTES) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "La foto supera el límite de 8 MB" });
+      const maxBytes = MAX_BYTES_BY_BUCKET[input.bucket];
+      if (buffer.length > maxBytes) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `La foto supera el límite de ${Math.floor(maxBytes / (1024 * 1024))} MB`,
+        });
       }
 
       // Opaque object name. The wizard uploads before the person exists, and a

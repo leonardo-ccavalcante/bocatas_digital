@@ -30,10 +30,13 @@
 -- signed URLs. No storage.objects policy is defined here, matching
 -- 20260724100000_family_documents_bucket.sql.
 --
--- Size limit: `persons.uploadPhoto` is allow-listed for a 10 MB JSON body
--- (server/_core/index.ts LARGE_PAYLOAD_PATHS) and base64 inflates ~33%, so
--- 8 MiB decoded is the matching ceiling — a smaller bucket cap would turn an
--- accepted request into a storage-layer failure after the fact.
+-- Size limits mirror the buckets that ALREADY exist in production (verified
+-- 2026-08-29): fotos-perfil 5 MiB, documentos-consentimiento 10 MiB. They are
+-- reproduced here so a fresh `supabase db reset` matches prod rather than
+-- inventing its own ceiling — the guard in server/routers/persons/photo.ts is
+-- keyed off the same numbers, because a guard more permissive than the bucket
+-- turns an accepted request into a storage-layer failure after the fact.
+-- ON CONFLICT DO NOTHING means this never clobbers the live settings.
 --
 -- Existence-tolerant: ON CONFLICT (id) DO NOTHING so re-runs and any bucket
 -- already created out-of-band are left untouched (settings are not clobbered).
@@ -41,6 +44,6 @@
 
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES
-  ('fotos-perfil', 'fotos-perfil', false, 8388608, ARRAY['image/jpeg','image/png','image/webp']),
-  ('documentos-consentimiento', 'documentos-consentimiento', false, 8388608, ARRAY['image/jpeg','image/png','image/webp'])
+  ('fotos-perfil', 'fotos-perfil', false, 5242880, ARRAY['image/jpeg','image/png','image/webp']),
+  ('documentos-consentimiento', 'documentos-consentimiento', false, 10485760, ARRAY['image/jpeg','image/png','image/webp'])
 ON CONFLICT (id) DO NOTHING;
