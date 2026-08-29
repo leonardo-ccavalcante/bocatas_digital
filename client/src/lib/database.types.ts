@@ -1840,6 +1840,7 @@ export type Database = {
           nivel_estudios: Database["public"]["Enums"]["nivel_estudios"] | null
           nivel_ingresos: Database["public"]["Enums"]["nivel_ingresos"] | null
           nombre: string
+          nombre_norm: string | null
           notas_privadas: string | null
           numero_documento: string | null
           observaciones: string | null
@@ -1898,6 +1899,7 @@ export type Database = {
           nivel_estudios?: Database["public"]["Enums"]["nivel_estudios"] | null
           nivel_ingresos?: Database["public"]["Enums"]["nivel_ingresos"] | null
           nombre: string
+          nombre_norm?: string | null
           notas_privadas?: string | null
           numero_documento?: string | null
           observaciones?: string | null
@@ -1956,6 +1958,7 @@ export type Database = {
           nivel_estudios?: Database["public"]["Enums"]["nivel_estudios"] | null
           nivel_ingresos?: Database["public"]["Enums"]["nivel_ingresos"] | null
           nombre?: string
+          nombre_norm?: string | null
           notas_privadas?: string | null
           numero_documento?: string | null
           observaciones?: string | null
@@ -2529,6 +2532,7 @@ export type Database = {
           nivel_estudios: Database["public"]["Enums"]["nivel_estudios"] | null
           nivel_ingresos: Database["public"]["Enums"]["nivel_ingresos"] | null
           nombre: string | null
+          nombre_norm: string | null
           numero_documento: string | null
           observaciones: string | null
           pais_origen: string | null
@@ -2576,6 +2580,7 @@ export type Database = {
           nivel_estudios?: Database["public"]["Enums"]["nivel_estudios"] | null
           nivel_ingresos?: Database["public"]["Enums"]["nivel_ingresos"] | null
           nombre?: string | null
+          nombre_norm?: string | null
           numero_documento?: string | null
           observaciones?: string | null
           pais_origen?: string | null
@@ -2623,6 +2628,7 @@ export type Database = {
           nivel_estudios?: Database["public"]["Enums"]["nivel_estudios"] | null
           nivel_ingresos?: Database["public"]["Enums"]["nivel_ingresos"] | null
           nombre?: string | null
+          nombre_norm?: string | null
           numero_documento?: string | null
           observaciones?: string | null
           pais_origen?: string | null
@@ -2695,6 +2701,7 @@ export type Database = {
         Args: { p_src_filename?: string; p_token: string }
         Returns: Json
       }
+      f_unaccent: { Args: { "": string }; Returns: string }
       find_duplicate_persons: {
         Args: { p_apellidos: string; p_nombre: string; p_threshold?: number }
         Returns: {
@@ -2794,6 +2801,7 @@ export type Database = {
       sanitize_audit_error: { Args: { p_msg: string }; Returns: string }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      unaccent: { Args: { "": string }; Returns: string }
       upload_family_document: {
         Args: {
           p_documento_tipo: string
