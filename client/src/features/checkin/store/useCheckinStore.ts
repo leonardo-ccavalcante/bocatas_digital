@@ -91,7 +91,17 @@ export const useCheckinStore = create<CheckinStoreState>()(
     }),
     {
       name: "bocatas-checkin-store",
-      version: 4,
+      version: 5,
+      // F026: isSyncing is a transient in-flight flag. Persisting it (pre-v5)
+      // meant a reload mid-flush rehydrated isSyncing:true, and the flush
+      // guard then blocked EVERY future sync until site data was cleared.
+      // Only durable state is written.
+      partialize: (state) => ({
+        offlineQueue: state.offlineQueue,
+        failedClientIds: state.failedClientIds,
+        locationId: state.locationId,
+        programa: state.programa,
+      }),
       // XState/immer boundary
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       migrate: (state: any, version: number) => {
@@ -102,6 +112,11 @@ export const useCheckinStore = create<CheckinStoreState>()(
         // v4 (POS-03): failed-sync tracking added; older state has no such field.
         if (version < 4 && !Array.isArray(state.failedClientIds)) {
           state.failedClientIds = [];
+        }
+        // v5 (F026): isSyncing used to be persisted; strip any stale value so
+        // rehydration can never resurrect a stuck "Sincronizando..." state.
+        if (version < 5) {
+          delete state.isSyncing;
         }
         return state;
       },
