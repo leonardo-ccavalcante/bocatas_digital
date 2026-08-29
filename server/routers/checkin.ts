@@ -13,7 +13,8 @@ import { voluntarioProcedure, router } from "../_core/trpc";
 import { logProcedureAction, logProcedureError, logCorrelatedErrorToStderr } from "../_core/logging-middleware";
 import { ENV } from "../_core/env";
 import { parseQrPayload, verifySig } from "../../shared/qr/payload";
-import { ilikeForOr } from "../_core/postgrestFilter";
+import { ilikeValue } from "../_core/postgrestFilter";
+import { nameSearchTokens } from "../../shared/nameSearch";
 import {
   enrichOfflineItems,
   offlineAttendanceRows,
@@ -256,7 +257,10 @@ export const checkinRouter = router({
     }),
 
   /**
-   * searchPersons — fuzzy search by nombre/apellidos for manual fallback.
+   * searchPersons — manual-fallback search, accent- and word-order-
+   * insensitive (RC-06): the normalised query is split into tokens and each
+   * token becomes one AND'ed ilike against persons_safe.nombre_norm
+   * (generated column, migration 20260830100001).
    */
   searchPersons: voluntarioProcedure
     .input(
@@ -265,15 +269,19 @@ export const checkinRouter = router({
       })
     )
     .query(async ({ input }) => {
+      const tokens = nameSearchTokens(input.query);
+      // '   ' passes min(3) but has no tokens — an unfiltered query would
+      // return arbitrary rows.
+      if (tokens.length === 0) return [];
       const supabase = createAdminClient();
-      const { data, error } = await supabase
+      let q = supabase
         .from("persons_safe")
         .select("id, nombre, apellidos, fecha_nacimiento, foto_perfil_url, restricciones_alimentarias")
-        .or(
-          `nombre.ilike.${ilikeForOr(input.query)},apellidos.ilike.${ilikeForOr(input.query)}`
-        )
-        .is("deleted_at", null)
-        .limit(10);
+        .is("deleted_at", null);
+      for (const tok of tokens) {
+        q = q.ilike("nombre_norm", ilikeValue(tok));
+      }
+      const { data, error } = await q.limit(10);
       if (error) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
