@@ -10,9 +10,15 @@ import {
 import {
   uuidLike,
   familyDocTypeSchema,
+  recomputeDocBooleanCache,
   type FamiliesUpdate,
 } from "./_shared";
 import { convertDocxToPdf, LibreOfficeUnavailableError } from "../../services/docxToPdf";
+import { storagePut } from "../../storage";
+
+/** Client caps files at 10 MB; base64 inflates ~33% and the body limit for
+ *  this path is 10 MB (server/_core/index.ts), so ~7.5 MB is the effective ceiling. */
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 
 export const documentsRouter = router({
   // ─── Job 8: Member Document Write ────────────────────────────────────────
@@ -157,7 +163,9 @@ export const documentsRouter = router({
       }
     }),
 
-  /** POST upload a document — versions any existing current row and recomputes boolean cache */
+  /** POST upload a document — stores the bytes SERVER-SIDE in the private
+   *  family-documents bucket (ADR-0002; the browser anon key cannot write it),
+   *  versions any existing current row and recomputes the boolean cache. */
   uploadFamilyDocument: adminProcedure
     .input(
       z.object({
@@ -166,10 +174,23 @@ export const documentsRouter = router({
         member_person_id: uuidLike.nullable().optional(),
         documento_tipo: familyDocTypeSchema,
         documento_url: z.string().min(1),
+        base64: z.string().min(1),
+        content_type: z.string().max(100).default("application/octet-stream"),
       })
     )
     .mutation(async ({ input, ctx }) => {
+      const buffer = Buffer.from(input.base64, "base64");
+      if (buffer.length === 0) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "El archivo está vacío" });
+      }
+      if (buffer.length > MAX_UPLOAD_BYTES) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "El archivo supera el límite de 10 MB" });
+      }
       const db = createAdminClient();
+
+      // Object first: an orphan object without a row is invisible; a row
+      // pointing at a missing object breaks every viewer.
+      await storagePut("family-documents", input.documento_url, buffer, input.content_type);
 
       // Atomic UPSERT via Postgres function — handles concurrent callers correctly.
       const { data: inserted, error: rpcErr } = await db.rpc("upload_family_document", {
@@ -187,27 +208,7 @@ export const documentsRouter = router({
         });
       }
 
-      // Recompute boolean cache (unchanged from before).
-      const cacheCol = FAMILY_DOC_TO_BOOLEAN_COLUMN[input.documento_tipo as FamilyDocType];
-      if (cacheCol) {
-        const { data: existsRows } = await db
-          .from("family_member_documents")
-          .select("id")
-          .eq("family_id", input.family_id)
-          .eq("documento_tipo", input.documento_tipo)
-          .not("documento_url", "is", null)
-          .is("deleted_at", null)
-          .eq("is_current", true)
-          .limit(1);
-        const newCacheValue = (existsRows?.length ?? 0) > 0;
-        const updatePayload: FamiliesUpdate = { [cacheCol]: newCacheValue } as FamiliesUpdate;
-        if (input.documento_tipo === "informe_social" && newCacheValue) {
-          (updatePayload as Record<string, unknown>).informe_social_fecha = new Date().toISOString().slice(0, 10);
-        }
-        const { error: cacheErr } = await db.from("families").update(updatePayload).eq("id", input.family_id);
-        if (cacheErr) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: cacheErr.message });
-      }
-
+      await recomputeDocBooleanCache(db, input.family_id, input.documento_tipo);
       return inserted;
     }),
 
