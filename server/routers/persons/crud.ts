@@ -6,7 +6,8 @@ import { adminProcedure, voluntarioProcedure, router } from "../../_core/trpc";
 import { logProcedureAction, logProcedureError } from "../../_core/logging-middleware";
 import { redactHighRiskFields } from "../../_core/rlsRedaction";
 import { encryptPII, decryptPII, isPiiCryptoConfigured } from "../../_core/pii-crypto";
-import { ilikeForOr } from "../../_core/postgrestFilter";
+import { ilikeValue } from "../../_core/postgrestFilter";
+import { nameSearchTokens } from "../../../shared/nameSearch";
 import { PersonCreateInput } from "./_shared";
 
 const ELEVATED_ROLES = new Set(["admin", "superadmin"]);
@@ -341,16 +342,20 @@ export const crudRouter = router({
   search: voluntarioProcedure
     .input(z.object({ query: z.string().min(2).max(100) }))
     .query(async ({ input }) => {
+      // RC-06: accent- and word-order-insensitive — one AND'ed ilike per
+      // normalised token against the generated nombre_norm column.
+      const tokens = nameSearchTokens(input.query);
+      if (tokens.length === 0) return [];
       const supabase = createAdminClient();
-      const trimmed = input.query.trim();
 
-      const { data, error } = await supabase
+      let q = supabase
         .from("persons")
         .select("id, nombre, apellidos, fecha_nacimiento, foto_perfil_url, restricciones_alimentarias, fase_itinerario")
-        .or(`nombre.ilike.${ilikeForOr(trimmed)},apellidos.ilike.${ilikeForOr(trimmed)}`)
-        .is("deleted_at", null)
-        .order("nombre")
-        .limit(20);
+        .is("deleted_at", null);
+      for (const tok of tokens) {
+        q = q.ilike("nombre_norm", ilikeValue(tok));
+      }
+      const { data, error } = await q.order("nombre").limit(20);
 
       if (error) {
         throw new TRPCError({
