@@ -80,6 +80,21 @@ describe("reparto-contacto-inbound handler (auth handled upstream by middleware)
     expect(upd?.payload.attended_slot_id).toBeNull();
   });
 
+  it("a reply after a stored renuncia reverts the ausente stamp — attended back to NULL (F185, gh #129)", async () => {
+    tableResults["families"] = { data: { id: "famX" }, error: null };
+    tableResults["delivery_round_assignments"] = { data: { id: "asgX", reschedule_log: [], estado_contacto: "renuncia" }, error: null };
+    tableResults["delivery_round_slots"] = { data: [{ id: S1, slot_date: "2026-08-10" }], error: null };
+    const res = makeRes();
+    await handleRepartoContactoInbound(
+      req({ round_id: ROUND, familia_numero: 9001, preferred_dates: ["2026-08-10"], estado_contacto: "confirmada" }), res);
+    expect(res._state.statusCode).toBe(200);
+    const upd = captured.find((c) => c.table === "delivery_round_assignments");
+    expect(upd?.payload.preferred_slot_ids).toEqual([S1]);
+    expect(upd?.payload.attended).toBeNull();
+    expect(upd?.payload.attended_slot_id).toBeNull();
+    expect(upd?.payload.attended_by).toBeNull();
+  });
+
   it("404 when the family cannot be resolved", async () => {
     tableResults["families"] = { data: null, error: null };
     const res = makeRes();

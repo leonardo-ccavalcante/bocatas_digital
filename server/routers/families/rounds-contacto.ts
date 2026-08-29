@@ -75,7 +75,7 @@ export const roundsContactoRouter = router({
       // or stale slot id would silently degrade fecha1/fecha2 to assigned_day.
       const { data: asg, error: ae } = await db
         .from("delivery_round_assignments")
-        .select("round_id")
+        .select("round_id, estado_contacto")
         .eq("id", input.assignment_id)
         .maybeSingle();
       if (ae || !asg) throw new TRPCError({ code: "NOT_FOUND", message: "Asignación no encontrada" });
@@ -94,6 +94,7 @@ export const roundsContactoRouter = router({
         estado: input.estado_contacto,
         preferredSlotIds: preferred,
         actor: String(ctx.user.id),
+        previousEstado: asg.estado_contacto,
       })
         .select("id, estado_contacto, preferred_slot_ids, attended")
         .single();
