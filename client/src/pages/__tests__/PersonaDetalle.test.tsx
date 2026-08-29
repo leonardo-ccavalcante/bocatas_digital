@@ -132,6 +132,9 @@ const BASE_PERSON: PersonRow = {
   nivel_estudios: null,
   nivel_ingresos: null,
   nombre: "Ana",
+  // Generated column (migration 20260830100001): Postgres computes it, but the
+  // fixture types the full Row, so it has to be present.
+  nombre_norm: "ana garcia",
   notas_privadas: null,
   numero_documento: null,
   observaciones: null,
