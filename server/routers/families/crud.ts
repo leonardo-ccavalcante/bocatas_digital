@@ -13,9 +13,8 @@ import { ilikeForOr } from "../../_core/postgrestFilter";
 import { isMemberAdult } from "../../families-doc-helpers";
 import {
   uuidLike,
-  programIdSchema,
-  FamilyMemberSchema,
   DeactivateFamilyInputSchema,
+  FamilyCreateInputSchema,
   resolveMemberPersonId,
   ensureFamiliaEnrollment,
   mirrorMembersToTable,
@@ -154,24 +153,7 @@ export const crudRouter = router({
   // ─── Job 1: Create Family (intake submit) ───────────────────────────────
   /** POST /families — create family + enrollment */
   create: adminProcedure
-    .input(
-      z.object({
-        titular_id: uuidLike,
-        miembros: z.array(FamilyMemberSchema).default([]),
-        num_adultos: z.number().int().min(1),
-        num_menores_18: z.number().int().min(0),
-        persona_recoge: z.string().min(1),
-        autorizado: z.boolean().default(false),
-        program_id: programIdSchema,
-        consent_bocatas: z.boolean().default(false),
-        consent_banco_alimentos: z.boolean().default(false),
-        docs_identidad: z.boolean().default(false),
-        padron_recibido: z.boolean().default(false),
-        justificante_recibido: z.boolean().default(false),
-        informe_social: z.boolean().default(false),
-        informe_social_fecha: z.string().optional(),
-      })
-    )
+    .input(FamilyCreateInputSchema)
     .mutation(async ({ ctx, input }) => {
       const db = createAdminClient();
       const startTime = Date.now();
@@ -184,7 +166,7 @@ export const crudRouter = router({
           // members live in familia_miembros — written by mirrorMembersToTable below.
           num_adultos: input.num_adultos,
           num_menores_18: input.num_menores_18,
-          persona_recoge: input.persona_recoge,
+          persona_recoge: input.persona_recoge?.trim() || null,
           autorizado: input.autorizado,
           estado: "activa",
           consent_bocatas: input.consent_bocatas,

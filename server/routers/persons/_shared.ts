@@ -42,7 +42,7 @@ export const PersonCreateInput = z.object({
   numero_documento: z.string().max(30).optional().nullable(),
   pais_documento: z.string().length(2).optional().nullable(), // Country of document origin (ISO 3166-1 alpha-2)
   situacion_legal: SituacionLegalEnum.optional().nullable(),
-  fecha_llegada_espana: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+  fecha_llegada_espana: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable().or(z.literal("")),
   telefono: z.string().max(30).optional().nullable(),
   email: z.string().email().max(254).optional().nullable().or(z.literal("")),
   direccion: z.string().max(300).optional().nullable(),
