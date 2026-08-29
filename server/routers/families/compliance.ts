@@ -8,7 +8,7 @@ import {
   REQUIRED_PER_MEMBER_DOC_TYPES,
 } from "../../families-doc-helpers";
 import { uuidLike } from "./_shared";
-import { ilikeValue } from "../../_core/postgrestFilter";
+import { ilikeForOr } from "../../_core/postgrestFilter";
 import {
   informeNeedsRenewal,
   monthsAgoISO,
@@ -86,21 +86,34 @@ export const complianceRouter = router({
     .query(async ({ input }) => {
       const db = createAdminClient();
       const queryNum = parseInt(input.query);
+      const isNameSearch = isNaN(queryNum);
+
+      // RC-08: a name filter on the embedded titular must use an !inner
+      // embed — on a plain embed PostgREST only NULLS the embed, so every
+      // active family came back (limit 5) with titular_nombre "". The
+      // numeric branch keeps the left join so a family without titular is
+      // still findable by number.
+      const titularEmbed = isNameSearch
+        ? "persons!titular_id!inner(nombre, apellidos)"
+        : "persons!titular_id(nombre, apellidos)";
 
       let query = db
         .from("families")
         .select(
           `id, familia_numero, estado, persona_recoge, autorizado,
            autorizado_documento_url, num_adultos, num_menores_18,
-           persons!titular_id(nombre, apellidos)`
+           ${titularEmbed}`
         )
         .eq("estado", "activa")
         .is("deleted_at", null);
 
-      if (!isNaN(queryNum)) {
+      if (!isNameSearch) {
         query = query.eq("familia_numero", queryNum);
       } else {
-        query = query.ilike("persons.nombre", ilikeValue(input.query));
+        const token = ilikeForOr(input.query);
+        query = query.or(`nombre.ilike.${token},apellidos.ilike.${token}`, {
+          referencedTable: "persons",
+        });
       }
 
       const { data, error } = await query.limit(5);
@@ -113,6 +126,7 @@ export const complianceRouter = router({
         return {
           id: f.id,
           familia_numero: f.familia_numero,
+          estado: f.estado,
           titular_nombre: persons
             ? `${persons.nombre} ${persons.apellidos}`.trim()
             : "",
