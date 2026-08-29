@@ -46,7 +46,7 @@ export function FamiliasList({ onRowClick }: FamiliasListProps) {
     setSearchInput(filters.search ?? "");
   }, [filters.search]);
 
-  const { data: families, isLoading } = trpc.families.getAll.useQuery({
+  const { data: families, isLoading, isError } = trpc.families.getAll.useQuery({
     search: filters.search,
     estado: filters.estado,
     sin_alta_guf: filters.sinGuf || undefined,
@@ -92,6 +92,14 @@ export function FamiliasList({ onRowClick }: FamiliasListProps) {
           {Array.from({ length: 8 }).map((_, i) => (
             <Skeleton key={i} className="h-12 w-full" />
           ))}
+        </div>
+      ) : isError ? (
+        <div
+          role="alert"
+          className="bocatas-card rounded-2xl p-8 text-center text-body-sm text-destructive"
+        >
+          No se pudo cargar la lista de familias. Recarga la página o inténtalo
+          de nuevo.
         </div>
       ) : (
         <div className="bocatas-card overflow-hidden rounded-2xl p-0">
