@@ -157,7 +157,7 @@ export const roundsScheduleRouter = router({
         round_id: input.round_id,
         round_nombre: (round as { nombre?: string }).nombre ?? null,
         round_estado: round.estado,
-        actor_id: ctx.user.openId ?? "",
+        actor_id: String(ctx.user.id),
         actor_name: ctx.user.name ?? null,
         metadata: { program_id: null },
       });

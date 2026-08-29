@@ -13,12 +13,16 @@ import type { User } from "../../drizzle/schema";
 /**
  * A.6.1 Session/JWT contract test.
  *
- * The JWT-validating layer (sdk.authenticateRequest, called from createContext)
- * resolves `ctx.user` to a User on a valid JWT, or to null on a missing /
- * expired / unverifiable JWT. The middleware exported from server/_core/trpc.ts
- * reads ctx.user directly.
+ * The JWT-validating layer (`server/_core/authenticateRequest`, called from
+ * createContext) resolves `ctx.user` to a User, or to null. It returns null on
+ * a missing / expired / unverifiable JWT — AND, since #144, on a perfectly
+ * valid JWT whose `auth.users.app_metadata` carries no recognised role. A valid
+ * token is necessary but no longer sufficient; that denial axis is covered in
+ * `authenticateRequest.role-source.test.ts`.
  *
- * These tests pin the contract: missing/expired JWT (ctx.user === null) yields
+ * The middleware exported from server/_core/trpc.ts reads ctx.user directly.
+ *
+ * These tests pin the contract downstream of that: ctx.user === null yields
  * UNAUTHORIZED; an authenticated voluntario (role !== 'superadmin') hitting a
  * superadmin-gated procedure yields FORBIDDEN.
  *
