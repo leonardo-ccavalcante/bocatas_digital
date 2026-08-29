@@ -1,4 +1,8 @@
 import { invokeLLM } from "./llm";
+// Imported from the pure module, not "./llm": the OCR tests mock "./llm" with a
+// factory that exports only invokeLLM, and parsing needs no mocking anyway.
+import { parseJsonContent } from "./llm-payload";
+import { ocrModel } from "./llm-models";
 
 export interface CountrySuggestion {
   suggested_country_code: string;
@@ -55,6 +59,7 @@ Return ONLY valid JSON, no other text.`;
 
   try {
     const response = await invokeLLM({
+      model: ocrModel(),
       messages: [
         { role: "system", content: systemPrompt },
         {
@@ -74,26 +79,52 @@ Return ONLY valid JSON, no other text.`;
           ],
         },
       ],
+      // Without this the model answers in prose or fenced markdown and the
+      // parse below fails, collapsing into a silent "no suggestion".
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "country_suggestion",
+          strict: false,
+          schema: {
+            type: "object",
+            properties: {
+              suggested_country_code: { type: "string" },
+              confidence: { type: "number" },
+              reasoning: { type: "string" },
+              alternative_suggestions: { type: "array", items: { type: "string" } },
+            },
+            required: [
+              "suggested_country_code",
+              "confidence",
+              "reasoning",
+              "alternative_suggestions",
+            ],
+            additionalProperties: false,
+          },
+        },
+      },
     });
 
-    const content = response.choices[0].message.content;
-    if (typeof content !== "string") {
+    const content = response.choices[0]?.message?.content;
+    if (typeof content !== "string" || content.trim() === "") {
       throw new Error("Unexpected response format");
     }
 
-    // Parse JSON response
-    const parsed = JSON.parse(content);
+    const parsed = parseJsonContent(content) as Record<string, unknown>;
 
     // Validate and normalize response
+    const alternatives = Array.isArray(parsed.alternative_suggestions)
+      ? (parsed.alternative_suggestions as unknown[])
+      : [];
+
     return {
-      suggested_country_code: (
-        parsed.suggested_country_code || ""
-      ).toUpperCase(),
-      confidence: Math.min(1, Math.max(0, parsed.confidence || 0)),
-      reasoning: parsed.reasoning || "Unable to determine country",
-      alternative_suggestions: (parsed.alternative_suggestions || [])
+      suggested_country_code: String(parsed.suggested_country_code ?? "").toUpperCase(),
+      confidence: Math.min(1, Math.max(0, Number(parsed.confidence) || 0)),
+      reasoning: String(parsed.reasoning || "Unable to determine country"),
+      alternative_suggestions: alternatives
         .slice(0, 3)
-        .map((code: string) => code.toUpperCase()),
+        .map(code => String(code).toUpperCase()),
     };
   } catch (error) {
     console.error("Error suggesting country from document:", error);

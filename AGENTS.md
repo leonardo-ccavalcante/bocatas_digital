@@ -92,6 +92,51 @@ that repeatedly bite agents:
 - DB-gated tests self-skip unless RUN_LOCAL_SUPABASE_TESTS=true — a green local
   `pnpm test` may mean "skipped", not "passed". The db-integration CI job runs them
   for real.
+- **All OCR degrades silently by design** — every call site returns a graceful
+  empty result so a volunteer at the counter is never blocked. That makes an
+  unconfigured gateway indistinguishable from an unreadable photo by observation
+  alone. Diagnose with `pnpm llm:doctor` (probes key → catalog → vision →
+  json_schema and names the failing layer); never infer the cause from the UI.
+  Server-side, the failure reason is on the `reason` field
+  (`not_configured` / `llm_error` / `unreadable`).
+- The LLM transport (`server/_core/llm.ts`) is thin on purpose: request shaping
+  lives in the pure, unit-tested `server/_core/llm-payload.ts`. Every OCR test
+  mocks `server/_core/llm.ts` with a bare `vi.mock` factory, so **any new named
+  export there breaks them all** — put anything call sites need to import
+  (guards, parsers, types) in `server/_core/llm-payload.ts` instead.
+- `thinking` / `reasoning` are model-family specific and must stay caller-owned
+  — never default them in the helper. A gemini-shaped budget sent to a claude
+  model is a hard 400, and `budget_tokens` is rejected outright by current
+  Claude models (they take `{type:"adaptive"}`).
+- **The gateway is provider-agnostic and has NO defaults** — `LLM_API_KEY`,
+  `LLM_BASE_URL`, `LLM_MODEL` (plus optional `OCR_MODEL` / `INFORME_MODEL`,
+  which fall back to `LLM_MODEL`). A guessed model id fails at request time
+  naming nothing useful, so unset config throws up front naming the variable.
+  Model ids are gateway-specific: OpenRouter namespaces them with a vendor
+  prefix (google/… , anthropic/…), so a bare `gemini-2.5-flash` 404s there.
+  Base URLs may or may not already carry `/v1` — always join via
+  `chatCompletionsUrl()`.
+- **Reasoning models silently eat the output budget.** A gemini-2.5-pro probe
+  spent 203 and 966 output tokens on reasoning across two runs of the SAME
+  single-pixel probe before emitting any JSON. Exceeding `max_tokens` yields
+  truncated, unparseable content — reported as `reason: "truncated"`, whose fix
+  is config, not a better photo. Size `DEFAULT_MAX_TOKENS` for the reasoning
+  spend, and prefer a non-reasoning vision model for extraction.
+- **Manus is gone.** File storage is Supabase Storage (`server/storage.ts`:
+  `storagePut` writes, `storageSignedUrl` / `signPathField` read). Persist the
+  storage PATH, never a URL — a stored signed URL is a replayable, shareable
+  link to beneficiary PII (the CAS-02 finding), and a stored absolute URL dies
+  with its host. Sign server-side in the resolver that already selects the
+  column, batched per page: signing per row breaks the check-in (< 8s) and
+  manual-search (< 2s) budgets.
+- Every bucket holding beneficiary data is PRIVATE. `announcement-images` is
+  the single PUBLIC bucket (non-PII novedad artwork) — never put PII there.
+- **A bucket that only a shell script creates is a bug** (gh #134): a fresh
+  `supabase db reset` then fails with `Bucket not found`. Create buckets in a
+  migration, `ON CONFLICT (id) DO NOTHING`.
+- Any procedure accepting base64 bytes MUST be listed in `LARGE_PAYLOAD_PATHS`
+  (`server/_core/index.ts`) or it 413s before Zod runs — a config gap that
+  looks exactly like a broken feature.
 
 ## Coordination & lanes
 

@@ -9,6 +9,9 @@
 // the response PARSER is pure and fully tested.
 
 import { invokeLLM } from "./llm";
+// Pure module: imported directly so tests mocking "./llm" need not stub it.
+import { parseJsonContent } from "./llm-payload";
+import { ocrModel } from "./llm-models";
 
 export interface ActaOcrRow {
   expediente: string;
@@ -28,7 +31,8 @@ export interface ActaOcrResult {
 export function parseActaOcrResponse(content: string): ActaOcrResult {
   let data: unknown;
   try {
-    data = JSON.parse(content);
+    // Tolerates markdown fences / prose the model adds despite "SOLO JSON".
+    data = parseJsonContent(content);
   } catch {
     return { success: false, rows: [], extractionConfidence: 0, warnings: [], errors: ["Respuesta OCR no es JSON válido"] };
   }
@@ -64,6 +68,7 @@ export async function extractActaSignatures(imageUrl: string): Promise<ActaOcrRe
   }
   try {
     const response = await invokeLLM({
+      model: ocrModel(),
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
         {

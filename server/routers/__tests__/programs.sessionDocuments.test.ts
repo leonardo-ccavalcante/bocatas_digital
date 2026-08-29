@@ -27,8 +27,6 @@ vi.mock("../../_core/env", () => ({
   ENV: {
     qrSigningSecret: "test-qr-secret-minimum-32-chars-padded",
     sessionLinkSecret: "test-link-secret-minimum-32-chars-pad",
-    forgeApiUrl: undefined,
-    forgeApiKey: undefined,
   },
 }));
 
@@ -121,7 +119,6 @@ function mockDb(tables: Record<string, Row[]>) {
   };
 
   const storageMock = {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     from: vi.fn((_bucket: string) => ({
       upload: vi.fn(() =>
         Promise.resolve({ data: { path: "sessions/test-sid/plan_clase-abc.pdf" }, error: null })

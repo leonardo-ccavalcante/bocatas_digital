@@ -99,7 +99,8 @@ export const PersonCreateSchema = z.object({
   notas_privadas: z.string().max(2000).optional().nullable(),
 
   // Section 6 — Foto perfil (handled via upload)
-  foto_perfil_url: z.string().url().optional().nullable(),
+  // Storage PATH, not a URL — mirrors server/routers/persons/_shared.ts.
+  foto_perfil_url: z.string().max(255).optional().nullable(),
   foto_documento_url: z.string().url().optional().nullable(),
 
   // Metadata

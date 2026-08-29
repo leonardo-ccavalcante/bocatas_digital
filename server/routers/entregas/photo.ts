@@ -3,9 +3,26 @@ import { TRPCError } from "@trpc/server";
 import { voluntarioProcedure, router } from "../../_core/trpc";
 import { storagePut } from "../../storage";
 
+/**
+ * Private bucket for photographed physical delivery sheets. Created by
+ * supabase/migrations/20260413121828_20260501101100_create_storage_buckets.sql
+ * and documented in docs/dev-setup.md as "Delivery signatures / physical docs".
+ *
+ * The photo is retained deliberately: server/ocrDeliveryExtraction/save.ts
+ * persists it as `metadata.documento_imagen_url`, the evidence pointer behind
+ * the Banco de Alimentos subsidy (CONTEXT.md "Delivery / entrega"). Do not
+ * replace this upload with a transient base64 hand-off to the model.
+ */
+const DELIVERY_DOCS_BUCKET = "documentos-fisicos-entregas";
+
+/** Bucket cap is 5 MiB; reject oversize before the storage layer does. */
+const MAX_BYTES = 5 * 1024 * 1024;
+
 export const photoRouter = router({
   /**
-   * Upload photo to S3 storage and return URL.
+   * Upload a photographed delivery sheet. Returns the storage PATH — never a
+   * URL: the path is persisted as subsidy evidence, and a signed URL would be a
+   * replayable link to it.
    */
   uploadPhotoToStorage: voluntarioProcedure
     .input(
@@ -16,26 +33,30 @@ export const photoRouter = router({
       })
     )
     .mutation(async ({ input, ctx }) => {
-      try {
-        const timestamp = Date.now();
-        const randomSuffix = Math.random().toString(36).substring(7);
-        const fileName = input.fileName || `photo-${timestamp}-${randomSuffix}.jpg`;
-        const fileKey = `deliveries/photos/${ctx.user?.id || "unknown"}/${fileName}`;
-        const buffer = Buffer.from(input.photoData, "base64");
-        const { url, key } = await storagePut(fileKey, buffer, "image/jpeg");
-        return {
-          success: true,
-          photoUrl: url,
-          photoKey: key,
-          rotation: input.rotation,
-          message: "Foto subida exitosamente",
-        };
-      } catch (error) {
-        console.error("Error uploading photo:", error);
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: error instanceof Error ? error.message : "Error al subir foto",
-        });
+      const buffer = Buffer.from(input.photoData, "base64");
+      if (buffer.length === 0) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "La foto está vacía" });
       }
+      if (buffer.length > MAX_BYTES) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "La foto supera el límite de 5 MB" });
+      }
+
+      // Opaque object name: no beneficiary identifier ever goes in a storage key.
+      const suffix = Math.random().toString(36).slice(2, 10);
+      const objectPath = `photos/${ctx.user?.id ?? "unknown"}/${Date.now()}-${suffix}.jpg`;
+
+      const { path } = await storagePut(
+        DELIVERY_DOCS_BUCKET,
+        objectPath,
+        buffer,
+        "image/jpeg"
+      );
+
+      return {
+        success: true,
+        photoPath: path,
+        rotation: input.rotation,
+        message: "Foto subida exitosamente",
+      };
     }),
 });

@@ -31,12 +31,24 @@ export const OCRResultSchema = z.object({
   data: z.object({
     nombre: z.string().max(100).nullish(),
     apellidos: z.string().max(150).nullish(),
-    fecha_nacimiento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullish(),
+    // `.catch(undefined)`: same reasoning as `genero` below. ocr.ts sends
+    // `strict:false`, so the API does not enforce the YYYY-MM-DD format and the
+    // model readily returns "12/05/1990" off a Spanish DNI. A bare `.nullish()`
+    // rejected it and failed the WHOLE `data` parse, discarding every other
+    // correctly-read field (the MYT-135A bug class).
+    fecha_nacimiento: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .nullish()
+      .catch(undefined),
     // OCR returns lowercase values from LLM — use OcrTipoDocumentoSchema
     tipo_documento: OcrTipoDocumentoSchema.nullish(),
     numero_documento: z.string().max(30).nullish(),
     pais_origen: z.string().nullish(), // OCR may return full name — mapped to ISO-2 before insert
-    pais_documento: z.string().length(2).nullish(), // ISO 3166-1 alpha-2 country code of document origin
+    // ISO 3166-1 alpha-2. `.catch(undefined)` for the same reason as
+    // fecha_nacimiento: the model often answers "Spain" / "ESP" instead of
+    // "ES", and one off-format code must not nuke the whole extraction.
+    pais_documento: z.string().length(2).nullish().catch(undefined),
     // Emitted by the OCR LLM (ocr.ts genero enum) — key declared here so it
     // survives the parse; MYT-135B maps it into the registration form.
     // `.nullish().catch(undefined)`: ocr.ts:93 sends `strict:false`, so the API
@@ -151,7 +163,8 @@ export const ConsentRowSchema = z.object({
   granted_at: z.string().optional().nullable(),
   consent_text: z.string(),
   consent_version: z.string(),
-  documento_foto_url: z.string().url().optional().nullable(),
+  // Storage PATH, not a URL — mirrors server/routers/persons/consents.ts.
+  documento_foto_url: z.string().max(255).optional().nullable(),
   numero_serie: z.string().max(50).optional().nullable(),
 });
 

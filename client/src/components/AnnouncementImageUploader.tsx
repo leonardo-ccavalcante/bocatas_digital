@@ -8,14 +8,12 @@ interface AnnouncementImageUploaderProps {
   value?: string | null;
   onChange: (url: string | null) => void;
   disabled?: boolean;
-  announcementId?: string;
 }
 
 export function AnnouncementImageUploader({
   value,
   onChange,
   disabled = false,
-  announcementId = "new",
 }: AnnouncementImageUploaderProps) {
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
@@ -35,10 +33,19 @@ export function AnnouncementImageUploader({
 
     setUploading(true);
     try {
-      // Upload to S3 via tRPC mutation
+      // base64 over the JSON transport — a File cannot be serialized by
+      // httpBatchLink (see server/routers/announcements.uploadImage.ts).
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result).split(",")[1] ?? "");
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
       const result = await uploadMutation.mutateAsync({
-        file,
-        announcementId,
+        base64,
+        mimeType: file.type,
+        fileName: file.name,
       });
 
       onChange(result.url);

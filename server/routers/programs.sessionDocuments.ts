@@ -18,6 +18,8 @@ import { TRPCError } from "@trpc/server";
 import { router, publicProcedure, voluntarioProcedure } from "../_core/trpc";
 import { createAdminClient } from "../../client/src/lib/supabase/server";
 import { invokeLLM } from "../_core/llm";
+import { isNotConfiguredError } from "../_core/llm-payload";
+import { ocrModel } from "../_core/llm-models";
 import { assertProgramAccessForRole } from "./programs.access";
 import { resolveAndVerifyEnlace } from "./programs.enlace";
 
@@ -246,6 +248,7 @@ async function callLessonPlanOcr(
 ): Promise<{ success: boolean; texto: string }> {
   try {
     const response = await invokeLLM({
+      model: ocrModel(),
       messages: [
         { role: "system", content: LESSON_PLAN_SYSTEM_PROMPT },
         {
@@ -268,7 +271,16 @@ async function callLessonPlanOcr(
       return { success: false, texto: "" };
     }
     return { success: true, texto: content };
-  } catch {
+  } catch (error) {
+    // A bare `catch {}` here made an unset BUILT_IN_FORGE_API_KEY look exactly
+    // like an unreadable photo. Log the distinction (no PII: the message never
+    // carries model output).
+    const detail = error instanceof Error ? error.message : String(error);
+    console.error(
+      isNotConfiguredError(error)
+        ? `lesson-plan OCR disabled — ${detail}`
+        : `lesson-plan OCR failed — ${detail}`
+    );
     return { success: false, texto: "" };
   }
 }

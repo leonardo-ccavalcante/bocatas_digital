@@ -42,8 +42,6 @@ vi.mock("../../_core/env", () => ({
   ENV: {
     qrSigningSecret: "test-qr-secret-minimum-32-chars-padded",
     sessionLinkSecret: "test-link-secret-minimum-32-chars-pad",
-    forgeApiUrl: undefined,
-    forgeApiKey: undefined,
   },
 }));
 

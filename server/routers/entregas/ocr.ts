@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { voluntarioProcedure, router } from "../../_core/trpc";
 import { logCorrelatedErrorToStderr } from "../../_core/logging-middleware";
 import {
@@ -8,6 +9,10 @@ import {
   ExtractedDeliveryRow,
 } from "../../ocrDeliveryExtraction";
 import { extractDeliveryDataFromImage } from "../../_core/delivery-ocr";
+import { storageSignedUrl } from "../../storage";
+
+/** Same private bucket entregas/photo.ts writes to. */
+const DELIVERY_DOCS_BUCKET = "documentos-fisicos-entregas";
 
 export const ocrRouter = router({
   /**
@@ -16,13 +21,27 @@ export const ocrRouter = router({
   extractFromPhoto: voluntarioProcedure
     .input(
       z.object({
-        photoUrl: z.string().url("URL de foto inválida").min(1),
+        // A storage PATH, not a URL. Taking a client-supplied absolute URL and
+        // handing it to the vision model let the caller choose what the model
+        // fetches; the server now signs its own stored object instead.
+        photoPath: z
+          .string()
+          .min(1, "Ruta de foto requerida")
+          .refine(p => !/^[a-z][a-z0-9+.-]*:/i.test(p), "Ruta de foto inválida")
+          .refine(p => !p.includes(".."), "Ruta de foto inválida"),
         programaId: z.string().min(1, "ID de programa requerido"),
       })
     )
     .mutation(async ({ input, ctx }) => {
       try {
-        const result = await extractDeliveryDataFromImage(input.photoUrl, input.programaId);
+        const signedUrl = await storageSignedUrl(DELIVERY_DOCS_BUCKET, input.photoPath);
+        if (!signedUrl) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "No se pudo abrir la foto del documento",
+          });
+        }
+        const result = await extractDeliveryDataFromImage(signedUrl, input.programaId);
         return {
           success: result.success,
           extractionConfidence: result.extractionConfidence,

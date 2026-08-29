@@ -59,7 +59,8 @@ export const consentsRouter = router({
         granted_at: z.string(),
         consent_text: z.string().optional(),
         consent_version: z.string().optional(),
-        documento_foto_url: z.string().url().optional().nullable(),
+        // Storage PATH, not a URL — see persons/photo.ts.
+        documento_foto_url: z.string().max(255).optional().nullable(),
         numero_serie: z.string().max(50).optional().nullable(),
         registrado_por: z.string().uuid().optional().nullable(),
       })),

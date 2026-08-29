@@ -14,7 +14,20 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { voluntarioProcedure, router } from "../_core/trpc";
 import { invokeLLM } from "../_core/llm";
+// Pure module: imported directly so tests mocking "../_core/llm" need not stub it.
+import { parseJsonContent, isNotConfiguredError } from "../_core/llm-payload";
+import { ocrModel } from "../_core/llm-models";
 import { OCRResultSchema } from "../../client/src/features/persons/schemas";
+import type { OCRResult } from "../../client/src/features/persons/schemas";
+import type { LLMFailureReason } from "../_core/llm-payload";
+
+/**
+ * `reason` is present only on failure and tells the caller WHY nothing came
+ * back — an unset gateway key used to be indistinguishable from an
+ * unreadable photo. Declared explicitly so `data` keeps its field shape on
+ * both branches instead of collapsing to `{}`.
+ */
+type OcrResponse = OCRResult & { reason?: LLMFailureReason };
 
 export const ocrRouter = router({
   /**
@@ -34,10 +47,11 @@ export const ocrRouter = router({
         mimeType: z.string().default("image/jpeg"),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input }): Promise<OcrResponse> => {
       try {
         // Call LLM with vision capability to extract document fields
         const response = await invokeLLM({
+          model: ocrModel(),
           messages: [
             {
               role: "system",
@@ -125,19 +139,32 @@ IMPORTANT: Return ONLY the JSON object, no markdown, no explanation.`,
           },
         });
 
+        // A reasoning model that exhausts max_tokens returns partial content.
+        // Surfaced separately: the fix is raising the ceiling or changing
+        // OCR_MODEL, not retaking the photo.
+        if (response.choices?.[0]?.finish_reason === "length") {
+          console.warn("OCR: output truncated (finish_reason=length) — raise max_tokens or use a lighter OCR_MODEL");
+          return { success: false, data: {}, reason: "truncated" };
+        }
+
         // Parse LLM response
         const content = response.choices?.[0]?.message?.content;
-        if (!content) {
+        if (!content || (typeof content === "string" && content.trim() === "")) {
           console.warn("OCR: LLM returned empty content");
-          return { success: false, data: {} };
+          return { success: false, data: {}, reason: "unreadable" };
         }
 
         let extractedData: unknown;
         try {
-          extractedData = typeof content === "string" ? JSON.parse(content) : content;
-        } catch (parseError) {
-          console.warn("OCR: Failed to parse LLM response as JSON", parseError);
-          return { success: false, data: {} };
+          // Tolerates markdown fences / surrounding prose, which the model
+          // emits despite the prompt. A bare JSON.parse dropped every such
+          // reply into the generic failure branch.
+          extractedData =
+            typeof content === "string" ? parseJsonContent(content) : content;
+        } catch {
+          // The message can quote the model output (= document PII) — never log it.
+          console.warn("OCR: LLM response was not parseable JSON");
+          return { success: false, data: {}, reason: "unreadable" };
         }
 
         // PII redaction: do NOT log extractedData — it contains NIE / names /
@@ -166,15 +193,34 @@ IMPORTANT: Return ONLY the JSON object, no markdown, no explanation.`,
         });
 
         if (!parsed.success) {
-          console.warn("OCR: Validation failed", parsed.error);
-          return { success: false, data: {} };
+          // Log only the failing field paths — `parsed.error` embeds the
+          // rejected VALUES (names, NIE) and must never reach the log.
+          console.warn(
+            "OCR: Validation failed on fields:",
+            parsed.error.issues.map(i => i.path.join(".")).join(", ")
+          );
+          return { success: false, data: {}, reason: "unreadable" };
         }
 
         return parsed.data;
       } catch (error) {
-        console.error("OCR: Extraction failed", error);
-        // Graceful degradation: return empty success so form continues
-        return { success: false, data: {} };
+        // Distinguish "OCR is switched off in this environment" from "the
+        // gateway rejected/failed the call". Both used to return the same
+        // opaque `{ success:false }`, which is why an unset API key looked
+        // identical to an unreadable document.
+        if (isNotConfiguredError(error)) {
+          console.error(
+            "OCR: disabled —",
+            error instanceof Error ? error.message : String(error)
+          );
+          return { success: false, data: {}, reason: "not_configured" };
+        }
+        console.error(
+          "OCR: extraction failed —",
+          error instanceof Error ? error.message : String(error)
+        );
+        // Graceful degradation: the registration form continues either way.
+        return { success: false, data: {}, reason: "llm_error" };
       }
     }),
 });
