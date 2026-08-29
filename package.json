@@ -13,7 +13,8 @@
     "db:push": "drizzle-kit generate && drizzle-kit migrate",
     "lint": "eslint client/src server shared --ext .ts,.tsx",
     "lint:fix": "eslint client/src server shared --ext .ts,.tsx --fix",
-    "docs:check": "node scripts/check-agents-docs.mjs"
+    "docs:check": "node scripts/check-agents-docs.mjs",
+    "llm:doctor": "node scripts/llm-doctor.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

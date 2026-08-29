@@ -67,7 +67,9 @@ export const PersonCreateInput = z.object({
   restricciones_alimentarias: z.string().max(500).optional().nullable(),
   observaciones: z.string().max(2000).optional().nullable(),
   notas_privadas: z.string().max(2000).optional().nullable(),
-  foto_perfil_url: z.string().url().optional().nullable(),
+  // Holds a Storage PATH now, not a URL (persons.uploadPhoto returns a path;
+  // reads are signed server-side). `.url()` would reject every new value.
+  foto_perfil_url: z.string().max(255).optional().nullable(),
   foto_documento_url: z.string().url().optional().nullable(),
   fase_itinerario: FaseItinerarioEnum.optional(),
   program_ids: z.array(z.string().uuid()),

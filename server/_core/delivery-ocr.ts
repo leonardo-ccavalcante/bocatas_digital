@@ -1,4 +1,7 @@
 import { invokeLLM } from './llm';
+// Pure module: imported directly so tests mocking './llm' need not stub it.
+import { parseJsonContent } from './llm-payload';
+import { ocrModel } from './llm-models';
 import { logCorrelatedErrorToStderr } from './logging-middleware';
 
 export interface ExtractedDelivery {
@@ -59,6 +62,7 @@ export async function extractDeliveryDataFromImage(
 
     // Call LLM to extract data
     const response = await invokeLLM({
+      model: ocrModel(),
       messages: [
         {
           role: 'system',
@@ -99,9 +103,11 @@ Return ONLY valid JSON, no additional text.`,
                 type: 'number',
                 description: 'Overall confidence in the extraction (0-1)',
               },
+              // strict mode has no "optional": absence is expressed as a
+              // nullable type, and EVERY property must appear in `required`.
               document_date: {
-                type: 'string',
-                description: 'Date of the document if visible (YYYY-MM-DD format)',
+                type: ['string', 'null'],
+                description: 'Date of the document if visible (YYYY-MM-DD format), null if absent',
               },
               beneficiaries: {
                 type: 'array',
@@ -137,10 +143,12 @@ Return ONLY valid JSON, no additional text.`,
                           },
                         },
                         required: ['date', 'quantity', 'quantity_confidence'],
+                        additionalProperties: false,
                       },
                     },
                   },
                   required: ['name', 'name_confidence', 'deliveries'],
+                  additionalProperties: false,
                 },
               },
               warnings: {
@@ -151,7 +159,12 @@ Return ONLY valid JSON, no additional text.`,
                 },
               },
             },
-            required: ['extraction_confidence', 'beneficiaries', 'warnings'],
+            required: [
+              'extraction_confidence',
+              'document_date',
+              'beneficiaries',
+              'warnings',
+            ],
             additionalProperties: false,
           },
         },
@@ -170,13 +183,14 @@ Return ONLY valid JSON, no additional text.`,
       };
     }
 
-    const extractedData = JSON.parse(content);
+    // Tolerates markdown fences / prose the model adds despite the prompt.
+    const extractedData = parseJsonContent(content) as Record<string, any>;
 
     // Transform LLM response to our format
     const result: OCRExtractionResult = {
       success: true,
       extractionConfidence: extractedData.extraction_confidence || 0,
-      documentDate: extractedData.document_date,
+      documentDate: extractedData.document_date ?? undefined,
       beneficiaries: (extractedData.beneficiaries || []).map((b: any) => ({
         beneficiaryName: b.name,
         nameConfidence: b.name_confidence,

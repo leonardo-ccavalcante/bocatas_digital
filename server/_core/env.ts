@@ -109,8 +109,17 @@ export const ENV = {
   ownerOpenId: process.env.OWNER_OPEN_ID ?? "",
   isProduction: process.env.NODE_ENV === "production",
   appUrl: process.env.APP_URL ?? "https://bocatasdg-mvcpdsc2.manus.space",
-  forgeApiUrl: process.env.BUILT_IN_FORGE_API_URL ?? "",
-  forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? "",
+  /**
+   * LLM gateway (OpenAI-compatible: OpenRouter, …). No defaults — an unset
+   * value throws in llm.ts naming the variable, because a guessed gateway or
+   * model id fails at request time with an error that names nothing useful.
+   * The base URL may or may not already carry a `/v1` suffix;
+   * `chatCompletionsUrl()` normalizes either shape.
+   *
+   * Verify the whole chain with `pnpm llm:doctor`.
+   */
+  llmBaseUrl: process.env.LLM_BASE_URL ?? "",
+  llmApiKey: process.env.LLM_API_KEY ?? "",
   /**
    * 256-bit secret used to HMAC-sign QR-code payloads (Phase 6 QA-1A).
    * Falls back to JWT_SECRET in dev so existing dev environments keep

@@ -59,7 +59,7 @@ export function useRegistrationSubmit(args: UseSubmitArgs) {
             bucket: "fotos-perfil",
             base64: args.profilePhotoBase64,
           });
-          fotoPerfilUrl = result.url;
+          fotoPerfilUrl = result.path;
         } catch {
           toast.warning("Foto de perfil no guardada. Puedes añadirla desde el perfil.");
         }
@@ -73,7 +73,7 @@ export function useRegistrationSubmit(args: UseSubmitArgs) {
             bucket: "documentos-consentimiento",
             base64: args.consentDocBase64,
           });
-          consentDocUrl = result.url;
+          consentDocUrl = result.path;
         } catch {
           toast.warning("Foto del documento de consentimiento no guardada.");
         }

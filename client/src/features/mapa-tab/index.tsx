@@ -22,7 +22,12 @@ export default function MapaTab() {
   const [geoJson, setGeoJson] = useState<FeatureCollection | undefined>(undefined);
 
   useEffect(() => {
-    fetch("/manus-storage/madrid-distritos_2968b5a3.geojson")
+    // Static public asset (public/madrid-distritos.geojson). It used to be
+    // fetched through /manus-storage/*, which 401s: a bare fetch() carries no
+    // Authorization header and this app keeps its session in localStorage, not
+    // a cookie — so the map never loaded. Not imported either: 207 KB of
+    // GeoJSON in the JS bundle would breach the blocking Lighthouse budget.
+    fetch("/madrid-distritos.geojson")
       .then((r) => r.json())
       .then((raw: FeatureCollection) => setGeoJson(normalizeGeoJson(raw)))
       .catch((err) => console.warn("[MapaTab] GeoJSON load failed:", err));

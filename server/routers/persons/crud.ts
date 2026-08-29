@@ -1,4 +1,5 @@
 import { TRPCError } from "@trpc/server";
+import { signPathField, AVATAR_BUCKET } from "../../storage";
 import { z } from "zod";
 import { createAdminClient } from "../../../client/src/lib/supabase/server";
 import { adminProcedure, voluntarioProcedure, router } from "../../_core/trpc";
@@ -279,6 +280,7 @@ export const crudRouter = router({
           }
         }
       }
+      if (redacted) await signPathField(AVATAR_BUCKET, [redacted], "foto_perfil_url");
       return redacted;
     }),
 
@@ -309,7 +311,11 @@ export const crudRouter = router({
       });
     }
 
-    return { data: data ?? [], total: count ?? 0 };
+    // One batched Storage call for the page — never per row: this feeds the
+    // "Sin QR" manual search, which has a < 2s budget on low-end Android.
+    const rows = data ?? [];
+    await signPathField(AVATAR_BUCKET, rows, "foto_perfil_url");
+    return { data: rows, total: count ?? 0 };
   }),
 
   /**
@@ -353,6 +359,10 @@ export const crudRouter = router({
         });
       }
 
-      return data ?? [];
+      // Resolve stored photo paths to short-lived signed URLs (one Storage
+      // round trip for the page) so `<AvatarImage src>` keeps working.
+      const rows = data ?? [];
+      await signPathField(AVATAR_BUCKET, rows, "foto_perfil_url");
+      return rows;
     }),
 });

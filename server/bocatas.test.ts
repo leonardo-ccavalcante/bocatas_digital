@@ -33,7 +33,9 @@ const PersonCreateSchema = z.object({
   telefono: z.string().regex(/^\+?[0-9\s\-]{7,20}$/).optional(),
   email: z.string().email().optional(),
   restricciones_alimentarias: z.string().max(300).optional(),
-  foto_perfil_url: z.string().url().optional(),
+  // Storage PATH, not a URL — persons.uploadPhoto returns a path and reads
+  // are signed server-side (server/routers/persons/_shared.ts).
+  foto_perfil_url: z.string().max(255).optional(),
   program_ids: z.array(z.string().uuid()).default([]),
 });
 
@@ -132,8 +134,16 @@ describe("PersonCreateSchema", () => {
     expect(() => PersonCreateSchema.parse({ ...validPerson, program_ids: ["not-a-uuid"] })).toThrow();
   });
 
-  it("rejects invalid foto_perfil_url (not URL)", () => {
-    expect(() => PersonCreateSchema.parse({ ...validPerson, foto_perfil_url: "not-a-url" })).toThrow();
+  it("rejects an over-long foto_perfil_url storage path", () => {
+    expect(() =>
+      PersonCreateSchema.parse({ ...validPerson, foto_perfil_url: "x".repeat(256) })
+    ).toThrow();
+  });
+
+  it("accepts a bare storage path (not a URL) for foto_perfil_url", () => {
+    expect(() =>
+      PersonCreateSchema.parse({ ...validPerson, foto_perfil_url: "1756412345-ab12cd34.jpg" })
+    ).not.toThrow();
   });
 });
 

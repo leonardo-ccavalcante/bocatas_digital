@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
+import { signPathField, AVATAR_BUCKET } from "../storage";
 import { router, voluntarioProcedure, adminProcedure } from "../_core/trpc";
 import { createAdminClient } from "../../client/src/lib/supabase/server";
 import type { Database } from "../../client/src/lib/database.types";
@@ -307,7 +308,15 @@ export const programsRouter = router({
       const { data, error, count } = await query;
       if (error) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
 
-      return { enrollments: data ?? [], total: count ?? 0 };
+      // The avatar lives on the joined `persons` row, so sign that nested
+      // object rather than the enrollment row itself.
+      const enrollments = data ?? [];
+      await signPathField(
+        AVATAR_BUCKET,
+        enrollments.map(e => (e as { persons?: unknown }).persons),
+        "foto_perfil_url"
+      );
+      return { enrollments, total: count ?? 0 };
     }),
 
   /** Enrolls a person in a program with consent pre-check (admin+) */

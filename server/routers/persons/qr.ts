@@ -16,6 +16,7 @@
 
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
+import { signPathField, AVATAR_BUCKET } from "../../storage";
 import { router, voluntarioProcedure } from "../../_core/trpc";
 import { ENV } from "../../_core/env";
 import { createAdminClient } from "../../../client/src/lib/supabase/server";
@@ -99,6 +100,7 @@ export const qrRouter = router({
       if (error || !data) {
         throw new TRPCError({ code: "NOT_FOUND", message: "QR inválido" });
       }
+      await signPathField(AVATAR_BUCKET, [data], "foto_perfil_url");
       return data;
     }),
 });

@@ -1,332 +1,144 @@
+// Transport for the OpenAI-compatible LLM gateway.
+//
+// Request/response shaping is pure and lives in `llm-payload.ts` (tested).
+// This file only owns: configuration, the fetch, and error typing.
+
 import { ENV } from "./env";
+import {
+  buildPayload,
+  chatCompletionsUrl,
+  modelsUrl,
+  DEFAULT_MAX_TOKENS,
+} from "./llm-payload";
+import type { InvokeParams, InvokeResult } from "./llm-payload";
+import { assertLLMConfig, models } from "./llm-models";
 
-export type Role = "system" | "user" | "assistant" | "tool" | "function";
+export * from "./llm-payload";
 
-export type TextContent = {
-  type: "text";
-  text: string;
-};
+/**
+ * Thrown when the gateway is not configured at all. Distinct from a transport
+ * failure so callers can tell "OCR is switched off in this environment" from
+ * "the model could not read the document" — previously both collapsed into an
+ * indistinguishable `{ success: false }`.
+ */
+export class LLMNotConfiguredError extends Error {
+  readonly reason = "not_configured" as const;
+  constructor(message: string) {
+    super(message);
+    this.name = "LLMNotConfiguredError";
+  }
+}
 
-export type ImageContent = {
-  type: "image_url";
-  image_url: {
-    url: string;
-    detail?: "auto" | "low" | "high";
+/** Thrown when the gateway is reachable but rejected or failed the request. */
+export class LLMRequestError extends Error {
+  readonly reason = "llm_error" as const;
+  constructor(
+    message: string,
+    readonly status?: number
+  ) {
+    super(message);
+    this.name = "LLMRequestError";
+  }
+}
+
+/**
+ * Resolve and validate the gateway config. There is NO default host and NO
+ * default model: the gateway is provider-agnostic, so a guessed value fails at
+ * request time with an error that names nothing useful. Missing config throws
+ * here instead, naming the exact variable to set.
+ */
+const resolveConfig = (model?: string) => {
+  const config = {
+    apiKey: ENV.llmApiKey ?? "",
+    baseUrl: ENV.llmBaseUrl ?? "",
+    model: model ?? models().default,
   };
-};
-
-export type FileContent = {
-  type: "file_url";
-  file_url: {
-    url: string;
-    mime_type?: "audio/mpeg" | "audio/wav" | "application/pdf" | "audio/mp4" | "video/mp4" ;
-  };
-};
-
-export type MessageContent = string | TextContent | ImageContent | FileContent;
-
-export type Message = {
-  role: Role;
-  content: MessageContent | MessageContent[];
-  name?: string;
-  tool_call_id?: string;
-};
-
-export type Tool = {
-  type: "function";
-  function: {
-    name: string;
-    description?: string;
-    parameters?: Record<string, unknown>;
-  };
-};
-
-export type ToolChoicePrimitive = "none" | "auto" | "required";
-export type ToolChoiceByName = { name: string };
-export type ToolChoiceExplicit = {
-  type: "function";
-  function: {
-    name: string;
-  };
-};
-
-export type ToolChoice =
-  | ToolChoicePrimitive
-  | ToolChoiceByName
-  | ToolChoiceExplicit;
-
-export type InvokeParams = {
-  messages: Message[];
-  tools?: Tool[];
-  toolChoice?: ToolChoice;
-  tool_choice?: ToolChoice;
-  maxTokens?: number;
-  max_tokens?: number;
-  outputSchema?: OutputSchema;
-  output_schema?: OutputSchema;
-  responseFormat?: ResponseFormat;
-  response_format?: ResponseFormat;
-};
-
-export type ToolCall = {
-  id: string;
-  type: "function";
-  function: {
-    name: string;
-    arguments: string;
-  };
-};
-
-export type InvokeResult = {
-  id: string;
-  created: number;
-  model: string;
-  choices: Array<{
-    index: number;
-    message: {
-      role: Role;
-      content: string | Array<TextContent | ImageContent | FileContent>;
-      tool_calls?: ToolCall[];
-    };
-    finish_reason: string | null;
-  }>;
-  usage?: {
-    prompt_tokens: number;
-    completion_tokens: number;
-    total_tokens: number;
-  };
-};
-
-export type JsonSchema = {
-  name: string;
-  schema: Record<string, unknown>;
-  strict?: boolean;
-};
-
-export type OutputSchema = JsonSchema;
-
-export type ResponseFormat =
-  | { type: "text" }
-  | { type: "json_object" }
-  | { type: "json_schema"; json_schema: JsonSchema };
-
-const ensureArray = (
-  value: MessageContent | MessageContent[]
-): MessageContent[] => (Array.isArray(value) ? value : [value]);
-
-const normalizeContentPart = (
-  part: MessageContent
-): TextContent | ImageContent | FileContent => {
-  if (typeof part === "string") {
-    return { type: "text", text: part };
+  try {
+    assertLLMConfig(config);
+  } catch (error) {
+    throw new LLMNotConfiguredError(
+      error instanceof Error ? error.message : String(error)
+    );
   }
-
-  if (part.type === "text") {
-    return part;
-  }
-
-  if (part.type === "image_url") {
-    return part;
-  }
-
-  if (part.type === "file_url") {
-    return part;
-  }
-
-  throw new Error("Unsupported message content part");
+  return config;
 };
 
-const normalizeMessage = (message: Message) => {
-  const { role, name, tool_call_id } = message;
-
-  if (role === "tool" || role === "function") {
-    const content = ensureArray(message.content)
-      .map(part => (typeof part === "string" ? part : JSON.stringify(part)))
-      .join("\n");
-
-    return {
-      role,
-      name,
-      tool_call_id,
-      content,
-    };
-  }
-
-  const contentParts = ensureArray(message.content).map(normalizeContentPart);
-
-  // If there's only text content, collapse to a single string for compatibility
-  if (contentParts.length === 1 && contentParts[0].type === "text") {
-    return {
-      role,
-      name,
-      content: contentParts[0].text,
-    };
-  }
-
-  return {
-    role,
-    name,
-    content: contentParts,
-  };
-};
-
-const normalizeToolChoice = (
-  toolChoice: ToolChoice | undefined,
-  tools: Tool[] | undefined
-): "none" | "auto" | ToolChoiceExplicit | undefined => {
-  if (!toolChoice) return undefined;
-
-  if (toolChoice === "none" || toolChoice === "auto") {
-    return toolChoice;
-  }
-
-  if (toolChoice === "required") {
-    if (!tools || tools.length === 0) {
-      throw new Error(
-        "tool_choice 'required' was provided but no tools were configured"
-      );
-    }
-
-    if (tools.length > 1) {
-      throw new Error(
-        "tool_choice 'required' needs a single tool or specify the tool name explicitly"
-      );
-    }
-
-    return {
-      type: "function",
-      function: { name: tools[0].function.name },
-    };
-  }
-
-  if ("name" in toolChoice) {
-    return {
-      type: "function",
-      function: { name: toolChoice.name },
-    };
-  }
-
-  return toolChoice;
-};
-
-const resolveApiUrl = () =>
-  ENV.forgeApiUrl && ENV.forgeApiUrl.trim().length > 0
-    ? `${ENV.forgeApiUrl.replace(/\/$/, "")}/v1/chat/completions`
-    : "https://forge.manus.im/v1/chat/completions";
-
-const assertApiKey = () => {
-  if (!ENV.forgeApiKey) {
-    throw new Error("OPENAI_API_KEY is not configured");
+/** True when the gateway is fully configured. */
+export const isLLMConfigured = (): boolean => {
+  try {
+    resolveConfig();
+    return true;
+  } catch {
+    return false;
   }
 };
 
-const normalizeResponseFormat = ({
-  responseFormat,
-  response_format,
-  outputSchema,
-  output_schema,
-}: {
-  responseFormat?: ResponseFormat;
-  response_format?: ResponseFormat;
-  outputSchema?: OutputSchema;
-  output_schema?: OutputSchema;
-}):
-  | { type: "json_schema"; json_schema: JsonSchema }
-  | { type: "text" }
-  | { type: "json_object" }
-  | undefined => {
-  const explicitFormat = responseFormat || response_format;
-  if (explicitFormat) {
-    if (
-      explicitFormat.type === "json_schema" &&
-      !explicitFormat.json_schema?.schema
-    ) {
-      throw new Error(
-        "responseFormat json_schema requires a defined schema object"
-      );
-    }
-    return explicitFormat;
-  }
+const authHeaders = (apiKey: string) => ({
+  "content-type": "application/json",
+  authorization: `Bearer ${apiKey}`,
+});
 
-  const schema = outputSchema || output_schema;
-  if (!schema) return undefined;
-
-  if (!schema.name || !schema.schema) {
-    throw new Error("outputSchema requires both name and schema");
-  }
-
-  return {
-    type: "json_schema",
-    json_schema: {
-      name: schema.name,
-      schema: schema.schema,
-      ...(typeof schema.strict === "boolean" ? { strict: schema.strict } : {}),
-    },
-  };
-};
+/**
+ * Gateway error bodies can echo the request back, and our requests carry
+ * base64 identity documents while responses carry names / NIE. Never surface
+ * the body verbatim — cap it hard so a status stays diagnosable without
+ * becoming a PII leak (CLAUDE.md §Compliance).
+ */
+const summarizeErrorBody = (body: string): string =>
+  body.replace(/\s+/g, " ").slice(0, 200);
 
 export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
-  assertApiKey();
+  const { apiKey, baseUrl, model } = resolveConfig(params.model);
 
-  const {
-    messages,
-    tools,
-    toolChoice,
-    tool_choice,
-    outputSchema,
-    output_schema,
-    responseFormat,
-    response_format,
-  } = params;
+  const payload = buildPayload(params, { model, maxTokens: DEFAULT_MAX_TOKENS });
 
-  const payload: Record<string, unknown> = {
-    model: "gemini-2.5-flash",
-    messages: messages.map(normalizeMessage),
-  };
-
-  if (tools && tools.length > 0) {
-    payload.tools = tools;
+  let response: Response;
+  try {
+    response = await fetch(chatCompletionsUrl(baseUrl), {
+      method: "POST",
+      headers: authHeaders(apiKey),
+      body: JSON.stringify(payload),
+    });
+  } catch (cause) {
+    throw new LLMRequestError(
+      `LLM gateway unreachable at ${baseUrl}: ${
+        cause instanceof Error ? cause.message : String(cause)
+      }`
+    );
   }
-
-  const normalizedToolChoice = normalizeToolChoice(
-    toolChoice || tool_choice,
-    tools
-  );
-  if (normalizedToolChoice) {
-    payload.tool_choice = normalizedToolChoice;
-  }
-
-  payload.max_tokens = 32768
-  payload.thinking = {
-    "budget_tokens": 128
-  }
-
-  const normalizedResponseFormat = normalizeResponseFormat({
-    responseFormat,
-    response_format,
-    outputSchema,
-    output_schema,
-  });
-
-  if (normalizedResponseFormat) {
-    payload.response_format = normalizedResponseFormat;
-  }
-
-  const response = await fetch(resolveApiUrl(), {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${ENV.forgeApiKey}`,
-    },
-    body: JSON.stringify(payload),
-  });
 
   if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(
-      `LLM invoke failed: ${response.status} ${response.statusText} – ${errorText}`
+    throw new LLMRequestError(
+      `LLM invoke failed: ${response.status} ${response.statusText} – ` +
+        summarizeErrorBody(await response.text()),
+      response.status
     );
   }
 
   return (await response.json()) as InvokeResult;
+}
+
+export type LLMModel = { id: string; object?: string; owned_by?: string };
+
+/**
+ * Gateway model catalog. Documented in references/llm-integration.md but never
+ * actually implemented — use it to discover valid ids instead of hardcoding
+ * one that may not exist on the configured gateway.
+ */
+export async function listLLMModels(): Promise<{ data: LLMModel[] }> {
+  const { apiKey, baseUrl } = resolveConfig();
+
+  const response = await fetch(modelsUrl(baseUrl), {
+    headers: authHeaders(apiKey),
+  });
+
+  if (!response.ok) {
+    throw new LLMRequestError(
+      `LLM model list failed: ${response.status} ${response.statusText} – ` +
+        summarizeErrorBody(await response.text()),
+      response.status
+    );
+  }
+
+  return (await response.json()) as { data: LLMModel[] };
 }

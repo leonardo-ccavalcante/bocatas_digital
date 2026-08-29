@@ -49,11 +49,11 @@ export function useOcrFlow({ onSuccess }: UseOcrFlowArgs) {
         fileName: photoFile.name,
       });
 
-      const { photoUrl, photoKey, rotation } = uploadResult;
+      const { photoPath, rotation } = uploadResult;
 
       // Step 3: Extract delivery data from photo
       const result = await ocrExtractMutation.mutateAsync({
-        photoUrl: photoUrl,
+        photoPath,
         programaId: "default-programa",
       });
 
@@ -78,9 +78,10 @@ export function useOcrFlow({ onSuccess }: UseOcrFlowArgs) {
           carne_unidad: d.carne_unidad || "kg",
           notas: d.notas || "",
           warnings: d.warnings || [],
-          // S3 metadata
-          photoUrl,
-          photoKey,
+          // Storage pointer retained as Banco de Alimentos subsidy evidence
+          // (persisted by save.ts as metadata.documento_imagen_url).
+          photoUrl: photoPath,
+          photoKey: photoPath,
           rotationDegrees: rotation,
         }));
         batch.addRecords(mappedRecords);
@@ -89,7 +90,7 @@ export function useOcrFlow({ onSuccess }: UseOcrFlowArgs) {
         if (result.errors && result.errors.length > 0) {
           result.errors.forEach((error: string) => {
             batch.addError({
-              photoId: photoKey,
+              photoId: photoPath,
               message: error,
               severity: "warning",
             });
@@ -102,7 +103,7 @@ export function useOcrFlow({ onSuccess }: UseOcrFlowArgs) {
         const errorMsg = result.message || "Error en extracción OCR";
         setOcrError(errorMsg);
         batch.addError({
-          photoId: photoKey,
+          photoId: photoPath,
           message: errorMsg,
           severity: "error",
         });

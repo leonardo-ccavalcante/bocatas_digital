@@ -6,7 +6,6 @@ import net from "net";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import rateLimit from "express-rate-limit";
 import { registerOAuthRoutes } from "./oauth";
-import { registerStorageProxy } from "./storageProxy";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
@@ -75,9 +74,16 @@ async function startServer() {
   // get 10MB; everything else gets the safe 1MB default.
   // IMPORTANT: use a single conditional middleware so the 1MB global parser
   // never runs first and rejects large-payload routes with HTTP 413.
+  // Every procedure that accepts base64 image/file bytes MUST be listed here:
+  // base64 inflates ~33%, so anything missing is rejected with 413 before Zod
+  // or the resolver runs — indistinguishable from a broken feature.
+  // server/__tests__/large-payload-paths.test.ts keeps this in sync.
   const LARGE_PAYLOAD_PATHS = [
     "/api/trpc/ocr",
     "/api/trpc/persons.uploadPhoto",
+    "/api/trpc/entregas.uploadPhotoToStorage",
+    "/api/trpc/announcements.uploadImage",
+    "/api/trpc/programs.sessionDocuments.uploadSessionDocument",
     "/api/trpc/families.previewLegacyImport",
     "/api/trpc/families.confirmLegacyImport",
   ];
@@ -93,7 +99,6 @@ async function startServer() {
   app.use("/api/oauth", authLimiter);
 
   // OAuth callback under /api/oauth/callback
-  registerStorageProxy(app);
   registerOAuthRoutes(app);
 
   // Inbound n8n webhook: a family's reply with the day(s) they can attend.

@@ -6,6 +6,7 @@
  * Authorization enforced at tRPC layer via protectedProcedure.
  */
 import { TRPCError } from "@trpc/server";
+import { signPathField, AVATAR_BUCKET } from "../storage";
 import { z } from "zod";
 import { createAdminClient } from "../../client/src/lib/supabase/server";
 import { voluntarioProcedure, router } from "../_core/trpc";
@@ -279,11 +280,9 @@ export const checkinRouter = router({
           message: error.message,
         });
       }
-      return (data ?? []).map((p) => ({
-        ...p,
-        nombre: p.nombre ?? "",
-        apellidos: p.apellidos ?? "",
-      }));
+      const rows = (data ?? []).map((p) => ({ ...p, nombre: p.nombre ?? "", apellidos: p.apellidos ?? "" }));
+      await signPathField(AVATAR_BUCKET, rows, "foto_perfil_url");
+      return rows;
     }),
 
   /**

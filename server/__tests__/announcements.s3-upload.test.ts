@@ -1,37 +1,93 @@
-import { describe, it, expect } from 'vitest';
-import { randomUUID } from 'crypto';
+/**
+ * announcements.s3-upload.test.ts — announcements.uploadImage.
+ *
+ * The previous version of this file never invoked the procedure: it built
+ * `File` objects and asserted their own `.type` / `.size`, so it passed while
+ * the procedure was unusable. It was unusable twice over — `z.instanceof(File)`
+ * cannot survive httpBatchLink's JSON transport, and the upload went to the
+ * dead Manus host. These tests drive the real resolver.
+ */
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
-describe('S3 Image Upload', () => {
-  it('should have uploadImage procedure defined', async () => {
-    // This test verifies the uploadImage mutation exists
-    // The actual S3 upload will be tested with integration tests
+const { storagePut, getPublicUrl } = vi.hoisted(() => ({
+  storagePut: vi.fn(),
+  getPublicUrl: vi.fn(),
+}));
+vi.mock("../storage", () => ({ storagePut }));
+vi.mock("../../client/src/lib/supabase/server", () => ({
+  createAdminClient: () => ({ storage: { from: () => ({ getPublicUrl }) } }),
+}));
 
-    // For now, verify the procedure is defined
-    const announcementId = randomUUID();
+import { uploadImageProcedure } from "../routers/announcements.uploadImage";
+import { router } from "../_core/trpc";
+import type { TrpcContext } from "../_core/context";
+import { Logger } from "../_core/logger";
 
-    // Create a test image file
-    const imageBuffer = Buffer.from('fake-image-data');
-    const imageFile = new File([imageBuffer], 'test.jpg', { type: 'image/jpeg' });
+const testRouter = router({ uploadImage: uploadImageProcedure });
 
-    // Verify file properties
-    expect(imageFile.name).toBe('test.jpg');
-    expect(imageFile.type).toBe('image/jpeg');
-    expect(imageFile.size).toBeGreaterThan(0);
+function ctx(role: "admin" | "voluntario" = "admin"): TrpcContext {
+  return {
+    user: {
+      id: "u1", openId: "o1", email: "a@bocatas.org", name: "A",
+      loginMethod: "manus", role,
+      createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date(),
+    },
+    logger: new Logger(),
+    correlationId: "announcements-upload-test",
+    req: {} as TrpcContext["req"],
+    res: {} as TrpcContext["res"],
+  };
+}
+
+const b64 = (bytes: number) => Buffer.alloc(bytes, 1).toString("base64");
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  storagePut.mockResolvedValue({ bucket: "announcement-images", path: "u1/1-a.jpg" });
+  getPublicUrl.mockReturnValue({ data: { publicUrl: "https://cdn.example/u1/1-a.jpg" } });
+});
+
+describe("announcements.uploadImage", () => {
+  it("uploads base64 to the public announcement-images bucket and returns a public URL", async () => {
+    const res = await testRouter.createCaller(ctx()).uploadImage({
+      base64: b64(16), mimeType: "image/jpeg", fileName: "a.jpg",
+    });
+
+    expect(storagePut).toHaveBeenCalledWith(
+      "announcement-images", expect.any(String), expect.anything(), "image/jpeg"
+    );
+    expect(res.url).toBe("https://cdn.example/u1/1-a.jpg");
   });
 
-  it('rejects non-image files', async () => {
-    const textFile = new File(['test'], 'test.txt', { type: 'text/plain' });
-
-    // Verify file type is not an image
-    expect(textFile.type).not.toMatch(/^image\//);
-    expect(['image/jpeg', 'image/png', 'image/webp', 'image/gif']).not.toContain(textFile.type);
+  it("rejects a non-image mime type", async () => {
+    await expect(
+      testRouter.createCaller(ctx()).uploadImage({ base64: b64(16), mimeType: "text/plain" })
+    ).rejects.toThrow();
+    expect(storagePut).not.toHaveBeenCalled();
   });
 
-  it('rejects files larger than 5MB', async () => {
-    const largeBuffer = Buffer.alloc(6 * 1024 * 1024);
-    const largeFile = new File([largeBuffer], 'large.jpg', { type: 'image/jpeg' });
+  it("rejects payloads over 5MB by DECODED size, not base64 length", async () => {
+    await expect(
+      testRouter.createCaller(ctx()).uploadImage({
+        base64: b64(6 * 1024 * 1024), mimeType: "image/jpeg",
+      })
+    ).rejects.toThrow(/5MB/);
+    expect(storagePut).not.toHaveBeenCalled();
+  });
 
-    const MAX_FILE_SIZE = 5 * 1024 * 1024;
-    expect(largeFile.size).toBeGreaterThan(MAX_FILE_SIZE);
+  it("accepts a file just under the cap", async () => {
+    await expect(
+      testRouter.createCaller(ctx()).uploadImage({
+        base64: b64(4 * 1024 * 1024), mimeType: "image/png",
+      })
+    ).resolves.toBeDefined();
+  });
+
+  it("is admin-only", async () => {
+    await expect(
+      testRouter.createCaller(ctx("voluntario")).uploadImage({
+        base64: b64(16), mimeType: "image/jpeg",
+      })
+    ).rejects.toThrow();
   });
 });
