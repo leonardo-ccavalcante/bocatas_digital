@@ -1,19 +1,16 @@
 /**
  * useDuplicateCheck — hook that checks for potential duplicate persons.
  *
- * ARCHITECTURE NOTE (2026-06-14):
- * The find_duplicate_persons Supabase RPC has EXECUTE revoked from PUBLIC and
- * authenticated (migration 20260506000007). The anon key (used by the browser
- * Supabase client) inherits from PUBLIC → 401 Unauthorized.
+ * Calls trpc.persons.findDuplicates (server-side, createAdminClient =
+ * service_role) because the find_duplicate_persons RPC has EXECUTE revoked
+ * from PUBLIC/authenticated/anon (migrations 20260506000007, 20260613000001).
+ * service_role's own EXECUTE is granted explicitly in 20260830100000 — it was
+ * never implicit (RC-02).
  *
- * Fix: call trpc.persons.findDuplicates instead of supabase.rpc directly.
- * The tRPC procedure runs server-side with createAdminClient (service_role),
- * which retains EXECUTE on the function.
- *
- * The ilike fallback is also removed: it was only needed to recover from the
- * 401. The tRPC procedure handles errors with TRPCError, which React Query
- * surfaces normally. If the procedure fails, we return [] (graceful degradation)
- * to avoid blocking the registration wizard.
+ * Graceful degradation is EXPLICIT, never silent: on error `data` stays []
+ * so the registration wizard is not blocked, and `isDegraded` is true so the
+ * phase-1 step renders a non-blocking notice telling the volunteer the
+ * duplicate check did not run (see Step1Identidad).
  */
 import { trpc } from "@/lib/trpc";
 import type { DuplicateCandidate } from "../schemas";
@@ -36,8 +33,6 @@ export function useDuplicateCheck(
     {
       enabled: enabled && fullName.length >= 4,
       staleTime: 30_000,
-      // Graceful degradation: if the procedure fails, return empty array
-      // so the registration wizard is not blocked.
       retry: false,
     }
   );
@@ -45,5 +40,6 @@ export function useDuplicateCheck(
   return {
     ...query,
     data: (query.data ?? []) as DuplicateCandidate[],
+    isDegraded: query.isError,
   };
 }

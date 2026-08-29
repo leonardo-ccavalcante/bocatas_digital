@@ -153,7 +153,7 @@ export function RegistrationWizard() {
 
   // Duplicate check belongs to the identity phase (phase 1) — matches the
   // showDuplicateWarning gate below.
-  const { data: duplicates = [] } = useDuplicateCheck(
+  const { data: duplicates = [], isDegraded: duplicateCheckDegraded } = useDuplicateCheck(
     watchedNombre,
     watchedApellidos,
     phase === 1 && !duplicateDismissed
@@ -327,6 +327,7 @@ export function RegistrationWizard() {
                 ocrUsed={ocrUsed}
                 handleOCRExtracted={handleOCRExtracted}
                 showDuplicateWarning={showDuplicateWarning}
+                duplicateCheckDegraded={duplicateCheckDegraded}
                 duplicates={duplicates as DuplicateCandidate[]}
                 onDismissDuplicate={() => setDuplicateDismissed(true)}
                 programs={programs}
