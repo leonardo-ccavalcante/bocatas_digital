@@ -67,27 +67,34 @@ describe("ilikeValue — positional .ilike(col, value)", () => {
   });
 });
 
-// ── Router-site test: persons.search must escape before .or() ────────────────
+// ── Router-site test: persons.search must escape before it hits PostgREST ────
+//
+// RC-06 replaced the old single `.or("nombre.ilike.…,apellidos.ilike.…")` with
+// one AND'ed `.ilike("nombre_norm", …)` per normalised token. That removes the
+// filter-list breakout vector entirely (a value is no longer parsed as a list),
+// but the LIKE-wildcard escaping still has to hold, so the CAS-04 guard moves
+// with the implementation instead of disappearing with it.
 
 const orCalls: string[] = [];
+const ilikeCalls: Array<[string, string]> = [];
 
 vi.mock("../../../client/src/lib/supabase/server", () => ({
-  createAdminClient: () => ({
-    from: () => ({
-      select: () => ({
-        or: (filters: string) => {
-          orCalls.push(filters);
-          return {
-            is: () => ({
-              order: () => ({
-                limit: async () => ({ data: [], error: null }),
-              }),
-            }),
-          };
-        },
-      }),
-    }),
-  }),
+  createAdminClient: () => {
+    const chain = {
+      or: (filters: string) => {
+        orCalls.push(filters);
+        return chain;
+      },
+      ilike: (column: string, value: string) => {
+        ilikeCalls.push([column, value]);
+        return chain;
+      },
+      is: () => chain,
+      order: () => chain,
+      limit: async () => ({ data: [], error: null }),
+    };
+    return { from: () => ({ select: () => chain }) };
+  },
 }));
 
 // Imported AFTER the mock so the router picks up the mocked client.
@@ -115,41 +122,57 @@ function authCtx(): TrpcContext {
   };
 }
 
-describe("persons.search — escapes user input before PostgREST .or()", () => {
+describe("persons.search — escapes user input before PostgREST", () => {
   beforeEach(() => {
     orCalls.length = 0;
+    ilikeCalls.length = 0;
   });
 
-  it("injection payload `a,b)` cannot break out of the .or() filter list", async () => {
+  it("injection payload `a,b)` never reaches a .or() filter list", async () => {
     const caller = appRouter.createCaller(authCtx());
     await caller.persons.search({ query: "a,b)" });
 
-    expect(orCalls.length).toBe(1);
-    const filter = orCalls[0];
-    // No raw, unquoted `ilike.%a,b)%` interpolation.
-    expect(filter).not.toContain("ilike.%a,b)%");
-    // Both columns use the quoted, escaped token.
-    expect(filter).toContain('nombre.ilike."%a,b)%"');
-    expect(filter).toContain('apellidos.ilike."%a,b)%"');
+    // The breakout vector is gone: the value is an .ilike() argument, which
+    // PostgREST never parses as a comma-separated filter list.
+    expect(orCalls).toEqual([]);
+    expect(ilikeCalls).toEqual([["nombre_norm", "%a,b)%"]]);
   });
 
-  it("LIKE-wildcard payload `100%_x` is double-backslash escaped, not left as wildcards", async () => {
+  it("LIKE-wildcard payload `100%_x` is backslash-escaped, not left as wildcards", async () => {
     const caller = appRouter.createCaller(authCtx());
     await caller.persons.search({ query: "100%_x" });
 
-    expect(orCalls.length).toBe(1);
-    const filter = orCalls[0];
-    expect(filter).toContain("\\\\%");
-    expect(filter).toContain("\\\\_");
-    // No raw, unescaped % / _ from the user value.
-    expect(filter).not.toContain("100%_x");
+    expect(ilikeCalls.length).toBe(1);
+    const [, value] = ilikeCalls[0];
+    // .ilike(col, value) is the unquoted context, so ONE backslash layer is
+    // what reaches LIKE (ilikeForOr's double layer would be wrong here).
+    expect(value).toBe("%100\\%\\_x%");
+    // No raw, unescaped % / _ from the user value survives.
+    expect(value).not.toContain("100%_x");
   });
 
-  it("a normal name still produces a substring search filter", async () => {
+  it("a normal name produces one normalised substring filter", async () => {
     const caller = appRouter.createCaller(authCtx());
     await caller.persons.search({ query: "García" });
 
-    expect(orCalls.length).toBe(1);
-    expect(orCalls[0]).toBe('nombre.ilike."%García%",apellidos.ilike."%García%"');
+    // Accent-folded and lowercased to match the generated nombre_norm column.
+    expect(ilikeCalls).toEqual([["nombre_norm", "%garcia%"]]);
+  });
+
+  it("multi-word queries AND one escaped filter per token, in any order", async () => {
+    const caller = appRouter.createCaller(authCtx());
+    await caller.persons.search({ query: "  María  García " });
+
+    expect(ilikeCalls).toEqual([
+      ["nombre_norm", "%maria%"],
+      ["nombre_norm", "%garcia%"],
+    ]);
+  });
+
+  it("strips * so it cannot act as a PostgREST wildcard alias", async () => {
+    const caller = appRouter.createCaller(authCtx());
+    await caller.persons.search({ query: "a*b" });
+
+    expect(ilikeCalls).toEqual([["nombre_norm", "%ab%"]]);
   });
 });
