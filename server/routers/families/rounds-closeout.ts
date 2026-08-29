@@ -113,7 +113,22 @@ export const roundsCloseoutRouter = router({
         .order("created_at", { ascending: true })
         .limit(1);
       if (me) fail(me); // a DB error must not masquerade as "not in program"
-      const familyId = members?.[0]?.familia_id ?? null;
+      let familyId: string | null = members?.[0]?.familia_id ?? null;
+      if (!familyId) {
+        // The titular carries the family QR but is NOT mirrored into
+        // familia_miembros (families.create writes only input.miembros) —
+        // resolve via families.titular_id before rejecting the scan.
+        const { data: fams, error: fe } = await db
+          .from("families")
+          .select("id")
+          .eq("titular_id", input.person_id)
+          .eq("estado", "activa")
+          .is("deleted_at", null)
+          .order("created_at", { ascending: true })
+          .limit(1);
+        if (fe) fail(fe);
+        familyId = fams?.[0]?.id ?? null;
+      }
       if (!familyId) return { status: "not_in_program" as const };
 
       const { data: a, error: ae } = await db
