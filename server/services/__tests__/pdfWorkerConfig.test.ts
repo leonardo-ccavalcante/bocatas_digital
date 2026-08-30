@@ -77,6 +77,35 @@ describe("resolvePdfWorker", () => {
     );
   });
 
+  // Los sidecars reales no se alcanzan por un nombre suelto: Railway usa
+  // `*.railway.internal`, Fly `*.internal`, Kubernetes `*.svc.cluster.local`, y
+  // un VPS con red privada una IP RFC1918. Ninguno es enrutable en Internet.
+  it("admite texto plano por las redes privadas de las plataformas", () => {
+    for (const url of [
+      "http://gotenberg.railway.internal:3000",
+      "http://gotenberg.internal:3000",
+      "http://gotenberg.default.svc.cluster.local:3000",
+      "http://gotenberg.local:3000",
+      "http://10.0.0.5:3000",
+      "http://172.16.4.9:3000",
+      "http://192.168.1.20:3000",
+    ]) {
+      expect(resolvePdfWorker({ LIBREOFFICE_WORKER_URL: url })?.baseUrl).toBe(url);
+    }
+  });
+
+  it("no confunde una IP pública con una privada", () => {
+    for (const url of [
+      "http://35.231.120.16:7654", // el valor que traía .env
+      "http://172.32.0.1:3000", // fuera del rango 172.16–172.31
+      "http://11.0.0.1:3000",
+    ]) {
+      expect(() => resolvePdfWorker({ LIBREOFFICE_WORKER_URL: url })).toThrow(
+        PdfWorkerConfigError
+      );
+    }
+  });
+
   it("sigue rechazando texto plano hacia un dominio público", () => {
     expect(() =>
       resolvePdfWorker({ LIBREOFFICE_WORKER_URL: "http://pdf.example.com" })

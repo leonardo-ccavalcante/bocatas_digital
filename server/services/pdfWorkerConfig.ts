@@ -27,14 +27,39 @@ export interface PdfWorkerConfig {
 /** Hosts donde el texto plano no sale de la máquina. */
 const LOOPBACK = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
 
+/** Sufijos DNS que, por definición, no se resuelven en Internet público. */
+const SUFIJOS_PRIVADOS = [".internal", ".local"];
+
+/** IPv4 privadas (RFC1918) y link-local (RFC3927). */
+function esIpv4Privada(hostname: string): boolean {
+  const partes = hostname.split(".");
+  if (partes.length !== 4) return false;
+  const [a, b] = partes.map(Number);
+  if (partes.some((p) => !/^\d{1,3}$/.test(p)) || a === undefined || b === undefined) return false;
+  if (a === 10 || a === 127) return true;
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  if (a === 192 && b === 168) return true;
+  if (a === 169 && b === 254) return true; // link-local
+  return false;
+}
+
 /**
- * Un nombre de una sola etiqueta (`gotenberg`, sin puntos) no se resuelve en
- * Internet público: es un servicio de la misma red de contenedores, que es el
- * despliegue que propone docs/runbooks/libreoffice-setup.md. Ahí el texto plano
- * no sale de la red interna.
+ * ¿El destino está fuera de Internet público?
+ *
+ * Los sidecars reales no se alcanzan por un nombre suelto: Railway los expone
+ * como `gotenberg.railway.internal`, Fly como `gotenberg.internal`, Kubernetes
+ * como `gotenberg.default.svc.cluster.local`, y un VPS con red privada por una
+ * IP RFC1918. Aceptar sólo nombres sin puntos dejaba fuera todos esos casos y
+ * empujaba al operador hacia el `http://` público, que es justo lo que hay que
+ * evitar. IPv6 ULA (fd00::/8) y link-local (fe80::/10) entran también.
  */
-function esNombreDeRedInterna(hostname: string): boolean {
-  return !hostname.includes(".") && !hostname.includes(":");
+function esRedPrivada(hostname: string): boolean {
+  const h = hostname.toLowerCase().replace(/\.$/, "");
+  if (!h.includes(".") && !h.includes(":")) return true; // docker-compose
+  if (SUFIJOS_PRIVADOS.some((suf) => h.endsWith(suf))) return true;
+  if (esIpv4Privada(h)) return true;
+  const sinCorchetes = h.replace(/^\[|\]$/g, "");
+  return /^f[cd]/.test(sinCorchetes) || sinCorchetes.startsWith("fe80:");
 }
 
 export type WorkerEnv = Record<string, string | undefined>;
@@ -76,13 +101,15 @@ export function resolvePdfWorker(env: WorkerEnv): PdfWorkerConfig | null {
   if (
     url.protocol === "http:" &&
     !LOOPBACK.has(url.hostname) &&
-    !esNombreDeRedInterna(url.hostname)
+    !esRedPrivada(url.hostname)
   ) {
     throw new PdfWorkerConfigError(
       `LIBREOFFICE_WORKER_URL apunta a ${url.hostname} por http sin cifrar. El cuerpo ` +
         "de esa petición es el informe social completo (datos personales de una persona " +
-        "beneficiaria), así que sólo se admite https hacia un host remoto; el texto plano " +
-        "queda reservado a un sidecar en la propia máquina (localhost).",
+        "beneficiaria), así que hacia un host público sólo se admite https. El texto plano " +
+        "queda reservado a redes que no salen a Internet: localhost, un nombre de servicio " +
+        "de docker-compose, un sufijo .internal o .local (Railway, Fly, Kubernetes) o una " +
+        "IP privada.",
     );
   }
 

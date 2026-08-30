@@ -44,10 +44,19 @@ host que no sea loopback, y **falla cerrado** — no cae al binario local — si
 configuración no cumple: quien la puso tiene que enterarse, porque un fallback
 silencioso aquí no se nota nunca.
 
-Admiten texto plano dos casos, porque en ninguno sale el tráfico a Internet:
-`localhost` / `127.0.0.1`, y un nombre de una sola etiqueta como
-`http://gotenberg:3000` — un host sin puntos no se resuelve fuera de la red de
-contenedores. Un dominio público por `http://` se rechaza siempre.
+Se admite texto plano sólo donde el tráfico no sale a Internet:
+
+| Destino | Ejemplo |
+|---|---|
+| Loopback | `http://127.0.0.1:3000` |
+| Nombre de servicio de docker-compose | `http://gotenberg:3000` |
+| Red privada de la plataforma (`.internal`) | `http://gotenberg.railway.internal:3000` |
+| Kubernetes / mDNS (`.local`) | `http://gotenberg.default.svc.cluster.local:3000` |
+| IP privada (RFC1918) | `http://10.0.0.5:3000` |
+
+Cualquier otro host por `http://` se rechaza. Si el worker vive en otra máquina
+y se alcanza por Internet, tiene que ser `https://` — y conviene ponerle
+`LIBREOFFICE_WORKER_TOKEN`, que viaja como `Authorization: Bearer`.
 
 > Aviso: `.env` llegó a traer `LIBREOFFICE_WORKER_URL=http://<ip>:7654`, texto
 > plano hacia una IP remota, en un momento en que **ningún código leía la
