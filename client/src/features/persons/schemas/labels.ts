@@ -1,5 +1,3 @@
-import type { Program } from "./related";
-
 // ─── Label maps for UI ────────────────────────────────────────────────────────
 
 export const CANAL_LLEGADA_LABELS: Record<string, string> = {
@@ -121,12 +119,3 @@ export const FASE_ITINERARIO_CONFIG: Record<string, { label: string; color: stri
   autonomia: { label: "Autonomía", color: "bg-green-100 text-green-700" },
 };
 
-// Fallback programs if DB is unreachable
-export const PROGRAMS_SEED_FALLBACK: Program[] = [
-  { id: "00000000-0000-0000-0000-000000000001", slug: "comedor-social", name: "Comedor Social", icon: "🍽️", is_default: true, is_active: true, display_order: 1 },
-  { id: "00000000-0000-0000-0000-000000000002", slug: "programa-familias", name: "Programa Familias", icon: "📦", is_default: false, is_active: true, display_order: 2 },
-  { id: "00000000-0000-0000-0000-000000000003", slug: "formacion", name: "Formación", icon: "📚", is_default: false, is_active: true, display_order: 3 },
-  { id: "00000000-0000-0000-0000-000000000004", slug: "atencion-juridica", name: "Atención Jurídica", icon: "⚖️", is_default: false, is_active: true, display_order: 4 },
-  { id: "00000000-0000-0000-0000-000000000005", slug: "voluntariado", name: "Voluntariado", icon: "🤝", is_default: false, is_active: true, display_order: 5 },
-  { id: "00000000-0000-0000-0000-000000000006", slug: "acompanamiento", name: "Acompañamiento", icon: "🫂", is_default: false, is_active: true, display_order: 6 },
-];

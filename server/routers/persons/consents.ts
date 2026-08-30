@@ -24,8 +24,14 @@ export const consentsRouter = router({
       .order("display_order");
 
     if (error) {
-      // Return empty array on error — UI has fallback seed data
-      return [];
+      // Antes devolvía [] y el cliente lo rellenaba con un catálogo de reserva
+      // inventado, así que un fallo de base se veía como seis programas
+      // plausibles con UUIDs que no existen. Un error tiene que verse: sin
+      // catálogo no se puede inscribir a nadie, y fingir lo contrario es peor.
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "No se pudo cargar el catálogo de programas",
+      });
     }
 
     return data ?? [];
