@@ -26,9 +26,12 @@ ln -s "/Applications/LibreOffice.app/Contents/MacOS/soffice" /usr/local/bin/libr
 
 1. **Install in the container/image** (`apt-get install -y libreoffice` — ~700 MB).
    Simplest, but inflates image size and cold-start.
-2. **gotenberg sidecar** (~400 MB HTTP service). `pdfFromDocx.ts` would POST the
-   `.docx` to gotenberg instead of spawning a local process. Smaller app image,
-   one more service to run.
+2. **gotenberg sidecar** (~400 MB HTTP service). Se evaluó y se DESCARTÓ: mete
+   una petición de red que lleva el informe social completo —datos personales de
+   una persona beneficiaria— y con ella toda una política de qué destinos son
+   aceptables. A este volumen (decenas de informes al mes) no compra nada: el
+   único beneficio real es el tamaño de imagen. Si algún día el volumen lo pide,
+   el historial de la rama `fix/libreoffice-worker` tiene la implementación.
 
 Pick one before enabling `derivar.generatePdf` in production.
 
