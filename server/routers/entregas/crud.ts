@@ -1,9 +1,38 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { voluntarioProcedure, router } from "../../_core/trpc";
-import { logCorrelatedErrorToStderr } from "../../_core/logging-middleware";
+import { logCorrelatedErrorToStderr, logAudit } from "../../_core/logging-middleware";
+import type { TrpcContext } from "../../_core/context";
 import { createAdminClient } from "../../../client/src/lib/supabase/server";
 import { uuidLike, type Entrega } from "./_shared";
+
+type Db = ReturnType<typeof createAdminClient>;
+
+/**
+ * A voluntario may only edit/delete deliveries they registered; admin and
+ * superadmin may act on any. Under ADR-0002 the tRPC guard is the ONLY wall, so
+ * without this any voluntario could mutate every sede's deliveries with no
+ * ownership and no trail (#171 / F080). Throws NOT_FOUND for a missing/soft-
+ * deleted row so callers cannot probe existence, FORBIDDEN when not the owner.
+ */
+async function assertCanMutateDelivery(db: Db, id: string, ctx: TrpcContext): Promise<void> {
+  const { data, error } = await db
+    .from("deliveries")
+    .select("registrado_por")
+    .eq("id", id)
+    .is("deleted_at", null)
+    .single();
+  if (error || !data) {
+    throw new TRPCError({ code: "NOT_FOUND", message: "Entrega no encontrada" });
+  }
+  const elevated = ctx.user?.role === "admin" || ctx.user?.role === "superadmin";
+  if (!elevated && data.registrado_por !== String(ctx.user?.id)) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Solo puedes modificar las entregas que registraste.",
+    });
+  }
+}
 
 export const crudRouter = router({
   /**
@@ -12,7 +41,7 @@ export const crudRouter = router({
   getDeliveries: voluntarioProcedure
     .input(
       z.object({
-        limit: z.number().int().positive().default(50),
+        limit: z.number().int().positive().max(200).default(50),
         offset: z.number().int().nonnegative().default(0),
         familiaId: uuidLike.optional(),
         fechaFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
@@ -162,6 +191,7 @@ export const crudRouter = router({
     .mutation(async ({ input, ctx }) => {
       try {
         const db = createAdminClient();
+        await assertCanMutateDelivery(db, input.id, ctx);
         const { data, error } = await db
           .from("deliveries")
           .update({ ...input.updates, updated_at: new Date().toISOString() })
@@ -175,6 +205,7 @@ export const crudRouter = router({
           logCorrelatedErrorToStderr({ correlationId: ctx.correlationId, path: "entregas.updateDelivery", type: "mutation", error });
           throw new TRPCError({ code: "BAD_REQUEST", message: "No se pudo actualizar la entrega." });
         }
+        logAudit(ctx, "entregas.updateDelivery", { deliveryId: input.id });
         return { success: true, data: data as Entrega, message: "Entrega actualizada exitosamente" };
       } catch (error) {
         if (error instanceof TRPCError) throw error;
@@ -190,16 +221,19 @@ export const crudRouter = router({
     .mutation(async ({ input, ctx }) => {
       try {
         const db = createAdminClient();
+        await assertCanMutateDelivery(db, input.id, ctx);
         const { error } = await db
           .from("deliveries")
           .update({ deleted_at: new Date().toISOString() })
-          .eq("id", input.id);
+          .eq("id", input.id)
+          .is("deleted_at", null);
         if (error) {
           // Raw Postgres message can carry PII — curate the client string and
           // log the raw error PII-safely to stderr.
           logCorrelatedErrorToStderr({ correlationId: ctx.correlationId, path: "entregas.deleteDelivery", type: "mutation", error });
           throw new TRPCError({ code: "BAD_REQUEST", message: "No se pudo eliminar la entrega." });
         }
+        logAudit(ctx, "entregas.deleteDelivery", { deliveryId: input.id });
         return { success: true, message: "Entrega eliminada exitosamente" };
       } catch (error) {
         if (error instanceof TRPCError) throw error;
