@@ -42,6 +42,10 @@ const CONVERT_TIMEOUT_MS = 90_000;
 // (see `queue`) so a single shared profile never sees concurrent access.
 const PROFILE_DIR = join(tmpdir(), "bocatas-libreoffice-profile");
 
+/** Tope de lo que se acepta de vuelta del worker. Un informe social ronda las
+ *  centenas de KB; 50 MB es holgado y evita quedarse sin memoria. */
+const MAX_PDF_BYTES = 50 * 1024 * 1024;
+
 /** Rutas absolutas candidatas para soffice (el PATH del dev server puede no tenerlas). */
 function sofficeCandidates(): string[] {
   return [
@@ -114,7 +118,19 @@ async function convertNow(docx: Buffer): Promise<Buffer> {
   // (docs/runbooks/libreoffice-setup.md) y evita meter ~700 MB de LibreOffice en
   // la imagen. `resolvePdfWorker` LANZA si la configuración no es segura en vez
   // de caer al camino local: quien la puso tiene que enterarse.
-  const worker = resolvePdfWorker(process.env);
+  let worker;
+  try {
+    worker = resolvePdfWorker(process.env);
+  } catch (err) {
+    // El mensaje está redactado para el operador, y sin esto no llegaba a
+    // ninguna parte: el resolver lo envolvía en un "no se pudo generar el PDF"
+    // genérico. Mismo trato que el camino del binario ausente.
+    console.error(
+      "[docxToPdf] configuración del worker de PDF inválida:",
+      err instanceof Error ? err.message : String(err),
+    );
+    throw err;
+  }
   if (worker !== null) return convertViaWorker(docx, worker);
 
   const bin = resolveSoffice();
@@ -210,6 +226,11 @@ async function convertViaWorker(docx: Buffer, worker: PdfWorkerConfig): Promise<
     method: "POST",
     body: form,
     headers,
+    // `follow` es el defecto, y con él un 307 del worker basta para que undici
+    // reenvíe el CUERPO —el informe social completo— a cualquier host, en
+    // claro. La cabecera Authorization sí la quita al cruzar de origen; el
+    // cuerpo no. Toda la garantía de resolvePdfWorker se evapora ahí.
+    redirect: "error",
     signal: AbortSignal.timeout(CONVERT_TIMEOUT_MS),
   });
 
@@ -219,5 +240,24 @@ async function convertViaWorker(docx: Buffer, worker: PdfWorkerConfig): Promise<
     throw new Error(`El servicio de conversión a PDF respondió ${response.status}`);
   }
 
-  return Buffer.from(await response.arrayBuffer());
+  // Un 200 con una página HTML de error se devolvía como "PDF" y el navegador
+  // lo intentaba pintar. Se comprueba lo que llega igual que se comprueba lo
+  // que sube el voluntario.
+  const tipo = response.headers?.get("content-type") ?? "";
+  if (!tipo.includes("application/pdf")) {
+    throw new Error(`El servicio de conversión no devolvió un PDF (${tipo || "sin tipo"})`);
+  }
+
+  // `AbortSignal` limita el tiempo, no los bytes: un worker en bucle podía
+  // tumbar el proceso por OOM.
+  const declarado = Number(response.headers?.get("content-length") ?? 0);
+  if (declarado > MAX_PDF_BYTES) {
+    throw new Error("El PDF devuelto supera el tamaño máximo admitido");
+  }
+
+  const pdf = Buffer.from(await response.arrayBuffer());
+  if (pdf.byteLength > MAX_PDF_BYTES) {
+    throw new Error("El PDF devuelto supera el tamaño máximo admitido");
+  }
+  return pdf;
 }

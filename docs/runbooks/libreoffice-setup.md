@@ -44,8 +44,10 @@ host que no sea loopback, y **falla cerrado** — no cae al binario local — si
 configuración no cumple: quien la puso tiene que enterarse, porque un fallback
 silencioso aquí no se nota nunca.
 
-`localhost` / `127.0.0.1` sí admiten texto plano: ahí el tráfico no sale de la
-máquina, que es el caso del sidecar en el mismo host o red de contenedores.
+Admiten texto plano dos casos, porque en ninguno sale el tráfico a Internet:
+`localhost` / `127.0.0.1`, y un nombre de una sola etiqueta como
+`http://gotenberg:3000` — un host sin puntos no se resuelve fuera de la red de
+contenedores. Un dominio público por `http://` se rechaza siempre.
 
 > Aviso: `.env` llegó a traer `LIBREOFFICE_WORKER_URL=http://<ip>:7654`, texto
 > plano hacia una IP remota, en un momento en que **ningún código leía la

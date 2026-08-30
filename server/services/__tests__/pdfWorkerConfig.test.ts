@@ -66,6 +66,36 @@ describe("resolvePdfWorker", () => {
     );
   });
 
+  // Hallazgos de revisión adversarial.
+  it("admite texto plano hacia un nombre de servicio de una sola etiqueta", () => {
+    // El runbook propone un sidecar en docker-compose, que se alcanza como
+    // `http://gotenberg:3000`. Un nombre sin puntos no es resoluble en Internet
+    // público: es una red de contenedores. Rechazarlo dejaba el runbook
+    // documentando un caso que el código tumbaba.
+    expect(resolvePdfWorker({ LIBREOFFICE_WORKER_URL: "http://gotenberg:3000" })?.baseUrl).toBe(
+      "http://gotenberg:3000"
+    );
+  });
+
+  it("sigue rechazando texto plano hacia un dominio público", () => {
+    expect(() =>
+      resolvePdfWorker({ LIBREOFFICE_WORKER_URL: "http://pdf.example.com" })
+    ).toThrow(PdfWorkerConfigError);
+  });
+
+  it("no arrastra credenciales embebidas en la URL", () => {
+    // `url.toString()` las conserva, y no autentican nada: sólo se filtrarían.
+    const cfg = resolvePdfWorker({ LIBREOFFICE_WORKER_URL: "https://tok:sec@pdf.bocatas.org" });
+    expect(cfg?.baseUrl).toBe("https://pdf.bocatas.org");
+    expect(cfg?.baseUrl).not.toMatch(/sec/);
+  });
+
+  it("rechaza una URL con query, que rompería el join de la ruta", () => {
+    expect(() =>
+      resolvePdfWorker({ LIBREOFFICE_WORKER_URL: "https://pdf.bocatas.org/gw?x=1" })
+    ).toThrow(PdfWorkerConfigError);
+  });
+
   it("recoge el token compartido cuando está definido", () => {
     expect(
       resolvePdfWorker({

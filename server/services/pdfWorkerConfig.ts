@@ -27,6 +27,16 @@ export interface PdfWorkerConfig {
 /** Hosts donde el texto plano no sale de la máquina. */
 const LOOPBACK = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
 
+/**
+ * Un nombre de una sola etiqueta (`gotenberg`, sin puntos) no se resuelve en
+ * Internet público: es un servicio de la misma red de contenedores, que es el
+ * despliegue que propone docs/runbooks/libreoffice-setup.md. Ahí el texto plano
+ * no sale de la red interna.
+ */
+function esNombreDeRedInterna(hostname: string): boolean {
+  return !hostname.includes(".") && !hostname.includes(":");
+}
+
 export type WorkerEnv = Record<string, string | undefined>;
 
 /**
@@ -56,7 +66,18 @@ export function resolvePdfWorker(env: WorkerEnv): PdfWorkerConfig | null {
     );
   }
 
-  if (url.protocol === "http:" && !LOOPBACK.has(url.hostname)) {
+  if (url.search || url.hash) {
+    throw new PdfWorkerConfigError(
+      "LIBREOFFICE_WORKER_URL no admite query ni fragmento: la ruta del worker se " +
+        `añade al final y quedaría mal formada (${raw})`,
+    );
+  }
+
+  if (
+    url.protocol === "http:" &&
+    !LOOPBACK.has(url.hostname) &&
+    !esNombreDeRedInterna(url.hostname)
+  ) {
     throw new PdfWorkerConfigError(
       `LIBREOFFICE_WORKER_URL apunta a ${url.hostname} por http sin cifrar. El cuerpo ` +
         "de esa petición es el informe social completo (datos personales de una persona " +
@@ -64,6 +85,11 @@ export function resolvePdfWorker(env: WorkerEnv): PdfWorkerConfig | null {
         "queda reservado a un sidecar en la propia máquina (localhost).",
     );
   }
+
+  // Las credenciales embebidas en la URL no autentican nada aquí (undici no las
+  // convierte en Authorization) y sólo servirían para acabar en un log.
+  url.username = "";
+  url.password = "";
 
   return {
     baseUrl: url.toString().replace(/\/+$/, ""),

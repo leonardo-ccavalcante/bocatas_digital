@@ -30,6 +30,7 @@ function okResponse() {
   return {
     ok: true,
     status: 200,
+    headers: new Headers({ "content-type": "application/pdf" }),
     arrayBuffer: async () => PDF.buffer.slice(PDF.byteOffset, PDF.byteOffset + PDF.byteLength),
   };
 }
@@ -73,5 +74,53 @@ describe("convertDocxToPdf — sidecar HTTP", () => {
     await expect(convertDocxToPdf(DOCX)).rejects.not.toBeInstanceOf(
       LibreOfficeUnavailableError
     );
+  });
+});
+
+/**
+ * Endurecido tras revisión adversarial. La garantía de `resolvePdfWorker` es
+ * sobre la URL de PARTIDA, y `fetch` sigue redirecciones por defecto: un 307 del
+ * worker bastaba para reenviar el cuerpo —el informe social completo— a
+ * cualquier host, en claro. undici quita la cabecera Authorization al cruzar de
+ * origen; el cuerpo NO.
+ */
+describe("convertDocxToPdf — endurecido", () => {
+  it("no sigue redirecciones", async () => {
+    vi.stubEnv("LIBREOFFICE_WORKER_URL", "https://pdf.bocatas.org");
+    fetchMock.mockResolvedValue(okResponse());
+
+    await convertDocxToPdf(DOCX);
+
+    const init = fetchMock.mock.calls[0][1] as { redirect?: string };
+    expect(init.redirect).toBe("error");
+  });
+
+  it("rechaza una respuesta que no es un PDF", async () => {
+    vi.stubEnv("LIBREOFFICE_WORKER_URL", "https://pdf.bocatas.org");
+    const html = Buffer.from("<html>502 Bad Gateway</html>");
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({ "content-type": "text/html" }),
+      arrayBuffer: async () =>
+        html.buffer.slice(html.byteOffset, html.byteOffset + html.byteLength),
+    });
+
+    await expect(convertDocxToPdf(DOCX)).rejects.toThrow(/PDF/i);
+  });
+
+  it("rechaza una respuesta desmesurada antes de traérsela a memoria", async () => {
+    vi.stubEnv("LIBREOFFICE_WORKER_URL", "https://pdf.bocatas.org");
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({
+        "content-type": "application/pdf",
+        "content-length": String(200 * 1024 * 1024),
+      }),
+      arrayBuffer: async () => new ArrayBuffer(0),
+    });
+
+    await expect(convertDocxToPdf(DOCX)).rejects.toThrow(/tama/i);
   });
 });
