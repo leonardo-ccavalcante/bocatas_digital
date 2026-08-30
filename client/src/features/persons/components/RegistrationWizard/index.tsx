@@ -275,6 +275,7 @@ export function RegistrationWizard() {
     familyMembers,
     numAdultos,
     numMenores,
+    irAFase: setPhase,
   });
 
   const isResumen = phase === TOTAL_PHASES;

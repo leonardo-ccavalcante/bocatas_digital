@@ -150,10 +150,13 @@ describe("RegistrationWizard — Phase 1 gate (Zod-driven)", () => {
     await user.type(screen.getByLabelText(/Nombre/i, { selector: "#nombre" }), "Mariana");
     await user.type(screen.getByLabelText(/Apellidos/i), "López Rivas");
 
-    // fecha_nacimiento is a native date input.
+    // fecha_nacimiento se teclea en dd/mm/aaaa (DateField pone las barras
+    // solas y convierte a ISO). Que la fase avance prueba que la conversión
+    // llega al esquema: PersonCreateSchema sólo acepta aaaa-mm-dd.
     const fecha = document.querySelector<HTMLInputElement>("#fecha_nacimiento");
     expect(fecha).not.toBeNull();
-    await user.type(fecha as HTMLInputElement, "1990-05-01");
+    await user.type(fecha as HTMLInputElement, "01051990");
+    expect((fecha as HTMLInputElement).value).toBe("01/05/1990");
 
     await user.click(screen.getByRole("button", { name: /Continuar/i }));
 
@@ -173,7 +176,7 @@ describe("RegistrationWizard — consent-language fallback", () => {
     await user.type(screen.getByLabelText(/Nombre/i, { selector: "#nombre" }), "Awa");
     await user.type(screen.getByLabelText(/Apellidos/i), "Diop Ndiaye");
     const fecha = document.querySelector<HTMLInputElement>("#fecha_nacimiento");
-    await user.type(fecha as HTMLInputElement, "1992-03-10");
+    await user.type(fecha as HTMLInputElement, "10031992");
     // Phase 1 → 2
     await user.click(screen.getByRole("button", { name: /Continuar/i }));
     await screen.findByRole("heading", { name: /¿Cómo la contactamos\?/i });
@@ -233,7 +236,7 @@ describe("RegistrationWizard — Phase 3 program-count gate", () => {
     await user.type(screen.getByLabelText(/Nombre/i, { selector: "#nombre" }), "Mariana");
     await user.type(screen.getByLabelText(/Apellidos/i), "López Rivas");
     const fecha = document.querySelector<HTMLInputElement>("#fecha_nacimiento");
-    await user.type(fecha as HTMLInputElement, "1990-05-01");
+    await user.type(fecha as HTMLInputElement, "01051990");
     // Phase 1 → 2
     await user.click(screen.getByRole("button", { name: /Continuar/i }));
     await screen.findByRole("heading", { name: /¿Cómo la contactamos\?/i });

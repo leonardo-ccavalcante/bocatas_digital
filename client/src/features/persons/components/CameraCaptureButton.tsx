@@ -12,11 +12,19 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Camera, X } from "lucide-react";
+import { Camera, SwitchCamera, X } from "lucide-react";
+
+type Facing = "user" | "environment";
 
 interface CameraCaptureButtonProps {
-  /** "user" = cámara frontal (autofoto), "environment" = trasera (documentos). */
-  facingMode: "user" | "environment";
+  /**
+   * Cámara con la que se ABRE el visor: "user" = frontal (autofoto),
+   * "environment" = trasera (documentos). No la fija: dentro del visor se
+   * puede girar. La foto de perfil abría en frontal y no había forma de
+   * cambiarla, así que fotografiar el documento de alguien que ya no está
+   * delante era imposible sin darle el móvil a la persona.
+   */
+  facingMode: Facing;
   label: string;
   onCapture: (file: File) => void;
   className?: string;
@@ -28,6 +36,7 @@ export function CameraCaptureButton({
   onCapture,
   className,
 }: CameraCaptureButtonProps) {
+  const [facing, setFacing] = useState<Facing>(facingMode);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -57,7 +66,7 @@ export function CameraCaptureButton({
     };
   }, []);
 
-  const start = useCallback(async () => {
+  const start = useCallback(async (modo: Facing) => {
     setErrorMsg(null);
     try {
       if (streamRef.current !== null) return; // doble toque: ya hay una cámara abierta
@@ -65,13 +74,14 @@ export function CameraCaptureButton({
         // El llamante comprime después (800 px la foto de perfil, 1200 px el
         // documento), así que se pide al sensor lo máximo razonable: un
         // consentimiento firmado fotografiado a 720p pierde legibilidad.
-        video: { facingMode, width: { ideal: 1920 }, height: { ideal: 1080 } },
+        video: { facingMode: modo, width: { ideal: 1920 }, height: { ideal: 1080 } },
       });
       if (!montado.current) {
         stream.getTracks().forEach((t) => t.stop());
         return;
       }
       streamRef.current = stream;
+      setFacing(modo);
       setOpen(true);
       setTimeout(() => {
         if (videoRef.current) videoRef.current.srcObject = stream;
@@ -79,7 +89,19 @@ export function CameraCaptureButton({
     } catch {
       setErrorMsg("No se pudo acceder a la cámara. Usa el botón de subir imagen.");
     }
-  }, [facingMode]);
+  }, []);
+
+  /**
+   * Girar = soltar la pista actual y pedir la contraria. Hay que parar antes:
+   * muchos Android sólo sirven una cámara a la vez y devuelven la misma pista
+   * si se pide la segunda con la primera todavía viva.
+   */
+  const girar = useCallback(async () => {
+    const siguiente: Facing = facing === "user" ? "environment" : "user";
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    await start(siguiente);
+  }, [facing, start]);
 
   const capture = useCallback(async () => {
     const video = videoRef.current;
@@ -121,6 +143,20 @@ export function CameraCaptureButton({
           <Button type="button" size="sm" variant="outline" onClick={stop} className="flex-1">
             <X className="mr-1 h-4 w-4" /> Cancelar
           </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => void girar()}
+            aria-label={
+              facing === "user"
+                ? "Cambiar a la cámara trasera"
+                : "Cambiar a la cámara frontal"
+            }
+            className="flex-1"
+          >
+            <SwitchCamera className="mr-1 h-4 w-4" aria-hidden="true" /> Girar
+          </Button>
           <Button type="button" size="sm" onClick={() => void capture()} className="flex-1">
             <Camera className="mr-1 h-4 w-4" /> Capturar
           </Button>
@@ -136,7 +172,7 @@ export function CameraCaptureButton({
         size="sm"
         variant="outline"
         className="w-full"
-        onClick={() => void start()}
+        onClick={() => void start(facingMode)}
       >
         <Camera className="mr-1 h-4 w-4" /> {label}
       </Button>

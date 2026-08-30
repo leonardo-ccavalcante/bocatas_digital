@@ -6,8 +6,6 @@ import { adminProcedure, voluntarioProcedure, router } from "../../_core/trpc";
 import { logProcedureAction, logProcedureError } from "../../_core/logging-middleware";
 import { redactHighRiskFields } from "../../_core/rlsRedaction";
 import { encryptPII, decryptPII, isPiiCryptoConfigured } from "../../_core/pii-crypto";
-import { ilikeValue } from "../../_core/postgrestFilter";
-import { nameSearchTokens } from "../../../shared/nameSearch";
 import { PersonCreateInput } from "./_shared";
 
 const ELEVATED_ROLES = new Set(["admin", "superadmin"]);
@@ -333,41 +331,5 @@ export const crudRouter = router({
     )
     .query(async ({ input }) => {
       return findDuplicatesHandler(input);
-    }),
-
-  /**
-   * Search persons by name.
-   * Uses service role key to bypass RLS.
-   */
-  search: voluntarioProcedure
-    .input(z.object({ query: z.string().min(2).max(100) }))
-    .query(async ({ input }) => {
-      // RC-06: accent- and word-order-insensitive — one AND'ed ilike per
-      // normalised token against the generated nombre_norm column.
-      const tokens = nameSearchTokens(input.query);
-      if (tokens.length === 0) return [];
-      const supabase = createAdminClient();
-
-      let q = supabase
-        .from("persons")
-        .select("id, nombre, apellidos, fecha_nacimiento, foto_perfil_url, restricciones_alimentarias, fase_itinerario")
-        .is("deleted_at", null);
-      for (const tok of tokens) {
-        q = q.ilike("nombre_norm", ilikeValue(tok));
-      }
-      const { data, error } = await q.order("nombre").limit(20);
-
-      if (error) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: `Error en búsqueda: ${error.message}`,
-        });
-      }
-
-      // Resolve stored photo paths to short-lived signed URLs (one Storage
-      // round trip for the page) so `<AvatarImage src>` keeps working.
-      const rows = data ?? [];
-      await signPathField(AVATAR_BUCKET, rows, "foto_perfil_url");
-      return rows;
     }),
 });

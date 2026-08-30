@@ -2,7 +2,8 @@
  * persons/index.ts — barrel that merges sub-routers for person management.
  *
  * Procedures (preserved verbatim from the pre-split persons.ts):
- *   crud.ts:     create, getById, getAll, search, findDuplicates
+ *   crud.ts:     create, getById, getAll, findDuplicates
+ *   search.ts:   search  (nombre/apellidos + nº de documento + teléfono)
  *   enroll.ts:   enroll
  *   consents.ts: programs, consentTemplates, saveConsents, getPersonConsents
  *   photo.ts:    uploadPhoto
@@ -14,6 +15,7 @@
 
 import { router } from "../../_core/trpc";
 import { crudRouter } from "./crud";
+import { searchPersons } from "./search";
 import { enrollRouter } from "./enroll";
 import { consentsRouter } from "./consents";
 import { photoRouter } from "./photo";
@@ -26,7 +28,7 @@ export const personsRouter = router({
   create: crudRouter.create,
   getById: crudRouter.getById,
   getAll: crudRouter.getAll,
-  search: crudRouter.search,
+  search: searchPersons,
   enroll: enrollRouter.enroll,
   programs: consentsRouter.programs,
   consentTemplates: consentsRouter.consentTemplates,

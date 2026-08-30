@@ -55,6 +55,11 @@ export interface PersonRowData {
   fase_itinerario: string | null;
   created_at?: string | null;
   foto_perfil_url?: string | null;
+  /**
+   * Sólo para poder filtrar por él en el listado de admin: `getAll` ya lo trae
+   * y se estaba descartando en el mapeo. No se pinta en ninguna fila.
+   */
+  numero_documento?: string | null;
 }
 
 // ─── Avatar initials ────────────────────────────────────────────────────────

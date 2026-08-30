@@ -69,6 +69,7 @@ export function usePersonsData({
         fase_itinerario: p.fase_itinerario ?? null,
         created_at: p.created_at ?? null,
         foto_perfil_url: p.foto_perfil_url ?? null,
+        numero_documento: p.numero_documento ?? null,
       })),
     [allPersons]
   );
@@ -93,13 +94,18 @@ export function usePersonsData({
     let rows = adminRows;
 
     // Text filter over getAll rows when query is typed — accent- and
-    // word-order-insensitive: every normalised token must appear in the
-    // normalised "nombre apellidos id" haystack (RC-06 / F065).
+    // word-order-insensitive: every normalised token must appear en el
+    // pajar normalizado "nombre apellidos id nº-documento" (RC-06 / F065).
+    // El documento entra aquí porque `getAll` ya lo devuelve; el teléfono NO
+    // se añade a propósito: no viaja en el listado y traerlo sólo para poder
+    // filtrar pondría 600+ teléfonos en el navegador (minimización). Quien
+    // busca por teléfono lo encuentra por el carril de servidor
+    // (`persons.search`, server/routers/persons/search.ts).
     if (query.trim().length >= 1) {
       const tokens = nameSearchTokens(query);
       rows = rows.filter((p) => {
         const haystack = normalizeNameSearch(
-          [p.nombre, p.apellidos ?? "", p.id].join(" ")
+          [p.nombre, p.apellidos ?? "", p.id, p.numero_documento ?? ""].join(" ")
         );
         return tokens.every((t) => haystack.includes(t));
       });

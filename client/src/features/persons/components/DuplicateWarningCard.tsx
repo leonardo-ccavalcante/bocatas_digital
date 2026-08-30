@@ -2,7 +2,6 @@ import { AlertTriangle, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Link } from "wouter";
 import type { DuplicateCandidate } from "../schemas";
 import { formatDateDisplay } from "@/lib/dateUtils";
 
@@ -33,6 +32,7 @@ export function DuplicateWarningCard({ candidates, onContinueAnyway }: Duplicate
       <CardContent className="space-y-3">
         <p className="text-xs text-yellow-700">
           Existen personas con nombre similar. Verifica si ya están registradas antes de crear un registro nuevo.
+          Las fichas se abren en una pestaña nueva: no perderás lo que ya has escrito.
         </p>
         <ul className="space-y-2">
           {candidates.map((c) => (
@@ -56,11 +56,19 @@ export function DuplicateWarningCard({ candidates, onContinueAnyway }: Duplicate
               <span className="shrink-0 rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700">
                 {Math.round(c.similarity * 100)}%
               </span>
-              <Link href={`/personas/${c.id}`}>
-                <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" aria-label="Ver ficha">
-                  <ExternalLink className="h-3.5 w-3.5" />
-                </Button>
-              </Link>
+              {/* Pestaña nueva a propósito: navegar aquí dentro desmonta el
+                  wizard y se pierde todo lo tecleado, que es exactamente lo
+                  que el equipo reportó al comprobar una coincidencia. */}
+              <Button asChild size="icon" variant="ghost" className="h-7 w-7 shrink-0">
+                <a
+                  href={`/personas/${c.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`Ver ficha de ${c.nombre} ${c.apellidos ?? ""} en una pestaña nueva`}
+                >
+                  <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                </a>
+              </Button>
             </li>
           ))}
         </ul>

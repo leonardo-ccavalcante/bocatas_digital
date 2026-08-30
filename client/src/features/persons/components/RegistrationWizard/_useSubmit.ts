@@ -8,6 +8,11 @@ import { useEnrollPerson } from "../../hooks/useEnrollPerson";
 import { trpc } from "@/lib/trpc";
 import type { FamilyMember } from "./_shared";
 import { buildConsentRows, puedeGuardarFoto } from "./_consentRows";
+import {
+  describirErrores,
+  mensajeDeErrores,
+  primeraFaseConError,
+} from "./_formErrors";
 
 interface UseSubmitArgs {
   groupAAccepted: boolean;
@@ -26,6 +31,8 @@ interface UseSubmitArgs {
   familyMembers: FamilyMember[];
   numAdultos: number;
   numMenores: number;
+  /** Lleva al paso donde está el campo que falla, para no buscarlo a ciegas. */
+  irAFase?: (fase: number) => void;
 }
 
 export function useRegistrationSubmit(args: UseSubmitArgs) {
@@ -55,8 +62,12 @@ export function useRegistrationSubmit(args: UseSubmitArgs) {
     // and the server copy rejects what the transform would have fixed (F024).
     const parsed = PersonCreateSchema.safeParse(args.getValues());
     if (!parsed.success) {
-      const campos = [...new Set(parsed.error.issues.map((i) => i.path.join(".")))].join(", ");
-      toast.error(`Revisa los campos: ${campos}`);
+      // Nombre en pantalla + motivo + paso, en vez de la lista de columnas:
+      // el aviso anterior no permitía saber ni qué fallaba ni dónde mirar.
+      const campos = describirErrores(parsed.error.issues);
+      toast.error(mensajeDeErrores(campos));
+      const fase = primeraFaseConError(campos);
+      if (fase !== null) args.irAFase?.(fase);
       return;
     }
     const data = parsed.data;
