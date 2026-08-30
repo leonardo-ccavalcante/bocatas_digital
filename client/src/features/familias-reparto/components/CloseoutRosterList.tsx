@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Star, XCircle } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { CheckCircle2, Search, Star, XCircle } from "lucide-react";
 
 interface PendingRow {
   id: string;
@@ -33,19 +35,61 @@ function rowLabel(row: PendingRow | AttendedRow): string {
   return row.nombre_titular ?? `Expediente #${row.expediente ?? row.family_id.slice(0, 8)}`;
 }
 
+/** Normalize a string for accent- and case-insensitive matching. */
+function normalize(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function matchesSearch(row: PendingRow | AttendedRow, query: string): boolean {
+  if (!query) return true;
+  const q = normalize(query);
+  return normalize(rowLabel(row)).includes(q);
+}
+
 /** Renders the pending (all-round carry-over) list and the already-attended list
  *  for one close-out slot. Smallest family first from server; "Hoy" badge marks
- *  the suggested slot. */
+ *  the suggested slot. A search box lets the coordinator find a family without
+ *  scrolling. */
 export function CloseoutRosterList({ pending, attendedHere, isReadOnly, onMark }: Props) {
+  const [search, setSearch] = useState("");
+
+  const filteredPending = pending.filter((r) => matchesSearch(r, search));
+  const filteredAttended = attendedHere.filter((r) => matchesSearch(r, search));
+
+  const hasAny = pending.length > 0 || attendedHere.length > 0;
+  const hasResults = filteredPending.length > 0 || filteredAttended.length > 0;
+
   return (
     <div className="space-y-4">
-      {pending.length > 0 && (
+      {hasAny && (
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden />
+          <Input
+            placeholder="Buscar familia por nombre…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-8"
+            aria-label="Buscar familia en la lista"
+          />
+        </div>
+      )}
+
+      {search && !hasResults && (
+        <p className="text-sm text-muted-foreground text-center py-4">
+          No hay resultados para «{search}»
+        </p>
+      )}
+
+      {filteredPending.length > 0 && (
         <section aria-label="Familias pendientes">
           <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Pendientes ({pending.length})
+            Pendientes ({filteredPending.length}{search ? ` de ${pending.length}` : ""})
           </h4>
           <ul className="space-y-2">
-            {pending.map((r) => (
+            {filteredPending.map((r) => (
               <li
                 key={r.id}
                 className="flex items-center justify-between gap-2 rounded-lg border p-3"
@@ -96,13 +140,13 @@ export function CloseoutRosterList({ pending, attendedHere, isReadOnly, onMark }
         </section>
       )}
 
-      {attendedHere.length > 0 && (
+      {filteredAttended.length > 0 && (
         <section aria-label="Familias atendidas en este turno">
           <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Atendidas aquí ({attendedHere.length})
+            Atendidas aquí ({filteredAttended.length}{search ? ` de ${attendedHere.length}` : ""})
           </h4>
           <ul className="space-y-2">
-            {attendedHere.map((r) => (
+            {filteredAttended.map((r) => (
               <li
                 key={r.id}
                 className={`flex items-center gap-2 rounded-lg border p-3 ${
