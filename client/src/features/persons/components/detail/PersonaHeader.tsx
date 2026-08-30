@@ -8,11 +8,13 @@
  * count comes from the (admin-only) history query passed down by the page; when
  * it is undefined (non-admin or not loaded) the cell shows an em dash.
  */
+import { useState } from "react";
 import { Link } from "wouter";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { QrCode, Shield } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ChevronDown, QrCode, Shield } from "lucide-react";
 import BackLink from "@/components/layout/BackLink";
 import { formatDateDisplay, calculateAge } from "@/lib/dateUtils";
 import type { Database } from "@/lib/database.types";
@@ -65,6 +67,7 @@ export function PersonaHeader({ person, visitas, onConsent }: PersonaHeaderProps
   const estado = getEstadoChip(person.fase_itinerario);
   const edad = calculateAge(person.fecha_nacimiento);
   const fechaAlta = formatDateDisplay(person.created_at);
+  const [kpiOpen, setKpiOpen] = useState(false);
 
   return (
     <header className="sticky top-0 z-10 border-b border-border bg-background/95 backdrop-blur">
@@ -142,34 +145,59 @@ export function PersonaHeader({ person, visitas, onConsent }: PersonaHeaderProps
           </div>
         </div>
 
-        {/* KPI strip — real fields only */}
-        <div className="bocatas-card mt-6 grid grid-cols-2 md:grid-cols-4">
-          <KPICell
-            label="Visitas"
-            value={visitas !== undefined ? String(visitas) : "—"}
-            sub="check-ins"
-          />
-          <KPICell
-            label="Idioma"
-            value={person.idioma_principal.toUpperCase()}
-            sub="principal"
-            bordered
-          />
-          <KPICell
-            label="Empadronado"
-            value={
-              person.empadronado === null ? "—" : person.empadronado ? "Sí" : "No"
-            }
-            sub="estado"
-            bordered
-          />
-          <KPICell
-            label="Fase"
-            value={estado.label}
-            sub="itinerario"
-            bordered
-          />
-        </div>
+        {/* KPI strip — collapsible to save screen space on mobile */}
+        <Collapsible open={kpiOpen} onOpenChange={setKpiOpen} className="mt-4">
+          <CollapsibleTrigger asChild>
+            <button
+              className="flex w-full items-center justify-between rounded-lg border border-border bg-muted/40 px-4 py-2 text-sm text-muted-foreground hover:bg-muted/70 transition-colors"
+              aria-label={kpiOpen ? "Ocultar datos" : "Ver datos"}
+            >
+              <span className="font-medium">
+                {kpiOpen ? "Ocultar datos" : "Ver datos"}
+                {!kpiOpen && (
+                  <span className="ml-2 text-xs font-normal">
+                    Fase: {estado.label}
+                    {visitas !== undefined ? ` · ${visitas} visitas` : ""}
+                  </span>
+                )}
+              </span>
+              <ChevronDown
+                className={`h-4 w-4 transition-transform duration-200 ${
+                  kpiOpen ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="bocatas-card mt-2 grid grid-cols-2 md:grid-cols-4">
+              <KPICell
+                label="Visitas"
+                value={visitas !== undefined ? String(visitas) : "—"}
+                sub="check-ins"
+              />
+              <KPICell
+                label="Idioma"
+                value={person.idioma_principal.toUpperCase()}
+                sub="principal"
+                bordered
+              />
+              <KPICell
+                label="Empadronado"
+                value={
+                  person.empadronado === null ? "—" : person.empadronado ? "Sí" : "No"
+                }
+                sub="estado"
+                bordered
+              />
+              <KPICell
+                label="Fase"
+                value={estado.label}
+                sub="itinerario"
+                bordered
+              />
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
       </div>
     </header>
   );
