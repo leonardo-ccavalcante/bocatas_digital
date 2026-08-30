@@ -2,7 +2,12 @@
  * ProgramSelector.tsx — Dropdown to select the active program for check-in.
  * Loads programs from DB via tRPC, defaults to is_default=true program.
  * Renders icon + name per option (Job 4, AC1).
- * Role-filtered: voluntarios only see volunteer_can_access=true (enforced server-side).
+ *
+ * NOTE: the server does NOT currently role-filter this list — checkin.getPrograms
+ * returns every active program regardless of role. Applying volunteer_can_access
+ * filtering is blocked on a product decision (all seeded programs have the flag
+ * false today, so filtering as-is would empty the selector for every voluntario).
+ * Do not re-add an "enforced server-side" claim until that decision lands. (#171 / F034)
  */
 import { useEffect } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";

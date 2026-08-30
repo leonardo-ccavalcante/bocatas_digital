@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Camera, RotateCw, X } from 'lucide-react';
+import { RotateCw, X } from 'lucide-react';
+import { CameraCaptureButton } from '@/features/persons/components/CameraCaptureButton';
 
 interface PhotoUploadInputProps {
   onPhotoSelected: (photoData: {
@@ -26,7 +27,6 @@ export const PhotoUploadInput: React.FC<PhotoUploadInputProps> = ({
   onError,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [rotation, setRotation] = useState(0);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -126,7 +126,6 @@ export const PhotoUploadInput: React.FC<PhotoUploadInputProps> = ({
       setSelectedFile(null);
       setRotation(0);
       if (fileInputRef.current) fileInputRef.current.value = '';
-      if (cameraInputRef.current) cameraInputRef.current.value = '';
     }
   };
 
@@ -136,7 +135,6 @@ export const PhotoUploadInput: React.FC<PhotoUploadInputProps> = ({
     setRotation(0);
     setError(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
-    if (cameraInputRef.current) cameraInputRef.current.value = '';
   };
 
   return (
@@ -158,27 +156,16 @@ export const PhotoUploadInput: React.FC<PhotoUploadInputProps> = ({
             className="hidden"
           />
 
-          {/* Camera input (mobile) */}
-          <input
-            ref={cameraInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            onChange={handleFileInputChange}
-            className="hidden"
-          />
-
-          {/* Buttons */}
+          {/* Real getUserMedia camera — `capture` on a file input was only an
+              advisory hint that desktop browsers ignore, so "Capturar Foto"
+              silently opened the file picker on laptops (#178). */}
           <div className="flex gap-2">
-            <Button
-              onClick={() => cameraInputRef.current?.click()}
-              variant="outline"
+            <CameraCaptureButton
+              facingMode="environment"
+              label="Capturar Foto"
               className="flex-1"
-              disabled={isLoading}
-            >
-              <Camera className="mr-2 h-4 w-4" />
-              Capturar Foto
-            </Button>
+              onCapture={(file) => void handleFileSelect(file)}
+            />
             <Button
               onClick={() => fileInputRef.current?.click()}
               variant="outline"

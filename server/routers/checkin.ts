@@ -11,8 +11,7 @@ import { z } from "zod";
 import { createAdminClient } from "../../client/src/lib/supabase/server";
 import { voluntarioProcedure, router } from "../_core/trpc";
 import { logProcedureAction, logProcedureError, logCorrelatedErrorToStderr } from "../_core/logging-middleware";
-import { ENV } from "../_core/env";
-import { parseQrPayload, verifySig } from "../../shared/qr/payload";
+import { assertQrScanVerified } from "./checkin.qrVerify";
 import { ilikeValue } from "../_core/postgrestFilter";
 import { nameSearchTokens } from "../../shared/nameSearch";
 import {
@@ -22,6 +21,19 @@ import {
 } from "./checkin.offlineSync";
 
 import { uuidLike, ProgramaSlug, MetodoEnum } from "./checkin.schemas";
+import { authActorId } from "../_core/actorId";
+
+async function listActivePrograms(supabase: ReturnType<typeof createAdminClient>) {
+  const { data, error } = await supabase
+    .from("programs")
+    .select("id, slug, name, icon, is_default")
+    .eq("is_active", true)
+    .order("display_order");
+  if (error) {
+    throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+  }
+  return data ?? [];
+}
 
 // ─── Router ───────────────────────────────────────────────────────────────────
 export const checkinRouter = router({
@@ -51,42 +63,9 @@ export const checkinRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      // ── QR signature verification (when a raw QR string is supplied) ──────
-      // This activates only when the QR-scan path passes qrValue.
-      // Manual-search, anonymous, and demo paths omit qrValue → bypass.
-      if (input.qrValue !== undefined) {
-        const parsed = parseQrPayload(input.qrValue);
-        if (!parsed) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Formato de QR inválido",
-          });
-        }
-        // Ensure the UUID in the payload matches what the client claims.
-        if (parsed.uuid.toLowerCase() !== input.personId.toLowerCase()) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "El QR no corresponde a la persona indicada",
-          });
-        }
-        const secret = ENV.qrSigningSecret;
-        if (!secret || secret.length < 32) {
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: "QR signing secret not configured",
-          });
-        }
-        const valid = await verifySig(parsed.uuid, parsed.sig, secret);
-        if (!valid) {
-          logProcedureAction(ctx, "Checkin: Invalid QR signature rejected", {
-            personId: input.personId,
-          });
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: "Firma del QR inválida o adulterada",
-          });
-        }
-      }
+      // QR-scan integrity gate: rejects a qr_scan with no qrValue (#171 F090)
+      // and verifies format + person-match + HMAC when a qrValue is present.
+      await assertQrScanVerified(input, ctx);
 
       const supabase = createAdminClient();
       const startTime = Date.now();
@@ -152,8 +131,10 @@ export const checkinRouter = router({
         programa: input.programa,
         metodo: input.metodo,
         es_demo: false,
-        // registrado_por: null (no Supabase auth.uid() available with Manus OAuth)
-        // The RLS is bypassed via service role key
+        // Authorship written server-side from the session, never the client
+        // (#145). null only for the DEV_ADMIN_LOGIN synthetic user (not a real
+        // auth.users row) — see authActorId.
+        registrado_por: authActorId(ctx.user),
       });
 
       if (insertError) {
@@ -224,7 +205,7 @@ export const checkinRouter = router({
         isDemoMode: z.boolean().default(false),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       // ARG-01 / B.7: demo mode writes no real data.
       if (input.isDemoMode) {
         return { status: "registered" as const };
@@ -238,6 +219,8 @@ export const checkinRouter = router({
         programa: input.programa,
         metodo: "conteo_anonimo",
         es_demo: false,
+        // The volunteer who registered the anonymous count (#145).
+        registrado_por: authActorId(ctx.user),
       });
 
       if (error) {
@@ -315,21 +298,7 @@ export const checkinRouter = router({
   /**
    * getPrograms — list active programs for the program selector.
    */
-  getPrograms: voluntarioProcedure.query(async () => {
-    const supabase = createAdminClient();
-    const { data, error } = await supabase
-      .from("programs")
-      .select("id, slug, name, icon, is_default")
-      .eq("is_active", true)
-      .order("display_order");
-    if (error) {
-      throw new TRPCError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: error.message,
-      });
-    }
-    return data ?? [];
-  }),
+  getPrograms: voluntarioProcedure.query(() => listActivePrograms(createAdminClient())),
 
   /**
    * syncOfflineQueue — idempotent batch insert for offline queue flush.
@@ -369,7 +338,7 @@ export const checkinRouter = router({
       // data). Anonymous (person_id null) check-ins bypass the arbiter
       // (NULL <> NULL) → always insert. See checkin.offlineSync.ts.
       const enriched = enrichOfflineItems(input);
-      const rows = offlineAttendanceRows(enriched);
+      const rows = offlineAttendanceRows(enriched, authActorId(ctx.user));
 
       // All-demo (or empty) batch → nothing to persist; everything reports
       // synced and leaves the queue without touching the DB.

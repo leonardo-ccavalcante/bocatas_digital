@@ -5,6 +5,7 @@ import { createServer } from "http";
 import net from "net";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import rateLimit from "express-rate-limit";
+import { API_WINDOW_MS, API_MAX } from "./rateLimitConfig";
 import { registerOAuthRoutes } from "./oauth";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
@@ -37,13 +38,23 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 }
 
 // ─── Rate limiters ────────────────────────────────────────────────────────────
-// General API: 200 req / 15 min per IP (generous for normal use)
+// General API: per-IP (the default key — the header is unverified here), with a
+// generous cap so a sede behind one NAT is not tripped by normal traffic (#166).
+// Config lives in ./rateLimitConfig so a test tracks the real value, not a copy.
 const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 200,
+  windowMs: API_WINDOW_MS,
+  max: API_MAX,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: "Too many requests, please try again later." },
+  // A batched tRPC 429 whose body is not the batch-array shape surfaces as a
+  // "cannot transform response" error the client can misread as a logout. Return
+  // a plain, non-transformed JSON error so react-query classifies it as a real
+  // (transient) error; the client no longer treats it as unauthenticated.
+  handler: (_req, res) => {
+    res.status(429).json({
+      error: { code: "TOO_MANY_REQUESTS", message: "Demasiadas solicitudes. Inténtalo de nuevo en unos minutos." },
+    });
+  },
   skip: () => process.env.NODE_ENV === "test",
 });
 // Auth endpoints: 20 req / 15 min per IP (brute-force protection)

@@ -18,6 +18,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import { createAdminClient } from "../../../client/src/lib/supabase/server";
+import { storagePut } from "../../storage";
 import { router, adminProcedure } from "../../_core/trpc";
 import { TEMPLATE_BUCKET } from "../../../shared/derivar/templatePlaceholders";
 
@@ -84,34 +85,20 @@ export const intervencionesUploadsRouter = router({
       const safeName = input.originalName
         .replace(/[^a-zA-Z0-9._-]/g, "_")
         .replace(/\.pdf$/i, "");
-      const fileKey = `derivaciones-firmadas/${input.hojaId}_${timestamp}_${safeName}.pdf`;
+      // No bucket prefix in the key — storagePut takes (bucket, relPath).
+      const fileKey = `${input.hojaId}_${timestamp}_${safeName}.pdf`;
 
-      const { error: uploadErr } = await db.storage
-        .from("derivaciones-firmadas")
-        .upload(fileKey, buf, {
-          contentType: "application/pdf",
-          upsert: false,
-        });
-
-      if (uploadErr) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: `Error al subir el archivo: ${uploadErr.message}`,
-        });
-      }
-
-      // Get public URL
-      const { data: urlData } = db.storage
-        .from("derivaciones-firmadas")
-        .getPublicUrl(fileKey);
-
-      const firmadoUrl = urlData.publicUrl;
+      // storagePut writes the PRIVATE bucket via service role and returns the
+      // storage PATH. We persist the PATH, never a public URL: a stored public
+      // URL is a replayable, shareable link to beneficiary PII (CAS-02 /
+      // ADR-0012). Read paths sign server-side (see intervenciones.getHoja).
+      const { path } = await storagePut("derivaciones-firmadas", fileKey, buf, "application/pdf");
 
       // Update the hoja
       const { error: updateErr } = await db
         .from("derivacion_hojas")
         .update({
-          firmado_url: firmadoUrl,
+          firmado_url: path,
           firmado_at: new Date().toISOString(),
         })
         .eq("id", input.hojaId);
@@ -123,8 +110,9 @@ export const intervencionesUploadsRouter = router({
         });
       }
 
-      ctx.logger.info(`derivar.uploadSignedHoja hoja=${input.hojaId} url=${firmadoUrl}`);
-      return { success: true, firmadoUrl };
+      // Log the PATH, never a URL (no PII in logs).
+      ctx.logger.info(`derivar.uploadSignedHoja hoja=${input.hojaId} path=${path}`);
+      return { success: true };
     }),
 
   /**

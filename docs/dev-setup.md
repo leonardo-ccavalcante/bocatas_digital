@@ -151,6 +151,15 @@ from local Supabase Postgres — this bypass only stands in for the MySQL role l
 The bypass is allowlisted to `NODE_ENV === "development"`, so it is inert in any
 deployment. This is the fast path for clicking through the app.
 
+To exercise a NON-admin role locally without OAuth, add
+`DEV_LOGIN_ROLE=voluntario` (or `beneficiario` / `superadmin` / `admin`) — the
+synthetic session then carries that role, which is how the client role guards are
+validated end to end. An unrecognised value falls back to `admin`. The bypass
+fires ONLY for a genuinely anonymous request: if you present a credential (a
+Bearer header or an `sb-*-auth-token` cookie) that is rejected, you stay
+unauthenticated instead of silently becoming admin, so a real auth bug is not
+masked (#172).
+
 **Real session (needs MySQL — for testing the actual role table / OAuth path):**
 
 1. Seed an admin in MySQL: insert a row into `users` with a known `openId`

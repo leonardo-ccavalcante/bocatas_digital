@@ -188,10 +188,29 @@ export function logAudit(
   metadata?: Record<string, any>
 ): void {
   const { logger, correlationId, user } = ctx;
+  const actorId = user?.id ?? "unknown";
 
+  // Durable sink (#150): ctx.logger is a per-request buffer NOTHING reads (the
+  // admin LogsPage reads globalLogger, a different instance), so audit events —
+  // incl. superadmin grants — used to vanish with the request. Emit one
+  // structured line to stderr that the platform captures and ops can grep by
+  // correlationId / actorId. Callers pass IDs only, never PII (see docstring).
+  // eslint-disable-next-line no-console
+  console.error(
+    JSON.stringify({
+      level: "audit",
+      msg: action,
+      timestamp: new Date().toISOString(),
+      correlationId,
+      actorId,
+      ...metadata,
+    })
+  );
+
+  // Kept for the in-app LogsPage surface, if/when it is wired to a durable store.
   logger.audit(action, {
     correlationId,
-    actorId: user?.id ?? "unknown",
+    actorId,
     ...metadata,
   });
 }

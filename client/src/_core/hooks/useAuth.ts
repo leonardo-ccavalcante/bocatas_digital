@@ -9,6 +9,15 @@ type UseAuthOptions = {
   redirectPath?: string;
 };
 
+/**
+ * A DEFINITIVE "you are not logged in" answer — not a transient failure. Only
+ * this may bounce the user to /login. A rate-limit 429 (or its transform error)
+ * is NOT this, so a busy sede is never logged out by the limiter (#166).
+ */
+function isUnauthorized(error: unknown): boolean {
+  return error instanceof TRPCClientError && error.data?.code === "UNAUTHORIZED";
+}
+
 export function useAuth(options?: UseAuthOptions) {
   const { redirectOnUnauthenticated = false, redirectPath = getLoginUrl() } =
     options ?? {};
@@ -16,7 +25,9 @@ export function useAuth(options?: UseAuthOptions) {
   const supabase = useRef(createClient()).current;
 
   const meQuery = trpc.auth.me.useQuery(undefined, {
-    retry: false,
+    // Retry transient failures (rate-limit 429, network blip) a couple of times,
+    // but never a definitive UNAUTHORIZED — that IS the answer, not a blip (#166).
+    retry: (failureCount, error) => failureCount < 2 && !isUnauthorized(error),
     refetchOnWindowFocus: false,
   });
 
@@ -53,12 +64,19 @@ export function useAuth(options?: UseAuthOptions) {
     );
   }, [meQuery.data]);
 
+  // Definitively unauthenticated: auth.me resolved to null, or failed with a real
+  // UNAUTHORIZED. A transient 429/network error leaves data undefined and a
+  // non-UNAUTHORIZED error → NOT unauthenticated, so it never triggers a logout.
+  const isUnauthenticated =
+    !meQuery.isLoading && (meQuery.data === null || isUnauthorized(meQuery.error));
+
   const state = useMemo(() => {
     return {
       user: meQuery.data ?? null,
       loading: meQuery.isLoading || logoutMutation.isPending,
       error: meQuery.error ?? logoutMutation.error ?? null,
       isAuthenticated: Boolean(meQuery.data),
+      isUnauthenticated,
     };
   }, [
     meQuery.data,
@@ -66,12 +84,13 @@ export function useAuth(options?: UseAuthOptions) {
     meQuery.isLoading,
     logoutMutation.error,
     logoutMutation.isPending,
+    isUnauthenticated,
   ]);
 
   useEffect(() => {
     if (!redirectOnUnauthenticated) return;
     if (meQuery.isLoading || logoutMutation.isPending) return;
-    if (state.user) return;
+    if (!isUnauthenticated) return;
     if (typeof window === "undefined") return;
     if (window.location.pathname === redirectPath) return;
 
@@ -81,7 +100,7 @@ export function useAuth(options?: UseAuthOptions) {
     redirectPath,
     logoutMutation.isPending,
     meQuery.isLoading,
-    state.user,
+    isUnauthenticated,
   ]);
 
   return {

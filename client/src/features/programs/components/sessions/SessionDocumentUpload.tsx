@@ -23,7 +23,8 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CheckCircle2, FileUp, Camera, Loader2 } from "lucide-react";
+import { CheckCircle2, FileUp, Loader2 } from "lucide-react";
+import { CameraCaptureButton } from "@/features/persons/components/CameraCaptureButton";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import type { CloseUpload } from "@shared/sessionSchemas";
@@ -149,9 +150,7 @@ export function SessionDocumentUpload({
     triggerUpload(base64, mimeType, file.name);
   }
 
-  async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  async function processPhoto(file: File) {
     const base64 = await fileToBase64(file);
     // FIX 4: Apply same inference for camera captures on Android.
     const mimeType = inferMime(file.type, file.name);
@@ -160,6 +159,11 @@ export function SessionDocumentUpload({
     } else {
       ocrAuth.mutate({ base64Image: base64, mimeType });
     }
+  }
+
+  function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) void processPhoto(file);
   }
 
   function handleSaveText() {
@@ -252,29 +256,38 @@ export function SessionDocumentUpload({
               <p className="text-xs text-muted-foreground">
                 Saca una foto del plan escrito o impreso. El sistema extraerá el texto automáticamente.
               </p>
+              {/* Real getUserMedia camera + a plain file fallback: `capture` was
+                  only an advisory hint desktop browsers ignore (#178). */}
               <input
                 ref={photoInputRef}
                 type="file"
                 accept="image/*"
-                capture="environment"
                 className="sr-only"
-                aria-label={`Capturar foto para ${upload.label}`}
+                aria-label={`Subir foto para ${upload.label}`}
                 onChange={handlePhotoChange}
               />
               {!ocrDone && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full min-h-[44px]"
-                  disabled={isPending}
-                  onClick={() => photoInputRef.current?.click()}
-                  aria-label="Sacar o subir foto del plan"
-                >
-                  {ocrAuth.isPending || ocrEnlace.isPending
-                    ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" aria-hidden="true" />Extrayendo texto...</>
-                    : <><Camera className="h-4 w-4 mr-2" aria-hidden="true" />Sacar/subir foto</>
-                  }
-                </Button>
+                <div className="flex gap-2">
+                  <CameraCaptureButton
+                    facingMode="environment"
+                    label="Sacar foto"
+                    className="flex-1"
+                    onCapture={(file) => void processPhoto(file)}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1 min-h-[44px]"
+                    disabled={isPending}
+                    onClick={() => photoInputRef.current?.click()}
+                    aria-label="Subir foto del plan"
+                  >
+                    {ocrAuth.isPending || ocrEnlace.isPending
+                      ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" aria-hidden="true" />Extrayendo texto...</>
+                      : <><FileUp className="h-4 w-4 mr-2" aria-hidden="true" />Subir foto</>
+                    }
+                  </Button>
+                </div>
               )}
               {ocrDone && (
                 <div className="space-y-2">
