@@ -29,6 +29,36 @@ function sameUser(a: string | undefined, b: string | undefined): boolean {
   return !!a && !!b && a.toLowerCase() === b.toLowerCase();
 }
 
+type SupabaseAdmin = ReturnType<typeof createAdminClient>;
+type AuthUser = Awaited<
+  ReturnType<SupabaseAdmin["auth"]["admin"]["listUsers"]>
+>["data"]["users"][number];
+
+/**
+ * Every auth.users account, paginated to EXHAUSTION. `auth.admin.listUsers`
+ * returns a single page (perPage), so one call silently truncated the census —
+ * on the permission-granting screen (getStaffUsers), the last-superadmin guard,
+ * and getAllUsers alike (#151). Stop when a page returns EMPTY, never when it
+ * returns short: a deploy with GOTRUE_MAX_ROWS < perPage returns the first page
+ * short, and a `< perPage` stop would truncate. 100-page runaway guard.
+ */
+async function listAllAuthUsers(supabase: SupabaseAdmin): Promise<AuthUser[]> {
+  const all: AuthUser[] = [];
+  for (let page = 1; page <= 100; page++) {
+    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage: 200 });
+    if (error) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: `Error al obtener usuarios: ${error.message}`,
+      });
+    }
+    const users = data.users ?? [];
+    if (users.length === 0) break;
+    all.push(...users);
+  }
+  return all;
+}
+
 /**
  * Refuse an action that would remove the last superadmin.
  *
@@ -48,14 +78,8 @@ async function assertNotLastSuperadmin(
   supabase: ReturnType<typeof createAdminClient>,
   targetUserId: string
 ): Promise<void> {
-  const { data, error } = await supabase.auth.admin.listUsers({ page: 1, perPage: 200 });
-  if (error) {
-    throw new TRPCError({
-      code: "INTERNAL_SERVER_ERROR",
-      message: `Error al comprobar los superadmins: ${error.message}`,
-    });
-  }
-  const superadmins = (data.users ?? []).filter(
+  const users = await listAllAuthUsers(supabase);
+  const superadmins = users.filter(
     (u) => (u.app_metadata?.role as string | undefined) === "superadmin"
   );
   // Only a change that touches a CURRENT superadmin can reduce the count.
@@ -80,20 +104,10 @@ export const adminRouter = router({
   getStaffUsers: superadminProcedure.query(async () => {
     const supabase = createAdminClient();
 
-    const { data, error } = await supabase.auth.admin.listUsers({
-      page: 1,
-      perPage: 200,
-    });
-
-    if (error) {
-      throw new TRPCError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: `Error al obtener usuarios: ${error.message}`,
-      });
-    }
+    const users = await listAllAuthUsers(supabase);
 
     // Filter to staff roles only
-    const staffUsers = (data.users ?? [])
+    const staffUsers = users
       .filter((u) => {
         const role = u.app_metadata?.role as string | undefined;
         return role === "admin" || role === "voluntario" || role === "superadmin";
@@ -241,17 +255,11 @@ export const adminRouter = router({
     )
     .query(async ({ input }) => {
       const supabase = createAdminClient();
-      const { data, error } = await supabase.auth.admin.listUsers({
-        page: input.page,
-        perPage: input.perPage,
-      });
-      if (error) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: `Error al obtener usuarios: ${error.message}`,
-        });
-      }
-      let users = (data.users ?? []).map((u) => ({
+      // Full census, THEN filter, THEN paginate — filtering a single raw page
+      // dropped matches past it and made `total` the page-filtered count, not the
+      // real one (same class as #179, on the user-browse screen). (#151)
+      const all = await listAllAuthUsers(supabase);
+      let users = all.map((u) => ({
         id: u.id,
         email: u.email ?? "",
         nombre: (u.user_metadata?.nombre as string) ?? (u.user_metadata?.name as string) ?? u.email ?? "",
@@ -268,7 +276,9 @@ export const adminRouter = router({
           (u) => u.nombre.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
         );
       }
-      return { users, total: users.length };
+      const total = users.length;
+      const start = (input.page - 1) * input.perPage;
+      return { users: users.slice(start, start + input.perPage), total };
     }),
 
   /**

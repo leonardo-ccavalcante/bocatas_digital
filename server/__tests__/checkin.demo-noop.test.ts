@@ -99,7 +99,10 @@ describe("checkin — demo mode writes no real data (ARG-01)", () => {
       personId: PERSON,
       locationId: LOC,
       programa: "comedor",
-      metodo: "qr_scan",
+      // manual_busqueda: the real non-scan insert path (no qrValue). A non-demo
+      // qr_scan without qrValue is now rejected on purpose (#171 F090), so this
+      // meaningfulness guard uses the method that legitimately inserts.
+      metodo: "manual_busqueda",
       isDemoMode: false,
     });
     expect(insertSpy).toHaveBeenCalledTimes(1);

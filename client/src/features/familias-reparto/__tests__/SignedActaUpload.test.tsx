@@ -60,4 +60,14 @@ describe("SignedActaUpload (RC-03)", () => {
     const { toast } = await import("sonner");
     expect(toast.success).toHaveBeenCalledWith("Acta firmada guardada");
   });
+
+  it("uses a real camera button, not a capture= hint the desktop ignores (#178)", () => {
+    const { container, getByText } = render(
+      <SignedActaUpload roundId={ROUND} slotId={SLOT} day="2026-09-01" turno="manana" />
+    );
+    // No file input relies on the advisory `capture` attribute any more.
+    expect(container.querySelector("input[capture]")).toBeNull();
+    // The getUserMedia camera trigger (CameraCaptureButton) is rendered.
+    expect(getByText(/Fotografiar acta firmada/)).toBeTruthy();
+  });
 });
