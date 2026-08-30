@@ -32,7 +32,6 @@
 import { describe, it, expect } from "vitest";
 import { ESLint } from "eslint";
 import * as path from "node:path";
-import { pathToFileURL } from "node:url";
 
 const ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 const ESLINT_CONFIG_PATH = path.join(ROOT, "eslint.config.js");
@@ -44,8 +43,14 @@ describe("Personas.tsx must obey max-lines like any other production file (MYT-1
   // typescript-eslint plugin chain — >5s cold on this machine. The
   // assertions are unchanged; only the env budget is raised.
   it("eslint.config.js legacy allow-list no longer names Personas.tsx", { timeout: 30_000 }, async () => {
+    // Ruta absoluta tal cual, NO `pathToFileURL(...).href`. Vitest no usa el
+    // import() de Node: lo intercepta Vite, que quita el esquema `file://` pero
+    // no vuelve a decodificar el percent-encoding. Con un checkout cuya ruta
+    // lleve un espacio ("Bocatas Digital"), `pathToFileURL` produce `%20` y Vite
+    // acaba buscando una carpeta llamada literalmente `Bocatas%20Digital`. En CI
+    // no se nota porque el runner hace checkout en una ruta sin espacios.
     const config = (
-      (await import(pathToFileURL(ESLINT_CONFIG_PATH).href)) as {
+      (await import(ESLINT_CONFIG_PATH)) as {
         default: Array<{ files?: string[]; rules?: Record<string, unknown> }>;
       }
     ).default;
