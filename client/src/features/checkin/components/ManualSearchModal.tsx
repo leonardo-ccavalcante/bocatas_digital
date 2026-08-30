@@ -7,7 +7,7 @@ import { useState, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, User, Loader2 } from "lucide-react";
+import { Search, User, Loader2, WifiOff } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import type { CheckinPerson } from "../machine/checkinMachine";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -22,10 +22,15 @@ export function ManualSearchModal({ open, onClose, onSelect }: ManualSearchModal
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebounce(query, 350);
 
-  const { data: results, isLoading } = trpc.checkin.searchPersons.useQuery(
+  const { data: results, isLoading, fetchStatus } = trpc.checkin.searchPersons.useQuery(
     { query: debouncedQuery },
     { enabled: debouncedQuery.length >= 3 }
   );
+  // react-query PAUSES (not fails) network-only queries while offline:
+  // fetchStatus "paused" with isLoading false and data undefined matched no
+  // render branch, so the modal was silently dead offline (F029). Cached
+  // results from an earlier online search still render normally.
+  const isPausedOffline = fetchStatus === "paused" && results === undefined;
 
   const handleSelect = useCallback(
     (person: NonNullable<typeof results>[number]) => {
@@ -69,6 +74,16 @@ export function ManualSearchModal({ open, onClose, onSelect }: ManualSearchModal
           {isLoading && (
             <div role="status" className="flex items-center justify-center py-6">
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            </div>
+          )}
+
+          {/* Offline: the search query is paused, not failing — say so (F029) */}
+          {isPausedOffline && debouncedQuery.length >= 3 && (
+            <div role="status" className="text-center py-6 text-muted-foreground">
+              <WifiOff className="w-8 h-8 mx-auto mb-2 opacity-40" aria-hidden="true" />
+              <p className="text-sm">
+                Sin conexión: la búsqueda por nombre necesita internet. Usa el escáner QR o el conteo anónimo.
+              </p>
             </div>
           )}
 
