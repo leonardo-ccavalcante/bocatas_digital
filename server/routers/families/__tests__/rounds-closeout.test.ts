@@ -119,6 +119,17 @@ describe("rounds-closeout — resolveAssignment (any open day is valid)", () => 
     expect(r.status).toBe("ready");
     if (r.status === "ready") expect(r.es_dia_sugerido).toBe(false);
   });
+
+  it("resolves the titular via families.titular_id when they are not a familia_miembros row (F183)", async () => {
+    tableResults["delivery_round_slots"] = { data: { round_id: R, slot_date: "2026-06-01", turno: "manana" }, error: null };
+    tableResults["familia_miembros"] = { data: [], error: null }; // titular never mirrored
+    tableResults["families"] = { data: [{ id: "famT" }], error: null }; // titular_id = P match
+    tableResults["delivery_round_assignments"] = { data: { id: A, assigned_day: "2026-06-01", turno: "manana", attended: null }, error: null };
+    const caller = roundsCloseoutRouter.createCaller(ctx(buildUser("voluntario")));
+    const r = await caller.resolveAssignment({ round_id: R, person_id: P, slot_id: S });
+    expect(r.status).toBe("ready");
+    if (r.status === "ready") expect(r.assignment_id).toBe(A);
+  });
 });
 
 describe("rounds-closeout — bulkMarkAttendance (atomic RPC)", () => {

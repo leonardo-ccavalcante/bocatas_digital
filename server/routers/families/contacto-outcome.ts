@@ -18,32 +18,53 @@ export interface ContactoOutcomeInput {
   estado: EstadoContacto;
   preferredSlotIds: string[];
   actor: string;
+  /**
+   * The assignment's estado_contacto as stored BEFORE this write (the caller
+   * reads it in the same request). Required so a non-renuncia outcome recorded
+   * over a stored 'renuncia' clears the ausente stamp — the reversal the
+   * contact dialog promises (F185, gh #129) — while a re-contact over any
+   * other estado never touches the attended fields.
+   */
+  previousEstado: string | null;
 }
 
 /**
  * The single source of truth for what a contacto outcome writes: a renuncia is
  * derived from `estado` (never a separate flag) and ALWAYS clears
  * preferred_slot_ids + stamps the assignment ausente — even if the caller
- * still holds stale preferred ids. Exported standalone so a call site that
- * must merge extra columns into the same single UPDATE (e.g. the n8n inbound
- * handler's reschedule_log) can still share this exact derivation.
+ * still holds stale preferred ids. Conversely, a non-renuncia outcome over a
+ * stored 'renuncia' resets attended/attended_slot_id/attended_at/attended_by
+ * to NULL so the family is pending again on every open day's roster.
+ * Exported standalone so a call site that must merge extra columns into the
+ * same single UPDATE (e.g. the n8n inbound handler's reschedule_log) can
+ * still share this exact derivation.
  */
 export function buildContactoOutcomeUpdate({
   estado,
   preferredSlotIds,
   actor,
+  previousEstado,
 }: Omit<ContactoOutcomeInput, "assignmentId">): AssignmentsUpdate {
-  const isRenuncia = estado === "renuncia";
+  if (estado === "renuncia") {
+    return {
+      estado_contacto: estado,
+      preferred_slot_ids: [],
+      attended: false,
+      attended_slot_id: null,
+      attended_at: new Date().toISOString(),
+      attended_by: actor,
+    };
+  }
+  // Reverting a renuncia ("puede revertirse volviendo a registrar el
+  // contacto"): reset the ausente stamp so getSlotRoster's pending filter
+  // (attended IS NULL) lists the family again (F185, gh #129). Any other
+  // previous estado leaves the attended fields untouched — a re-contact must
+  // never wipe a real attendance recorded at close-out.
   return {
     estado_contacto: estado,
-    preferred_slot_ids: isRenuncia ? [] : preferredSlotIds,
-    ...(isRenuncia
-      ? {
-          attended: false,
-          attended_slot_id: null,
-          attended_at: new Date().toISOString(),
-          attended_by: actor,
-        }
+    preferred_slot_ids: preferredSlotIds,
+    ...(previousEstado === "renuncia"
+      ? { attended: null, attended_slot_id: null, attended_at: null, attended_by: null }
       : {}),
   };
 }

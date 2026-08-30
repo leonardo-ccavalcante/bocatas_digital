@@ -9,7 +9,7 @@ import {
 import { redactHighRiskFields, isElevatedRole } from "../../_core/rlsRedaction";
 import { createAdminClient } from "../../../client/src/lib/supabase/server";
 import { logProcedureAction } from "../../_core/logging-middleware";
-import { ilikeForOr } from "../../_core/postgrestFilter";
+import { parseFamilySearch, titularEmbedFor } from "./titular-search";
 import { isMemberAdult } from "../../families-doc-helpers";
 import {
   uuidLike,
@@ -44,6 +44,11 @@ export const crudRouter = router({
     )
     .query(async ({ input }) => {
       const db = createAdminClient();
+
+      // RC-08: see titular-search.ts for why a name search needs !inner and a
+      // referencedTable-scoped .or().
+      const search = parseFamilySearch(input?.search);
+
       let query = db
         .from("families")
         .select(
@@ -51,7 +56,7 @@ export const crudRouter = router({
            persona_recoge, autorizado, alta_en_guf, fecha_alta_guf,
            informe_social, informe_social_fecha, guf_cutoff_day, guf_verified_at,
            created_at, deleted_at,
-           persons!titular_id(id, nombre, apellidos, telefono)`
+           ${titularEmbedFor(search)}`
         )
         .is("deleted_at", null);
 
@@ -67,15 +72,10 @@ export const crudRouter = router({
       if (input?.distrito) {
         query = query.eq("distrito", input.distrito);
       }
-      if (input?.search) {
-        const searchNum = parseInt(input.search);
-        if (!isNaN(searchNum)) {
-          query = query.eq("familia_numero", searchNum);
-        } else {
-          query = query.or(
-            `persons.nombre.ilike.${ilikeForOr(input.search)},persons.apellidos.ilike.${ilikeForOr(input.search)}`
-          );
-        }
+      if (search.kind === "numero") {
+        query = query.eq("familia_numero", search.numero);
+      } else if (search.kind === "nombre") {
+        query = query.or(search.orFilter, { referencedTable: "persons" });
       }
 
       const offset = input?.offset ?? 0;

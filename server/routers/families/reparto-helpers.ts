@@ -2,8 +2,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 // PRE-2 — representative ("titular") resolution.
 //
-// families.titular_id is empty in prod and no familia_miembro is flagged as
-// titular, so we derive a deterministic representative per family: prefer a
+// families.titular_id IS set for wizard-created families, but the titular is
+// never mirrored into familia_miembros (families.create writes only the
+// dependents), so resolution reads BOTH: titular_id wins; families without one
+// (legacy imports) fall back to a deterministic member heuristic — prefer a
 // member with relacion='parent' (earliest created_at), else the earliest
 // member. Identity (name / DNI / phone) lives on persons, joined via person_id.
 
@@ -58,15 +60,22 @@ export async function resolveRepresentatives(
   const result = new Map<string, Representative>();
   if (familyIds.length === 0) return result;
 
-  const { data: members } = await db
-    .from("familia_miembros")
-    .select("familia_id, relacion, created_at, person_id")
-    .in("familia_id", familyIds)
-    .is("deleted_at", null);
+  const [famRes, memRes] = await Promise.all([
+    db.from("families").select("id, titular_id").in("id", familyIds).is("deleted_at", null),
+    db
+      .from("familia_miembros")
+      .select("familia_id, relacion, created_at, person_id")
+      .in("familia_id", familyIds)
+      .is("deleted_at", null),
+  ]);
 
-  const reps = pickRepresentatives((members ?? []) as MemberRow[]);
-  const personIds = [...reps.values()].map((m) => m.person_id).filter((x): x is string => !!x);
+  // families.titular_id wins; the member heuristic covers families without one.
+  const reps = pickRepresentatives((memRes.data ?? []) as MemberRow[]);
+  const personByFamily = new Map<string, string | null>();
+  for (const f of famRes.data ?? []) if (f.titular_id) personByFamily.set(f.id, f.titular_id);
+  for (const [fid, m] of reps) if (!personByFamily.has(fid)) personByFamily.set(fid, m.person_id);
 
+  const personIds = [...new Set([...personByFamily.values()].filter((x): x is string => !!x))];
   const persons = new Map<string, Omit<Representative, "person_id">>();
   if (personIds.length > 0) {
     const { data: prows } = await db
@@ -83,10 +92,10 @@ export async function resolveRepresentatives(
     }
   }
 
-  for (const [familyId, member] of reps) {
-    const ident = member.person_id ? persons.get(member.person_id) : undefined;
+  for (const [familyId, personId] of personByFamily) {
+    const ident = personId ? persons.get(personId) : undefined;
     result.set(familyId, {
-      person_id: member.person_id,
+      person_id: personId,
       nombre: ident?.nombre ?? null,
       apellidos: ident?.apellidos ?? null,
       numero_documento: ident?.numero_documento ?? null,
