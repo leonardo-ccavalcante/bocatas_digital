@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { createAdminClient } from "../../../client/src/lib/supabase/server";
 import { adminProcedure, voluntarioProcedure, router } from "../../_core/trpc";
+import { authActorId } from "../../_core/actorId";
 import { uuidLike } from "./_shared";
 
 export const consentsRouter = router({
@@ -137,10 +138,11 @@ export const consentsRouter = router({
         // Storage PATH, not a URL — see persons/photo.ts.
         documento_foto_url: z.string().max(255).optional().nullable(),
         numero_serie: z.string().max(50).optional().nullable(),
-        registrado_por: z.string().uuid().optional().nullable(),
+        // registrado_por is NOT accepted from the client — a client-supplied
+        // actor is spoofable and was always null anyway. Written from ctx below.
       })),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       // La comprobación va PRIMERO: con el `return []` por delante, una llamada
       // con array vacío devolvía 200 y dejaba a la persona sin una sola fila de
       // consentimiento — ni base de tratamiento, ni prueba de las negativas.
@@ -159,7 +161,8 @@ export const consentsRouter = router({
         consent_version: c.consent_version ?? "",
         documento_foto_url: c.documento_foto_url ?? null,
         numero_serie: c.numero_serie ?? null,
-        registrado_por: c.registrado_por ?? null,
+        // Authorship written server-side from the session (#145).
+        registrado_por: authActorId(ctx.user),
       }));
 
       const { data, error } = await supabase

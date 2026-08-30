@@ -210,6 +210,23 @@ describe("families.getLatestFollowUp", () => {
     expect(result).toBeNull();
   });
 
+  it("does NOT select the narrative notas field (voluntario exposure) (#171 F088)", async () => {
+    const chain = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      is: vi.fn().mockReturnThis(),
+      order: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn(() => Promise.resolve({ data: { id: FOLLOW_UP_ID, fecha: VALID_DATE }, error: null })),
+    };
+    fromMock.mockReturnValueOnce(chain);
+
+    const caller = followUpsRouter.createCaller(ctxWithRole("voluntario"));
+    await caller.getLatestFollowUp({ family_id: FAMILY_ID });
+
+    expect(chain.select).toHaveBeenCalledWith(expect.not.stringContaining("notas"));
+  });
+
   it("is accessible to voluntario role", async () => {
     const chain = {
       select: vi.fn().mockReturnThis(),

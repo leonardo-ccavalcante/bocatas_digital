@@ -31,17 +31,24 @@ const SUPERADMIN_ID = "3f1c0a5e-2b7d-4c8a-9e10-5d6b7c8a9f01";
 const OTHER_ID = "a4d2e6b8-1c3f-4a5b-8d7e-9f0a1b2c3d4e";
 const SECOND_SUPER_ID = "b5e3f7c9-2d4a-4b6c-9e8f-0a1b2c3d4e5f";
 
-/** What auth.admin.listUsers returns — only role and id matter to the guard. */
+/**
+ * What auth.admin.listUsers returns — only role and id matter to the guard.
+ * The guard now paginates to exhaustion (#151), so the census comes back on the
+ * first page and every subsequent page is empty to terminate the loop.
+ */
 function withSuperadmins(...ids: string[]) {
-  listUsers.mockResolvedValue({
-    data: {
-      users: [
-        ...ids.map((id) => ({ id, app_metadata: { role: "superadmin" } })),
-        { id: OTHER_ID, app_metadata: { role: "voluntario" } },
-      ],
-    },
-    error: null,
-  });
+  listUsers.mockReset();
+  listUsers
+    .mockResolvedValueOnce({
+      data: {
+        users: [
+          ...ids.map((id) => ({ id, app_metadata: { role: "superadmin" } })),
+          { id: OTHER_ID, app_metadata: { role: "voluntario" } },
+        ],
+      },
+      error: null,
+    })
+    .mockResolvedValue({ data: { users: [] }, error: null });
 }
 
 function ctx(userId = SUPERADMIN_ID): TrpcContext {

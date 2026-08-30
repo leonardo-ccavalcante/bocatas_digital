@@ -52,7 +52,10 @@ export function enrichOfflineItems(input: OfflineSyncItem[]): EnrichedOfflineIte
  * filtered out here so a demo check-in can never occupy a real check-in's
  * unique slot. The returned rows are therefore always es_demo = false.
  */
-export function offlineAttendanceRows(enriched: EnrichedOfflineItem[]) {
+export function offlineAttendanceRows(
+  enriched: EnrichedOfflineItem[],
+  registradoPor: string | null
+) {
   return enriched
     .filter(({ item }) => !item.isDemoMode)
     .map(({ item, checkedInAt, checkedInDate }) => ({
@@ -61,6 +64,8 @@ export function offlineAttendanceRows(enriched: EnrichedOfflineItem[]) {
       programa: item.programa,
       metodo: item.metodo,
       es_demo: false,
+      // Authorship written server-side from the session, never the client (#145).
+      registrado_por: registradoPor,
       checked_in_at: checkedInAt,
       checked_in_date: checkedInDate,
     }));
