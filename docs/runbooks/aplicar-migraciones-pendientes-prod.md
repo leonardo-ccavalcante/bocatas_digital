@@ -146,6 +146,28 @@ where slug in ('empleo','higiene_desayuno','ocio','eb_higiene_y_desayuno',
 existe y es privado. La migración es `ON CONFLICT (id) DO NOTHING`, así que se
 aplica sin efecto y cierra el registro.
 
+### 2.7 y 2.8 · Las dos que trae esta rama
+
+Van detrás de las seis anteriores y son de riesgo bajo, pero se aplican en el
+mismo pase para que el registro quede al día:
+
+- **`20260831100000_documentos_identidad_bucket`** — crea el bucket
+  `documentos-identidad`, que hasta ahora sólo estaba REFERENCIADO por una
+  política RLS. En producción ya existe → no-op. En un `db reset` limpio era la
+  diferencia entre guardar la foto del documento y un "Bucket not found".
+- **`20260831110000_persons_situacion_vulnerabilidad`** — añade
+  `situacion_vulnerabilidad` (boolean) y `situacion_vulnerabilidad_otros`
+  (text). Dos columnas nuevas, nullable, sin default: no reescribe ninguna fila
+  existente. Es la ÚNICA de las ocho que mueve `database.types.ts`.
+
+```sql
+select column_name from information_schema.columns
+where table_schema='public' and table_name='persons'
+  and column_name like 'situacion_vulnerabilidad%';
+-- después: dos filas
+select id from storage.buckets where id='documentos-identidad';
+```
+
 ---
 
 ## 3 · Después de las seis
