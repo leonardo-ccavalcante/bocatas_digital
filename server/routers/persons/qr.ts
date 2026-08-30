@@ -53,7 +53,7 @@ export const qrRouter = router({
       const db = createAdminClient();
       const { data, error } = await db
         .from("persons")
-        .select("id")
+        .select("id, nombre, apellidos")
         .eq("id", input.personId)
         .is("deleted_at", null)
         .maybeSingle();
@@ -64,7 +64,9 @@ export const qrRouter = router({
         });
       }
       const payload = await buildQrPayload(input.personId, ensureSecret());
-      return { payload };
+      // nombre/apellidos travel in the tRPC response for the printable card
+      // legend only — the QR payload itself stays PII-free (QA-1A).
+      return { payload, nombre: data.nombre, apellidos: data.apellidos };
     }),
 
   /**

@@ -318,7 +318,7 @@ describe("InstitucionesPage", () => {
   // 9 ──────────────────────────────────────────────────────────────────────────
   it("clicking Edit opens the dialog pre-filled with the institution data", async () => {
     const user = userEvent.setup();
-    mockUseAuth.mockReturnValue({ user: adminUser });
+    mockUseAuth.mockReturnValue({ user: superadminUser });
     mockListUseQuery.mockReturnValue({
       data: { rows: [activeInst], total: 1 },
       isLoading: false,
@@ -537,6 +537,38 @@ describe("InstitucionesPage", () => {
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalled();
+    });
+  });
+
+  // RC-07 (F237) ────────────────────────────────────────────────────────────
+  it("no ofrece 'Editar' a un admin — instituciones.update es superadminProcedure", async () => {
+    mockUseAuth.mockReturnValue({ user: adminUser });
+    mockListUseQuery.mockReturnValue({
+      data: { rows: [activeInst], total: 1 },
+      isLoading: false,
+      error: null,
+    });
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("Cáritas Madrid")).toBeInTheDocument();
+    });
+    expect(screen.queryByRole("button", { name: /Editar Cáritas Madrid/i })).toBeNull();
+  });
+
+  it("sí ofrece 'Editar' a un superadmin", async () => {
+    mockUseAuth.mockReturnValue({ user: superadminUser });
+    mockListUseQuery.mockReturnValue({
+      data: { rows: [activeInst], total: 1 },
+      isLoading: false,
+      error: null,
+    });
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Editar Cáritas Madrid/i })).toBeInTheDocument();
     });
   });
 });

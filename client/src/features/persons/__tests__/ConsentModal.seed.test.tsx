@@ -45,8 +45,19 @@ vi.mock("@/lib/supabase/client", () => ({
   }),
 }));
 
+const mockSaveConsents = vi.hoisted(() =>
+  vi.fn(async (_payload: { personId: string; consents: UpsertRow[] }) => [])
+);
+
 vi.mock("@/lib/trpc", () => ({
-  trpc: { persons: { getPersonConsents: { useQuery: mockUseQuery } } },
+  trpc: {
+    persons: {
+      getPersonConsents: { useQuery: mockUseQuery },
+      // Desde RC-03 el modal escribe por tRPC, no por supabase-js.
+      uploadPhoto: { useMutation: () => ({ mutateAsync: vi.fn(async () => ({ path: "p/x.jpg" })) }) },
+      saveConsents: { useMutation: () => ({ mutateAsync: mockSaveConsents }) },
+    },
+  },
 }));
 
 import { ConsentModal } from "../components/ConsentModal";
@@ -195,9 +206,11 @@ describe("ConsentModal — siembra con los consentimientos ya firmados", () => {
       screen.getByRole("button", { name: /Guardar consentimientos/ }),
     );
 
-    await waitFor(() => expect(upsertMock).toHaveBeenCalledTimes(1));
-    const rows = upsertMock.mock.calls[0][0] as UpsertRow[];
-    expect(rows).toHaveLength(1);
-    expect(rows[0].purpose).toBe("fotografia");
+    // Desde RC-03 la escritura va por tRPC (persons.saveConsents), no por
+    // supabase-js: el muro de guards es la única barrera de PII (ADR-0002).
+    await waitFor(() => expect(mockSaveConsents).toHaveBeenCalledTimes(1));
+    const payload = mockSaveConsents.mock.calls[0]?.[0];
+    expect(payload?.consents).toHaveLength(1);
+    expect(payload?.consents[0]?.purpose).toBe("fotografia");
   });
 });

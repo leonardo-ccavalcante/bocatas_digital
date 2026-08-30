@@ -19,12 +19,19 @@ const upsertMock = vi.fn();
 
 vi.mock("../../../client/src/lib/supabase/server", () => ({
   createAdminClient: () => ({
-    from: () => ({
-      upsert: (rows: unknown[]) => {
+    from: () => {
+      // `assertGroupACovered` consulta lo que ya consta antes de escribir, así
+      // que el builder tiene que ser encadenable y esperable, no sólo upsert.
+      const b: Record<string, unknown> = {};
+      for (const m of ["select", "eq", "in", "is"]) b[m] = vi.fn(() => b);
+      b.then = (res: (v: unknown) => unknown) =>
+        Promise.resolve({ data: [], error: null }).then(res);
+      b.upsert = (rows: unknown[]) => {
         upsertMock(rows);
         return { select: () => Promise.resolve({ data: rows, error: null }) };
-      },
-    }),
+      };
+      return b;
+    },
   }),
   createServerClient: vi.fn(),
 }));

@@ -1,34 +1,52 @@
 /**
- * consent-group-a-enforcement.test.ts — Phase 6 QA-9 / F-110, revisado en ALTAS-8.
+ * consent-group-a-enforcement.test.ts — Phase 6 QA-9 / F-110.
  *
- * Este fichero fijaba una regla que era ella misma el defecto: exigía los TRES
- * fines (`tratamiento_datos_bocatas`, `fotografia`, `comunicaciones_whatsapp`)
- * como condición para registrar a una persona. El equipo lo detectó desde el
- * mostrador — "podría darse el caso de que la persona no autorizara a ceder
- * imagen" — y tienen razón en Derecho: el RGPD Art. 7(4) sólo considera libre
- * el consentimiento si negarlo no cuesta el servicio. Empaquetar la cesión de
- * imagen y las comunicaciones por WhatsApp con la base de tratamiento invalidaba
- * los tres, y además dejaba fuera del comedor a quien no quisiera salir en una
- * foto.
+ * CLAUDE.md §3 RGPD guard-rail: Group A consents
+ *   (tratamiento_datos_bocatas, fotografia, comunicaciones_whatsapp)
+ * are mandatory. The server's `persons.saveConsents` mutation must
+ * reject any submission where ANY Group A purpose is missing or
+ * explicitly denied, with `TRPCError({ code: "BAD_REQUEST" })`.
  *
- * La regla correcta separa dos cosas que no son la misma:
- *   · COMPLETITUD — los tres fines viajan SIEMPRE en la petición. Una negativa
- *     se prueba con su fila `granted=false`, que es lo que exige el principio de
- *     responsabilidad proactiva (Art. 5.2). Esta parte NO se relaja.
- *   · BLOQUEO — sólo `tratamiento_datos_bocatas` puede impedir el registro.
+ * Pre-Phase-6 this enforcement existed in code but no test locked it
+ * in. A future refactor that accidentally weakens the gate would have
+ * shipped silently. This file fills that gap.
  *
- * No contradice ninguna ADR: la exigencia de los tres no está recogida en
- * AGENTS.md, CONTEXT.md ni en docs/adr/ — vivía sólo en el código y en este
- * test. La referencia a "CLAUDE.md §3" de la cabecera anterior estaba obsoleta.
- *
- * La comprobación ocurre ANTES de la llamada a Supabase, así que basta un caller
- * tRPC puro sin mock de base de datos.
+ * RC-03/F050 relaxes WHICH payloads satisfy the invariant, not the
+ * invariant itself: the "missing Group A" check now consults the DB, so a
+ * PARTIAL save (the ficha's ConsentModal) is legal when the omitted Group A
+ * purposes are already granted. Group A can still never be set to false.
+ * That DB read is mocked below.
  */
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { TRPCError } from "@trpc/server";
 import { appRouter } from "../routers";
 import type { TrpcContext } from "../_core/context";
 import { Logger } from "../_core/logger";
+
+const dbState = vi.hoisted(() => ({
+  existingGranted: [] as Array<{ purpose: string; granted: boolean }>,
+}));
+
+vi.mock("../../client/src/lib/supabase/server", () => ({
+  createAdminClient: () => ({
+    from: () => {
+      const b: Record<string, unknown> = {
+        select: () => b,
+        eq: () => b,
+        in: () => b,
+        upsert: () => ({
+          select: async () => ({ data: [{ id: "c1", purpose: "x", granted: true }], error: null }),
+        }),
+        then: (resolve: (v: unknown) => unknown) => resolve({ data: dbState.existingGranted, error: null }),
+      };
+      return b;
+    },
+  }),
+}));
+
+beforeEach(() => {
+  dbState.existingGranted = [];
+});
 
 type AuthenticatedUser = NonNullable<TrpcContext["user"]>;
 
@@ -78,8 +96,8 @@ function consentRow(purpose: typeof GROUP_A_PURPOSES[number] | "tratamiento_dato
   };
 }
 
-describe("persons.saveConsents — qué puede bloquear un registro (F-110, ALTAS-8)", () => {
-  it("rechaza si falta cualquiera de los tres fines: sin fila no hay prueba", async () => {
+describe("persons.saveConsents — Group A mandatory enforcement (F-110)", () => {
+  it("rejects with BAD_REQUEST when ANY Group A purpose is missing", async () => {
     const caller = appRouter.createCaller(authCtx());
     // Submit only 2 of the 3 required Group A purposes.
     await expect(
@@ -94,13 +112,42 @@ describe("persons.saveConsents — qué puede bloquear un registro (F-110, ALTAS
     ).rejects.toThrow(TRPCError);
   });
 
-  // El cambio de fondo de ALTAS-8 —que negar imagen o WhatsApp ya NO impide
-  // registrar— se prueba en server/routers/__tests__/persons.saveConsents.grupoA.test.ts:
-  // ese caso atraviesa la puerta y llega al INSERT, así que necesita mock de base
-  // de datos. Este fichero se queda, por diseño, con lo que se rechaza ANTES de
-  // tocar Supabase y no necesita mock.
+  // ALTAS-8: el equipo pidió poder registrar a quien no autoriza su imagen, y
+  // en Derecho tenían razón — empaquetar tres consentimientos invalida los tres
+  // (RGPD Art. 7(4)). Sólo el tratamiento de datos bloquea.
+  it("acepta el registro aunque se niegue la fotografía", async () => {
+    const caller = appRouter.createCaller(authCtx());
+    await expect(
+      caller.persons.saveConsents({
+        personId: PERSON_ID,
+        consents: GROUP_A_PURPOSES.map((p) => consentRow(p, p !== "fotografia")),
+      })
+    ).resolves.toBeDefined();
+  });
+
+  it("acepta el registro aunque se nieguen las comunicaciones por WhatsApp", async () => {
+    const caller = appRouter.createCaller(authCtx());
+    await expect(
+      caller.persons.saveConsents({
+        personId: PERSON_ID,
+        consents: GROUP_A_PURPOSES.map((p) => consentRow(p, p !== "comunicaciones_whatsapp")),
+      })
+    ).resolves.toBeDefined();
+  });
 
   it("sigue rechazando si se niega el tratamiento de datos", async () => {
+    const caller = appRouter.createCaller(authCtx());
+    await expect(
+      caller.persons.saveConsents({
+        personId: PERSON_ID,
+        consents: GROUP_A_PURPOSES.map((p) =>
+          consentRow(p, p !== "tratamiento_datos_bocatas")
+        ),
+      })
+    ).rejects.toThrow(TRPCError);
+  });
+
+  it("rejects when ALL Group A are denied", async () => {
     const caller = appRouter.createCaller(authCtx());
     await expect(
       caller.persons.saveConsents({
@@ -110,7 +157,59 @@ describe("persons.saveConsents — qué puede bloquear un registro (F-110, ALTAS
     ).rejects.toThrow(TRPCError);
   });
 
-  it("el mensaje de error nombra el consentimiento que falta", async () => {
+  it("accepts a PARTIAL save (Group B only) when the person already has Group A granted in the DB (RC-03/F050)", async () => {
+    dbState.existingGranted = GROUP_A_PURPOSES.map((p) => ({ purpose: p, granted: true }));
+    const caller = appRouter.createCaller(authCtx());
+    await expect(
+      caller.persons.saveConsents({
+        personId: PERSON_ID,
+        consents: [consentRow("tratamiento_datos_banco_alimentos", true)],
+      })
+    ).resolves.toBeDefined();
+  });
+
+  it("accepts REVOKING a Group B consent (granted:false) when Group A is covered in the DB", async () => {
+    dbState.existingGranted = GROUP_A_PURPOSES.map((p) => ({ purpose: p, granted: true }));
+    const caller = appRouter.createCaller(authCtx());
+    await expect(
+      caller.persons.saveConsents({
+        personId: PERSON_ID,
+        consents: [consentRow("compartir_datos_red", false)],
+      })
+    ).resolves.toBeDefined();
+  });
+
+  it("una negativa YA registrada cuenta como constancia en un guardado parcial", async () => {
+    // La ficha manda actualizaciones parciales. Si en el alta se denegó la
+    // imagen, esa fila existe con granted=false: es una decisión documentada,
+    // no un hueco. Exigir granted=true para las tres dejaría a esa persona sin
+    // poder tocar ningún consentimiento nunca más.
+    dbState.existingGranted = [
+      { purpose: "tratamiento_datos_bocatas", granted: true },
+      { purpose: "fotografia", granted: false },
+      { purpose: "comunicaciones_whatsapp", granted: true },
+    ];
+    const caller = appRouter.createCaller(authCtx());
+    await expect(
+      caller.persons.saveConsents({
+        personId: PERSON_ID,
+        consents: [consentRow("tratamiento_datos_banco_alimentos", true)],
+      })
+    ).resolves.toBeDefined();
+  });
+
+  it("still rejects a partial save when the person does NOT have Group A granted anywhere", async () => {
+    dbState.existingGranted = [];
+    const caller = appRouter.createCaller(authCtx());
+    await expect(
+      caller.persons.saveConsents({
+        personId: PERSON_ID,
+        consents: [consentRow("tratamiento_datos_banco_alimentos", true)],
+      })
+    ).rejects.toThrow(TRPCError);
+  });
+
+  it("error message is descriptive (mentions Grupo A)", async () => {
     const caller = appRouter.createCaller(authCtx());
     try {
       await caller.persons.saveConsents({
@@ -130,7 +229,7 @@ describe("persons.saveConsents — qué puede bloquear un registro (F-110, ALTAS
     }
   });
 
-  it("rechaza a quien no ha iniciado sesión (defensa en profundidad)", async () => {
+  it("rejects unauthenticated callers (defense-in-depth)", async () => {
     const caller = appRouter.createCaller({
       user: null,
       logger: new Logger(),

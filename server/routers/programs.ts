@@ -146,17 +146,26 @@ export const programsRouter = router({
     return parsed.data;
   }),
 
-  /** Returns single program by slug (admin+) */
-  getBySlug: adminProcedure
+  /** Returns single program by slug. Voluntarios only see volunteer_can_access=true */
+  getBySlug: voluntarioProcedure
     .input(z.object({ slug: z.string() }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       const supabase = createAdminClient();
-      const { data, error } = await supabase
+      const role = ctx.user.role;
+
+      let query = supabase
         .from("programs")
         .select("*")
-        .eq("slug", input.slug)
-        .single();
+        .eq("slug", input.slug);
 
+      // Same visibility rule as getAll: non-elevated roles only see programs
+      // flagged volunteer_can_access. Program rows carry config only — no
+      // person PII — so ADR-0002 redaction is not implicated.
+      if (role !== "admin" && role !== "superadmin") {
+        query = query.eq("volunteer_can_access", true);
+      }
+
+      const { data, error } = await query.single();
       if (error || !data) {
         throw new TRPCError({ code: "NOT_FOUND", message: `Programa '${input.slug}' no encontrado` });
       }

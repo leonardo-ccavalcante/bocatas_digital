@@ -132,7 +132,7 @@ export const superadminProcedure = t.procedure.use(
     const { ctx, next } = opts;
 
     if (!ctx.user || ctx.user.role !== 'superadmin') {
-      throw new TRPCError({ code: "FORBIDDEN", message: 'Superadmin access required' });
+      throw new TRPCError({ code: "FORBIDDEN", message: 'Se requiere permiso de superadministrador' });
     }
 
     return next({

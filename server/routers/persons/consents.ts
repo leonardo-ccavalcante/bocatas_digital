@@ -102,8 +102,21 @@ export const consentsRouter = router({
     }),
 
   /**
-   * Save consent records for a person.
-   * Uses service role key to bypass RLS.
+   * Save consent records for a person. Uses the service role to bypass RLS —
+   * the tRPC guard is the enforcement boundary (ADR-0002).
+   *
+   * Dos invariantes DISTINTOS, y confundirlos cuesta caro:
+   *
+   *   · CONSTANCIA — de los tres fines que siempre se preguntan queda registro,
+   *     venga en esta petición o ya en base. La ficha manda actualizaciones
+   *     PARCIALES (RC-03/F050) y el wizard las manda todas; ambas valen mientras
+   *     lo omitido ya conste. Una negativa se prueba con su fila, así que esto
+   *     no se relaja (RGPD Art. 5.2).
+   *   · CONCESIÓN — sólo `tratamiento_datos_bocatas` tiene que acabar concedido.
+   *     Exigir además la cesión de imagen o el WhatsApp convertía el
+   *     consentimiento en condición para recibir el servicio, que es lo que el
+   *     Art. 7(4) no admite, y dejaba fuera a quien no quisiera salir en una
+   *     foto (ALTAS-8).
    */
   saveConsents: voluntarioProcedure
     .input(z.object({
@@ -124,41 +137,9 @@ export const consentsRouter = router({
     .mutation(async ({ input }) => {
       if (input.consents.length === 0) return [];
 
-      // Dos comprobaciones distintas, y confundirlas cuesta caro (ALTAS-8).
-      //
-      // COMPLETITUD: los tres fines vienen SIEMPRE en la petición. Una negativa
-      // se prueba con su fila `granted=false`; si el cliente pudiera omitir
-      // `fotografia`, la negativa dejaría de constar y se perdería la prueba que
-      // exige el principio de responsabilidad proactiva (RGPD Art. 5.2).
-      const SIEMPRE_RECOGIDOS = [
-        "tratamiento_datos_bocatas",
-        "fotografia",
-        "comunicaciones_whatsapp",
-      ] as const;
-      const submittedMap = new Map(input.consents.map((c) => [c.purpose, c.granted]));
-      const missing = SIEMPRE_RECOGIDOS.filter((p) => !submittedMap.has(p));
-      if (missing.length > 0) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: `Faltan consentimientos obligatorios del Grupo A: ${missing.join(", ")}`,
-        });
-      }
-      // BLOQUEO: sólo la base de tratamiento puede impedir el registro. Exigir
-      // además la cesión de imagen o las comunicaciones por WhatsApp convertía
-      // el consentimiento en condición para recibir el servicio, que es justo lo
-      // que el Art. 7(4) no admite — y dejaba fuera a quien no quisiera salir en
-      // una foto. Debe seguir en pie con buildConsentGroups del cliente.
-      const OBLIGATORIOS = ["tratamiento_datos_bocatas"] as const;
-      const denegados = OBLIGATORIOS.filter((p) => submittedMap.get(p) === false);
-      if (denegados.length > 0) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message:
-            "Sin el consentimiento de tratamiento de datos no se puede completar el registro.",
-        });
-      }
-
       const supabase = createAdminClient();
+      await assertGroupACovered(supabase, input.personId, input.consents);
+
       const rows = input.consents.map((c) => ({
         person_id: input.personId,
         purpose: c.purpose,
@@ -187,3 +168,62 @@ export const consentsRouter = router({
       return data ?? [];
     }),
 });
+
+/** Los tres fines de los que SIEMPRE tiene que quedar constancia. */
+const SIEMPRE_RECOGIDOS = ["tratamiento_datos_bocatas", "fotografia", "comunicaciones_whatsapp"] as const;
+
+/** El único que además tiene que estar CONCEDIDO para poder registrar. */
+const OBLIGATORIOS = ["tratamiento_datos_bocatas"] as const;
+
+async function assertGroupACovered(
+  supabase: ReturnType<typeof createAdminClient>,
+  personId: string,
+  consents: Array<{ purpose: string; granted: boolean }>,
+): Promise<void> {
+  const submitted = new Map(consents.map((c) => [c.purpose, c.granted]));
+
+  const denegados = OBLIGATORIOS.filter((p) => submitted.get(p) === false);
+  if (denegados.length > 0) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Sin el consentimiento de tratamiento de datos no se puede completar el registro.",
+    });
+  }
+
+  const ausentes = SIEMPRE_RECOGIDOS.filter((p) => !submitted.has(p));
+  if (ausentes.length === 0) return;
+
+  // Lo omitido tiene que constar ya en base. Ojo al matiz: para la imagen y el
+  // WhatsApp basta que EXISTA la fila —un "no" registrado es una decisión
+  // documentada, no un hueco—, mientras que el tratamiento de datos tiene que
+  // constar CONCEDIDO. Filtrar aquí por granted=true para los tres dejaría a la
+  // ficha sin poder guardar nada de quien denegó la foto en el alta.
+  const { data, error } = await supabase
+    .from("consents")
+    .select("purpose, granted")
+    .eq("person_id", personId)
+    .in("purpose", ausentes);
+  if (error) {
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "Error al comprobar los consentimientos existentes",
+    });
+  }
+
+  const filas = new Map((data ?? []).map((r) => [r.purpose as string, r.granted as boolean]));
+  const sinConstancia = ausentes.filter((p) => !filas.has(p));
+  if (sinConstancia.length > 0) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: `Faltan consentimientos obligatorios del Grupo A: ${sinConstancia.join(", ")}`,
+    });
+  }
+
+  const sinConceder = OBLIGATORIOS.filter((p) => ausentes.includes(p) && filas.get(p) !== true);
+  if (sinConceder.length > 0) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Sin el consentimiento de tratamiento de datos no se puede completar el registro.",
+    });
+  }
+}

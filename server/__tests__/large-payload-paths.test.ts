@@ -24,6 +24,8 @@ const UPLOAD_PROCEDURES = [
   { path: "/api/trpc/entregas.uploadPhotoToStorage", why: "delivery sheet photo — photoData base64" },
   { path: "/api/trpc/announcements.uploadImage", why: "novedad image" },
   { path: "/api/trpc/programs.sessionDocuments.uploadSessionDocument", why: "session document — base64File, validated to 8 MB" },
+  { path: "/api/trpc/families.uploadFamilyDocument", why: "family document — base64 PDF/JPG, validated to 10 MB" },
+  { path: "/api/trpc/families.attachSignedActa", why: "signed Hoja de Firmas photo — base64" },
   { path: "/api/trpc/families.previewLegacyImport", why: "legacy CSV import preview" },
   { path: "/api/trpc/families.confirmLegacyImport", why: "legacy CSV import confirm" },
 ];

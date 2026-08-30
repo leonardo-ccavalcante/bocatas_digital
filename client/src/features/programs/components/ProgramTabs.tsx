@@ -152,7 +152,7 @@ export function ProgramTabs({ program }: ProgramTabsProps) {
 
       <TabsContent value="repartos">
         <Suspense fallback={<TabFallback />}>
-          {ENABLED_TABS.includes("repartos") && <RepartoTab programId={program.id} />}
+          {ENABLED_TABS.includes("repartos") && <RepartoTab programId={program.id} isAdmin={isAdmin} />}
         </Suspense>
       </TabsContent>
 

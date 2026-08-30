@@ -1,4 +1,6 @@
-import { describe, it, expect } from "vitest";
+import React from "react";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { render, cleanup, waitFor, fireEvent } from "@testing-library/react";
 
 // Mirrors logic from DocumentUploadModal.tsx
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
@@ -68,37 +70,77 @@ describe("DocumentUploadModal — extension inference", () => {
   });
 });
 
-describe("DocumentUploadModal — DB-first ordering invariant", () => {
-  // Plan Gap D: DB row insert MUST happen before Storage upload to avoid orphan PII files.
-  // We cannot test the actual DOM event here, but we codify the invariant as a sequence.
+/**
+ * RC-03 — DocumentUploadModal must send the file bytes as base64 through
+ * families.uploadFamilyDocument (server-side storage write, ADR-0002) instead
+ * of the old row-then-browser-storage-upload-then-rollback dance that always
+ * 403'd against the private family-documents bucket. The "DB-first ordering
+ * invariant" cases that used to live here described that removed flow.
+ */
+class ResizeObserverStub { observe() {} unobserve() {} disconnect() {} }
+global.ResizeObserver = global.ResizeObserver ?? ResizeObserverStub;
+if (!Element.prototype.scrollIntoView) { Element.prototype.scrollIntoView = () => {}; }
 
-  it("the upload sequence has DB step before Storage step", () => {
-    const sequence: string[] = [];
-    function simulateHappyPath() {
-      sequence.push("compress");
-      sequence.push("buildPath");
-      sequence.push("computePublicUrl");
-      sequence.push("dbInsert"); // MUST be before storageUpload
-      sequence.push("storageUpload");
-      sequence.push("toastSuccess");
-    }
-    simulateHappyPath();
-    const dbIdx = sequence.indexOf("dbInsert");
-    const storageIdx = sequence.indexOf("storageUpload");
-    expect(dbIdx).toBeGreaterThanOrEqual(0);
-    expect(dbIdx).toBeLessThan(storageIdx);
-  });
+afterEach(cleanup);
 
-  it("on Storage failure, DB row is soft-deleted (rollback)", () => {
-    const storageOk = false;
-    let dbDeleted = false;
-    function simulateStorageFailure() {
-      // dbInsert succeeded — predicted URL committed
-      if (!storageOk) {
-        dbDeleted = true; // rollback
-      }
-    }
-    simulateStorageFailure();
-    expect(dbDeleted).toBe(true);
+const { mockUploadMutateAsync, mockDeleteMutateAsync, mockStorageUpload } = vi.hoisted(() => ({
+  mockUploadMutateAsync: vi.fn(),
+  mockDeleteMutateAsync: vi.fn(),
+  mockStorageUpload: vi.fn(),
+}));
+
+vi.mock("@/features/families/hooks/useFamilias", () => ({
+  useUploadFamilyDocument: () => ({ mutateAsync: mockUploadMutateAsync, isPending: false }),
+  useDeleteFamilyDocument: () => ({ mutateAsync: mockDeleteMutateAsync, mutate: vi.fn(), isPending: false }),
+  useFamilyLevelDocuments: () => ({ data: [] }),
+  useMemberLevelDocuments: () => ({ data: [] }),
+  useAllFamilyDocuments: () => ({ data: [] }),
+}));
+
+vi.mock("@/_core/hooks/useAuth", () => ({ useAuth: () => ({ user: { id: "u1" } }) }));
+// Regression lock: the browser Supabase client must never be used again here.
+vi.mock("@/lib/supabase/client", () => ({
+  createClient: () => ({ storage: { from: () => ({ upload: mockStorageUpload }) } }),
+}));
+vi.mock("@/lib/posthog", () => ({ capture: vi.fn() }));
+vi.mock("@/features/families/utils/signedUrl", () => ({ getSignedDocUrl: vi.fn() }));
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+
+import { DocumentUploadModal } from "../DocumentUploadModal";
+
+describe("DocumentUploadModal (RC-03)", () => {
+  it("sends the PDF bytes as base64 through uploadFamilyDocument, never via browser Storage", async () => {
+    mockUploadMutateAsync.mockResolvedValue({ id: "doc-1" });
+    mockStorageUpload.mockResolvedValue({ error: null });
+
+    const { container } = render(
+      <DocumentUploadModal
+        familyId="f1"
+        documentoTipo="padron_municipal"
+        memberIndex={-1}
+        open
+        onOpenChange={vi.fn()}
+      />
+    );
+
+    const input = container.ownerDocument.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(input, {
+      target: { files: [new File(["content"], "padron.pdf", { type: "application/pdf" })] },
+    });
+
+    await waitFor(() => {
+      expect(mockUploadMutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          family_id: "f1",
+          member_index: -1,
+          documento_tipo: "padron_municipal",
+          documento_url: expect.stringMatching(/^f1\/-1\/padron_municipal\/.+\.pdf$/),
+          base64: "Y29udGVudA==",
+          content_type: "application/pdf",
+        })
+      );
+    });
+    expect(mockStorageUpload).not.toHaveBeenCalled();
+    expect(mockDeleteMutateAsync).not.toHaveBeenCalled();
   });
 });

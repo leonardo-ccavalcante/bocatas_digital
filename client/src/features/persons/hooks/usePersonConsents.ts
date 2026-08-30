@@ -7,7 +7,7 @@
  * aquí y no en ConsentModal porque el modal ya roza el tope de 300 líneas que
  * el gate de eslint trata como error.
  */
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import { trpc, type RouterOutputs } from "@/lib/trpc";
 
 export type SavedConsent = RouterOutputs["persons"]["getPersonConsents"][number];
@@ -73,28 +73,26 @@ export function describeConsentSignature(
 }
 
 /**
- * Estado de las casillas del modal, sembrado con lo que ya consta firmado.
- * Se re-siembra al abrir (una edición a medias no debe sobrevivir a un cierre)
- * y cuando llega la respuesta del servidor.
+ * Lo que YA consta firmado, como base de sólo lectura.
+ *
+ * A propósito NO posee el estado de las casillas: ese lo lleva el modal, que
+ * distingue lo TOCADO en esta sesión de lo que ya estaba: sólo lo tocado se
+ * persiste, para no re-sellar con la fecha de hoy un registro que tiene valor
+ * de firma manuscrita ante el Banco de Alimentos.
  */
-export function useSeededConsents(personId: string, open: boolean) {
+export function useSavedConsents(personId: string, open: boolean) {
   const { data, isLoading, isError } = trpc.persons.getPersonConsents.useQuery(
     { personId },
     { enabled: open && !!personId, staleTime: 30_000 }
   );
-  const [consents, setConsents] = useState<Record<string, ConsentState>>({});
 
-  useEffect(() => {
-    if (!open) return;
-    setConsents(seedConsentState(data ?? []));
-  }, [open, data]);
+  const firmados = useMemo(() => seedConsentState(data ?? []), [data]);
 
   // `cargaFallida` se expone en vez de tragarse el error: un modal con las
   // casillas vacías porque la lectura falló es indistinguible de una persona
   // que no ha firmado nada, y esa confusión acaba en una firma duplicada.
   return {
-    consents,
-    setConsents,
+    firmados,
     isLoadingSaved: open && isLoading,
     cargaFallida: open && isError,
   };
