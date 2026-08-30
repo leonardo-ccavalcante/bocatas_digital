@@ -8,7 +8,7 @@
  * the document form fields, so the user sees the extracted data immediately
  * and can verify/edit before moving to the next step.
  */
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Camera, Upload, X, Loader2, AlertCircle, ScanLine, CheckCircle2 } from "lucide-react";
 import { compressImage } from "../utils/imageUtils";
@@ -41,6 +41,15 @@ export function DocumentCaptureInline({ onExtracted }: DocumentCaptureInlineProp
     }
   }, []);
 
+  // Mismo descuido que CameraCaptureButton: sin esto, cerrar el paso con el
+  // visor abierto deja la cámara encendida.
+  useEffect(() => {
+    return () => {
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    };
+  }, []);
+
   const reset = useCallback(() => {
     stopCamera();
     setCaptureState("idle");
@@ -67,7 +76,7 @@ export function DocumentCaptureInline({ onExtracted }: DocumentCaptureInlineProp
     }
   }, []);
 
-  const captureFromCamera = useCallback(() => {
+  const captureFromCamera = useCallback(async () => {
     if (!videoRef.current || !canvasRef.current) return;
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -76,10 +85,23 @@ export function DocumentCaptureInline({ onExtracted }: DocumentCaptureInlineProp
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.drawImage(video, 0, 0);
-    const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
-    const base64 = dataUrl.split(",")[1] ?? "";
     stopCamera();
-    setPreviewUrl(dataUrl);
+    // `ideal` es una preferencia, no un límite: muchos Android entregan la pista
+    // a resolución nativa, así que el fotograma crudo puede pesar megas y el
+    // envío se rechazaba antes de llegar al resolver. Se comprime igual que la
+    // rama de "Subir imagen", que es la que sí funcionaba.
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, "image/jpeg", 0.9)
+    );
+    if (!blob) {
+      setErrorMsg("Error al procesar la foto. Inténtalo de nuevo.");
+      setCaptureState("idle");
+      return;
+    }
+    // 1600 px, no los 800 por defecto: un número de documento deja de leerse
+    // si se baja más, y a este tamaño el envío sigue rondando las centenas de KB.
+    const base64 = await compressImage(blob, 1600, 0.9);
+    setPreviewUrl(`data:image/jpeg;base64,${base64}`);
     setCapturedBase64(base64);
     setCaptureState("preview");
   }, [stopCamera]);
@@ -107,11 +129,20 @@ export function DocumentCaptureInline({ onExtracted }: DocumentCaptureInlineProp
       { base64Image: capturedBase64 },
       {
         onSuccess: (result) => {
-          if (result.success && Object.keys(result.data).length > 0) {
+          // Contar CLAVES daba éxito con las ocho a null: el paso decía «Datos
+          // extraídos» y no rellenaba nada. Lo que cuenta son los valores.
+          const hasData =
+            result.success && Object.values(result.data).some((v) => v != null);
+          if (hasData) {
             onExtracted(result.data);
             setCaptureState("done");
           } else {
-            setErrorMsg("No se pudieron extraer datos. Rellena el formulario manualmente.");
+            const reason = (result as { reason?: string }).reason;
+            setErrorMsg(
+              reason === "not_configured" || reason === "llm_error" || reason === "truncated"
+                ? "El servicio de lectura de documentos no está disponible ahora. Rellena el formulario manualmente."
+                : "No se pudieron leer los datos de la foto. Repítela con más luz o rellena el formulario manualmente."
+            );
             setCaptureState("preview");
           }
         },
@@ -185,7 +216,7 @@ export function DocumentCaptureInline({ onExtracted }: DocumentCaptureInlineProp
           <Button type="button" variant="outline" size="sm" onClick={reset} className="flex-1">
             <X className="mr-1 h-4 w-4" /> Cancelar
           </Button>
-          <Button type="button" size="sm" onClick={captureFromCamera} className="flex-1">
+          <Button type="button" size="sm" onClick={() => void captureFromCamera()} className="flex-1">
             <Camera className="mr-1 h-4 w-4" /> Capturar
           </Button>
         </div>
