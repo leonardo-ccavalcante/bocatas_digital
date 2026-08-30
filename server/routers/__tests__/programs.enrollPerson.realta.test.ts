@@ -172,6 +172,35 @@ describe("programs.enrollPerson — re-alta tras baja", () => {
     expect(capturedUpdate?.deleted_at).toBeNull();
   });
 
+  // Hallazgo de revisión adversarial: revivir machacaba el historial.
+  it("conserva las notas anteriores cuando el alta nueva no trae ninguna", async () => {
+    existingEnrollment = {
+      id: "enr-1",
+      estado: "baja",
+      deleted_at: null,
+      notas: "alergia a frutos secos",
+      fecha_inicio: "2024-02-11",
+    };
+
+    await enroll();
+
+    expect(capturedUpdate?.notas).toBe("alergia a frutos secos");
+  });
+
+  it("deja la fecha de inicio anterior registrada en el evento, no la pierde", async () => {
+    existingEnrollment = {
+      id: "enr-1",
+      estado: "baja",
+      deleted_at: null,
+      notas: null,
+      fecha_inicio: "2024-02-11",
+    };
+
+    await enroll();
+
+    expect(capturedEvents[0]?.motivo).toMatch(/2024-02-11/);
+  });
+
   it("sigue rechazando si la inscripción está viva", async () => {
     existingEnrollment = { id: "enr-1", estado: "activo", deleted_at: null };
 

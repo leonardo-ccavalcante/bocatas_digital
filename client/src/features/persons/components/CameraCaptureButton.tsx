@@ -31,6 +31,11 @@ export function CameraCaptureButton({
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  // `getUserMedia` no resuelve hasta que la persona toca "Permitir", y para
+  // entonces el componente puede llevar rato desmontado. Sin esta marca, la
+  // limpieza corría con streamRef todavía a null y la pista quedaba viva:
+  // LED encendido y batería hasta recargar la página.
+  const montado = useRef(true);
   const [open, setOpen] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -44,7 +49,9 @@ export function CameraCaptureButton({
   // vídeo viva: LED encendido y batería consumiéndose en el Android de gama baja
   // que es el dispositivo primario. La ref no cambia, así que basta al desmontar.
   useEffect(() => {
+    montado.current = true;
     return () => {
+      montado.current = false;
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     };
@@ -53,12 +60,17 @@ export function CameraCaptureButton({
   const start = useCallback(async () => {
     setErrorMsg(null);
     try {
+      if (streamRef.current !== null) return; // doble toque: ya hay una cámara abierta
       const stream = await navigator.mediaDevices.getUserMedia({
         // El llamante comprime después (800 px la foto de perfil, 1200 px el
         // documento), así que se pide al sensor lo máximo razonable: un
         // consentimiento firmado fotografiado a 720p pierde legibilidad.
         video: { facingMode, width: { ideal: 1920 }, height: { ideal: 1080 } },
       });
+      if (!montado.current) {
+        stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
       streamRef.current = stream;
       setOpen(true);
       setTimeout(() => {

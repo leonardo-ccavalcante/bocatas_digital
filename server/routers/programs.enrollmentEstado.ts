@@ -146,7 +146,7 @@ export async function createOrReviveEnrollment(
 
   const { data: previa } = await supabase
     .from("program_enrollments")
-    .select("id, estado, deleted_at")
+    .select("id, estado, deleted_at, notas, fecha_inicio")
     .eq("person_id", params.personId)
     .eq("program_id", params.programId)
     .maybeSingle();
@@ -167,7 +167,10 @@ export async function createOrReviveEnrollment(
         fecha_inicio: today,
         fecha_fin: null,
         deleted_at: null,
-        notas: params.notas ?? null,
+        // Sin notas nuevas se conservan las viejas: un `?? null` borraba en
+        // silencio cosas como "alergia a frutos secos", y no hay dónde
+        // recuperarlas — `enrollment_events` sólo guarda estados.
+        notas: params.notas ?? previa.notas ?? null,
         updated_at: new Date().toISOString(),
       })
       .eq("id", previa.id)
@@ -182,6 +185,11 @@ export async function createOrReviveEnrollment(
       enrollmentId: previa.id,
       anterior: previa.estado,
       nuevo: params.estado,
+      // La re-alta reinicia `fecha_inicio`, así que la antigüedad real sólo
+      // sobrevive si queda escrita aquí.
+      motivo: previa.fecha_inicio
+        ? `Re-alta. Inicio anterior: ${previa.fecha_inicio}`
+        : "Re-alta",
       actorId,
     });
     return data;

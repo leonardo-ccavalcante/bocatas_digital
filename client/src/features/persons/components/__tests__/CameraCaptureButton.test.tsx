@@ -91,6 +91,44 @@ describe("CameraCaptureButton", () => {
     expect(stop).toHaveBeenCalled();
   });
 
+  // Hallazgos de revisión adversarial: la limpieza sólo miraba streamRef, que se
+  // asigna DESPUÉS del await de getUserMedia.
+  it("para la cámara si el permiso llega cuando ya se ha desmontado", async () => {
+    const stop = vi.fn();
+    let conceder: (s: MediaStream) => void = () => {};
+    getUserMedia.mockReturnValue(
+      new Promise<MediaStream>((res) => {
+        conceder = res;
+      })
+    );
+    const user = userEvent.setup();
+    const { unmount } = render(
+      <CameraCaptureButton facingMode="user" label="Usar cámara" onCapture={vi.fn()} />
+    );
+
+    await user.click(screen.getByRole("button", { name: /Usar cámara/i }));
+    unmount();
+    // El voluntario concede el permiso DESPUÉS de cerrar el paso.
+    conceder({ getTracks: () => [{ stop }] } as unknown as MediaStream);
+    await waitFor(() => expect(stop).toHaveBeenCalled());
+  });
+
+  it("un doble toque no deja dos cámaras encendidas", async () => {
+    const stop1 = vi.fn();
+    const stop2 = vi.fn();
+    getUserMedia
+      .mockResolvedValueOnce({ getTracks: () => [{ stop: stop1 }] } as unknown as MediaStream)
+      .mockResolvedValueOnce({ getTracks: () => [{ stop: stop2 }] } as unknown as MediaStream);
+    const user = userEvent.setup();
+    render(<CameraCaptureButton facingMode="user" label="Usar cámara" onCapture={vi.fn()} />);
+
+    const boton = screen.getByRole("button", { name: /Usar cámara/i });
+    await user.click(boton);
+    await user.click(boton).catch(() => {});
+
+    await waitFor(() => expect(getUserMedia).toHaveBeenCalledTimes(1));
+  });
+
   it("muestra el visor con la vista enmascarada para PostHog", async () => {
     getUserMedia.mockResolvedValue(fakeStream());
     const user = userEvent.setup();

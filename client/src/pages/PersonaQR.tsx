@@ -2,21 +2,23 @@ import { Link, useParams } from "wouter";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, Loader2, AlertCircle } from "lucide-react";
 import { QRCodeCard } from "@/features/persons/components/QRCodeCard";
-import { usePersonById } from "@/features/persons/hooks/usePersonById";
-import type { Database } from "@/lib/database.types";
-
-type PersonRow = Database["public"]["Tables"]["persons"]["Row"];
+import { trpc } from "@/lib/trpc";
 
 export default function PersonaQR() {
   const { id } = useParams<{ id: string }>();
-  const { data: person, isLoading, isError } = usePersonById(id ?? "");
+  // Voluntario-safe: getQrPayload es voluntarioProcedure. persons.getById es
+  // admin-only por diseño (#46) y dejaba esta página vacía para voluntarios.
+  const { data, isLoading, isError } = trpc.persons.getQrPayload.useQuery(
+    { personId: id ?? "" },
+    { enabled: !!id, staleTime: 5 * 60_000, retry: false }
+  );
 
   return (
     <div className="min-h-screen bg-background">
       <div className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur">
         <div className="flex h-14 items-center gap-3 px-4">
-          <Link href={`/personas/${id ?? ""}`}>
-            <Button variant="ghost" size="sm" aria-label="Volver a la ficha">
+          <Link href="/personas">
+            <Button variant="ghost" size="sm" aria-label="Volver a personas">
               <ChevronLeft className="h-4 w-4" />
             </Button>
           </Link>
@@ -38,7 +40,9 @@ export default function PersonaQR() {
           </div>
         )}
 
-        {person && <QRCodeCard person={person as PersonRow} />}
+        {data && id && (
+          <QRCodeCard person={{ id, nombre: data.nombre, apellidos: data.apellidos }} />
+        )}
       </div>
     </div>
   );

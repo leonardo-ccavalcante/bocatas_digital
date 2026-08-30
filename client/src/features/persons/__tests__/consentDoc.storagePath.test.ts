@@ -37,8 +37,11 @@ describe("consentimiento firmado — PATH, no URL", () => {
     ).toBe(false);
   });
 
-  it("ConsentModal persiste el path que devuelve el upload", () => {
+  it("ConsentModal persiste el path que devuelve la subida por servidor", () => {
+    // RC-03 llevó la subida a `persons.uploadPhoto`, que devuelve el PATH del
+    // bucket privado. Lo que se guarda es ese path, nunca una URL.
     const src = readFileSync(resolve(__dirname, "../components/ConsentModal.tsx"), "utf8");
-    expect(src).toMatch(/documentoFotoUrl:\s*data\.path/);
+    expect(src).toMatch(/uploadPhoto\(\{\s*bucket:\s*"documentos-consentimiento"/);
+    expect(src).toMatch(/documentoFotoUrl:\s*path/);
   });
 });

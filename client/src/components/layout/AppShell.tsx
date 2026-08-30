@@ -374,7 +374,7 @@ export default function AppShell({ children }: AppShellProps) {
         <main className="flex-1 overflow-y-auto pb-16 md:pb-0">
           {children}
         </main>
-        <MobileFooterNav />
+        <MobileFooterNav role={role} />
       </div>
     </div>
   );
