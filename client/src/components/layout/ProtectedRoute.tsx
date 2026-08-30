@@ -18,15 +18,17 @@ interface ProtectedRouteProps {
 }
 
 export default function ProtectedRoute({ children, requiredRoles }: ProtectedRouteProps) {
-  const { user, loading, isAuthenticated } = useAuth();
+  const { user, loading, isAuthenticated, isUnauthenticated, refresh } = useAuth();
   const [, navigate] = useLocation();
 
-  // Redirect to Manus OAuth login if not authenticated
+  // Redirect to login ONLY when definitively unauthenticated — never on a
+  // transient error (e.g. a rate-limit 429), which used to log out a whole
+  // sede (#166).
   useEffect(() => {
-    if (!loading && !isAuthenticated) {
+    if (!loading && isUnauthenticated) {
       window.location.href = getLoginUrl();
     }
-  }, [loading, isAuthenticated]);
+  }, [loading, isUnauthenticated]);
 
   // Normalize role: Manus OAuth default is "user" — map to "beneficiario" as safe fallback.
   const VALID_BOCATAS_ROLES: BocatasRole[] = ["superadmin", "admin", "voluntario", "beneficiario"];
@@ -53,7 +55,27 @@ export default function ProtectedRoute({ children, requiredRoles }: ProtectedRou
     );
   }
 
-  if (!isAuthenticated) return null;
+  // Definitively unauthenticated → the effect above is redirecting to login.
+  if (isUnauthenticated) return null;
+
+  // Not logged out, but auth.me is failing transiently (rate limit / network).
+  // Offer a retry instead of bouncing to login and losing the session.
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-amber-50">
+        <div className="text-center space-y-3 max-w-xs px-4">
+          <p className="text-amber-800 font-medium">No se pudo cargar tu sesión.</p>
+          <p className="text-sm text-amber-700">Puede ser una sobrecarga puntual. Vuelve a intentarlo.</p>
+          <button
+            onClick={() => void refresh()}
+            className="rounded-md bg-amber-800 px-4 py-2 text-sm font-medium text-white min-h-[44px]"
+          >
+            Reintentar
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (requiredRoles && !requiredRoles.includes(userRole)) return null;
 
