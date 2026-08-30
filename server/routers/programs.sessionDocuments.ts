@@ -177,9 +177,12 @@ async function uploadToStorage(
   // built, it MUST serve with Content-Disposition: attachment (never inline)
   // to prevent stored-XSS. text/html is excluded from ALLOWED_MIMES as
   // additional defense-in-depth.
+  // upsert:false as defense-in-depth: buildStoragePath already gives every
+  // upload a unique random suffix, so a legitimate write never collides; a
+  // collision now fails loudly instead of silently overwriting an object (#169).
   const { error } = await supabase.storage
     .from("program-documents")
-    .upload(path, buffer, { contentType, upsert: true });
+    .upload(path, buffer, { contentType, upsert: false });
   if (error) {
     throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Error al subir documento" });
   }
@@ -285,11 +288,23 @@ async function callLessonPlanOcr(
   }
 }
 
+// tipo_slug is interpolated into the storage key (buildStoragePath). It MUST be
+// a bare slug — no `.` or `/` — or `../../x` escapes the `sessions/<id>/` prefix
+// and overwrites arbitrary objects, reachable even from the PUBLIC enlace
+// endpoint (#169 / RC-63). Same charset as program/edition slugs (programs.ts).
+export const tipoSlugSchema = z
+  .string()
+  .min(1)
+  .max(50)
+  .regex(/^[a-z0-9_]+$/, "tipo_slug inválido");
+
 // FIX 4: mimeType allows '' (Android content provider may omit it).
 // The server infers from fileName as fallback in validateUploadInput.
-const uploadInputSchema = z.object({
+// Exported so the tipoSlug guard can be asserted at the endpoint-input boundary
+// shared by BOTH uploadSessionDocument and the public enlaceUploadSessionDocument.
+export const uploadInputSchema = z.object({
   sessionId: uuidLike,
-  tipoSlug: z.string().min(1).max(50),
+  tipoSlug: tipoSlugSchema,
   base64File: z.string().min(1),
   mimeType: z.string().default(""),
   fileName: z.string().max(255).default("documento"),
