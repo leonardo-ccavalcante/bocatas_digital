@@ -80,6 +80,10 @@ export function RegistrationWizard() {
 
   // ── OCR shared state ──────────────────────────────────────────────────────
   const [ocrUsed, setOcrUsed] = useState(false);
+  // Foto del documento a archivar. Sólo se rellena si quien atiende lo marca
+  // explícitamente en el paso de escaneo: hasta ahora la imagen se usaba para
+  // el OCR y se descartaba.
+  const [documentoBase64, setDocumentoBase64] = useState<string | null>(null);
 
   // ── Profile photo ─────────────────────────────────────────────────────────
   const [profilePhotoBase64, setProfilePhotoBase64] = useState<string | null>(null);
@@ -262,6 +266,7 @@ export function RegistrationWizard() {
     groupAAccepted,
     getValues,
     profilePhotoBase64,
+    documentoBase64,
     consentDocBase64,
     consentChoices,
     consentTemplatesEs,
@@ -317,6 +322,7 @@ export function RegistrationWizard() {
                 errors={errors}
                 ocrUsed={ocrUsed}
                 handleOCRExtracted={handleOCRExtracted}
+                onArchivarDocumento={setDocumentoBase64}
                 showDuplicateWarning={showDuplicateWarning}
                 duplicateCheckDegraded={duplicateCheckDegraded}
                 duplicates={duplicates as DuplicateCandidate[]}

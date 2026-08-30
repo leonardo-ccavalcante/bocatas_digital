@@ -18,6 +18,8 @@ interface UseSubmitArgs {
   groupAAccepted: boolean;
   getValues: () => PersonCreate;
   profilePhotoBase64: string | null;
+  /** Foto del documento a archivar; null si no se marcó archivarla. */
+  documentoBase64: string | null;
   consentDocBase64: string | null;
   consentChoices: Record<string, boolean>;
   consentTemplatesEs: ConsentTemplate[];
@@ -107,9 +109,24 @@ export function useRegistrationSubmit(args: UseSubmitArgs) {
         }
       }
 
+      // 2b. Foto del documento — sólo si se marcó archivarla en el escaneo.
+      // Bucket propio y privado; se guarda el PATH, nunca una URL firmada.
+      let fotoDocumentoUrl: string | null = null;
+      if (args.documentoBase64) {
+        try {
+          const result = await uploadPhoto({
+            bucket: "documentos-identidad",
+            base64: args.documentoBase64,
+          });
+          fotoDocumentoUrl = result.path;
+        } catch {
+          toast.warning("Foto del documento no archivada. La ficha se crea igualmente.");
+        }
+      }
+
       // 3. Create person
       const person = await createPerson({
-        data: { ...data, foto_perfil_url: fotoPerfilUrl },
+        data: { ...data, foto_perfil_url: fotoPerfilUrl, foto_documento_url: fotoDocumentoUrl },
       });
 
       // 4. Enroll in programs

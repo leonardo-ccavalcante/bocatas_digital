@@ -70,7 +70,10 @@ export const PersonCreateInput = z.object({
   // Holds a Storage PATH now, not a URL (persons.uploadPhoto returns a path;
   // reads are signed server-side). `.url()` would reject every new value.
   foto_perfil_url: z.string().max(255).optional().nullable(),
-  foto_documento_url: z.string().url().optional().nullable(),
+  // Igual que foto_perfil_url: guarda un PATH de Storage, no una URL. `.url()`
+  // rechazaba todo valor nuevo (persons.uploadPhoto devuelve un path), así que
+  // la foto del documento no se podía guardar ni aunque se enviara.
+  foto_documento_url: z.string().max(255).optional().nullable(),
   fase_itinerario: FaseItinerarioEnum.optional(),
   program_ids: z.array(z.string().uuid()),
 });

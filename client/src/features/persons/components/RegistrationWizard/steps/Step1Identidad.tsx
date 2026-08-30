@@ -23,6 +23,7 @@ interface Step1IdentidadProps {
   errors: FieldErrors<PersonCreate>;
   ocrUsed: boolean;
   handleOCRExtracted: (data: OcrExtracted) => void;
+  onArchivarDocumento: (base64: string | null) => void;
   showDuplicateWarning: boolean;
   duplicateCheckDegraded: boolean;
   duplicates: DuplicateCandidate[];
@@ -31,14 +32,17 @@ interface Step1IdentidadProps {
 
 export function Step1Identidad({
   register, watch, setValue, errors,
-  ocrUsed, handleOCRExtracted,
+  ocrUsed, handleOCRExtracted, onArchivarDocumento,
   showDuplicateWarning, duplicateCheckDegraded, duplicates, onDismissDuplicate,
 }: Step1IdentidadProps) {
   return (
     <div className="space-y-4">
       {/* OCR — offered here if not yet used */}
       {!ocrUsed ? (
-        <DocumentCaptureInline onExtracted={handleOCRExtracted} />
+        <DocumentCaptureInline
+          onExtracted={handleOCRExtracted}
+          onArchivarImagen={onArchivarDocumento}
+        />
       ) : (
         <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700">
           <CheckCircle className="h-4 w-4 shrink-0" />

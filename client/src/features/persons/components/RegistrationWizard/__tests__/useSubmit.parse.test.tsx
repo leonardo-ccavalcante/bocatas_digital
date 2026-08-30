@@ -65,6 +65,7 @@ function makeArgs(values: PersonCreate) {
     groupAAccepted: true,
     getValues: () => values,
     profilePhotoBase64: null,
+    documentoBase64: null,
     consentDocBase64: null,
     consentChoices: {},
     consentTemplatesEs: [],

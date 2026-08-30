@@ -19,9 +19,20 @@ type CaptureState = "idle" | "camera" | "preview" | "processing" | "done";
 
 interface DocumentCaptureInlineProps {
   onExtracted: (data: OcrExtracted) => void;
+  /**
+   * Recibe la imagen capturada (base64) cuando quien atiende marca
+   * explícitamente que hay que archivarla, y `null` cuando la desmarca o
+   * repite la captura. Sin esto la foto se usaba para el OCR y se tiraba, que
+   * es justo lo que el equipo reportó: "debería dejarla en documentos".
+   */
+  onArchivarImagen?: (base64: string | null) => void;
 }
 
-export function DocumentCaptureInline({ onExtracted }: DocumentCaptureInlineProps) {
+export function DocumentCaptureInline({
+  onExtracted,
+  onArchivarImagen,
+}: DocumentCaptureInlineProps) {
+  const [archivar, setArchivar] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -56,7 +67,11 @@ export function DocumentCaptureInline({ onExtracted }: DocumentCaptureInlineProp
     setPreviewUrl(null);
     setCapturedBase64(null);
     setErrorMsg(null);
-  }, [stopCamera]);
+    // Repetir la captura invalida lo que hubiera marcado para archivar: si no,
+    // se guardaría la foto anterior con los datos de la nueva.
+    setArchivar(false);
+    onArchivarImagen?.(null);
+  }, [stopCamera, onArchivarImagen]);
 
   const startCamera = useCallback(async () => {
     setErrorMsg(null);
@@ -273,18 +288,39 @@ export function DocumentCaptureInline({ onExtracted }: DocumentCaptureInlineProp
   // ── Done: success state ─────────────────────────────────────────────────────
   if (captureState === "done") {
     return (
-      <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700">
-        <CheckCircle2 className="h-4 w-4 shrink-0" />
-        <span>Datos extraídos. Revisa y edita los campos si es necesario.</span>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="ml-auto h-6 px-2 text-xs text-green-600"
-          onClick={reset}
-        >
-          Volver a escanear
-        </Button>
+      <div className="space-y-2">
+        <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700">
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
+          <span>Datos extraídos. Revisa y edita los campos si es necesario.</span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="ml-auto h-6 px-2 text-xs text-green-600"
+            onClick={reset}
+          >
+            Volver a escanear
+          </Button>
+        </div>
+
+        {onArchivarImagen && (
+          <label className="flex items-start gap-2 rounded-lg border border-border p-3 text-xs">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={archivar}
+              onChange={(e) => {
+                setArchivar(e.target.checked);
+                onArchivarImagen(e.target.checked ? capturedBase64 : null);
+              }}
+            />
+            <span>
+              <span className="font-medium">Archivar la foto del documento en la ficha.</span>{" "}
+              Queda guardada de forma privada y sólo la ve personal de
+              administración. Márcalo únicamente si la persona lo ha autorizado.
+            </span>
+          </label>
+        )}
       </div>
     );
   }

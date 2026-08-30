@@ -156,3 +156,9 @@ export async function signPathField(
 
 /** Bucket holding beneficiary profile photos. */
 export const AVATAR_BUCKET = "fotos-perfil";
+/**
+ * Foto del documento de identidad (`persons.foto_documento_url`). Privado y de
+ * máximo riesgo: sólo se firma para quien ya ha pasado por
+ * `redactHighRiskFields` (admin/superadmin).
+ */
+export const ID_DOCUMENT_BUCKET = "documentos-identidad";

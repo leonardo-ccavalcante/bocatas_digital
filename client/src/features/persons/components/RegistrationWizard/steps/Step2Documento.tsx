@@ -17,10 +17,11 @@ interface Step2DocumentoProps {
   watch: UseFormWatch<PersonCreate>;
   setValue: UseFormSetValue<PersonCreate>;
   handleOCRExtracted: (data: OcrExtracted) => void;
+  onArchivarDocumento: (base64: string | null) => void;
 }
 
 export function Step2Documento({
-  register, watch, setValue, handleOCRExtracted,
+  register, watch, setValue, handleOCRExtracted, onArchivarDocumento,
 }: Step2DocumentoProps) {
   return (
     <div className="space-y-4">
@@ -35,7 +36,10 @@ export function Step2Documento({
           <p className="text-sm text-muted-foreground">
             Puedes escanear el documento para rellenar los campos automáticamente.
           </p>
-          <DocumentCaptureInline onExtracted={handleOCRExtracted} />
+          <DocumentCaptureInline
+            onExtracted={handleOCRExtracted}
+            onArchivarImagen={onArchivarDocumento}
+          />
         </>
       )}
 

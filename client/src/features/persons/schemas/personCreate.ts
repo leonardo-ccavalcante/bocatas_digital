@@ -107,7 +107,8 @@ export const PersonCreateSchema = z.object({
   // Section 6 — Foto perfil (handled via upload)
   // Storage PATH, not a URL — mirrors server/routers/persons/_shared.ts.
   foto_perfil_url: z.string().max(255).optional().nullable(),
-  foto_documento_url: z.string().url().optional().nullable(),
+  // PATH de Storage, no URL (ver el esquema espejo en server/routers/persons/_shared.ts).
+  foto_documento_url: z.string().max(255).optional().nullable(),
 
   // Metadata
   fase_itinerario: FaseItinerarioSchema.optional(), // has DB default "acogida"
