@@ -24,6 +24,9 @@ vi.mock("../../../../client/src/lib/supabase/server", () => ({
   createAdminClient: () => ({ from: (t: string) => makeBuilder(t) }),
 }));
 
+const { storagePut } = vi.hoisted(() => ({ storagePut: vi.fn() }));
+vi.mock("../../../storage", () => ({ storagePut }));
+
 const { roundsDocumentsRouter } = await import("../rounds-documents");
 
 function buildUser(role: User["role"], id = "test-user-1"): User {
@@ -40,23 +43,38 @@ beforeEach(() => {
   captured.length = 0; vi.clearAllMocks();
 });
 
-describe("rounds-documents — attachSignedActa (per-slot)", () => {
+describe("rounds-documents — attachSignedActa (per-slot, RC-03/F184)", () => {
   const SLOT = "22222222-2222-4222-8222-222222222222";
-  it("records the signed-acta path + audit (by/at) on the slot", async () => {
-    tableResults["delivery_round_slots"] = { data: { id: SLOT, round_id: R }, error: null };
-    const caller = roundsDocumentsRouter.createCaller(ctx(buildUser("admin", "test-user-7")));
-    await caller.attachSignedActa({ round_id: R, slot_id: SLOT, documento_url: "actas-firmadas/r/2026-06-08-manana.jpg" });
 
+  it("uploads the photo server-side into family-documents and records path + audit on the slot", async () => {
+    tableResults["delivery_round_slots"] = { data: { id: SLOT, round_id: R }, error: null };
+    storagePut.mockResolvedValue({ bucket: "family-documents", path: `actas-firmadas/${R}/${SLOT}.jpg` });
+    const caller = roundsDocumentsRouter.createCaller(ctx(buildUser("admin", "test-user-7")));
+    await caller.attachSignedActa({ round_id: R, slot_id: SLOT, base64: Buffer.from("acta-bytes").toString("base64") });
+
+    expect(storagePut).toHaveBeenCalledWith(
+      "family-documents",
+      `actas-firmadas/${R}/${SLOT}.jpg`,
+      Buffer.from("acta-bytes"),
+      "image/jpeg",
+    );
     const upd = captured.find((c) => c.table === "delivery_round_slots" && c.op === "update");
     const acta = upd?.payload.signed_acta as { url: string; by: string };
-    expect(acta.url).toBe("actas-firmadas/r/2026-06-08-manana.jpg");
+    expect(acta.url).toBe(`actas-firmadas/${R}/${SLOT}.jpg`);
     expect(acta.by).toBe("test-user-7");
+  });
+
+  it("rejects an empty payload without touching storage", async () => {
+    tableResults["delivery_round_slots"] = { data: { id: SLOT, round_id: R }, error: null };
+    const caller = roundsDocumentsRouter.createCaller(ctx(buildUser("admin")));
+    await expect(caller.attachSignedActa({ round_id: R, slot_id: SLOT, base64: "" })).rejects.toThrow();
+    expect(storagePut).not.toHaveBeenCalled();
   });
 
   it("rejects voluntario (admin-only)", async () => {
     const caller = roundsDocumentsRouter.createCaller(ctx(buildUser("voluntario")));
     await expect(
-      caller.attachSignedActa({ round_id: R, slot_id: SLOT, documento_url: "x" }),
+      caller.attachSignedActa({ round_id: R, slot_id: SLOT, base64: "eA==" }),
     ).rejects.toThrow(/FORBIDDEN|UNAUTHORIZED|admin|permission|10002/i);
   });
 });

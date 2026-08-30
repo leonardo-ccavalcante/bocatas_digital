@@ -10,13 +10,18 @@ import { describe, it, expect, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { ReactNode } from "react";
 
-// See ConsentModal.fallback.test.tsx for the rationale of mocking the
-// browser supabase client at module-load and the Radix Dialog portal.
-vi.mock("@/lib/supabase/client", () => ({
-  createClient: () => ({
-    storage: { from: () => ({ upload: vi.fn(), getPublicUrl: vi.fn() }) },
-    from: () => ({ upsert: vi.fn() }),
-  }),
+// See ConsentModal.fallback.test.tsx for the rationale of the Radix Dialog
+// portal shim.
+// ConsentModal writes through tRPC (persons.uploadPhoto / saveConsents). The
+// hooks run at render time, so they are shimmed here — no TRPCProvider exists
+// in a static-markup render, and no network call ever happens.
+vi.mock("@/lib/trpc", () => ({
+  trpc: {
+    persons: {
+      uploadPhoto: { useMutation: () => ({ mutateAsync: vi.fn() }) },
+      saveConsents: { useMutation: () => ({ mutateAsync: vi.fn() }) },
+    },
+  },
 }));
 
 vi.mock("@/components/ui/dialog", () => {

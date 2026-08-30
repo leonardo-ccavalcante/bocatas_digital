@@ -11,14 +11,40 @@
  * in. A future refactor that accidentally weakens the gate would have
  * shipped silently. This file fills that gap.
  *
- * The check happens BEFORE the Supabase call (consents.ts:69-85), so we
- * can use a pure tRPC caller without a DB mock.
+ * RC-03/F050 relaxes WHICH payloads satisfy the invariant, not the
+ * invariant itself: the "missing Group A" check now consults the DB, so a
+ * PARTIAL save (the ficha's ConsentModal) is legal when the omitted Group A
+ * purposes are already granted. Group A can still never be set to false.
+ * That DB read is mocked below.
  */
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { TRPCError } from "@trpc/server";
 import { appRouter } from "../routers";
 import type { TrpcContext } from "../_core/context";
 import { Logger } from "../_core/logger";
+
+const dbState = vi.hoisted(() => ({ existingGranted: [] as Array<{ purpose: string }> }));
+
+vi.mock("../../client/src/lib/supabase/server", () => ({
+  createAdminClient: () => ({
+    from: () => {
+      const b: Record<string, unknown> = {
+        select: () => b,
+        eq: () => b,
+        in: () => b,
+        upsert: () => ({
+          select: async () => ({ data: [{ id: "c1", purpose: "x", granted: true }], error: null }),
+        }),
+        then: (resolve: (v: unknown) => unknown) => resolve({ data: dbState.existingGranted, error: null }),
+      };
+      return b;
+    },
+  }),
+}));
+
+beforeEach(() => {
+  dbState.existingGranted = [];
+});
 
 type AuthenticatedUser = NonNullable<TrpcContext["user"]>;
 
@@ -102,6 +128,39 @@ describe("persons.saveConsents — Group A mandatory enforcement (F-110)", () =>
       caller.persons.saveConsents({
         personId: PERSON_ID,
         consents: GROUP_A_PURPOSES.map((p) => consentRow(p, false)),
+      })
+    ).rejects.toThrow(TRPCError);
+  });
+
+  it("accepts a PARTIAL save (Group B only) when the person already has Group A granted in the DB (RC-03/F050)", async () => {
+    dbState.existingGranted = GROUP_A_PURPOSES.map((p) => ({ purpose: p }));
+    const caller = appRouter.createCaller(authCtx());
+    await expect(
+      caller.persons.saveConsents({
+        personId: PERSON_ID,
+        consents: [consentRow("tratamiento_datos_banco_alimentos", true)],
+      })
+    ).resolves.toBeDefined();
+  });
+
+  it("accepts REVOKING a Group B consent (granted:false) when Group A is covered in the DB", async () => {
+    dbState.existingGranted = GROUP_A_PURPOSES.map((p) => ({ purpose: p }));
+    const caller = appRouter.createCaller(authCtx());
+    await expect(
+      caller.persons.saveConsents({
+        personId: PERSON_ID,
+        consents: [consentRow("compartir_datos_red", false)],
+      })
+    ).resolves.toBeDefined();
+  });
+
+  it("still rejects a partial save when the person does NOT have Group A granted anywhere", async () => {
+    dbState.existingGranted = [];
+    const caller = appRouter.createCaller(authCtx());
+    await expect(
+      caller.persons.saveConsents({
+        personId: PERSON_ID,
+        consents: [consentRow("tratamiento_datos_banco_alimentos", true)],
       })
     ).rejects.toThrow(TRPCError);
   });

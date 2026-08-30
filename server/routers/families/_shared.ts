@@ -7,6 +7,8 @@ import type { Database } from "../../../client/src/lib/database.types";
 import {
   FAMILY_LEVEL_DOC_TYPES,
   PER_MEMBER_DOC_TYPES,
+  FAMILY_DOC_TO_BOOLEAN_COLUMN,
+  type FamilyDocType,
 } from "@shared/familyDocuments";
 
 export const uuidLike = z
@@ -266,3 +268,35 @@ export const FamilyCreateInputSchema = z
     path: ["persona_recoge"],
     message: "Indica el nombre de la persona autorizada para recoger",
   });
+// ─── Document boolean-cache recompute ────────────────────────────────────────
+
+/**
+ * Recompute the families.<flag> boolean cache after a document write.
+ * Extracted from documents.ts's uploadFamilyDocument (the max-lines ERROR gate
+ * left no room there for the server-side storage write). The soft-delete path
+ * keeps its historical fire-and-forget variant.
+ */
+export async function recomputeDocBooleanCache(
+  db: ReturnType<typeof createAdminClient>,
+  familyId: string,
+  documentoTipo: string
+): Promise<void> {
+  const cacheCol = FAMILY_DOC_TO_BOOLEAN_COLUMN[documentoTipo as FamilyDocType];
+  if (!cacheCol) return;
+  const { data: existsRows } = await db
+    .from("family_member_documents")
+    .select("id")
+    .eq("family_id", familyId)
+    .eq("documento_tipo", documentoTipo)
+    .not("documento_url", "is", null)
+    .is("deleted_at", null)
+    .eq("is_current", true)
+    .limit(1);
+  const newCacheValue = (existsRows?.length ?? 0) > 0;
+  const updatePayload: FamiliesUpdate = { [cacheCol]: newCacheValue } as FamiliesUpdate;
+  if (documentoTipo === "informe_social" && newCacheValue) {
+    (updatePayload as Record<string, unknown>).informe_social_fecha = new Date().toISOString().slice(0, 10);
+  }
+  const { error } = await db.from("families").update(updatePayload).eq("id", familyId);
+  if (error) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+}

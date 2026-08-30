@@ -46,8 +46,14 @@ export const consentsRouter = router({
     }),
 
   /**
-   * Save consent records for a person.
-   * Uses service role key to bypass RLS.
+   * Save consent records for a person. Uses the service role to bypass RLS —
+   * the tRPC guard is the enforcement boundary (ADR-0002).
+   *
+   * Group A invariant: AFTER every save, each Group A purpose has a granted
+   * consent row. The registration wizard submits ALL purposes; the ficha's
+   * ConsentModal (RC-03/F050) submits PARTIAL updates, which are legal only
+   * when the omitted Group A purposes are already granted in the DB. Group A
+   * can never be set to granted:false.
    */
   saveConsents: voluntarioProcedure
     .input(z.object({
@@ -68,25 +74,9 @@ export const consentsRouter = router({
     .mutation(async ({ input }) => {
       if (input.consents.length === 0) return [];
 
-      // Server-side enforcement: Group A consents are always required
-      const GROUP_A = ["tratamiento_datos_bocatas", "fotografia", "comunicaciones_whatsapp"] as const;
-      const submittedMap = new Map(input.consents.map((c) => [c.purpose, c.granted]));
-      const missingA = GROUP_A.filter((p) => !submittedMap.has(p));
-      if (missingA.length > 0) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: `Faltan consentimientos obligatorios del Grupo A: ${missingA.join(", ")}`,
-        });
-      }
-      const deniedA = GROUP_A.filter((p) => submittedMap.get(p) === false);
-      if (deniedA.length > 0) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "El Grupo A de consentimientos es obligatorio para completar el registro.",
-        });
-      }
-
       const supabase = createAdminClient();
+      await assertGroupACovered(supabase, input.personId, input.consents);
+
       const rows = input.consents.map((c) => ({
         person_id: input.personId,
         purpose: c.purpose,
@@ -115,3 +105,39 @@ export const consentsRouter = router({
       return data ?? [];
     }),
 });
+
+const GROUP_A = ["tratamiento_datos_bocatas", "fotografia", "comunicaciones_whatsapp"] as const;
+
+async function assertGroupACovered(
+  supabase: ReturnType<typeof createAdminClient>,
+  personId: string,
+  consents: Array<{ purpose: string; granted: boolean }>,
+): Promise<void> {
+  const submitted = new Map(consents.map((c) => [c.purpose, c.granted]));
+  const deniedA = GROUP_A.filter((p) => submitted.get(p) === false);
+  if (deniedA.length > 0) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "El Grupo A de consentimientos es obligatorio para completar el registro.",
+    });
+  }
+  const missingA = GROUP_A.filter((p) => !submitted.has(p));
+  if (missingA.length === 0) return;
+  const { data, error } = await supabase
+    .from("consents")
+    .select("purpose")
+    .eq("person_id", personId)
+    .eq("granted", true)
+    .in("purpose", missingA);
+  if (error) {
+    throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Error al comprobar los consentimientos existentes" });
+  }
+  const covered = new Set((data ?? []).map((r) => r.purpose));
+  const stillMissing = missingA.filter((p) => !covered.has(p));
+  if (stillMissing.length > 0) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: `Faltan consentimientos obligatorios del Grupo A: ${stillMissing.join(", ")}`,
+    });
+  }
+}

@@ -20,7 +20,6 @@ import { Label } from "@/components/ui/label";
 import { Upload } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
-import { createClient } from "@/lib/supabase/client";
 import { useProgramDocumentTypes } from "./hooks/useProgramDocumentTypes";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -60,6 +59,15 @@ function extFromFile(file: File): string {
   return "bin";
 }
 
+async function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve((reader.result as string).split(",")[1] ?? "");
+    reader.onerror = () => reject(new Error("No se pudo leer el archivo"));
+    reader.readAsDataURL(file);
+  });
+}
+
 function familiaLabel(f: FamiliaResult): string {
   const nombre = f.persons?.nombre ?? "";
   const apellidos = f.persons?.apellidos ?? "";
@@ -97,7 +105,6 @@ export function UploadModal({ programaId, open, onClose }: UploadModalProps) {
 
   // ── Mutations ─────────────────────────────────────────────────────────────
   const uploadMutation = trpc.families.uploadFamilyDocument.useMutation();
-  const deleteMutation = trpc.families.deleteFamilyDocument.useMutation();
 
   // ── Derived: can submit ───────────────────────────────────────────────────
   const needsMember = isMiembroScope && selectedFamilia !== null;
@@ -139,30 +146,17 @@ export function UploadModal({ programaId, open, onClose }: UploadModalProps) {
     setIsUploading(true);
 
     try {
-      const insertedDoc = await uploadMutation.mutateAsync({
+      // Server-side write (ADR-0002): the bytes travel as base64 through
+      // families.uploadFamilyDocument, which stores object + row in one
+      // procedure — no client-side rollback dance.
+      await uploadMutation.mutateAsync({
         family_id: selectedFamilia.id,
         member_index: idx,
         documento_tipo: tipoSlug,
         documento_url: storagePath,
+        base64: await fileToBase64(file),
+        content_type: file.type || "application/octet-stream",
       });
-
-      const supabase = createClient();
-      const { error: storageError } = await supabase.storage
-        .from("family-documents")
-        .upload(storagePath, file, { contentType: file.type || "application/octet-stream", upsert: false });
-
-      if (storageError) {
-        try {
-          await deleteMutation.mutateAsync({ id: insertedDoc.id });
-        } catch {
-          toast.error(
-            `Error al subir archivo y al limpiar el registro. ID: ${insertedDoc.id}`
-          );
-          return;
-        }
-        toast.error(storageError.message || "Error al subir el archivo");
-        return;
-      }
 
       toast.success("1 archivo(s) subido(s)");
       onClose();

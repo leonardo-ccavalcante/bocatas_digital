@@ -6,11 +6,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Loader2, Camera, CheckCircle, AlertCircle } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import type { ConsentTemplate } from "../schemas";
 import { TEMPLATE_LANGUAGES } from "./RegistrationWizard/_shared";
-import { compressImage, base64ToBlob } from "../utils/imageUtils";
+import { compressImage } from "../utils/imageUtils";
 
 const CONSENT_PURPOSE_LABELS: Record<string, string> = {
   tratamiento_datos_bocatas: "Tratamiento de datos — Bocatas",
@@ -53,7 +53,8 @@ export function ConsentModal({ open, personId, templates, onClose, onSaved, pers
     personLanguage !== "es" &&
     (!TEMPLATE_LANGUAGES.has(personLanguage) || templates.length === 0);
   const dir = personLanguage && RTL_LANGUAGES.has(personLanguage) ? "rtl" : "ltr";
-  const supabase = createClient();
+  const { mutateAsync: uploadPhoto } = trpc.persons.uploadPhoto.useMutation();
+  const { mutateAsync: saveConsents } = trpc.persons.saveConsents.useMutation();
   const [consents, setConsents] = useState<Record<string, ConsentState>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [captureForPurpose, setCaptureForPurpose] = useState<string | null>(null);
@@ -69,56 +70,45 @@ export function ConsentModal({ open, personId, templates, onClose, onSaved, pers
   const handleDocumentCapture = useCallback(async (purpose: string, file: File) => {
     try {
       const base64 = await compressImage(file, 1200, 0.85);
-      const blob = base64ToBlob(base64);
-      const path = `${personId}/${purpose}-${Date.now()}.jpg`;
-      const { data, error } = await supabase.storage
-        .from("documentos-consentimiento")
-        .upload(path, blob, { contentType: "image/jpeg", upsert: true });
-
-      if (error || !data) throw error ?? new Error("Upload failed");
-
-      const { data: urlData } = supabase.storage
-        .from("documentos-consentimiento")
-        .getPublicUrl(data.path);
-
+      // Server-side upload (ADR-0002): returns the storage PATH in the private
+      // documentos-consentimiento bucket — never a public URL (F078).
+      const { path } = await uploadPhoto({ bucket: "documentos-consentimiento", base64 });
       setConsents((prev) => ({
         ...prev,
-        [purpose]: { ...prev[purpose], documentoFotoUrl: urlData.publicUrl },
+        [purpose]: { ...prev[purpose], documentoFotoUrl: path },
       }));
       toast.success("Documento de consentimiento subido");
     } catch {
       toast.error("Error al subir el documento de consentimiento");
     }
     setCaptureForPurpose(null);
-  }, [personId, supabase]);
+  }, [uploadPhoto]);
 
   const handleSave = useCallback(async () => {
-    const grantedTemplates = templates.filter((t) => consents[t.purpose]?.granted);
-    if (grantedTemplates.length === 0) {
-      toast.info("No hay consentimientos seleccionados");
+    // Send every TOUCHED purpose, with its final granted state — a purpose
+    // toggled on and back off becomes an explicit granted:false (revocation).
+    // Untouched purposes are omitted and stay unchanged in the DB.
+    const touched = templates.filter((t) => consents[t.purpose] !== undefined);
+    if (touched.length === 0) {
+      toast.info("No hay cambios en los consentimientos");
       return;
     }
 
     setIsSaving(true);
     try {
-      const rows = grantedTemplates.map((t) => ({
-        person_id: personId,
+      const rows = touched.map((t) => ({
         purpose: t.purpose,
         idioma: t.idioma,
-        granted: true,
+        granted: consents[t.purpose]?.granted ?? false,
         granted_at: new Date().toISOString(),
         consent_text: t.text_content,
         consent_version: t.version,
         documento_foto_url: consents[t.purpose]?.documentoFotoUrl ?? null,
       }));
 
-      const { error } = await supabase
-        .from("consents")
-        .upsert(rows, { onConflict: "person_id,purpose" });
+      await saveConsents({ personId, consents: rows });
 
-      if (error) throw error;
-
-      toast.success(`${grantedTemplates.length} consentimiento(s) guardado(s)`);
+      toast.success(`${rows.length} consentimiento(s) guardado(s)`);
       onSaved();
       onClose();
     } catch (err) {
@@ -127,7 +117,7 @@ export function ConsentModal({ open, personId, templates, onClose, onSaved, pers
     } finally {
       setIsSaving(false);
     }
-  }, [templates, consents, personId, supabase, onSaved, onClose]);
+  }, [templates, consents, personId, saveConsents, onSaved, onClose]);
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>

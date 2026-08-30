@@ -82,6 +82,8 @@ async function startServer() {
     "/api/trpc/ocr",
     "/api/trpc/persons.uploadPhoto",
     "/api/trpc/entregas.uploadPhotoToStorage",
+    "/api/trpc/families.uploadFamilyDocument",
+    "/api/trpc/families.attachSignedActa",
     "/api/trpc/announcements.uploadImage",
     "/api/trpc/programs.sessionDocuments.uploadSessionDocument",
     "/api/trpc/families.previewLegacyImport",

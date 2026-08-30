@@ -17,15 +17,16 @@ import { describe, it, expect, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { ReactNode } from "react";
 
-// The browser supabase client throws at module-load when VITE env vars are
-// absent (see client/src/lib/supabase/client.ts). Vitest runs with `node`
-// env, so we mock it. The render path never invokes storage or DB calls
-// during static markup, so a no-op shim is sufficient.
-vi.mock("@/lib/supabase/client", () => ({
-  createClient: () => ({
-    storage: { from: () => ({ upload: vi.fn(), getPublicUrl: vi.fn() }) },
-    from: () => ({ upsert: vi.fn() }),
-  }),
+// ConsentModal writes through tRPC (persons.uploadPhoto / saveConsents). The
+// hooks run at render time, so they are shimmed here — no TRPCProvider exists
+// in a static-markup render, and no network call ever happens.
+vi.mock("@/lib/trpc", () => ({
+  trpc: {
+    persons: {
+      uploadPhoto: { useMutation: () => ({ mutateAsync: vi.fn() }) },
+      saveConsents: { useMutation: () => ({ mutateAsync: vi.fn() }) },
+    },
+  },
 }));
 
 // Radix Dialog renders into a portal which requires a DOM. With vitest's
