@@ -1,6 +1,7 @@
 import type { RefObject } from "react";
 import { Button } from "@/components/ui/button";
 import { Camera, ImageIcon, X } from "lucide-react";
+import { CameraCaptureButton } from "../../CameraCaptureButton";
 
 interface Step6FotoProps {
   profilePhotoPreview: string | null;
@@ -42,29 +43,25 @@ export function Step6Foto({
                 onClick={() => { setProfilePhotoBase64(null); setProfilePhotoPreview(null); }}>
                 <X className="mr-1 h-3 w-3" /> Eliminar
               </Button>
-              <Button type="button" size="sm" variant="outline"
-                onClick={() => profileInputRef.current?.click()}>
-                <Camera className="mr-1 h-3 w-3" /> Repetir
-              </Button>
+              <CameraCaptureButton
+                facingMode="user"
+                label="Repetir"
+                onCapture={(file) => void handleProfilePhotoFile(file)}
+              />
             </div>
           </div>
         ) : (
           <div className="flex gap-2">
+            <CameraCaptureButton
+              facingMode="user"
+              label="Usar cámara"
+              onCapture={(file) => void handleProfilePhotoFile(file)}
+              className="flex-1"
+            />
             <Button type="button" variant="outline" className="flex-1"
               onClick={() => {
                 if (profileInputRef.current) {
                   profileInputRef.current.accept = "image/*";
-                  profileInputRef.current.setAttribute("capture", "user");
-                  profileInputRef.current.click();
-                }
-              }}>
-              <Camera className="mr-2 h-4 w-4" /> Usar cámara
-            </Button>
-            <Button type="button" variant="outline" className="flex-1"
-              onClick={() => {
-                if (profileInputRef.current) {
-                  profileInputRef.current.accept = "image/*";
-                  profileInputRef.current.removeAttribute("capture");
                   profileInputRef.current.click();
                 }
               }}>
@@ -81,7 +78,7 @@ export function Step6Foto({
           }} />
       </div>
       <p className="text-xs text-center text-muted-foreground">
-        Puedes añadir o cambiar la foto más adelante desde el perfil.
+        Hazla ahora si puedes: por el momento la ficha no permite añadirla después.
       </p>
     </div>
   );
