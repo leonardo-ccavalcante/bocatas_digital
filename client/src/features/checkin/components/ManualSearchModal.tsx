@@ -21,10 +21,13 @@ interface ManualSearchModalProps {
 export function ManualSearchModal({ open, onClose, onSelect }: ManualSearchModalProps) {
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebounce(query, 350);
+  // RC-06: Android keyboards append a space after autocomplete — trim before
+  // querying, and gate on the trimmed length.
+  const trimmedQuery = debouncedQuery.trim();
 
   const { data: results, isLoading, fetchStatus } = trpc.checkin.searchPersons.useQuery(
-    { query: debouncedQuery },
-    { enabled: debouncedQuery.length >= 3 }
+    { query: trimmedQuery },
+    { enabled: trimmedQuery.length >= 3 }
   );
   // react-query PAUSES (not fails) network-only queries while offline:
   // fetchStatus "paused" with isLoading false and data undefined matched no
@@ -147,15 +150,15 @@ export function ManualSearchModal({ open, onClose, onSelect }: ManualSearchModal
           )}
 
           {/* Empty state */}
-          {!isLoading && results && results.length === 0 && debouncedQuery.length >= 3 && (
+          {!isLoading && results && results.length === 0 && trimmedQuery.length >= 3 && (
             <div role="status" className="text-center py-6 text-muted-foreground">
               <User className="w-8 h-8 mx-auto mb-2 opacity-40" />
-              <p className="text-sm">No se encontraron resultados para "{debouncedQuery}"</p>
+              <p className="text-sm">No se encontraron resultados para "{trimmedQuery}"</p>
             </div>
           )}
 
           {/* Hint */}
-          {debouncedQuery.length < 3 && (
+          {trimmedQuery.length < 3 && (
             <p className="text-xs text-muted-foreground text-center">
               Escribe al menos 3 caracteres para buscar
             </p>

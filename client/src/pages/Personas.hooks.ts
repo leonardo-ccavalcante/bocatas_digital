@@ -18,6 +18,7 @@ import type { Database } from "@/lib/database.types";
 import type { PersonRowData } from "@/features/persons/components/PersonRowDesktop";
 import type { EstadoFilter, SortBy } from "@/features/persons/components/PersonsFilterBar";
 import type { PersonSearchResult } from "@/features/persons/hooks/useSearchPersons";
+import { nameSearchTokens, normalizeNameSearch } from "@shared/nameSearch";
 
 type PersonRow = Database["public"]["Tables"]["persons"]["Row"];
 
@@ -91,15 +92,17 @@ export function usePersonsData({
 
     let rows = adminRows;
 
-    // Text filter over getAll rows when query is typed
+    // Text filter over getAll rows when query is typed — accent- and
+    // word-order-insensitive: every normalised token must appear in the
+    // normalised "nombre apellidos id" haystack (RC-06 / F065).
     if (query.trim().length >= 1) {
-      const q = query.trim().toLowerCase();
-      rows = rows.filter((p) =>
-        [p.nombre, p.apellidos ?? "", p.id]
-          .join(" ")
-          .toLowerCase()
-          .includes(q)
-      );
+      const tokens = nameSearchTokens(query);
+      rows = rows.filter((p) => {
+        const haystack = normalizeNameSearch(
+          [p.nombre, p.apellidos ?? "", p.id].join(" ")
+        );
+        return tokens.every((t) => haystack.includes(t));
+      });
     }
 
     // Estado filter
