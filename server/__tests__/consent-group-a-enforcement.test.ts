@@ -229,6 +229,27 @@ describe("persons.saveConsents — Group A mandatory enforcement (F-110)", () =>
     }
   });
 
+  // Hallazgo de revisión adversarial: `if (consents.length === 0) return []`
+  // estaba ANTES de la comprobación, así que una llamada con array vacío
+  // devolvía 200 y dejaba a la persona con CERO filas de consentimiento — ni
+  // base de tratamiento, ni prueba de las negativas. Justo el agujero que el
+  // invariante dice cerrar.
+  it("un array vacío no puede saltarse la comprobación", async () => {
+    dbState.existingGranted = [];
+    const caller = appRouter.createCaller(authCtx());
+    await expect(
+      caller.persons.saveConsents({ personId: PERSON_ID, consents: [] })
+    ).rejects.toThrow(TRPCError);
+  });
+
+  it("un array vacío es inocuo si ya consta todo lo obligatorio", async () => {
+    dbState.existingGranted = GROUP_A_PURPOSES.map((p) => ({ purpose: p, granted: true }));
+    const caller = appRouter.createCaller(authCtx());
+    await expect(
+      caller.persons.saveConsents({ personId: PERSON_ID, consents: [] })
+    ).resolves.toEqual([]);
+  });
+
   it("rejects unauthenticated callers (defense-in-depth)", async () => {
     const caller = appRouter.createCaller({
       user: null,

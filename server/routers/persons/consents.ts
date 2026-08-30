@@ -135,10 +135,13 @@ export const consentsRouter = router({
       })),
     }))
     .mutation(async ({ input }) => {
-      if (input.consents.length === 0) return [];
-
+      // La comprobación va PRIMERO: con el `return []` por delante, una llamada
+      // con array vacío devolvía 200 y dejaba a la persona sin una sola fila de
+      // consentimiento — ni base de tratamiento, ni prueba de las negativas.
       const supabase = createAdminClient();
       await assertGroupACovered(supabase, input.personId, input.consents);
+
+      if (input.consents.length === 0) return [];
 
       const rows = input.consents.map((c) => ({
         person_id: input.personId,
