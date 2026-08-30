@@ -23,6 +23,7 @@ import {
   FormSchema,
   type FormValues,
   toAnnouncementPayload,
+  editFormValuesFromRow,
   TIPO_LABELS,
   TIPO_COLORS,
   DEFAULT_AUDIENCE,
@@ -59,14 +60,9 @@ export default function AdminNovedades() {
   }
 
   function openEdit(a: Record<string, unknown>) {
-    form.reset({
-      titulo: a.titulo as string,
-      contenido: a.contenido as string,
-      tipo: a.tipo as "info" | "evento" | "cierre_servicio" | "convocatoria",
-      es_urgente: (a.es_urgente as boolean | undefined) ?? false,
-      fijado: a.fijado as boolean,
-      fecha_fin: ((a.fecha_fin as string | null) ?? "").slice(0, 10) || undefined,
-    });
+    // La fila de getAll ya trae announcement_audiences: sin precargarlas el
+    // submit quedaba bloqueado y la audiencia real se perdía (FAMILIAS-9).
+    form.reset(editFormValuesFromRow(a));
     setEditingId(a.id as string);
     setDialogOpen(true);
   }
