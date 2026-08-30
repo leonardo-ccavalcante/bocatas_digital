@@ -21,6 +21,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import { createAdminClient } from "../../../client/src/lib/supabase/server";
+import { storageSignedUrl } from "../../storage";
 import { InterventionInsertSchema } from "../../../shared/derivar/types";
 import { router, adminProcedure } from "../../_core/trpc";
 import { resolveProfesionalNombre } from "./_shared";
@@ -272,7 +273,15 @@ export const intervencionesRouter = router({
         .is("excluded_at", null) // filter out excluded interventions
         .order("fecha", { ascending: true });
 
-      return { hoja, intervenciones: rows ?? [] };
+      // firmado_url is a PRIVATE storage PATH (#168) — sign it server-side here.
+      // storageSignedUrl passes legacy absolute http(s) values through unchanged
+      // and returns null on failure, so the client's `firmado_url &&` guard holds.
+      const firmadoUrl = await storageSignedUrl(
+        "derivaciones-firmadas",
+        (hoja as { firmado_url?: string | null }).firmado_url ?? null,
+      );
+
+      return { hoja: { ...hoja, firmado_url: firmadoUrl }, intervenciones: rows ?? [] };
     }),
 
   /**
