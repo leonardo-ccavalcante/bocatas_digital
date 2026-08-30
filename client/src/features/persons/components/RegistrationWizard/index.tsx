@@ -35,6 +35,7 @@ import {
   getConsentTemplateLanguage,
 } from "../../schemas";
 import { useDuplicateCheck } from "../../hooks/useDuplicateCheck";
+import { useRegistrationDraft } from "../../hooks/useRegistrationDraft";
 import { usePrograms } from "../../hooks/usePrograms";
 import { useConsentTemplates } from "../../hooks/useConsentTemplates";
 import { compressImage } from "../../utils/imageUtils";
@@ -111,6 +112,7 @@ export function RegistrationWizard() {
     setValue,
     getValues,
     trigger,
+    reset,
     formState: { errors },
   } = useForm<PersonCreate>({
     resolver: zodResolver(PersonCreateSchema),
@@ -120,6 +122,14 @@ export function RegistrationWizard() {
       program_ids: [] as string[],
       fase_itinerario: "acogida",
     },
+  });
+
+  // Borrador: una interrupción a media ficha ya no obliga a empezar de cero.
+  const { borradorPendiente, recuperar, descartar, limpiar } = useRegistrationDraft({
+    watch,
+    reset,
+    fase: phase,
+    setFase: setPhase,
   });
 
   const watchedNombre = watch("nombre") ?? "";
@@ -281,6 +291,7 @@ export function RegistrationWizard() {
     numAdultos,
     numMenores,
     irAFase: setPhase,
+    onCreada: limpiar,
   });
 
   const isResumen = phase === TOTAL_PHASES;
@@ -291,6 +302,27 @@ export function RegistrationWizard() {
 
       {/* Body card */}
       <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-8">
+        {borradorPendiente && (
+          <div
+            role="status"
+            className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900"
+          >
+            <p className="font-medium">Hay un alta a medias sin terminar.</p>
+            <p className="mt-0.5 text-xs">
+              Se guardó en este dispositivo al quedarse a medias. No incluye
+              fotos ni datos de colectivo.
+            </p>
+            <div className="mt-2 flex gap-2">
+              <Button type="button" size="sm" onClick={recuperar}>
+                Recuperar
+              </Button>
+              <Button type="button" size="sm" variant="outline" onClick={descartar}>
+                Empezar de cero
+              </Button>
+            </div>
+          </div>
+        )}
+
         <div className="bocatas-card overflow-hidden">
           <div className="px-5 py-6 sm:px-8">
             {isResumen ? (
@@ -367,7 +399,16 @@ export function RegistrationWizard() {
           {/* Editorial footer */}
           <div className="flex items-center justify-between gap-3 border-t border-border bg-background px-5 py-4 sm:px-8">
             {phase === 1 ? (
-              <Button type="button" variant="outline" onClick={() => navigate("/personas")}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  // Cancelar es abandonar: dejar el borrador vivo haría que la
+                  // siguiente alta arrancara con los datos de otra persona.
+                  limpiar();
+                  navigate("/personas");
+                }}
+              >
                 Cancelar
               </Button>
             ) : (

@@ -35,6 +35,8 @@ interface UseSubmitArgs {
   numMenores: number;
   /** Lleva al paso donde está el campo que falla, para no buscarlo a ciegas. */
   irAFase?: (fase: number) => void;
+  /** La ficha ya existe: el borrador deja de representar trabajo pendiente. */
+  onCreada?: () => void;
 }
 
 export function useRegistrationSubmit(args: UseSubmitArgs) {
@@ -166,6 +168,7 @@ export function useRegistrationSubmit(args: UseSubmitArgs) {
         }
       }
 
+      args.onCreada?.();
       toast.success("Persona registrada correctamente");
       // Voluntarios no pueden abrir la ficha (persons.getById es admin-only,
       // #46): aterrizan en la tarjeta QR imprimible, que sí es voluntario-safe.
