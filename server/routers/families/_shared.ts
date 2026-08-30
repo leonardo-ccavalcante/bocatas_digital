@@ -265,4 +265,17 @@ export const FamilyCreateInputSchema = z
   .refine((d) => !d.autorizado || (d.persona_recoge ?? "").trim().length > 0, {
     path: ["persona_recoge"],
     message: "Indica el nombre de la persona autorizada para recoger",
+  })
+  // La información social se recoge en la entrevista de alta, así que no puede
+  // quedarse opcional (FAMILIAS-5). Aquí y no sólo en el wizard: el IntakeWizard
+  // monta zodResolver pero nunca llama a handleSubmit/trigger, de modo que su
+  // validación Zod está inerte y el servidor es el único punto de aplicación.
+  .refine((d) => d.informe_social, {
+    path: ["informe_social"],
+    message: "La información social se recoge en la entrevista: es obligatoria",
+  })
+  // La fecha vacía además reventaba el INSERT contra la columna DATE.
+  .refine((d) => /^\d{4}-\d{2}-\d{2}$/.test(d.informe_social_fecha ?? ""), {
+    path: ["informe_social_fecha"],
+    message: "Indica la fecha del informe social",
   });
