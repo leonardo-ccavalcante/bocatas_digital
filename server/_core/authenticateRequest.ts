@@ -97,7 +97,12 @@ function getSessionFromCookies(cookies: Record<string, string>): string | null {
 }
 
 /** The roles the app understands. Anything else is treated as "no role". */
-const APP_ROLES = ["user", "admin", "superadmin", "voluntario", "beneficiario"] as const;
+export const APP_ROLES = ["user", "admin", "superadmin", "voluntario", "beneficiario"] as const;
+
+/** Type guard: is `value` one of the app's known roles? */
+export function isAppRole(value: unknown): value is User["role"] {
+  return typeof value === "string" && (APP_ROLES as readonly string[]).includes(value);
+}
 
 /**
  * Read the app role out of `app_metadata` — the only place the admin UI ever
@@ -112,10 +117,7 @@ const APP_ROLES = ["user", "admin", "superadmin", "voluntario", "beneficiario"] 
  */
 function readAppRole(appMetadata: unknown): User["role"] | null {
   const role = (appMetadata as { role?: unknown } | null | undefined)?.role;
-  if (typeof role !== "string") return null;
-  return (APP_ROLES as readonly string[]).includes(role)
-    ? (role as User["role"])
-    : null;
+  return isAppRole(role) ? role : null;
 }
 
 /**
@@ -153,18 +155,45 @@ function date(value: unknown): Date | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-export async function authenticateRequest(req: Request): Promise<User | null> {
+/**
+ * Extract the session token a request carries, from the same sources and in the
+ * same order as `authenticateRequest`: Authorization: Bearer, then the Supabase
+ * session cookie. Returns null when no credential is present (an empty
+ * `Bearer ` header counts as no credential, matching the check below).
+ */
+export function extractSessionToken(req: Request): string | null {
   // 1. Try Authorization header (Bearer token)
   const authHeader = req.headers.authorization;
-  let token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  const bearer = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  if (bearer) return bearer;
 
   // 2. Try cookies
-  if (!token) {
-    const cookieHeader = req.headers.cookie ?? "";
-    const cookies = parseCookies(cookieHeader);
-    token = getSessionFromCookies(cookies);
-  }
+  const cookies = parseCookies(req.headers.cookie ?? "");
+  return getSessionFromCookies(cookies);
+}
 
+/**
+ * Whether the request presented ANY credential — regardless of whether it is
+ * valid. Lets callers tell an anonymous request (no credential) apart from one
+ * whose credential was presented and rejected. The dev-admin bypass relies on
+ * this so a rejected login is NOT silently upgraded to a synthetic admin (#172).
+ */
+export function requestHasCredential(req: Request): boolean {
+  // Physical presence, NOT extractability: a malformed or partial credential is
+  // still a presented credential and must not be treated as anonymous — a
+  // stale/corrupt sb-<ref>-auth-token cookie (unparseable JSON, missing
+  // access_token) or a non-Bearer Authorization header would otherwise slip
+  // through and re-trigger the dev-admin bypass (#172).
+  const authHeader = req.headers.authorization;
+  if (typeof authHeader === "string" && authHeader.trim() !== "") return true;
+  const cookies = parseCookies(req.headers.cookie ?? "");
+  return Object.keys(cookies).some(
+    (name) => name === "sb-access-token" || name.startsWith(COOKIE_KEY)
+  );
+}
+
+export async function authenticateRequest(req: Request): Promise<User | null> {
+  const token = extractSessionToken(req);
   if (!token) return null;
 
   const supabase = getSupabaseAdmin();
