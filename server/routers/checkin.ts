@@ -11,8 +11,7 @@ import { z } from "zod";
 import { createAdminClient } from "../../client/src/lib/supabase/server";
 import { voluntarioProcedure, router } from "../_core/trpc";
 import { logProcedureAction, logProcedureError, logCorrelatedErrorToStderr } from "../_core/logging-middleware";
-import { ENV } from "../_core/env";
-import { parseQrPayload, verifySig } from "../../shared/qr/payload";
+import { assertQrScanVerified } from "./checkin.qrVerify";
 import { ilikeValue } from "../_core/postgrestFilter";
 import { nameSearchTokens } from "../../shared/nameSearch";
 import {
@@ -64,42 +63,9 @@ export const checkinRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      // ── QR signature verification (when a raw QR string is supplied) ──────
-      // This activates only when the QR-scan path passes qrValue.
-      // Manual-search, anonymous, and demo paths omit qrValue → bypass.
-      if (input.qrValue !== undefined) {
-        const parsed = parseQrPayload(input.qrValue);
-        if (!parsed) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Formato de QR inválido",
-          });
-        }
-        // Ensure the UUID in the payload matches what the client claims.
-        if (parsed.uuid.toLowerCase() !== input.personId.toLowerCase()) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "El QR no corresponde a la persona indicada",
-          });
-        }
-        const secret = ENV.qrSigningSecret;
-        if (!secret || secret.length < 32) {
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: "QR signing secret not configured",
-          });
-        }
-        const valid = await verifySig(parsed.uuid, parsed.sig, secret);
-        if (!valid) {
-          logProcedureAction(ctx, "Checkin: Invalid QR signature rejected", {
-            personId: input.personId,
-          });
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: "Firma del QR inválida o adulterada",
-          });
-        }
-      }
+      // QR-scan integrity gate: rejects a qr_scan with no qrValue (#171 F090)
+      // and verifies format + person-match + HMAC when a qrValue is present.
+      await assertQrScanVerified(input, ctx);
 
       const supabase = createAdminClient();
       const startTime = Date.now();
