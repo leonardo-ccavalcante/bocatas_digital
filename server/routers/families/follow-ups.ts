@@ -68,9 +68,13 @@ export const followUpsRouter = router({
     .input(z.object({ family_id: uuidLike }))
     .query(async ({ input }) => {
       const db = createAdminClient();
+      // `notas` is narrative PII about the family; voluntario+ can call this, so
+      // it must NOT be selected here — the caller only needs existence + recency
+      // (id, fecha). Reading the notes requires an elevated, dedicated path.
+      // (#171 / F088)
       const { data } = await db
         .from("family_follow_ups")
-        .select("id, fecha, notas")
+        .select("id, fecha")
         .eq("family_id", input.family_id)
         .is("deleted_at", null)
         .order("fecha", { ascending: false })

@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Download, Printer, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
+import { buildQrPrintDocument } from "./qrPrintDocument";
 import type { Database } from "@/lib/database.types";
 
 type PersonRow = Database["public"]["Tables"]["persons"]["Row"];
@@ -65,26 +66,8 @@ export function QRCodeCard({ person }: QRCodeCardProps) {
     const win = window.open("", "_blank");
     if (!win) return;
     const fullName = `${person.nombre} ${person.apellidos ?? ""}`.trim();
-    win.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>QR — ${fullName}</title>
-          <style>
-            body { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; font-family:sans-serif; gap:16px; }
-            img { width:256px; height:256px; }
-            h2 { margin:0; font-size:18px; }
-            p { margin:0; color:#666; font-size:13px; }
-          </style>
-        </head>
-        <body>
-          <img src="${qrDataUrl}" alt="QR Code" />
-          <h2>${fullName}</h2>
-          <p>Bocatas Digital · ID: ${person.id.slice(0, 8)}</p>
-          <script>window.onload=()=>{window.print();window.close();}</script>
-        </body>
-      </html>
-    `);
+    // fullName is operator-entered DB data; buildQrPrintDocument escapes it.
+    win.document.write(buildQrPrintDocument(fullName, qrDataUrl, person.id.slice(0, 8)));
     win.document.close();
   };
 
