@@ -14,6 +14,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
+import { resolvePdfWorker, type PdfWorkerConfig } from "./pdfWorkerConfig";
 
 /**
  * Thrown when LibreOffice (soffice) is not installed on the host.
@@ -109,6 +110,13 @@ export function convertDocxToPdf(docx: Buffer): Promise<Buffer> {
 }
 
 async function convertNow(docx: Buffer): Promise<Buffer> {
+  // Sidecar HTTP antes que binario local: es el segundo camino del runbook
+  // (docs/runbooks/libreoffice-setup.md) y evita meter ~700 MB de LibreOffice en
+  // la imagen. `resolvePdfWorker` LANZA si la configuración no es segura en vez
+  // de caer al camino local: quien la puso tiene que enterarse.
+  const worker = resolvePdfWorker(process.env);
+  if (worker !== null) return convertViaWorker(docx, worker);
+
   const bin = resolveSoffice();
   // Fail-fast ANTES de tocar el disco: sin binario no hay nada que intentar y el
   // operador necesita el diagnóstico, no un timeout de 90 s.
@@ -175,4 +183,41 @@ function runSoffice(bin: string, inPath: string, outDir: string): Promise<void> 
       reject(new Error(`soffice exited ${code}`));
     });
   });
+}
+
+/**
+ * Convierte contra un sidecar compatible con gotenberg
+ * (`POST /forms/libreoffice/convert`, multipart).
+ *
+ * El cuerpo lleva el informe social completo, así que la garantía de transporte
+ * la da `resolvePdfWorker` (https salvo loopback) antes de llegar aquí. Ni el
+ * cuerpo de la respuesta de error ni el documento se registran en el log.
+ */
+async function convertViaWorker(docx: Buffer, worker: PdfWorkerConfig): Promise<Buffer> {
+  const form = new FormData();
+  form.append(
+    "files",
+    new Blob([new Uint8Array(docx)], {
+      type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    }),
+    `${randomUUID()}.docx`,
+  );
+
+  const headers: Record<string, string> = {};
+  if (worker.token !== null) headers.Authorization = `Bearer ${worker.token}`;
+
+  const response = await fetch(`${worker.baseUrl}/forms/libreoffice/convert`, {
+    method: "POST",
+    body: form,
+    headers,
+    signal: AbortSignal.timeout(CONVERT_TIMEOUT_MS),
+  });
+
+  if (!response.ok) {
+    // Se registra el código, nunca el cuerpo: puede devolver el documento.
+    console.error(`[docxToPdf] el worker de PDF respondió ${response.status}`);
+    throw new Error(`El servicio de conversión a PDF respondió ${response.status}`);
+  }
+
+  return Buffer.from(await response.arrayBuffer());
 }

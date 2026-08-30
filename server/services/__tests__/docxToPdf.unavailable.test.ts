@@ -25,6 +25,10 @@ beforeEach(() => {
   existsSyncMock.mockReset();
   spawnMock.mockReset();
   delete process.env.LIBREOFFICE_BIN;
+  // Estos casos prueban el camino LOCAL. Si hay un sidecar configurado en el
+  // entorno (`.env` trae LIBREOFFICE_WORKER_URL), la conversión ni siquiera
+  // llega a buscar el binario, así que se fija a "sin worker" a propósito.
+  delete process.env.LIBREOFFICE_WORKER_URL;
 });
 
 afterEach(() => {
