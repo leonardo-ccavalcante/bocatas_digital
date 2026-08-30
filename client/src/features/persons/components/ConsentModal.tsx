@@ -6,15 +6,12 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Loader2, Camera, CheckCircle, AlertCircle } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import type { ConsentTemplate } from "../schemas";
 import { TEMPLATE_LANGUAGES } from "./RegistrationWizard/_shared";
-import {
-  useSeededConsents,
-  describeConsentSignature,
-} from "../hooks/usePersonConsents";
-import { compressImage, base64ToBlob } from "../utils/imageUtils";
+import { compressImage } from "../utils/imageUtils";
+import { useSavedConsents, describeConsentSignature } from "../hooks/usePersonConsents";
 
 const CONSENT_PURPOSE_LABELS: Record<string, string> = {
   tratamiento_datos_bocatas: "Tratamiento de datos — Bocatas",
@@ -31,13 +28,16 @@ interface ConsentModalProps {
   onClose: () => void;
   onSaved: () => void;
   /**
-   * Idioma principal REAL de la persona (enum `idioma`, 9 valores) — no el
-   * idioma de la plantilla. Es lo que detecta que no hay plantilla en su lengua
-   * y dispara el banner de traducción verbal (ADR-0006). La ficha lo pasa desde
-   * `persons.idioma_principal`; sigue siendo opcional para no obligar a futuros
-   * call sites a conocerlo.
+   * Phase B.5 — beneficiary's primary language (idioma). Used by tests + future
+   * fallback flow to detect when no template matches and show the verbal-translation
+   * banner. Optional: existing call sites pass undefined and behavior is unchanged.
    */
   personLanguage?: string;
+}
+
+interface ConsentState {
+  granted: boolean;
+  documentoFotoUrl?: string;
 }
 
 // TEMPLATE_LANGUAGES (consent_language enum) is the single source in
@@ -54,12 +54,14 @@ export function ConsentModal({ open, personId, templates, onClose, onSaved, pers
     personLanguage !== "es" &&
     (!TEMPLATE_LANGUAGES.has(personLanguage) || templates.length === 0);
   const dir = personLanguage && RTL_LANGUAGES.has(personLanguage) ? "rtl" : "ltr";
-  const supabase = createClient();
-  // Las casillas arrancan con lo que la persona YA firmó, no vacías.
-  const { consents, setConsents, isLoadingSaved, cargaFallida } = useSeededConsents(
-    personId,
-    open,
-  );
+  const { mutateAsync: uploadPhoto } = trpc.persons.uploadPhoto.useMutation();
+  const { mutateAsync: saveConsents } = trpc.persons.saveConsents.useMutation();
+  // Lo que YA consta firmado, de sólo lectura. `consents` sigue siendo lo
+  // TOCADO en esta sesión: mezclarlos haría que "tocado" dejara de significar
+  // nada y cada guardado re-sellara con la fecha de hoy registros que tienen
+  // valor de firma manuscrita.
+  const { firmados, isLoadingSaved, cargaFallida } = useSavedConsents(personId, open);
+  const [consents, setConsents] = useState<Record<string, ConsentState>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [captureForPurpose, setCaptureForPurpose] = useState<string | null>(null);
   const fileInputRef = { current: null as HTMLInputElement | null };
@@ -67,69 +69,55 @@ export function ConsentModal({ open, personId, templates, onClose, onSaved, pers
   const toggleConsent = useCallback((purpose: string) => {
     setConsents((prev) => ({
       ...prev,
-      [purpose]: { ...prev[purpose], granted: !(prev[purpose]?.granted ?? false) },
+      [purpose]: {
+        ...prev[purpose],
+        granted: !(prev[purpose]?.granted ?? firmados[purpose]?.granted ?? false),
+      },
     }));
-  }, [setConsents]);
+  }, [firmados]);
 
   const handleDocumentCapture = useCallback(async (purpose: string, file: File) => {
     try {
       const base64 = await compressImage(file, 1200, 0.85);
-      const blob = base64ToBlob(base64);
-      const path = `${personId}/${purpose}-${Date.now()}.jpg`;
-      const { data, error } = await supabase.storage
-        .from("documentos-consentimiento")
-        .upload(path, blob, { contentType: "image/jpeg", upsert: true });
-
-      if (error || !data) throw error ?? new Error("Upload failed");
-
-      // Se guarda el PATH, no una URL. `documentos-consentimiento` es un bucket
-      // PRIVADO, así que la URL pública que había aquí ni siquiera resolvía; y si
-      // resolviera sería un enlace reenviable al consentimiento escaneado de una
-      // persona beneficiaria (hallazgo CAS-02). La lectura se firma en el
-      // servidor, en el resolver que seleccione la columna.
+      // Server-side upload (ADR-0002): returns the storage PATH in the private
+      // documentos-consentimiento bucket — never a public URL (F078).
+      const { path } = await uploadPhoto({ bucket: "documentos-consentimiento", base64 });
       setConsents((prev) => ({
         ...prev,
-        [purpose]: { ...prev[purpose], documentoFotoUrl: data.path },
+        [purpose]: { ...prev[purpose], documentoFotoUrl: path },
       }));
       toast.success("Documento de consentimiento subido");
     } catch {
       toast.error("Error al subir el documento de consentimiento");
     }
     setCaptureForPurpose(null);
-  }, [personId, supabase, setConsents]);
+  }, [uploadPhoto]);
 
   const handleSave = useCallback(async () => {
-    // Sólo lo marcado AHORA: re-subir un consentimiento que ya constaba le
-    // pondría la fecha de hoy y falsearía un registro con valor de firma
-    // manuscrita ante el Banco de Alimentos.
-    const nuevos = templates.filter(
-      (t) => consents[t.purpose]?.granted && !consents[t.purpose]?.firmadoEl,
-    );
-    if (nuevos.length === 0) {
-      toast.info("No hay consentimientos nuevos que guardar");
+    // Send every TOUCHED purpose, with its final granted state — a purpose
+    // toggled on and back off becomes an explicit granted:false (revocation).
+    // Untouched purposes are omitted and stay unchanged in the DB.
+    const touched = templates.filter((t) => consents[t.purpose] !== undefined);
+    if (touched.length === 0) {
+      toast.info("No hay cambios en los consentimientos");
       return;
     }
 
     setIsSaving(true);
     try {
-      const rows = nuevos.map((t) => ({
-        person_id: personId,
+      const rows = touched.map((t) => ({
         purpose: t.purpose,
         idioma: t.idioma,
-        granted: true,
+        granted: consents[t.purpose]?.granted ?? firmados[t.purpose]?.granted ?? false,
         granted_at: new Date().toISOString(),
         consent_text: t.text_content,
         consent_version: t.version,
         documento_foto_url: consents[t.purpose]?.documentoFotoUrl ?? null,
       }));
 
-      const { error } = await supabase
-        .from("consents")
-        .upsert(rows, { onConflict: "person_id,purpose" });
+      await saveConsents({ personId, consents: rows });
 
-      if (error) throw error;
-
-      toast.success(`${nuevos.length} consentimiento(s) guardado(s)`);
+      toast.success(`${rows.length} consentimiento(s) guardado(s)`);
       onSaved();
       onClose();
     } catch (err) {
@@ -138,7 +126,7 @@ export function ConsentModal({ open, personId, templates, onClose, onSaved, pers
     } finally {
       setIsSaving(false);
     }
-  }, [templates, consents, personId, supabase, onSaved, onClose]);
+  }, [templates, consents, firmados, personId, saveConsents, onSaved, onClose]);
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
@@ -166,21 +154,19 @@ export function ConsentModal({ open, personId, templates, onClose, onSaved, pers
               </div>
             )}
             {isLoadingSaved && (
-              <p className="text-sm text-muted-foreground" role="status">
-                Cargando los consentimientos ya firmados…
+              <p className="text-xs text-muted-foreground">
+                Consultando lo que ya consta firmado…
               </p>
             )}
             {cargaFallida && (
               <div
-                className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800"
+                role="alert"
                 data-testid="consent-carga-fallida"
-                role="status"
+                className="flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm dark:bg-amber-950"
               >
-                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-                <span>
-                  No se han podido consultar los consentimientos ya firmados.
-                  Comprueba con el equipo responsable antes de volver a firmar.
-                </span>
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                No se han podido consultar los consentimientos ya firmados. Las
+                casillas salen vacías: comprueba la ficha antes de volver a firmar.
               </div>
             )}
             {templates.length === 0 && (
@@ -191,13 +177,12 @@ export function ConsentModal({ open, personId, templates, onClose, onSaved, pers
             )}
             {templates.map((t) => {
               const state = consents[t.purpose];
-              const firma = describeConsentSignature(state);
               return (
                 <div key={t.purpose} className="rounded-lg border p-3 space-y-2">
                   <div className="flex items-start gap-3">
                     <Checkbox
                       id={`consent-${t.purpose}`}
-                      checked={state?.granted ?? false}
+                      checked={state?.granted ?? firmados[t.purpose]?.granted ?? false}
                       onCheckedChange={() => toggleConsent(t.purpose)}
                       className="mt-0.5"
                     />
@@ -207,21 +192,21 @@ export function ConsentModal({ open, personId, templates, onClose, onSaved, pers
                       </Label>
                       <Badge variant="outline" className="text-xs">{t.idioma.toUpperCase()} · v{t.version}</Badge>
                       <p lang={t.idioma} className="text-xs text-muted-foreground line-clamp-3">{t.text_content}</p>
-                      {firma && (
+                      {/* Lo que YA consta: sin esto el escudo parecía decir que
+                          la persona no había firmado nada. */}
+                      {describeConsentSignature(firmados[t.purpose]) && (
                         <p
-                          className="text-xs font-medium text-green-700"
+                          className="text-xs text-muted-foreground"
                           data-testid={`consent-firma-${t.purpose}`}
                         >
-                          {firma}
+                          {describeConsentSignature(firmados[t.purpose])}
                         </p>
                       )}
                     </div>
                   </div>
 
-                  {/* Adjuntar documento: sólo para lo que se marca ahora — lo
-                      ya firmado no se re-guarda, así que el botón no
-                      persistiría nada. */}
-                  {state?.granted && !state.firmadoEl && (
+                  {/* Document capture for this consent */}
+                  {state?.granted && (
                     <div className="ml-7 flex items-center gap-2">
                       {state.documentoFotoUrl ? (
                         <div className="flex items-center gap-2 text-xs text-green-600">

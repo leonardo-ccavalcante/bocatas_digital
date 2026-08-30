@@ -22,10 +22,12 @@ import type { Turno } from "../schemas";
 
 interface Props {
   programId: string;
+  /** Admin-only actions (crear/eliminar/cerrar, Contacto, Documentos, acta) hidden otherwise. */
+  isAdmin: boolean;
 }
 
 /** Orchestrates the Reparto flow: list → create → preview → close-out + docs. */
-export function RepartoTab({ programId }: Props) {
+export function RepartoTab({ programId, isAdmin }: Props) {
   const { data: repartos } = useRepartos(programId);
   const [creating, setCreating] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -118,8 +120,8 @@ export function RepartoTab({ programId }: Props) {
           <Tabs defaultValue="cierre">
             <TabsList>
               <TabsTrigger value="cierre">Cierre por día</TabsTrigger>
-              <TabsTrigger value="contacto">Contacto</TabsTrigger>
-              <TabsTrigger value="docs">Documentos del reparto</TabsTrigger>
+              {isAdmin && <TabsTrigger value="contacto">Contacto</TabsTrigger>}
+              {isAdmin && <TabsTrigger value="docs">Documentos del reparto</TabsTrigger>}
             </TabsList>
 
             <TabsContent value="cierre" className="space-y-4">
@@ -139,7 +141,7 @@ export function RepartoTab({ programId }: Props) {
                         <CheckCircle2 className="ml-1.5 h-3.5 w-3.5 text-green-500" aria-label="cerrado" />
                       )}
                     </Button>
-                    {s.estado === "abierto" && (
+                    {isAdmin && s.estado === "abierto" && (
                       <Button
                         size="sm"
                         variant="outline"
@@ -153,7 +155,7 @@ export function RepartoTab({ programId }: Props) {
                     )}
                   </div>
                 ))}
-                {selected.estado === "activa" && (
+                {isAdmin && selected.estado === "activa" && (
                   <Button
                     size="sm"
                     variant="destructive"
@@ -173,14 +175,16 @@ export function RepartoTab({ programId }: Props) {
               {activeSlot && (
                 <div className="space-y-3">
                   <CloseoutDayView roundId={selected.id} slotId={activeSlot.id} />
-                  <SignedActaUpload
-                    roundId={selected.id}
-                    slotId={activeSlot.id}
-                    day={activeSlot.slot_date}
-                    turno={activeTurno}
-                    existingPath={existingActaPath}
-                  />
-                  {existingActaPath && (
+                  {isAdmin && (
+                    <SignedActaUpload
+                      roundId={selected.id}
+                      slotId={activeSlot.id}
+                      day={activeSlot.slot_date}
+                      turno={activeTurno}
+                      existingPath={existingActaPath}
+                    />
+                  )}
+                  {isAdmin && existingActaPath && (
                     <ActaCloseoutReview roundId={selected.id} slotId={activeSlot.id} />
                   )}
                 </div>
@@ -189,27 +193,31 @@ export function RepartoTab({ programId }: Props) {
 
             {/* Contact phase: record each family's agreed days (fecha 1 / fecha 2)
                 or an early renuncia, before printing the acta de citación. */}
-            <TabsContent value="contacto">
-              <ContactoPanel roundId={selected.id} />
-            </TabsContent>
+            {isAdmin && (
+              <TabsContent value="contacto">
+                <ContactoPanel roundId={selected.id} />
+              </TabsContent>
+            )}
 
             {/* Round-level documents — the COMPLETE list of every family, in
                 numeric order. Citación (antes: fecha 1 + fecha 2) and Final
                 (después: fecha real). No longer per-day. */}
-            <TabsContent value="docs">
-              <Tabs defaultValue="citacion">
-                <TabsList>
-                  <TabsTrigger value="citacion">Acta de Citación (antes)</TabsTrigger>
-                  <TabsTrigger value="final">Acta Final (después)</TabsTrigger>
-                </TabsList>
-                <TabsContent value="citacion">
-                  <RepartoActaPrint roundId={selected.id} variant="citacion" />
-                </TabsContent>
-                <TabsContent value="final">
-                  <RepartoActaPrint roundId={selected.id} variant="final" />
-                </TabsContent>
-              </Tabs>
-            </TabsContent>
+            {isAdmin && (
+              <TabsContent value="docs">
+                <Tabs defaultValue="citacion">
+                  <TabsList>
+                    <TabsTrigger value="citacion">Acta de Citación (antes)</TabsTrigger>
+                    <TabsTrigger value="final">Acta Final (después)</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="citacion">
+                    <RepartoActaPrint roundId={selected.id} variant="citacion" />
+                  </TabsContent>
+                  <TabsContent value="final">
+                    <RepartoActaPrint roundId={selected.id} variant="final" />
+                  </TabsContent>
+                </Tabs>
+              </TabsContent>
+            )}
           </Tabs>
         )}
 
@@ -264,7 +272,9 @@ export function RepartoTab({ programId }: Props) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-h3">Lista de distribución</h3>
-        <Button size="sm" onClick={() => setCreating(true)}>Generar lista</Button>
+        {isAdmin && (
+          <Button size="sm" onClick={() => setCreating(true)}>Generar lista</Button>
+        )}
       </div>
       {!hasRepartos && (
         <div className="rounded-lg border border-dashed border-muted-foreground/30 bg-muted/20 p-6 text-center space-y-3">
@@ -273,12 +283,14 @@ export function RepartoTab({ programId }: Props) {
             Genera la lista de distribución para organizar qué familias reciben alimentos cada día del reparto.
             Incluye la Hoja de Firmas y el listado de asistencia.
           </p>
-          <Button onClick={() => setCreating(true)} className="mt-2">
-            Generar lista de distribución
-          </Button>
+          {isAdmin && (
+            <Button onClick={() => setCreating(true)} className="mt-2">
+              Generar lista de distribución
+            </Button>
+          )}
         </div>
       )}
-      {hasRepartos && <RepartoList programId={programId} onSelect={setSelectedId} />}
+      {hasRepartos && <RepartoList programId={programId} onSelect={setSelectedId} isAdmin={isAdmin} />}
     </div>
   );
 }

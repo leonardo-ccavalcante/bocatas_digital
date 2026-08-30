@@ -95,27 +95,27 @@ function Router() {
           </ProtectedRoute>
         </Route>
         <Route path="/personas">
-          <ProtectedRoute>
+          <ProtectedRoute requiredRoles={["voluntario", "admin", "superadmin"]}>
             <Personas />
           </ProtectedRoute>
         </Route>
         <Route path="/personas/nueva">
-          <ProtectedRoute>
+          <ProtectedRoute requiredRoles={["voluntario", "admin", "superadmin"]}>
             <PersonasNueva />
           </ProtectedRoute>
         </Route>
         <Route path="/personas/:id/qr">
-          <ProtectedRoute>
+          <ProtectedRoute requiredRoles={["voluntario", "admin", "superadmin"]}>
             <PersonaQR />
           </ProtectedRoute>
         </Route>
         <Route path="/personas/:id">
-          <ProtectedRoute>
+          <ProtectedRoute requiredRoles={["voluntario", "admin", "superadmin"]}>
             <PersonaDetalle />
           </ProtectedRoute>
         </Route>
         <Route path="/checkin">
-          <ProtectedRoute>
+          <ProtectedRoute requiredRoles={["voluntario", "admin", "superadmin"]}>
             <CheckIn />
           </ProtectedRoute>
         </Route>
@@ -125,12 +125,12 @@ function Router() {
           </ProtectedRoute>
         </Route>
         <Route path="/programas/:slug">
-          <ProtectedRoute>
+          <ProtectedRoute requiredRoles={["voluntario", "admin", "superadmin"]}>
             <ProgramaDetalle />
           </ProtectedRoute>
         </Route>
         <Route path="/programas">
-          <ProtectedRoute>
+          <ProtectedRoute requiredRoles={["voluntario", "admin", "superadmin"]}>
             <Programas />
           </ProtectedRoute>
         </Route>
