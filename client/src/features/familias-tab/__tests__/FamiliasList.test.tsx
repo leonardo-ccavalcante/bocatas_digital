@@ -158,6 +158,19 @@ describe("FamiliasList contract", () => {
     expect(screen.getByText(/sin resultados/i)).toBeInTheDocument();
   });
 
+  // 2b ─────────────────────────────────────────────────────────────────────────
+  // RC-08 / F160: a families.getAll failure (e.g. the PGRST100 500 on text
+  // search) must be VISIBLE — not an empty table the volunteer reads as
+  // "family not found".
+  it("renders a visible error state when families.getAll fails (no silent empty list)", () => {
+    mockUseQuery.mockReturnValue({ data: undefined, isLoading: false, isError: true });
+
+    renderWithMemory(<FamiliasList onRowClick={noop} />);
+
+    expect(screen.getByRole("alert")).toHaveTextContent(/no se pudo cargar/i);
+    expect(screen.queryByText(/sin resultados/i)).not.toBeInTheDocument();
+  });
+
   // 3 ──────────────────────────────────────────────────────────────────────────
   it("renders one row per family with correct columns", () => {
     mockUseQuery.mockReturnValue({ data: sampleRows, isLoading: false });

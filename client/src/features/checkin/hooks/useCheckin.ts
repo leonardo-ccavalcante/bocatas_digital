@@ -13,6 +13,27 @@ import type { CheckinPrograma, CheckinMetodo } from "../machine/checkinMachine";
 import { useCheckinStore } from "../store/useCheckinStore";
 import { categorizeSyncResults } from "./syncResults";
 
+// ── Error classification (F028) ──────────────────────────────────────────────
+// navigator.onLine stays true on weak signal / captive portals, so a request
+// that dies in transit reaches onError while `isOnline` is still true. A tRPC
+// client error that carries no server-sent `data` never got a server response
+// (browser "Failed to fetch", DNS failure, aborted socket) — treat it exactly
+// like being offline and queue the check-in instead of losing it.
+type CheckinClientError = { message: string; data?: { code?: string } | null };
+
+function isTransportError(err: CheckinClientError): boolean {
+  return err.data == null;
+}
+
+// Spanish-only UI: never surface raw DB/browser text to the volunteer.
+// Non-500 server errors (BAD_REQUEST, NOT_FOUND…) already carry Spanish
+// messages written by our routers, so pass those through.
+function checkinErrorMessage(err: CheckinClientError): string {
+  return err.data?.code === "INTERNAL_SERVER_ERROR"
+    ? "No se pudo registrar el check-in. Inténtalo de nuevo."
+    : err.message;
+}
+
 export function useCheckin() {
   const [state, send] = useActor(checkinMachine);
   const { offlineQueue, failedClientIds, enqueue, dequeue, markFailed, setIsSyncing, isSyncing } =
@@ -21,7 +42,26 @@ export function useCheckin() {
 
   const verifyMutation = trpc.checkin.verifyAndInsert.useMutation();
   const anonymousMutation = trpc.checkin.anonymousCheckin.useMutation();
-  const syncMutation = trpc.checkin.syncOfflineQueue.useMutation();
+  // F026: lifecycle callbacks live at useMutation level, NOT mutate() level.
+  // TanStack v5 skips mutate()-level callbacks when the observing component
+  // unmounts mid-flight (navigation during a flush), which used to leave
+  // isSyncing stuck at true forever. Mutation-level callbacks always run.
+  const syncMutation = trpc.checkin.syncOfflineQueue.useMutation({
+    onSuccess: (results) => {
+      // POS-03: settled (synced/duplicate) items leave the queue; "error"
+      // items are recorded as failed so the volunteer sees them instead of
+      // them silently looking like ordinary pending-offline items.
+      const { settled, failed } = categorizeSyncResults(results);
+      if (settled.length > 0) dequeue(settled);
+      if (failed.length > 0) markFailed(failed);
+    },
+    onError: (_err, attempted) => {
+      // Whole-batch failure: every attempted item failed this round. Surface
+      // them; they remain queued for the next flush or a manual retry.
+      markFailed(attempted.map((item) => item.clientId));
+    },
+    onSettled: () => setIsSyncing(false),
+  });
 
   // ── Reactive online/offline listener ───────────────────────────────────────
   useEffect(() => {
@@ -55,28 +95,28 @@ export function useCheckin() {
       return;
     }
 
+    // Shared by the navigator-offline paths AND the transport-error fallbacks
+    // (F028): enqueue locally and move the machine to the queued-offline state.
+    const queueOffline = (queuedPersonId: string | null, metodo: CheckinMetodo) => {
+      const clientId = enqueue({ personId: queuedPersonId, locationId, programa, metodo, isDemoMode });
+      send({
+        type: "OFFLINE",
+        queueItem: {
+          clientId,
+          personId: queuedPersonId,
+          locationId,
+          programa,
+          metodo,
+          isDemoMode,
+          queuedAt: new Date().toISOString(),
+        },
+      });
+    };
+
     // Anonymous check-in (no personId)
     if (!personId) {
       if (!isOnline) {
-        const clientId = enqueue({
-          personId: null,
-          locationId,
-          programa,
-          metodo: "conteo_anonimo",
-          isDemoMode,
-        });
-        send({
-          type: "OFFLINE",
-          queueItem: {
-            clientId,
-            personId: null,
-            locationId,
-            programa,
-            metodo: "conteo_anonimo",
-            isDemoMode,
-            queuedAt: new Date().toISOString(),
-          },
-        });
+        queueOffline(null, "conteo_anonimo");
         return;
       }
 
@@ -87,7 +127,10 @@ export function useCheckin() {
             if (!isDemoMode) capture("checkin_completed", { method: "anonymous" });
             send({ type: "RESULT", result: { status: "registered", restriccionesAlimentarias: null } });
           },
-          onError: (err) => send({ type: "ERROR", message: err.message }),
+          onError: (err) => {
+            if (isTransportError(err)) queueOffline(null, "conteo_anonimo");
+            else send({ type: "ERROR", message: checkinErrorMessage(err) });
+          },
         }
       );
       return;
@@ -103,19 +146,7 @@ export function useCheckin() {
     }
 
     if (!isOnline) {
-      const clientId = enqueue({ personId, locationId, programa, metodo, isDemoMode });
-      send({
-        type: "OFFLINE",
-        queueItem: {
-          clientId,
-          personId,
-          locationId,
-          programa,
-          metodo,
-          isDemoMode,
-          queuedAt: new Date().toISOString(),
-        },
-      });
+      queueOffline(personId, metodo);
       return;
     }
 
@@ -139,51 +170,33 @@ export function useCheckin() {
           send({ type: "RESULT", result });
         },
         onError: (err) => {
-          if (!isOnline) {
-            const clientId = enqueue({ personId, locationId, programa, metodo, isDemoMode });
-            send({
-              type: "OFFLINE",
-              queueItem: {
-                clientId,
-                personId,
-                locationId,
-                programa,
-                metodo,
-                isDemoMode,
-                queuedAt: new Date().toISOString(),
-              },
-            });
-          } else {
-            send({ type: "ERROR", message: err.message });
-          }
+          // "Failed to fetch" while navigator.onLine is still true (weak
+          // signal, captive portal, server unreachable) must queue, not
+          // lose the check-in (F028).
+          if (!isOnline || isTransportError(err)) queueOffline(personId, metodo);
+          else send({ type: "ERROR", message: checkinErrorMessage(err) });
         },
       }
     );
   }, [state, isOnline]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Auto-flush offline queue when back online ──────────────────────────────
-  useEffect(() => {
-    if (!isOnline || offlineQueue.length === 0 || isSyncing) return;
-
+  // Reads the queue via getState() so the callback never captures a stale
+  // snapshot; the guard makes concurrent triggers (effect + Reintentar)
+  // single-flight.
+  const flushQueue = useCallback(() => {
+    const { offlineQueue: queue, isSyncing: syncing } = useCheckinStore.getState();
+    if (!navigator.onLine || queue.length === 0 || syncing) return;
     setIsSyncing(true);
-    const attemptedIds = offlineQueue.map((item) => item.clientId);
-    syncMutation.mutate(offlineQueue, {
-      onSuccess: (results) => {
-        // POS-03: settled (synced/duplicate) items leave the queue; "error"
-        // items are recorded as failed so the volunteer sees them instead of
-        // them silently looking like ordinary pending-offline items.
-        const { settled, failed } = categorizeSyncResults(results);
-        if (settled.length > 0) dequeue(settled);
-        if (failed.length > 0) markFailed(failed);
-        setIsSyncing(false);
-      },
-      onError: () => {
-        // Whole-batch failure: every attempted item failed this round. Surface
-        // them; they remain queued and are retried on the next flush.
-        markFailed(attemptedIds);
-        setIsSyncing(false);
-      },
-    });
+    syncMutation.mutate(queue);
+  }, [syncMutation.mutate, setIsSyncing]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // F033: deliberately NOT keyed on failedClientIds — a failed batch must not
+  // auto-retry in a tight loop against a failing server. Failed items retry on
+  // connectivity changes, on new enqueues, or via the volunteer's Reintentar
+  // button (retrySync).
+  useEffect(() => {
+    flushQueue();
   }, [isOnline, offlineQueue.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
@@ -193,5 +206,6 @@ export function useCheckin() {
     offlineCount: offlineQueue.length,
     failedCount: failedClientIds.length,
     isSyncing,
+    retrySync: flushQueue,
   };
 }

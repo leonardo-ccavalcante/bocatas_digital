@@ -22,6 +22,7 @@ interface Step1IdentidadProps {
   ocrUsed: boolean;
   handleOCRExtracted: (data: OcrExtracted) => void;
   showDuplicateWarning: boolean;
+  duplicateCheckDegraded: boolean;
   duplicates: DuplicateCandidate[];
   onDismissDuplicate: () => void;
 }
@@ -29,7 +30,7 @@ interface Step1IdentidadProps {
 export function Step1Identidad({
   register, watch, setValue, errors,
   ocrUsed, handleOCRExtracted,
-  showDuplicateWarning, duplicates, onDismissDuplicate,
+  showDuplicateWarning, duplicateCheckDegraded, duplicates, onDismissDuplicate,
 }: Step1IdentidadProps) {
   return (
     <div className="space-y-4">
@@ -48,6 +49,16 @@ export function Step1Identidad({
           candidates={duplicates}
           onContinueAnyway={onDismissDuplicate}
         />
+      )}
+
+      {duplicateCheckDegraded && (
+        <div
+          role="status"
+          className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900"
+        >
+          No se pudo comprobar si la persona ya existe. Puedes continuar, pero
+          revisa manualmente en el listado de personas antes de crearla.
+        </div>
       )}
 
       <div className="grid grid-cols-2 gap-3">

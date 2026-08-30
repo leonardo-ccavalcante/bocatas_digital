@@ -50,6 +50,7 @@ export interface WizardPhasesProps {
   handleOCRExtracted: (data: OcrExtracted) => void;
   // duplicates
   showDuplicateWarning: boolean;
+  duplicateCheckDegraded: boolean;
   duplicates: DuplicateCandidate[];
   onDismissDuplicate: () => void;
   // programs
@@ -124,6 +125,7 @@ export function WizardPhases(props: WizardPhasesProps) {
             ocrUsed={props.ocrUsed}
             handleOCRExtracted={props.handleOCRExtracted}
             showDuplicateWarning={props.showDuplicateWarning}
+            duplicateCheckDegraded={props.duplicateCheckDegraded}
             duplicates={props.duplicates}
             onDismissDuplicate={props.onDismissDuplicate}
           />

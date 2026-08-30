@@ -51,6 +51,8 @@ export const crudRouter = router({
           imagen_url: input.imagen_url ?? null,
           fecha_inicio: input.fecha_inicio ?? new Date().toISOString(),
           fecha_fin: input.fecha_fin ?? null,
+          published_at: input.published_at ?? null,
+          expires_at: input.expires_at ?? null,
           autor_id,
           autor_nombre,
           activo: true,

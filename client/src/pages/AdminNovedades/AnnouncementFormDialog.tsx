@@ -86,6 +86,9 @@ export function AnnouncementFormDialog({
             <div>
               <label className="text-sm font-medium text-gray-700 mb-1 block">Fecha de fin (opcional)</label>
               <Input type="date" {...form.register("fecha_fin")} />
+              {form.formState.errors.fecha_fin && (
+                <p className="text-xs text-red-500 mt-1">{form.formState.errors.fecha_fin.message}</p>
+              )}
             </div>
           </div>
 
@@ -93,11 +96,17 @@ export function AnnouncementFormDialog({
             <div>
               <label className="text-sm font-medium text-gray-700 mb-1 block">Publicar desde (opcional)</label>
               <Input type="date" {...form.register("published_at")} />
+              {form.formState.errors.published_at && (
+                <p className="text-xs text-red-500 mt-1">{form.formState.errors.published_at.message}</p>
+              )}
               <p className="text-xs text-gray-500 mt-1">La novedad será visible a partir de esta fecha</p>
             </div>
             <div>
               <label className="text-sm font-medium text-gray-700 mb-1 block">Expira el (opcional)</label>
               <Input type="date" {...form.register("expires_at")} />
+              {form.formState.errors.expires_at && (
+                <p className="text-xs text-red-500 mt-1">{form.formState.errors.expires_at.message}</p>
+              )}
               <p className="text-xs text-gray-500 mt-1">La novedad dejará de verse después de esta fecha</p>
             </div>
           </div>
