@@ -167,13 +167,17 @@ describe("parseNivelEstudios", () => {
   it("Educación Secundaria → secundaria", () => {
     expect(parseNivelEstudios("Educación Secundaria").value).toBe("secundaria");
   });
-  it("Educación Post-Secundaria no Superior → bachillerato + warning", () => {
+  // ALTAS-4: el enum ya tiene estas dos categorías, así que la importación deja
+  // de degradarlas (y de avisar de una pérdida que ya no se produce).
+  it("Educación Post-Secundaria no Superior → postsecundaria_no_superior, sin warning", () => {
     const r = parseNivelEstudios("Educación Post-Secundaria no Superior");
-    expect(r.value).toBe("bachillerato");
-    expect(r.warning?.code).toBe("estudios_unknown");
+    expect(r.value).toBe("postsecundaria_no_superior");
+    expect(r.warning).toBeNull();
   });
-  it("Educación Superior → universitario", () => {
-    expect(parseNivelEstudios("Educación Superior ").value).toBe("universitario");
+  it("Educación Superior → superior", () => {
+    const r = parseNivelEstudios("Educación Superior ");
+    expect(r.value).toBe("superior");
+    expect(r.warning).toBeNull();
   });
   it("empty returns null without warning", () => {
     expect(parseNivelEstudios("")).toEqual({ value: null, warning: null });
@@ -409,13 +413,16 @@ describe("parseRow — dependent partial", () => {
     expect(r.row.person.metadata.parentesco_original).toBe("Cuñada");
   });
 
-  it("emits parentesco_coerced + estudios_unknown + laboral_unknown warnings", () => {
+  it("emits parentesco_coerced + laboral_unknown, ya no estudios_unknown", () => {
     const r = parseRow(depRow, 5);
     if (!r.ok) throw new Error("expected ok");
     const codes = r.row.warnings.map((w) => w.code);
     expect(codes).toContain("parentesco_coerced");
-    expect(codes).toContain("estudios_unknown");
     expect(codes).toContain("laboral_unknown");
+    // ALTAS-4: "Educación Post-Secundaria no Superior" ya tiene valor propio en
+    // el enum, así que la importación no pierde nada y no hay nada que avisar.
+    expect(codes).not.toContain("estudios_unknown");
+    expect(r.row.person.nivel_estudios).toBe("postsecundaria_no_superior");
   });
 });
 

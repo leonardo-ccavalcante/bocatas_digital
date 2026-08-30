@@ -30,6 +30,11 @@ export const nivelEstudiosEnum = z.enum([
   "sin_estudios",
   "primaria",
   "secundaria",
+  // Los dos niveles agregados que usa el CSV legacy y ya captura el alta
+  // (migración 20260830110001). Los cuatro desglosados se conservan para las
+  // fichas antiguas.
+  "postsecundaria_no_superior",
+  "superior",
   "bachillerato",
   "formacion_profesional",
   "universitario",

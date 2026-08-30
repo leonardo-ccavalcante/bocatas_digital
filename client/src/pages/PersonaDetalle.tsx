@@ -14,6 +14,7 @@ import {
 } from "@/features/persons/components/detail";
 import { useConsentTemplates } from "@/features/persons/hooks/useConsentTemplates";
 import { usePersonById } from "@/features/persons/hooks/usePersonById";
+import { getConsentTemplateLanguage } from "@/features/persons/schemas/enums";
 import { EnrollmentPanel } from "@/features/programs/components/EnrollmentPanel";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
@@ -43,8 +44,14 @@ export default function PersonaDetalle() {
   // Consent templates for the modal (triggered from the always-visible header button).
   // Lazy load, but also fetch when the modal is opened from any tab — otherwise the
   // modal shows "No hay plantillas…" off the resumen tab (Codex review on #118).
+  //
+  // `idioma_principal` tiene 9 valores y sólo 4 tienen lane de plantillas: pasarlo
+  // en crudo hacía que la query devolviera BAD_REQUEST para en/ro/zh/wo/other y el
+  // escudo apareciera vacío justo para esas personas (FAMILIAS-7). El idioma REAL
+  // sigue viajando al modal en `personLanguage`: es lo que dispara el banner de
+  // traducción verbal — nunca español en silencio (ADR-0006).
   const { data: templates = [] } = useConsentTemplates(
-    (person?.idioma_principal as "es" | "ar" | "fr" | "bm") ?? "es",
+    getConsentTemplateLanguage(person?.idioma_principal),
     { enabled: activeTab === "resumen" || showConsent },
   );
 
@@ -178,6 +185,7 @@ export default function PersonaDetalle() {
         open={showConsent}
         personId={personRow.id}
         templates={templates}
+        personLanguage={personRow.idioma_principal ?? undefined}
         onClose={() => setShowConsent(false)}
         onSaved={() => {
           setShowConsent(false);

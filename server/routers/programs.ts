@@ -13,7 +13,7 @@ import {
 import {
   applyEstadoChange,
   assertParentDepthOk,
-  logEnrollmentEvent,
+  createOrReviveEnrollment,
 } from "./programs.enrollmentEstado";
 import { getListadoMensual } from "./programs.listado";
 import { sessionsRouter } from "./programs.sessions";
@@ -389,36 +389,16 @@ export const programsRouter = router({
         }
       }
 
-      // Insert enrollment with the program's initial estado (funnel-aware:
-      // an edición starts people at 'inscrito', a continuo at 'activo')
+      // Alta con el estado inicial del programa (funnel-aware: una edición
+      // arranca en 'inscrito', un continuo en 'activo'). Si la persona ya pasó
+      // por aquí y se le dio de baja, se revive su inscripción en vez de
+      // intentar un INSERT que el UNIQUE no parcial rechaza.
       const estado = estadoInicial(program.estados_habilitados ?? ["activo"]);
-      const { data, error } = await supabase
-        .from("program_enrollments")
-        .insert({
-          person_id: input.personId,
-          program_id: input.programId,
-          estado,
-          fecha_inicio: new Date().toISOString().split("T")[0],
-          notas: input.notas ?? null,
-        })
-        .select()
-        .single();
-
-      if (error) {
-        if (error.code === "23505") {
-          throw new TRPCError({
-            code: "CONFLICT",
-            message: "Esta persona ya está inscrita en este programa",
-          });
-        }
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
-      }
-
-      await logEnrollmentEvent(supabase, {
-        enrollmentId: data.id,
-        anterior: null,
-        nuevo: estado,
-        actorId: String(ctx.user.id),
+      const data = await createOrReviveEnrollment(supabase, String(ctx.user.id), {
+        personId: input.personId,
+        programId: input.programId,
+        estado,
+        notas: input.notas,
       });
 
       return { enrollment: data, consentWarning, cupoWarning };

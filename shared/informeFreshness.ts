@@ -1,5 +1,5 @@
-// Single source of truth for informe-social freshness. Two RELATED concepts,
-// both anchored to the same 6-month cadence (Leo, 2026-07-08):
+// Single source of truth for informe-social freshness. THREE related concepts,
+// all anchored to the same 6-month cadence (Leo, 2026-07-08):
 //
 //  A) SEGUIMIENTO gate (isInformeStale): how old the last follow-up (the
 //     "review") may be for generation to be allowed. A RENOVACIÓN must not be
@@ -8,7 +8,8 @@
 //     document (generated docx or uploaded PDF) — the FIRST informe needs no
 //     seguimiento, only the saved valoración (ADR-0014). Server
 //     (documentService.validateContext), eligibility, and client
-//     (SocialReportPanel blockingError) MUST agree — so it lives here.
+//     (SocialReportPanel blockingError) MUST agree — so it lives here. Qué
+//     cuenta como renovación lo decide informeGenerationMode (bloque C).
 //
 //  B) INFORME DOCUMENT validity (informeDocStatus): once made, an informe is
 //     valid for INFORME_EXPIRY_MONTHS and should be renewed by
@@ -82,4 +83,59 @@ export function informeNeedsRenewal(
   nowMs: number = Date.now(),
 ): boolean {
   return informeDocStatus(fecha, nowMs) !== "al_dia";
+}
+
+// ── C) MODO de generación: primera emisión / corrección / renovación ─────────
+//
+// SUPUESTO DE PRODUCTO asumido al resolver FAMILIAS-6 («si se necesita añadir
+// algo en valoración social no deja volver a generar el informe social»).
+// Enmienda de facto la puerta de seguimiento de ADR-0014 — pendiente de que Leo
+// decida si merece una ADR propia:
+//
+//   · Se puede CORREGIR el informe mientras siga AL DÍA. Antes bastaba con que
+//     existiera una fila de informe vigente para exigir seguimiento, y como
+//     generar inserta esa fila, la familia quedaba en «renovación» de forma
+//     inmediata y permanente: imposible corregir una errata sin inventarse un
+//     seguimiento.
+//   · Una corrección CONSERVA la fecha del informe original y NO reinicia su
+//     validez. Re-sellarla permitiría encadenar correcciones para siempre sin
+//     registrar jamás un seguimiento, que es exactamente lo que la puerta
+//     protege.
+
+export type InformeGenerationMode = "primera_emision" | "correccion" | "renovacion";
+
+/**
+ * Modo en que se va a generar el informe, a partir de si ya existe un documento
+ * de informe vigente y de la fecha de ese informe (families.informe_social_fecha).
+ *
+ * Fecha desconocida con documento existente ⇒ "renovacion": no se puede probar
+ * que siga al día, y saltarse la puerta por falta de datos sería fail-open.
+ */
+export function informeGenerationMode(
+  hasInformePrevio: boolean,
+  informeFecha: string | null | undefined,
+  nowMs: number = Date.now(),
+): InformeGenerationMode {
+  if (!hasInformePrevio) return "primera_emision";
+  return informeNeedsRenewal(informeFecha, nowMs) ? "renovacion" : "correccion";
+}
+
+/** Única puerta de seguimiento: solo la renovación la exige. */
+export function requiereSeguimiento(modo: InformeGenerationMode): boolean {
+  return modo === "renovacion";
+}
+
+/**
+ * Fecha que debe quedar en families.informe_social_fecha tras generar. Solo la
+ * primera emisión y la renovación sellan la fecha de hoy; la corrección conserva
+ * la del informe vigente (ver el supuesto de producto arriba).
+ */
+export function fechaInformeTrasGenerar(
+  modo: InformeGenerationMode,
+  fechaVigente: string | null | undefined,
+  hoy: string,
+): string {
+  if (modo !== "correccion") return hoy;
+  const vigente = (fechaVigente ?? "").trim();
+  return vigente === "" ? hoy : vigente;
 }

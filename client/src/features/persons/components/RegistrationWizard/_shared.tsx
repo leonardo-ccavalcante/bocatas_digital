@@ -21,6 +21,11 @@ export interface ProgramRow {
   name: string;
   icon: string | null;
   slug: string;
+  // Árbol de programas (ADR-0013). Opcionales: el fallback de semilla de
+  // labels.ts y los mocks de los tests no los traen.
+  parent_id?: string | null;
+  tipo?: string | null;
+  inscribible?: boolean;
 }
 
 /**

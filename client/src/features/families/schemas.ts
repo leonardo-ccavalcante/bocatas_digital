@@ -84,7 +84,17 @@ export const FamilyIntakeSchema = IntakeStep1Schema
   .merge(IntakeStep2Schema)
   .merge(IntakeStep3Schema)
   .merge(IntakeStep4Schema)
-  .merge(IntakeStep5Schema);
+  .merge(IntakeStep5Schema)
+  // Espejo de FamilyCreateInputSchema (ADR-0001). Los .default(false) de
+  // IntakeStep3Schema se conservan para que defaultValues siga funcionando.
+  .refine((d) => d.informe_social, {
+    path: ["informe_social"],
+    message: "La información social se recoge en la entrevista: es obligatoria",
+  })
+  .refine((d) => /^\d{4}-\d{2}-\d{2}$/.test(d.informe_social_fecha ?? ""), {
+    path: ["informe_social_fecha"],
+    message: "Indica la fecha del informe social",
+  });
 export type FamilyIntake = z.infer<typeof FamilyIntakeSchema>;
 
 // ─── Delivery ─────────────────────────────────────────────────────────────────

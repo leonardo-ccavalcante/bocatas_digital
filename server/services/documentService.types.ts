@@ -86,9 +86,13 @@ export type FamilyDocumentContext = {
     notas_seguimiento: string; // last 3 follow-ups concatenated
     effective_date: string; // same as fecha_seguimiento for freshness gate
     // True when a current informe document (generated docx OR uploaded PDF) already
-    // exists for the family. The seguimiento freshness gate applies ONLY then
-    // (renovaciones); the first informe needs no seguimiento (ADR-0014).
+    // exists for the family. Con fecha_informe_vigente decide el MODO de
+    // generación (informeGenerationMode): primera emisión / corrección / renovación.
     has_informe_previo: boolean;
+    // families.informe_social_fecha del informe vigente (ISO); "" si no se conoce.
+    // Es lo que distingue una CORRECCIÓN (informe al día, sin puerta de
+    // seguimiento) de una RENOVACIÓN. Vacío ⇒ renovación (fail-closed).
+    fecha_informe_vigente: string;
   };
   // ── Nota de entrega specific ──
   round?: {

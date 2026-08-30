@@ -87,7 +87,53 @@ describe("<DocxPreviewModal /> (pdf.js canvas preview)", () => {
   it("falls back to a message + DOCX download when PDF is unavailable on the host", () => {
     pdfState = { isPending: false, isError: true, error: { data: { code: "PRECONDITION_FAILED" } } };
     render(<DocxPreviewModal open docPath={PATH} onOpenChange={() => {}} />);
-    expect(screen.getByRole("alert")).toHaveTextContent(/no está disponible/i);
+    expect(screen.getByRole("alert")).toHaveTextContent(/no puede convertir el informe a PDF/i);
     expect(screen.getByRole("button", { name: /descargar docx/i })).toBeInTheDocument();
+  });
+});
+
+// ── FAMILIAS-4a: la descarga en PDF no puede fallar en silencio ──────────────
+//
+// «No deja descargar el informe en pdf»: el botón se pintaba como <Button asChild
+// disabled><a href={undefined}> — `disabled` no existe en un <a>, así que el
+// control quedaba clicable y no hacía absolutamente nada. Sin PDF debe haber un
+// botón REALMENTE deshabilitado y un motivo accionable, nunca un enlace muerto.
+
+describe("<DocxPreviewModal /> — descarga en PDF (FAMILIAS-4)", () => {
+  it("sin PDF disponible NO renderiza un enlace muerto de «Descargar PDF»", () => {
+    pdfState = { isPending: false, isError: true, error: { data: { code: "PRECONDITION_FAILED" } } };
+    render(<DocxPreviewModal open docPath={PATH} onOpenChange={() => {}} />);
+
+    expect(screen.queryByRole("link", { name: /descargar pdf/i })).toBeNull();
+    expect(screen.getByRole("button", { name: /descargar pdf/i })).toBeDisabled();
+  });
+
+  it("explica QUÉ falta y qué hacer cuando el servidor no puede convertir a PDF", () => {
+    pdfState = { isPending: false, isError: true, error: { data: { code: "PRECONDITION_FAILED" } } };
+    render(<DocxPreviewModal open docPath={PATH} onOpenChange={() => {}} />);
+
+    const alerta = screen.getByRole("alert");
+    expect(alerta).toHaveTextContent(/libreoffice/i);
+    expect(alerta).toHaveTextContent(/equipo técnico/i);
+  });
+
+  it("mientras carga tampoco hay enlace de descarga en PDF", () => {
+    pdfState = { isPending: true, isError: false, error: null };
+    render(<DocxPreviewModal open docPath={PATH} onOpenChange={() => {}} />);
+
+    expect(screen.queryByRole("link", { name: /descargar pdf/i })).toBeNull();
+    expect(screen.getByRole("button", { name: /descargar pdf/i })).toBeDisabled();
+  });
+
+  it("con PDF disponible sí hay enlace real de descarga", async () => {
+    pdfState = { isPending: false, isError: false, data: { pdfBase64: btoa("%PDF-1.7") }, error: null };
+    render(<DocxPreviewModal open docPath={PATH} onOpenChange={() => {}} />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("link", { name: /descargar pdf/i })).toHaveAttribute(
+        "href",
+        "blob:mock-pdf",
+      );
+    });
   });
 });

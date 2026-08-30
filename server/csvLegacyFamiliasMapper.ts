@@ -394,18 +394,13 @@ export function parseNivelEstudios(input: string | undefined): ParsedNivelEstudi
     v === "educacion post-secundaria no superior" ||
     v === "educación postsecundaria no superior"
   ) {
-    return {
-      value: "bachillerato",
-      warning: {
-        field: "nivel_estudios",
-        code: "estudios_unknown",
-        message:
-          "Coerced 'Educación Post-Secundaria no Superior' → bachillerato (CINE 3-4). Revisar caso a caso si formación profesional aplica.",
-      },
-    };
+    // El CSV legacy trae exactamente la categoría que hoy captura el alta
+    // (migración 20260830110001): ya no hay que degradarla a bachillerato ni
+    // avisar de una pérdida que no ocurre.
+    return { value: "postsecundaria_no_superior", warning: null };
   }
   if (v === "educación superior" || v === "educacion superior") {
-    return { value: "universitario", warning: null };
+    return { value: "superior", warning: null };
   }
 
   return {

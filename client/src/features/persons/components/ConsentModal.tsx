@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import type { ConsentTemplate } from "../schemas";
 import { TEMPLATE_LANGUAGES } from "./RegistrationWizard/_shared";
 import { compressImage } from "../utils/imageUtils";
+import { useSavedConsents, describeConsentSignature } from "../hooks/usePersonConsents";
 
 const CONSENT_PURPOSE_LABELS: Record<string, string> = {
   tratamiento_datos_bocatas: "Tratamiento de datos — Bocatas",
@@ -55,6 +56,11 @@ export function ConsentModal({ open, personId, templates, onClose, onSaved, pers
   const dir = personLanguage && RTL_LANGUAGES.has(personLanguage) ? "rtl" : "ltr";
   const { mutateAsync: uploadPhoto } = trpc.persons.uploadPhoto.useMutation();
   const { mutateAsync: saveConsents } = trpc.persons.saveConsents.useMutation();
+  // Lo que YA consta firmado, de sólo lectura. `consents` sigue siendo lo
+  // TOCADO en esta sesión: mezclarlos haría que "tocado" dejara de significar
+  // nada y cada guardado re-sellara con la fecha de hoy registros que tienen
+  // valor de firma manuscrita.
+  const { firmados, isLoadingSaved, cargaFallida } = useSavedConsents(personId, open);
   const [consents, setConsents] = useState<Record<string, ConsentState>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [captureForPurpose, setCaptureForPurpose] = useState<string | null>(null);
@@ -63,9 +69,12 @@ export function ConsentModal({ open, personId, templates, onClose, onSaved, pers
   const toggleConsent = useCallback((purpose: string) => {
     setConsents((prev) => ({
       ...prev,
-      [purpose]: { ...prev[purpose], granted: !(prev[purpose]?.granted ?? false) },
+      [purpose]: {
+        ...prev[purpose],
+        granted: !(prev[purpose]?.granted ?? firmados[purpose]?.granted ?? false),
+      },
     }));
-  }, []);
+  }, [firmados]);
 
   const handleDocumentCapture = useCallback(async (purpose: string, file: File) => {
     try {
@@ -99,7 +108,7 @@ export function ConsentModal({ open, personId, templates, onClose, onSaved, pers
       const rows = touched.map((t) => ({
         purpose: t.purpose,
         idioma: t.idioma,
-        granted: consents[t.purpose]?.granted ?? false,
+        granted: consents[t.purpose]?.granted ?? firmados[t.purpose]?.granted ?? false,
         granted_at: new Date().toISOString(),
         consent_text: t.text_content,
         consent_version: t.version,
@@ -117,7 +126,7 @@ export function ConsentModal({ open, personId, templates, onClose, onSaved, pers
     } finally {
       setIsSaving(false);
     }
-  }, [templates, consents, personId, saveConsents, onSaved, onClose]);
+  }, [templates, consents, firmados, personId, saveConsents, onSaved, onClose]);
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
@@ -144,6 +153,22 @@ export function ConsentModal({ open, personId, templates, onClose, onSaved, pers
                 </span>
               </div>
             )}
+            {isLoadingSaved && (
+              <p className="text-xs text-muted-foreground">
+                Consultando lo que ya consta firmado…
+              </p>
+            )}
+            {cargaFallida && (
+              <div
+                role="alert"
+                data-testid="consent-carga-fallida"
+                className="flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm dark:bg-amber-950"
+              >
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                No se han podido consultar los consentimientos ya firmados. Las
+                casillas salen vacías: comprueba la ficha antes de volver a firmar.
+              </div>
+            )}
             {templates.length === 0 && (
               <div className="flex items-center gap-2 rounded-md bg-muted p-3 text-sm text-muted-foreground">
                 <AlertCircle className="h-4 w-4 shrink-0" />
@@ -157,7 +182,7 @@ export function ConsentModal({ open, personId, templates, onClose, onSaved, pers
                   <div className="flex items-start gap-3">
                     <Checkbox
                       id={`consent-${t.purpose}`}
-                      checked={state?.granted ?? false}
+                      checked={state?.granted ?? firmados[t.purpose]?.granted ?? false}
                       onCheckedChange={() => toggleConsent(t.purpose)}
                       className="mt-0.5"
                     />
@@ -167,6 +192,16 @@ export function ConsentModal({ open, personId, templates, onClose, onSaved, pers
                       </Label>
                       <Badge variant="outline" className="text-xs">{t.idioma.toUpperCase()} · v{t.version}</Badge>
                       <p lang={t.idioma} className="text-xs text-muted-foreground line-clamp-3">{t.text_content}</p>
+                      {/* Lo que YA consta: sin esto el escudo parecía decir que
+                          la persona no había firmado nada. */}
+                      {describeConsentSignature(firmados[t.purpose]) && (
+                        <p
+                          className="text-xs text-muted-foreground"
+                          data-testid={`consent-firma-${t.purpose}`}
+                        >
+                          {describeConsentSignature(firmados[t.purpose])}
+                        </p>
+                      )}
                     </div>
                   </div>
 

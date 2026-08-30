@@ -161,7 +161,7 @@ export function IntakeWizard({ titularId }: IntakeWizardProps) {
           {step === 2 && (
             <Step2Members members={members} onChange={setMembers} />
           )}
-          {step === 3 && <Step3Docs form={form} />}
+          {step === 3 && <Step3Docs form={form} members={members} />}
           {step === 4 && <Step4Guf form={form} />}
           {step === 5 && <Step5Autorizado form={form} />}
           {step === 6 && (
@@ -208,6 +208,15 @@ export function IntakeWizard({ titularId }: IntakeWizardProps) {
                   toast.error("Selecciona un programa antes de continuar");
                   return;
                 }
+              }
+              // FAMILIAS-5: la información social sale de la entrevista, así que
+              // no se puede pasar de largo el paso 3 sin ella. El servidor la
+              // exige igualmente; esto evita que el error llegue al final.
+              if (step === 3 && (!form.watch("informe_social") || !form.watch("informe_social_fecha"))) {
+                toast.error(
+                  "La información social es obligatoria: marca el informe social e indica su fecha"
+                );
+                return;
               }
               setStep((s) => s + 1);
             }}

@@ -73,6 +73,7 @@ const CONTEXT: FamilyDocumentContext = {
     notas_seguimiento: "OK.",
     effective_date: "",
     has_informe_previo: true,
+    fecha_informe_vigente: "",
   },
   logos: [],
   static_blocks: {},

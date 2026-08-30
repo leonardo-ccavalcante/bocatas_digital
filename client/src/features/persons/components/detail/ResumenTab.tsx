@@ -7,7 +7,39 @@
  */
 import { formatDateDisplay } from "@/lib/dateUtils";
 import type { Database } from "@/lib/database.types";
+import {
+  NIVEL_ESTUDIOS_LABELS,
+  NIVEL_INGRESOS_LABELS,
+  SITUACION_LABORAL_LABELS,
+  SITUACION_LEGAL_LABELS,
+  TIPO_VIVIENDA_LABELS,
+} from "../../schemas";
 import { getEstadoChip } from "./personaEstado";
+
+// Los mapas de `schemas/labels.ts` son la lista de opciones DEL FORMULARIO. La
+// ficha además tiene que saber leer los valores que se retiraron del
+// formulario pero siguen guardados en registros antiguos; de ahí las entradas
+// extra. Sin esto la ficha mostraba la cadena cruda (`sin_permiso_trabajo`).
+const VIVIENDA_TEXTO: Record<string, string> = {
+  ...Object.fromEntries(Object.entries(TIPO_VIVIENDA_LABELS).map(([k, v]) => [k, v.label])),
+  centro_acogida: "Centro de acogida",
+};
+const ESTUDIOS_TEXTO: Record<string, string> = {
+  ...NIVEL_ESTUDIOS_LABELS,
+  bachillerato: "Bachillerato",
+  formacion_profesional: "Formación Profesional",
+  universitario: "Universitario",
+  postgrado: "Postgrado",
+};
+const LEGAL_TEXTO: Record<string, string> = {
+  ...SITUACION_LEGAL_LABELS,
+  sin_papeles: "Sin papeles",
+};
+
+function etiqueta(mapa: Record<string, string>, valor: string | null): string | null {
+  if (!valor) return valor;
+  return mapa[valor] ?? valor;
+}
 
 type PersonRow = Database["public"]["Tables"]["persons"]["Row"];
 
@@ -97,7 +129,10 @@ export function ResumenTab({ person, isAdmin }: ResumenTabProps) {
             value={formatDateDisplay(person.fecha_llegada_espana)}
           />
           {isAdmin && (
-            <EstadoRow label="Situación legal" value={person.situacion_legal} />
+            <EstadoRow
+              label="Situación legal"
+              value={etiqueta(LEGAL_TEXTO, person.situacion_legal)}
+            />
           )}
         </ul>
       </DetailCard>
@@ -105,10 +140,10 @@ export function ResumenTab({ person, isAdmin }: ResumenTabProps) {
       <DetailCard title="Situación socioeconómica" className="lg:col-span-2">
         <DataGrid
           items={[
-            ["Tipo de vivienda", person.tipo_vivienda],
-            ["Nivel de estudios", person.nivel_estudios],
-            ["Situación laboral", person.situacion_laboral],
-            ["Nivel de ingresos", person.nivel_ingresos],
+            ["Tipo de vivienda", etiqueta(VIVIENDA_TEXTO, person.tipo_vivienda)],
+            ["Nivel de estudios", etiqueta(ESTUDIOS_TEXTO, person.nivel_estudios)],
+            ["Situación laboral", etiqueta(SITUACION_LABORAL_LABELS, person.situacion_laboral)],
+            ["Nivel de ingresos", etiqueta(NIVEL_INGRESOS_LABELS, person.nivel_ingresos)],
           ]}
         />
       </DetailCard>

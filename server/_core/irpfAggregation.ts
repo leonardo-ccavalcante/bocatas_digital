@@ -104,6 +104,10 @@ const ESTUDIOS_ROLLUP: Record<string, EstudiosKey> = {
   formacion_profesional: "postsecundaria_no_superior",
   universitario: "superior",
   postgrado: "superior",
+  // Capturados ya en su bucket final desde ALTAS-4 (migración 20260830110001):
+  // sin estas dos entradas caerían en "no_indicado" en el informe al financiador.
+  postsecundaria_no_superior: "postsecundaria_no_superior",
+  superior: "superior",
 };
 
 // ─── Internal normalizers ────────────────────────────────────────────────────

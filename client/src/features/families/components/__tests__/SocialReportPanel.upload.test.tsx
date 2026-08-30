@@ -193,6 +193,18 @@ afterEach(() => {
 
 // ── Rendering integration (Task 10) ───────────────────────────────────────────
 
+/**
+ * El rótulo del botón de generación cambia según el modo (FAMILIAS-6):
+ * «Generar» (primera emisión) · «Corregir» (informe vigente al día) ·
+ * «Renovar» (informe que ya toca renovar). Un único matcher para los tres.
+ */
+const generarBtn = () =>
+  screen.getByRole("button", { name: /^(generar|corregir|renovar) informe social$/i });
+
+/** ISO de hace N días — evita las trampas de fin de mes de setMonth(). */
+const isoHaceDias = (d: number) =>
+  new Date(Date.now() - d * 86_400_000).toISOString().slice(0, 10);
+
 describe("SocialReportPanel rendering", () => {
   // T10-1 ─────────────────────────────────────────────────────────────────────
   it("renders a 'Seguimientos' section (FollowUpsPanel present)", () => {
@@ -223,7 +235,7 @@ describe("SocialReportPanel rendering", () => {
     );
 
     expect(
-      screen.getByRole("button", { name: /generar y guardar el informe/i }),
+      generarBtn(),
     ).toBeInTheDocument();
   });
 
@@ -234,7 +246,7 @@ describe("SocialReportPanel rendering", () => {
       <SocialReportPanel familyId="fam-1" informeSocial={false} informeSocialFecha={null} />
     );
 
-    const btn = screen.getByRole("button", { name: /generar y guardar el informe/i });
+    const btn = generarBtn();
     expect(btn).toBeEnabled();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
@@ -245,7 +257,7 @@ describe("SocialReportPanel rendering", () => {
       <SocialReportPanel familyId="fam-1" informeSocial={false} informeSocialFecha={null} />
     );
 
-    expect(screen.getByRole("button", { name: /generar y guardar el informe/i })).toBeDisabled();
+    expect(generarBtn()).toBeDisabled();
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Añade la valoración social (Descripción de la situación familiar) antes de generar.",
     );
@@ -261,7 +273,7 @@ describe("SocialReportPanel rendering", () => {
       <SocialReportPanel familyId="fam-1" informeSocial={false} informeSocialFecha={null} />
     );
 
-    expect(screen.getByRole("button", { name: /generar y guardar el informe/i })).toBeEnabled();
+    expect(generarBtn()).toBeEnabled();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
@@ -272,10 +284,11 @@ describe("SocialReportPanel rendering", () => {
       savedValoracion: "Situación.",
     });
     render(
-      <SocialReportPanel familyId="fam-1" informeSocial={true} informeSocialFecha="2026-07-01" />
+      // Informe vencido (>6 meses): ya toca renovar, así que la puerta aplica.
+      <SocialReportPanel familyId="fam-1" informeSocial={true} informeSocialFecha={isoHaceDias(400)} />
     );
 
-    expect(screen.getByRole("button", { name: /generar y guardar el informe/i })).toBeDisabled();
+    expect(generarBtn()).toBeDisabled();
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Sin seguimientos registrados. Añade un seguimiento para habilitar la generación.",
     );
@@ -288,10 +301,10 @@ describe("SocialReportPanel rendering", () => {
       savedValoracion: "Situación.",
     });
     render(
-      <SocialReportPanel familyId="fam-1" informeSocial={true} informeSocialFecha="2026-07-01" />
+      <SocialReportPanel familyId="fam-1" informeSocial={true} informeSocialFecha={isoHaceDias(400)} />
     );
 
-    expect(screen.getByRole("button", { name: /generar y guardar el informe/i })).toBeDisabled();
+    expect(generarBtn()).toBeDisabled();
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Sin seguimientos registrados. Añade un seguimiento para habilitar la generación.",
     );
@@ -305,7 +318,7 @@ describe("SocialReportPanel rendering", () => {
       <SocialReportPanel familyId="fam-1" informeSocial={true} informeSocialFecha="2026-07-01" />
     );
 
-    expect(screen.getByRole("button", { name: /generar y guardar el informe/i })).toBeEnabled();
+    expect(generarBtn()).toBeEnabled();
   });
 
   it("while the documents query is loading, the generate button stays disabled (no enabled flash)", () => {
@@ -319,7 +332,7 @@ describe("SocialReportPanel rendering", () => {
       <SocialReportPanel familyId="fam-1" informeSocial={false} informeSocialFecha={null} />
     );
 
-    expect(screen.getByRole("button", { name: /generar y guardar el informe/i })).toBeDisabled();
+    expect(generarBtn()).toBeDisabled();
   });
 
   it("when the documents query errors, the generate button stays disabled (fail-closed)", () => {
@@ -335,6 +348,76 @@ describe("SocialReportPanel rendering", () => {
       <SocialReportPanel familyId="fam-1" informeSocial={false} informeSocialFecha={null} />
     );
 
-    expect(screen.getByRole("button", { name: /generar y guardar el informe/i })).toBeDisabled();
+    expect(generarBtn()).toBeDisabled();
+  });
+});
+
+// ── FAMILIAS-6: corrección del informe vigente ───────────────────────────────
+//
+// «Si se necesita añadir algo en valoración social no deja volver a generar el
+// informe social»: la puerta de seguimiento se disparaba por la mera existencia
+// del informe. Mientras el informe siga al día, regenerar es una CORRECCIÓN.
+
+describe("SocialReportPanel — corrección (FAMILIAS-6)", () => {
+  it("informe vigente al día + sin seguimientos → botón HABILITADO y rotulado «Corregir»", () => {
+    setupDefaultMocks({
+      latestFollowUp: null,
+      familyDocs: [
+        { documento_tipo: "informe_valoracion_social", documento_url: "fam-1/-1/informe.docx" },
+      ],
+      savedValoracion: "Situación.",
+    });
+    render(
+      <SocialReportPanel
+        familyId="fam-1"
+        informeSocial={true}
+        informeSocialFecha={isoHaceDias(30)}
+      />,
+    );
+
+    const btn = generarBtn();
+    expect(btn).toBeEnabled();
+    expect(btn).toHaveAccessibleName(/corregir informe social/i);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("avisa de que la corrección NO reinicia la validez del informe", () => {
+    setupDefaultMocks({
+      latestFollowUp: null,
+      familyDocs: [
+        { documento_tipo: "informe_valoracion_social", documento_url: "fam-1/-1/informe.docx" },
+      ],
+      savedValoracion: "Situación.",
+    });
+    render(
+      <SocialReportPanel
+        familyId="fam-1"
+        informeSocial={true}
+        informeSocialFecha={isoHaceDias(30)}
+      />,
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent(/no reinicia|conserva la fecha/i);
+  });
+
+  it("informe que ya toca renovar → botón rotulado «Renovar» (la puerta vuelve)", () => {
+    setupDefaultMocks({
+      latestFollowUp: { id: "fu1", fecha: isoHaceDias(10) },
+      familyDocs: [
+        { documento_tipo: "informe_valoracion_social", documento_url: "fam-1/-1/informe.docx" },
+      ],
+      savedValoracion: "Situación.",
+    });
+    render(
+      <SocialReportPanel
+        familyId="fam-1"
+        informeSocial={true}
+        informeSocialFecha={isoHaceDias(160)}
+      />,
+    );
+
+    const btn = generarBtn();
+    expect(btn).toBeEnabled();
+    expect(btn).toHaveAccessibleName(/renovar informe social/i);
   });
 });

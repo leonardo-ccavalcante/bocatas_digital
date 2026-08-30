@@ -8,7 +8,7 @@
 //
 // Order matters: the most fundamental legal defect is reported first.
 
-import { isInformeStale } from "@shared/informeFreshness";
+import { informeGenerationMode, isInformeStale, requiereSeguimiento } from "@shared/informeFreshness";
 
 export type InformeSkipReason =
   | "SIN_TITULAR"
@@ -43,10 +43,16 @@ export type InformeReadinessInput = {
   members: Array<{ nombre: string | null; apellidos: string | null; fecha_nacimiento: string | null }>;
   /**
    * True when a current informe document (generated docx OR uploaded PDF)
-   * already exists. The seguimiento rules apply ONLY then (renovaciones) —
-   * the first informe needs no seguimiento (ADR-0014).
+   * already exists. Junto con `informe_social_fecha` decide el MODO de
+   * generación (informeGenerationMode).
    */
   has_informe_previo: boolean;
+  /**
+   * families.informe_social_fecha del informe vigente (ISO), o null. Distingue
+   * una CORRECCIÓN (informe todavía al día → sin puerta de seguimiento) de una
+   * RENOVACIÓN (informe que ya toca renovar → puerta activa).
+   */
+  informe_social_fecha: string | null;
 };
 
 export type InformeReadiness =
@@ -60,7 +66,8 @@ function blank(v: string | null | undefined): boolean {
 /**
  * Evaluate a family's readiness. First failing rule wins; READY only when every
  * legally-required datum is present and — for renovaciones — the seguimiento is
- * fresh. A family with no prior informe document skips the seguimiento rules.
+ * fresh. La primera emisión y la corrección de un informe todavía al día no
+ * pasan por la puerta de seguimiento.
  */
 export function evaluateInformeReadiness(f: InformeReadinessInput): InformeReadiness {
   if (f.titular_id == null || f.titular == null) return { ready: false, reason: "SIN_TITULAR" };
@@ -69,9 +76,11 @@ export function evaluateInformeReadiness(f: InformeReadinessInput): InformeReadi
     return { ready: false, reason: "TITULAR_DATOS_INCOMPLETOS" };
   }
 
-  // Seguimiento rules apply only to renovaciones (ADR-0014) — a family's first
-  // informe cannot require a follow-up that would itself presuppose an informe.
-  if (f.has_informe_previo) {
+  // La puerta de seguimiento solo aplica a la RENOVACIÓN: la primera emisión no
+  // puede exigir un seguimiento que presupondría un informe previo, y una
+  // corrección del informe vigente no reabre el ciclo de revisión (FAMILIAS-6).
+  const modo = informeGenerationMode(f.has_informe_previo, f.informe_social_fecha);
+  if (requiereSeguimiento(modo)) {
     if (blank(f.latest_follow_up_fecha)) return { ready: false, reason: "SIN_SEGUIMIENTO" };
     if (isInformeStale(f.latest_follow_up_fecha as string)) {
       return { ready: false, reason: "SEGUIMIENTO_VENCIDO" };

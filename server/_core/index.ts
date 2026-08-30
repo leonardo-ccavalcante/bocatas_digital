@@ -15,6 +15,7 @@ import { generateInformesWarningsReport } from "../informesImportReport";
 import type { InformesStashPayload } from "../../shared/legacyFamiliasTypes";
 import { handleRepartoContactoInbound } from "../routers/families/reparto-contacto-inbound";
 import { authenticateRequest } from "./authenticateRequest";
+import { isLargePayloadPath } from "./largePayloadPaths";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -70,28 +71,16 @@ async function startServer() {
   // set Cache-Control: no-transform on it or exclude it from compression.
   app.use(compression());
 
-    // Body parsers: routes that carry large payloads (base64 images, CSV exports)
+  // Body parsers: routes that carry large payloads (base64 images, CSV exports)
   // get 10MB; everything else gets the safe 1MB default.
   // IMPORTANT: use a single conditional middleware so the 1MB global parser
   // never runs first and rejects large-payload routes with HTTP 413.
-  // Every procedure that accepts base64 image/file bytes MUST be listed here:
-  // base64 inflates ~33%, so anything missing is rejected with 413 before Zod
-  // or the resolver runs — indistinguishable from a broken feature.
-  // server/__tests__/large-payload-paths.test.ts keeps this in sync.
-  const LARGE_PAYLOAD_PATHS = [
-    "/api/trpc/ocr",
-    "/api/trpc/persons.uploadPhoto",
-    "/api/trpc/entregas.uploadPhotoToStorage",
-    "/api/trpc/families.uploadFamilyDocument",
-    "/api/trpc/families.attachSignedActa",
-    "/api/trpc/announcements.uploadImage",
-    "/api/trpc/programs.sessionDocuments.uploadSessionDocument",
-    "/api/trpc/families.previewLegacyImport",
-    "/api/trpc/families.confirmLegacyImport",
-  ];
+  // La lista y el matcher viven en ./largePayloadPaths para que
+  // server/__tests__/large-payload-paths.test.ts pruebe ESTA función y no una
+  // copia suya que pueda quedarse laxa.
   app.use((req, res, next) => {
-    const isLarge = LARGE_PAYLOAD_PATHS.some((p) => req.path === p || req.path.startsWith(p + "?") || req.path.startsWith(p + "/"));
-    return express.json({ limit: isLarge ? "10mb" : "1mb" })(req, res, next);
+    const limit = isLargePayloadPath(req.path) ? "10mb" : "1mb";
+    return express.json({ limit })(req, res, next);
   });
   app.use(express.urlencoded({ limit: "1mb", extended: true }));
   // Trust the first proxy (required for express-rate-limit to correctly identify IPs behind reverse proxies)

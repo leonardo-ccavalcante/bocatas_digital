@@ -6,10 +6,10 @@ import { z } from "zod";
 export const TipoDocumentoEnum = z.enum(["DNI", "NIE", "Pasaporte", "Documento_Extranjero", "Sin_Documentacion"]);
 export const GeneroEnum = z.enum(["masculino", "femenino", "no_binario", "prefiere_no_decir"]);
 export const IdiomaEnum = z.enum(["es", "ar", "fr", "bm", "en", "ro", "zh", "wo", "other"]);
-export const SituacionLegalEnum = z.enum(["regular", "irregular", "solicitante_asilo", "en_tramite", "sin_papeles"]);
-export const TipoViviendaEnum = z.enum(["calle", "albergue", "piso_compartido_alquiler", "piso_propio_alquiler", "piso_propio_propiedad", "ocupacion_sin_titulo", "pension", "asentamiento", "centro_acogida", "otros"]);
+export const SituacionLegalEnum = z.enum(["regular", "irregular", "solicitante_asilo", "en_tramite"]);
+export const TipoViviendaEnum = z.enum(["calle", "albergue", "piso_compartido_alquiler", "piso_propio_alquiler", "piso_propio_propiedad", "ocupacion_sin_titulo", "pension", "asentamiento", "centro_menores", "piso_entidad_social", "centro_acogida", "otros"]);
 export const EstabilidadHabitacionalEnum = z.enum(["sin_hogar", "inestable", "temporal", "estable"]);
-export const NivelEstudiosEnum = z.enum(["sin_estudios", "primaria", "secundaria", "bachillerato", "formacion_profesional", "universitario", "postgrado"]);
+export const NivelEstudiosEnum = z.enum(["sin_estudios", "primaria", "secundaria", "postsecundaria_no_superior", "superior", "bachillerato", "formacion_profesional", "universitario", "postgrado"]);
 export const SituacionLaboralEnum = z.enum(["desempleado", "economia_informal", "empleo_temporal", "empleo_indefinido", "autonomo", "en_formacion", "jubilado", "incapacidad_permanente", "sin_permiso_trabajo"]);
 // FSE/IRPF status ante el empleo (orthogonal to situacion_laboral).
 export const SituacionAnteEmpleoEnum = z.enum(["inactiva", "desempleo_subsidio_larga_duracion", "agotada_prestacion_subsidio", "precariedad_laboral", "no_aplica"]);

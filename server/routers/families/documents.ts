@@ -15,6 +15,7 @@ import {
 } from "./_shared";
 import { convertDocxToPdf, LibreOfficeUnavailableError } from "../../services/docxToPdf";
 import { storagePut } from "../../storage";
+import { soloAdmitePdf, esPdfPorContenido } from "@shared/documentFormat";
 
 /** Client caps files at 10 MB; base64 inflates ~33% and the body limit for
  *  this path is 10 MB (server/_core/index.ts), so ~7.5 MB is the effective ceiling. */
@@ -186,6 +187,18 @@ export const documentsRouter = router({
       if (buffer.length > MAX_UPLOAD_BYTES) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "El archivo supera el límite de 10 MB" });
       }
+      // El informe social sólo se admite en PDF, y la comprobación va aquí:
+      // el servidor ya tiene los bytes, así que mirar la cabecera es gratis y
+      // nada llega a Storage si no cuadra. Comprobarlo DESPUÉS de subir obliga a
+      // borrar objeto y fila, y deja una ventana en la que el fichero equivocado
+      // ya está guardado. La extensión no basta: se puede renombrar.
+      if (soloAdmitePdf(input.documento_tipo) && !esPdfPorContenido(buffer)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "El informe social debe subirse en PDF.",
+        });
+      }
+
       const db = createAdminClient();
 
       // Object first: an orphan object without a row is invisible; a row

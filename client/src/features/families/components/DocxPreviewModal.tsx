@@ -150,8 +150,8 @@ export default function DocxPreviewModal({
               <AlertTriangle className="h-6 w-6 text-amber-500" aria-hidden="true" />
               <p className="text-sm text-muted-foreground">
                 {pdfUnavailable
-                  ? "La vista previa en PDF no está disponible en este servidor. Podés descargar el documento .docx (está completo)."
-                  : "No se pudo mostrar la vista previa. Podés descargar el documento."}
+                  ? "Este servidor no puede convertir el informe a PDF porque le falta LibreOffice. Descarga el documento .docx: contiene el informe completo. Avisa al equipo técnico para instalarlo."
+                  : "No se pudo generar la vista previa en PDF. Descarga el documento .docx, que contiene el informe completo. Si se repite, avisa al equipo técnico."}
               </p>
             </div>
           )}
@@ -166,12 +166,23 @@ export default function DocxPreviewModal({
             <FileText className="mr-2 h-4 w-4" aria-hidden="true" />
             Descargar DOCX
           </Button>
-          <Button asChild disabled={!pdfUrl}>
-            <a href={pdfUrl ?? undefined} download={`${filename}.pdf`}>
+          {/* `disabled` no existe en un <a>: el Button asChild deshabilitado
+              seguía siendo clicable y, sin href, no hacía absolutamente nada —
+              «no deja descargar el informe en pdf» (FAMILIAS-4). Sin PDF se
+              pinta un botón REALMENTE deshabilitado y el motivo va arriba. */}
+          {pdfUrl ? (
+            <Button asChild>
+              <a href={pdfUrl} download={`${filename}.pdf`}>
+                <Download className="mr-2 h-4 w-4" aria-hidden="true" />
+                Descargar PDF
+              </a>
+            </Button>
+          ) : (
+            <Button disabled>
               <Download className="mr-2 h-4 w-4" aria-hidden="true" />
               Descargar PDF
-            </a>
-          </Button>
+            </Button>
+          )}
         </div>
       </DialogContent>
     </Dialog>

@@ -16,6 +16,8 @@ import {
   useDeleteFamilyDocument,
 } from "@/features/families/hooks/useFamilias";
 import { FAMILIA_DOCS_CONFIG } from "@/features/families/constants";
+import { acceptParaTipo, ayudaFormatoParaTipo, soloAdmitePdf } from "@shared/documentFormat";
+import { archivoEsPdf } from "./documentUploadHelpers";
 import type { FamilyDocType } from "@shared/familyDocuments";
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -146,6 +148,15 @@ export function DocumentUploadModal({
       return;
     }
 
+    // Se comprueba aquí además de en el servidor para no gastar una subida
+    // entera y que la rechacen al final. La barrera de verdad es la del
+    // servidor, que lee la cabecera de los bytes: la extensión se renombra.
+    if (soloAdmitePdf(documentoTipo) && !(await archivoEsPdf(file))) {
+      toast.error("El informe social debe subirse en PDF.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
     setIsUploading(true);
 
     try {
@@ -215,10 +226,13 @@ export function DocumentUploadModal({
             <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" aria-hidden="true" />
             <Label className="cursor-pointer">
               <span className="text-sm font-medium">Haz clic para cargar un archivo</span>
+              <span className="block text-xs text-muted-foreground">
+                {ayudaFormatoParaTipo(documentoTipo)}
+              </span>
               <Input
                 ref={fileInputRef}
                 type="file"
-                accept="application/pdf, image/*"
+                accept={acceptParaTipo(documentoTipo)}
                 className="hidden"
                 onChange={handleFileChange}
                 disabled={isBusy}

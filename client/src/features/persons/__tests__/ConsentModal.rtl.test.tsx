@@ -18,11 +18,17 @@ import type { ReactNode } from "react";
 vi.mock("@/lib/trpc", () => ({
   trpc: {
     persons: {
-      uploadPhoto: { useMutation: () => ({ mutateAsync: vi.fn() }) },
-      saveConsents: { useMutation: () => ({ mutateAsync: vi.fn() }) },
+      uploadPhoto: { useMutation: () => ({ mutateAsync: vi.fn(async () => ({ path: "p/x.jpg" })) }) },
+      saveConsents: { useMutation: () => ({ mutateAsync: vi.fn(async () => []) }) },
+      getPersonConsents: { useQuery: () => ({ data: [], isLoading: false, isError: false }) },
     },
   },
 }));
+
+// El modal siembra sus casillas con `persons.getPersonConsents` (FAMILIAS-7),
+// y ese hook necesita el contexto de tRPC. Estos tests renderizan el componente
+// suelto, sin provider: se moquea el cliente para devolver "aún no ha firmado
+// nada", que es el escenario que estos casos describen.
 
 vi.mock("@/components/ui/dialog", () => {
   const Pass = ({ children }: { children?: ReactNode }) => <>{children}</>;

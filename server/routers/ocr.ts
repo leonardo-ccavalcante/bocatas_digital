@@ -182,6 +182,10 @@ IMPORTANT: Return ONLY the JSON object, no markdown, no explanation.`,
             else if (normalized === "nie") data.tipo_documento = "nie";
             else if (normalized === "pasaporte") data.tipo_documento = "pasaporte";
             else if (normalized === "documento_extranjero") data.tipo_documento = "documento_extranjero";
+            // El prompt pide `Sin_Documentacion` para "no reconozco nada": es la
+            // marca de fallo del modelo, no un dato. Convertirla en "otro" la
+            // disfrazaba de extracción válida.
+            else if (normalized === "sin_documentacion") data.tipo_documento = null;
             else data.tipo_documento = "otro"; // Default to "otro" for unknown types
           }
         }
@@ -199,6 +203,16 @@ IMPORTANT: Return ONLY the JSON object, no markdown, no explanation.`,
             "OCR: Validation failed on fields:",
             parsed.error.issues.map(i => i.path.join(".")).join(", ")
           );
+          return { success: false, data: {}, reason: "unreadable" };
+        }
+
+        // Una foto ilegible devuelve las ocho claves a null, y como todos los
+        // campos son `.nullish()` eso valida sin problema. Sin esta guarda salía
+        // con success:true y el voluntario veía «Datos extraídos» sobre un
+        // formulario vacío, sin poder reintentar. Un `tipo_documento` suelto no
+        // es una extracción: hacen falta datos de identidad.
+        const d = parsed.data.data;
+        if (!d.nombre && !d.apellidos && !d.numero_documento && !d.fecha_nacimiento) {
           return { success: false, data: {}, reason: "unreadable" };
         }
 

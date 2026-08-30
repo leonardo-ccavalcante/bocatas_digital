@@ -1,7 +1,8 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { createAdminClient } from "../../../client/src/lib/supabase/server";
-import { voluntarioProcedure, router } from "../../_core/trpc";
+import { adminProcedure, voluntarioProcedure, router } from "../../_core/trpc";
+import { uuidLike } from "./_shared";
 
 export const consentsRouter = router({
   /**
@@ -13,7 +14,12 @@ export const consentsRouter = router({
 
     const { data, error } = await supabase
       .from("programs")
-      .select("id, slug, name, description, icon, is_default, is_active, display_order")
+      // parent_id / tipo / inscribible: sin ellas el selector del alta recibe una
+      // lista plana y pinta los cursos de Formación como hermanos de Comedor
+      // (ADR-0013). El endpoint gemelo programs.getAll ya las devolvía.
+      .select(
+        "id, slug, name, description, icon, is_default, is_active, display_order, parent_id, tipo, inscribible"
+      )
       .eq("is_active", true)
       .order("display_order");
 
@@ -46,14 +52,71 @@ export const consentsRouter = router({
     }),
 
   /**
+   * getPersonConsents — consentimientos YA registrados de una persona.
+   *
+   * Sin esta lectura el escudo de la ficha no es un visor: es un formulario de
+   * captura sobre el catálogo de plantillas, y las casillas salen desmarcadas
+   * aunque la persona haya firmado (FAMILIAS-7).
+   *
+   * adminProcedure, igual que getCheckinHistory: saber qué ha consentido una
+   * persona la identifica y describe su relación con la entidad. Los vecinos
+   * `consentTemplates` / `programs` son voluntarioProcedure porque devuelven
+   * catálogo, no datos de una persona.
+   *
+   * `documento_foto_url` se queda deliberadamente fuera: es un PATH de Storage
+   * a la foto del documento firmado, y devolverlo —crudo o firmado— convierte
+   * esta consulta en un enlace replicable a PII (hallazgo CAS-02). La ficha no
+   * lo necesita para sembrar las casillas.
+   */
+  getPersonConsents: adminProcedure
+    .input(z.object({ personId: uuidLike }))
+    .query(async ({ input }) => {
+      const supabase = createAdminClient();
+
+      const { data, error } = await supabase
+        .from("consents")
+        .select("purpose, granted, granted_at, idioma, consent_version, revoked_at")
+        .eq("person_id", input.personId)
+        .is("deleted_at", null)
+        .order("purpose");
+
+      if (error) {
+        // El mensaje del driver puede arrastrar la fila (y con ella datos de la
+        // persona) hasta un toast: fuera.
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "No se pudieron cargar los consentimientos de esta persona",
+        });
+      }
+
+      // Proyección explícita: si mañana alguien amplía el select, la respuesta
+      // sigue sin filtrar campos nuevos al cliente.
+      return (data ?? []).map((row) => ({
+        purpose: row.purpose,
+        granted: row.granted,
+        granted_at: row.granted_at,
+        idioma: row.idioma,
+        consent_version: row.consent_version,
+        revoked_at: row.revoked_at,
+      }));
+    }),
+
+  /**
    * Save consent records for a person. Uses the service role to bypass RLS —
    * the tRPC guard is the enforcement boundary (ADR-0002).
    *
-   * Group A invariant: AFTER every save, each Group A purpose has a granted
-   * consent row. The registration wizard submits ALL purposes; the ficha's
-   * ConsentModal (RC-03/F050) submits PARTIAL updates, which are legal only
-   * when the omitted Group A purposes are already granted in the DB. Group A
-   * can never be set to granted:false.
+   * Dos invariantes DISTINTOS, y confundirlos cuesta caro:
+   *
+   *   · CONSTANCIA — de los tres fines que siempre se preguntan queda registro,
+   *     venga en esta petición o ya en base. La ficha manda actualizaciones
+   *     PARCIALES (RC-03/F050) y el wizard las manda todas; ambas valen mientras
+   *     lo omitido ya conste. Una negativa se prueba con su fila, así que esto
+   *     no se relaja (RGPD Art. 5.2).
+   *   · CONCESIÓN — sólo `tratamiento_datos_bocatas` tiene que acabar concedido.
+   *     Exigir además la cesión de imagen o el WhatsApp convertía el
+   *     consentimiento en condición para recibir el servicio, que es lo que el
+   *     Art. 7(4) no admite, y dejaba fuera a quien no quisiera salir en una
+   *     foto (ALTAS-8).
    */
   saveConsents: voluntarioProcedure
     .input(z.object({
@@ -72,10 +135,13 @@ export const consentsRouter = router({
       })),
     }))
     .mutation(async ({ input }) => {
-      if (input.consents.length === 0) return [];
-
+      // La comprobación va PRIMERO: con el `return []` por delante, una llamada
+      // con array vacío devolvía 200 y dejaba a la persona sin una sola fila de
+      // consentimiento — ni base de tratamiento, ni prueba de las negativas.
       const supabase = createAdminClient();
       await assertGroupACovered(supabase, input.personId, input.consents);
+
+      if (input.consents.length === 0) return [];
 
       const rows = input.consents.map((c) => ({
         person_id: input.personId,
@@ -106,7 +172,11 @@ export const consentsRouter = router({
     }),
 });
 
-const GROUP_A = ["tratamiento_datos_bocatas", "fotografia", "comunicaciones_whatsapp"] as const;
+/** Los tres fines de los que SIEMPRE tiene que quedar constancia. */
+const SIEMPRE_RECOGIDOS = ["tratamiento_datos_bocatas", "fotografia", "comunicaciones_whatsapp"] as const;
+
+/** El único que además tiene que estar CONCEDIDO para poder registrar. */
+const OBLIGATORIOS = ["tratamiento_datos_bocatas"] as const;
 
 async function assertGroupACovered(
   supabase: ReturnType<typeof createAdminClient>,
@@ -114,30 +184,49 @@ async function assertGroupACovered(
   consents: Array<{ purpose: string; granted: boolean }>,
 ): Promise<void> {
   const submitted = new Map(consents.map((c) => [c.purpose, c.granted]));
-  const deniedA = GROUP_A.filter((p) => submitted.get(p) === false);
-  if (deniedA.length > 0) {
+
+  const denegados = OBLIGATORIOS.filter((p) => submitted.get(p) === false);
+  if (denegados.length > 0) {
     throw new TRPCError({
       code: "BAD_REQUEST",
-      message: "El Grupo A de consentimientos es obligatorio para completar el registro.",
+      message: "Sin el consentimiento de tratamiento de datos no se puede completar el registro.",
     });
   }
-  const missingA = GROUP_A.filter((p) => !submitted.has(p));
-  if (missingA.length === 0) return;
+
+  const ausentes = SIEMPRE_RECOGIDOS.filter((p) => !submitted.has(p));
+  if (ausentes.length === 0) return;
+
+  // Lo omitido tiene que constar ya en base. Ojo al matiz: para la imagen y el
+  // WhatsApp basta que EXISTA la fila —un "no" registrado es una decisión
+  // documentada, no un hueco—, mientras que el tratamiento de datos tiene que
+  // constar CONCEDIDO. Filtrar aquí por granted=true para los tres dejaría a la
+  // ficha sin poder guardar nada de quien denegó la foto en el alta.
   const { data, error } = await supabase
     .from("consents")
-    .select("purpose")
+    .select("purpose, granted")
     .eq("person_id", personId)
-    .eq("granted", true)
-    .in("purpose", missingA);
+    .in("purpose", ausentes);
   if (error) {
-    throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Error al comprobar los consentimientos existentes" });
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "Error al comprobar los consentimientos existentes",
+    });
   }
-  const covered = new Set((data ?? []).map((r) => r.purpose));
-  const stillMissing = missingA.filter((p) => !covered.has(p));
-  if (stillMissing.length > 0) {
+
+  const filas = new Map((data ?? []).map((r) => [r.purpose as string, r.granted as boolean]));
+  const sinConstancia = ausentes.filter((p) => !filas.has(p));
+  if (sinConstancia.length > 0) {
     throw new TRPCError({
       code: "BAD_REQUEST",
-      message: `Faltan consentimientos obligatorios del Grupo A: ${stillMissing.join(", ")}`,
+      message: `Faltan consentimientos obligatorios del Grupo A: ${sinConstancia.join(", ")}`,
+    });
+  }
+
+  const sinConceder = OBLIGATORIOS.filter((p) => ausentes.includes(p) && filas.get(p) !== true);
+  if (sinConceder.length > 0) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Sin el consentimiento de tratamiento de datos no se puede completar el registro.",
     });
   }
 }

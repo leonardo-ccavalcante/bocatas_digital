@@ -29,6 +29,7 @@ const { mockUploadPhoto, mockSaveConsents, mockCompressImage } = vi.hoisted(() =
 vi.mock("@/lib/trpc", () => ({
   trpc: {
     persons: {
+      getPersonConsents: { useQuery: () => ({ data: [], isLoading: false, isError: false }) },
       uploadPhoto: { useMutation: () => ({ mutateAsync: mockUploadPhoto }) },
       saveConsents: { useMutation: () => ({ mutateAsync: mockSaveConsents }) },
     },

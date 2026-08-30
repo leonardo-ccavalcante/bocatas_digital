@@ -23,7 +23,9 @@ import { appRouter } from "../routers";
 import type { TrpcContext } from "../_core/context";
 import { Logger } from "../_core/logger";
 
-const dbState = vi.hoisted(() => ({ existingGranted: [] as Array<{ purpose: string }> }));
+const dbState = vi.hoisted(() => ({
+  existingGranted: [] as Array<{ purpose: string; granted: boolean }>,
+}));
 
 vi.mock("../../client/src/lib/supabase/server", () => ({
   createAdminClient: () => ({
@@ -110,13 +112,36 @@ describe("persons.saveConsents — Group A mandatory enforcement (F-110)", () =>
     ).rejects.toThrow(TRPCError);
   });
 
-  it("rejects with BAD_REQUEST when ANY Group A purpose is explicitly denied", async () => {
+  // ALTAS-8: el equipo pidió poder registrar a quien no autoriza su imagen, y
+  // en Derecho tenían razón — empaquetar tres consentimientos invalida los tres
+  // (RGPD Art. 7(4)). Sólo el tratamiento de datos bloquea.
+  it("acepta el registro aunque se niegue la fotografía", async () => {
+    const caller = appRouter.createCaller(authCtx());
+    await expect(
+      caller.persons.saveConsents({
+        personId: PERSON_ID,
+        consents: GROUP_A_PURPOSES.map((p) => consentRow(p, p !== "fotografia")),
+      })
+    ).resolves.toBeDefined();
+  });
+
+  it("acepta el registro aunque se nieguen las comunicaciones por WhatsApp", async () => {
+    const caller = appRouter.createCaller(authCtx());
+    await expect(
+      caller.persons.saveConsents({
+        personId: PERSON_ID,
+        consents: GROUP_A_PURPOSES.map((p) => consentRow(p, p !== "comunicaciones_whatsapp")),
+      })
+    ).resolves.toBeDefined();
+  });
+
+  it("sigue rechazando si se niega el tratamiento de datos", async () => {
     const caller = appRouter.createCaller(authCtx());
     await expect(
       caller.persons.saveConsents({
         personId: PERSON_ID,
         consents: GROUP_A_PURPOSES.map((p) =>
-          consentRow(p, p === "comunicaciones_whatsapp" ? false : true)
+          consentRow(p, p !== "tratamiento_datos_bocatas")
         ),
       })
     ).rejects.toThrow(TRPCError);
@@ -133,7 +158,7 @@ describe("persons.saveConsents — Group A mandatory enforcement (F-110)", () =>
   });
 
   it("accepts a PARTIAL save (Group B only) when the person already has Group A granted in the DB (RC-03/F050)", async () => {
-    dbState.existingGranted = GROUP_A_PURPOSES.map((p) => ({ purpose: p }));
+    dbState.existingGranted = GROUP_A_PURPOSES.map((p) => ({ purpose: p, granted: true }));
     const caller = appRouter.createCaller(authCtx());
     await expect(
       caller.persons.saveConsents({
@@ -144,12 +169,31 @@ describe("persons.saveConsents — Group A mandatory enforcement (F-110)", () =>
   });
 
   it("accepts REVOKING a Group B consent (granted:false) when Group A is covered in the DB", async () => {
-    dbState.existingGranted = GROUP_A_PURPOSES.map((p) => ({ purpose: p }));
+    dbState.existingGranted = GROUP_A_PURPOSES.map((p) => ({ purpose: p, granted: true }));
     const caller = appRouter.createCaller(authCtx());
     await expect(
       caller.persons.saveConsents({
         personId: PERSON_ID,
         consents: [consentRow("compartir_datos_red", false)],
+      })
+    ).resolves.toBeDefined();
+  });
+
+  it("una negativa YA registrada cuenta como constancia en un guardado parcial", async () => {
+    // La ficha manda actualizaciones parciales. Si en el alta se denegó la
+    // imagen, esa fila existe con granted=false: es una decisión documentada,
+    // no un hueco. Exigir granted=true para las tres dejaría a esa persona sin
+    // poder tocar ningún consentimiento nunca más.
+    dbState.existingGranted = [
+      { purpose: "tratamiento_datos_bocatas", granted: true },
+      { purpose: "fotografia", granted: false },
+      { purpose: "comunicaciones_whatsapp", granted: true },
+    ];
+    const caller = appRouter.createCaller(authCtx());
+    await expect(
+      caller.persons.saveConsents({
+        personId: PERSON_ID,
+        consents: [consentRow("tratamiento_datos_banco_alimentos", true)],
       })
     ).resolves.toBeDefined();
   });
@@ -181,8 +225,29 @@ describe("persons.saveConsents — Group A mandatory enforcement (F-110)", () =>
       expect(err).toBeInstanceOf(TRPCError);
       const trpcErr = err as TRPCError;
       expect(trpcErr.code).toBe("BAD_REQUEST");
-      expect(trpcErr.message.toLowerCase()).toContain("grupo a");
+      expect(trpcErr.message.toLowerCase()).toContain("tratamiento de datos");
     }
+  });
+
+  // Hallazgo de revisión adversarial: `if (consents.length === 0) return []`
+  // estaba ANTES de la comprobación, así que una llamada con array vacío
+  // devolvía 200 y dejaba a la persona con CERO filas de consentimiento — ni
+  // base de tratamiento, ni prueba de las negativas. Justo el agujero que el
+  // invariante dice cerrar.
+  it("un array vacío no puede saltarse la comprobación", async () => {
+    dbState.existingGranted = [];
+    const caller = appRouter.createCaller(authCtx());
+    await expect(
+      caller.persons.saveConsents({ personId: PERSON_ID, consents: [] })
+    ).rejects.toThrow(TRPCError);
+  });
+
+  it("un array vacío es inocuo si ya consta todo lo obligatorio", async () => {
+    dbState.existingGranted = GROUP_A_PURPOSES.map((p) => ({ purpose: p, granted: true }));
+    const caller = appRouter.createCaller(authCtx());
+    await expect(
+      caller.persons.saveConsents({ personId: PERSON_ID, consents: [] })
+    ).resolves.toEqual([]);
   });
 
   it("rejects unauthenticated callers (defense-in-depth)", async () => {

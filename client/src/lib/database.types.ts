@@ -2906,6 +2906,8 @@ export type Database = {
         | "formacion_profesional"
         | "universitario"
         | "postgrado"
+        | "postsecundaria_no_superior"
+        | "superior"
       nivel_ingresos:
         | "sin_ingresos"
         | "menos_500"
@@ -2959,6 +2961,8 @@ export type Database = {
         | "asentamiento"
         | "centro_acogida"
         | "otros"
+        | "centro_menores"
+        | "piso_entidad_social"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -3153,6 +3157,8 @@ export const Constants = {
         "formacion_profesional",
         "universitario",
         "postgrado",
+        "postsecundaria_no_superior",
+        "superior",
       ],
       nivel_ingresos: [
         "sin_ingresos",
@@ -3213,6 +3219,8 @@ export const Constants = {
         "asentamiento",
         "centro_acogida",
         "otros",
+        "centro_menores",
+        "piso_entidad_social",
       ],
     },
   },
