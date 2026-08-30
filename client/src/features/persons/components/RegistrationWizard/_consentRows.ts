@@ -91,17 +91,17 @@ export function buildConsentRows({
  * principio de responsabilidad proactiva (Art. 5.2).
  */
 export function buildConsentGroups({
-  hasBancoAlimentos,
-  hasFamilia,
+  hasProgramaFamilias,
 }: {
-  hasBancoAlimentos: boolean;
-  hasFamilia: boolean;
+  hasProgramaFamilias: boolean;
 }): { groupA: string[]; groupB: string[]; groupC: string[] } {
   return {
     groupA: ["tratamiento_datos_bocatas"],
-    groupB: hasBancoAlimentos ? ["tratamiento_datos_banco_alimentos"] : [],
+    // Los dos los dispara el mismo programa. Eran dos parámetros idénticos con
+    // nombres distintos: separarlos hoy sería inventarse un caso que no existe.
+    groupB: hasProgramaFamilias ? ["tratamiento_datos_banco_alimentos"] : [],
     groupC: [
-      ...(hasFamilia ? ["compartir_datos_red"] : []),
+      ...(hasProgramaFamilias ? ["compartir_datos_red"] : []),
       "fotografia",
       "comunicaciones_whatsapp",
     ],

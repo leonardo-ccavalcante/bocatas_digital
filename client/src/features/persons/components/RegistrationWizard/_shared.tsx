@@ -45,9 +45,17 @@ export const CONSENT_PURPOSE_LABELS: Record<string, string> = {
   fotografia: "Uso de fotografía e imagen",
 };
 
-// Slugs that trigger extra consent groups
-export const SLUG_BANCO_ALIMENTOS = "familia"; // Familia program uses Banco de Alimentos data
-export const SLUG_FAMILIA = "familia";
+/**
+ * Programa Familias. Es el único slug que el código tiene que reconocer: dispara
+ * el paso de composición del hogar y los consentimientos de Banco de Alimentos y
+ * de compartir datos en red. El catálogo es dinámico (ADR-0013) y nadie más debe
+ * enumerarlo.
+ *
+ * Esta constante se quedó en `"familia"` cuando la migración 20260507000002
+ * renombró el slug, y como sólo se compara —nunca se busca— el fallo fue mudo
+ * durante meses. La ata a la migración `__tests__/programSlugs.test.ts`.
+ */
+export const SLUG_PROGRAMA_FAMILIAS = "programa_familias";
 
 // Per-phase validation fields for the wizard's goNext() gate (react-hook-form
 // trigger()). Indexes 0-2 = phases 1-3; phase 4 (Resumen) submits via
