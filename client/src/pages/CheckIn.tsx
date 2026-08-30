@@ -28,7 +28,7 @@ import { useCheckinStore } from "@/features/checkin/store/useCheckinStore";
 import type { CheckinPerson, CheckinPrograma } from "@/features/checkin/machine/checkinMachine";
 
 export default function CheckIn() {
-  const { state, send, isOnline, offlineCount, failedCount, isSyncing } = useCheckin();
+  const { state, send, isOnline, offlineCount, failedCount, isSyncing, retrySync } = useCheckin();
   const { locationId: storedLocationId, programa: storedPrograma, setLocationId, setPrograma } = useCheckinStore();
   const [showManualSearch, setShowManualSearch] = useState(false);
 
@@ -83,7 +83,7 @@ export default function CheckIn() {
             )}
 
             {/* Offline queue count */}
-            <OfflinePendingBadge count={offlineCount} failedCount={failedCount} isSyncing={isSyncing} />
+            <OfflinePendingBadge count={offlineCount} failedCount={failedCount} isSyncing={isSyncing} onRetry={retrySync} />
 
             {/* Demo mode toggle */}
             <div className="flex items-center gap-2 min-h-[44px]">

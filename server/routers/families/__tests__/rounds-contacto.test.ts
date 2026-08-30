@@ -108,6 +108,19 @@ describe("rounds-contacto — setContactoFamilia", () => {
     expect(upd?.payload.preferred_slot_ids).toEqual([]); // renuncia clears preferred
   });
 
+  it("re-registering contact after a renuncia resets attended to NULL so the family is pending again (F185, gh #129)", async () => {
+    tableResults["delivery_round_assignments"] = { data: { round_id: R, estado_contacto: "renuncia" }, error: null };
+    tableResults["delivery_round_slots"] = { data: [{ id: s1 }], error: null };
+    const caller = roundsContactoRouter.createCaller(ctx(buildUser("admin")));
+    await caller.setContactoFamilia({ assignment_id: A, estado_contacto: "confirmada", preferred_slot_ids: [s1] });
+    const upd = captured.find((c) => c.op === "update");
+    expect(upd?.payload.estado_contacto).toBe("confirmada");
+    expect(upd?.payload.attended).toBeNull();
+    expect(upd?.payload.attended_slot_id).toBeNull();
+    expect(upd?.payload.attended_at).toBeNull();
+    expect(upd?.payload.attended_by).toBeNull();
+  });
+
   it("rejects a renuncia carrying preferred days (Zod)", async () => {
     const caller = roundsContactoRouter.createCaller(ctx(buildUser("admin")));
     await expect(caller.setContactoFamilia({

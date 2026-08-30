@@ -42,7 +42,26 @@ export function useCheckin() {
 
   const verifyMutation = trpc.checkin.verifyAndInsert.useMutation();
   const anonymousMutation = trpc.checkin.anonymousCheckin.useMutation();
-  const syncMutation = trpc.checkin.syncOfflineQueue.useMutation();
+  // F026: lifecycle callbacks live at useMutation level, NOT mutate() level.
+  // TanStack v5 skips mutate()-level callbacks when the observing component
+  // unmounts mid-flight (navigation during a flush), which used to leave
+  // isSyncing stuck at true forever. Mutation-level callbacks always run.
+  const syncMutation = trpc.checkin.syncOfflineQueue.useMutation({
+    onSuccess: (results) => {
+      // POS-03: settled (synced/duplicate) items leave the queue; "error"
+      // items are recorded as failed so the volunteer sees them instead of
+      // them silently looking like ordinary pending-offline items.
+      const { settled, failed } = categorizeSyncResults(results);
+      if (settled.length > 0) dequeue(settled);
+      if (failed.length > 0) markFailed(failed);
+    },
+    onError: (_err, attempted) => {
+      // Whole-batch failure: every attempted item failed this round. Surface
+      // them; they remain queued for the next flush or a manual retry.
+      markFailed(attempted.map((item) => item.clientId));
+    },
+    onSettled: () => setIsSyncing(false),
+  });
 
   // ── Reactive online/offline listener ───────────────────────────────────────
   useEffect(() => {
@@ -162,28 +181,22 @@ export function useCheckin() {
   }, [state, isOnline]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Auto-flush offline queue when back online ──────────────────────────────
-  useEffect(() => {
-    if (!isOnline || offlineQueue.length === 0 || isSyncing) return;
-
+  // Reads the queue via getState() so the callback never captures a stale
+  // snapshot; the guard makes concurrent triggers (effect + Reintentar)
+  // single-flight.
+  const flushQueue = useCallback(() => {
+    const { offlineQueue: queue, isSyncing: syncing } = useCheckinStore.getState();
+    if (!navigator.onLine || queue.length === 0 || syncing) return;
     setIsSyncing(true);
-    const attemptedIds = offlineQueue.map((item) => item.clientId);
-    syncMutation.mutate(offlineQueue, {
-      onSuccess: (results) => {
-        // POS-03: settled (synced/duplicate) items leave the queue; "error"
-        // items are recorded as failed so the volunteer sees them instead of
-        // them silently looking like ordinary pending-offline items.
-        const { settled, failed } = categorizeSyncResults(results);
-        if (settled.length > 0) dequeue(settled);
-        if (failed.length > 0) markFailed(failed);
-        setIsSyncing(false);
-      },
-      onError: () => {
-        // Whole-batch failure: every attempted item failed this round. Surface
-        // them; they remain queued and are retried on the next flush.
-        markFailed(attemptedIds);
-        setIsSyncing(false);
-      },
-    });
+    syncMutation.mutate(queue);
+  }, [syncMutation.mutate, setIsSyncing]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // F033: deliberately NOT keyed on failedClientIds — a failed batch must not
+  // auto-retry in a tight loop against a failing server. Failed items retry on
+  // connectivity changes, on new enqueues, or via the volunteer's Reintentar
+  // button (retrySync).
+  useEffect(() => {
+    flushQueue();
   }, [isOnline, offlineQueue.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
@@ -193,5 +206,6 @@ export function useCheckin() {
     offlineCount: offlineQueue.length,
     failedCount: failedClientIds.length,
     isSyncing,
+    retrySync: flushQueue,
   };
 }
