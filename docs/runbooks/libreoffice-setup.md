@@ -26,45 +26,14 @@ ln -s "/Applications/LibreOffice.app/Contents/MacOS/soffice" /usr/local/bin/libr
 
 1. **Install in the container/image** (`apt-get install -y libreoffice` — ~700 MB).
    Simplest, but inflates image size and cold-start.
-2. **gotenberg sidecar** (~400 MB HTTP service). Smaller app image, one more
-   service to run. **Ya está implementado** en `server/services/docxToPdf.ts`:
-   define `LIBREOFFICE_WORKER_URL` y la conversión pasa por
-   `POST {url}/forms/libreoffice/convert` (multipart, campo `files`) en vez de
-   hacer spawn local. `LIBREOFFICE_WORKER_TOKEN`, si está, viaja como
-   `Authorization: Bearer`.
+2. **gotenberg sidecar** (~400 MB HTTP service). Se evaluó y se DESCARTÓ: mete
+   una petición de red que lleva el informe social completo —datos personales de
+   una persona beneficiaria— y con ella toda una política de qué destinos son
+   aceptables. A este volumen (decenas de informes al mes) no compra nada: el
+   único beneficio real es el tamaño de imagen. Si algún día el volumen lo pide,
+   el historial de la rama `fix/libreoffice-worker` tiene la implementación.
 
 Pick one before enabling `derivar.generatePdf` in production.
-
-### El worker remoto tiene que ir por https
-
-El cuerpo de esa petición es el informe de valoración social completo: nombre,
-domicilio y situación familiar de una persona beneficiaria. `resolvePdfWorker`
-(`server/services/pdfWorkerConfig.ts`) exige por eso `https://` para cualquier
-host que no sea loopback, y **falla cerrado** — no cae al binario local — si la
-configuración no cumple: quien la puso tiene que enterarse, porque un fallback
-silencioso aquí no se nota nunca.
-
-Se admite texto plano sólo donde el tráfico no sale a Internet:
-
-| Destino | Ejemplo |
-|---|---|
-| Loopback | `http://127.0.0.1:3000` |
-| Nombre de servicio de docker-compose | `http://gotenberg:3000` |
-| Red privada de la plataforma (`.internal`) | `http://gotenberg.railway.internal:3000` |
-| Kubernetes / mDNS (`.local`) | `http://gotenberg.default.svc.cluster.local:3000` |
-| IP privada (RFC1918) | `http://10.0.0.5:3000` |
-
-No entran: IPv6 (nadie despliega aquí un sidecar IPv6-only) ni `169.254/16`, que
-es donde vive el endpoint de metadatos de las nubes.
-
-Cualquier otro host por `http://` se rechaza. Si el worker vive en otra máquina
-y se alcanza por Internet, tiene que ser `https://` — y conviene ponerle
-`LIBREOFFICE_WORKER_TOKEN`, que viaja como `Authorization: Bearer`.
-
-> Aviso: `.env` llegó a traer `LIBREOFFICE_WORKER_URL=http://<ip>:7654`, texto
-> plano hacia una IP remota, en un momento en que **ningún código leía la
-> variable**. Ahora que sí se lee, esa configuración se rechaza. Apunta el worker
-> a un endpoint https o borra la variable para usar el binario local.
 
 ## Concurrency
 
