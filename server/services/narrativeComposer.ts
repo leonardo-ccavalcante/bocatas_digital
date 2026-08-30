@@ -34,6 +34,8 @@ const TIPO_VIVIENDA: Record<string, string> = {
   ocupacion_sin_titulo: "en una ocupación sin título",
   pension: "en una pensión",
   asentamiento: "en un asentamiento",
+  centro_menores: "en un centro de menores",
+  piso_entidad_social: "en un piso de entidad social",
   centro_acogida: "en un centro de acogida",
   otros: "en otro tipo de vivienda",
 };
@@ -59,6 +61,8 @@ const NIVEL_ESTUDIOS: Record<string, string> = {
   sin_estudios: "sin estudios",
   primaria: "estudios primarios",
   secundaria: "estudios secundarios",
+  postsecundaria_no_superior: "educación post secundaria no superior",
+  superior: "educación superior",
   bachillerato: "bachillerato",
   formacion_profesional: "formación profesional",
   universitario: "estudios universitarios",

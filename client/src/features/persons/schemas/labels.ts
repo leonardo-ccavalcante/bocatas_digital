@@ -18,7 +18,7 @@ export const CANAL_LLEGADA_LABELS: Record<string, string> = {
 };
 
 export const TIPO_VIVIENDA_LABELS: Record<string, { label: string; icon: string }> = {
-  calle: { label: "Calle / Sin techo", icon: "⛺" },
+  calle: { label: "Sin hogar", icon: "⛺" },
   albergue: { label: "Albergue", icon: "🏕️" },
   piso_compartido_alquiler: { label: "Piso compartido (alquiler)", icon: "🏠" },
   piso_propio_alquiler: { label: "Piso propio (alquiler)", icon: "🏠" },
@@ -26,7 +26,8 @@ export const TIPO_VIVIENDA_LABELS: Record<string, { label: string; icon: string 
   ocupacion_sin_titulo: { label: "Ocupación sin título", icon: "🔑" },
   pension: { label: "Pensión", icon: "🏨" },
   asentamiento: { label: "Asentamiento", icon: "⛺" },
-  centro_acogida: { label: "Centro de acogida", icon: "🏢" },
+  centro_menores: { label: "Centro de menores", icon: "🏢" },
+  piso_entidad_social: { label: "Piso de entidad social", icon: "🏠" },
   otros: { label: "Otros", icon: "❓" },
 };
 
@@ -62,17 +63,17 @@ export const SITUACION_LEGAL_LABELS: Record<string, string> = {
   irregular: "Irregular",
   solicitante_asilo: "Solicitante de asilo",
   en_tramite: "En trámite",
-  sin_papeles: "Sin papeles",
 };
 
+// Lista de opciones del formulario. Los cuatro niveles desglosados antiguos
+// (bachillerato, FP, universitario, postgrado) siguen siendo valores válidos en
+// base y en el esquema, pero ya no se ofrecen: el equipo trabaja con estas cinco.
 export const NIVEL_ESTUDIOS_LABELS: Record<string, string> = {
   sin_estudios: "Sin estudios",
   primaria: "Primaria",
   secundaria: "Secundaria",
-  bachillerato: "Bachillerato",
-  formacion_profesional: "Formación Profesional",
-  universitario: "Universitario",
-  postgrado: "Postgrado",
+  postsecundaria_no_superior: "Educación post secundaria no superior (bachillerato / FPGM)",
+  superior: "Educación superior (universidad / FPGS)",
 };
 
 export const SITUACION_LABORAL_LABELS: Record<string, string> = {

@@ -51,24 +51,34 @@ export const OcrTipoDocumentoSchema = z.enum([
 // ISO 3166-1 alpha-2 country codes for document origin
 export const PaisDocumentoSchema = z.string().length(2).optional().nullable();
 
-// situacion_legal is text in DB (not an enum)
+// situacion_legal is text in DB (not an enum).
+// "sin_papeles" se retiró a petición del equipo (ALTAS-2): "irregular" y
+// "en_tramite" ya cubren el caso sin usar un término estigmatizante.
 export const SituacionLegalSchema = z.enum([
-  "regular", "irregular", "solicitante_asilo", "en_tramite", "sin_papeles"
+  "regular", "irregular", "solicitante_asilo", "en_tramite"
 ]);
 
+// Migración 20260830110000 añade centro_menores y piso_entidad_social.
+// centro_acogida se queda: ya no se ofrece en el formulario, pero hay fichas
+// guardadas con ese valor y editarlas no debe fallar la validación.
 export const TipoViviendaSchema = z.enum([
   "calle", "albergue", "piso_compartido_alquiler", "piso_propio_alquiler",
   "piso_propio_propiedad", "ocupacion_sin_titulo", "pension",
-  "asentamiento", "centro_acogida", "otros"
+  "asentamiento", "centro_menores", "piso_entidad_social",
+  "centro_acogida", "otros"
 ]);
 
 export const EstabilidadHabitacionalSchema = z.enum([
   "sin_hogar", "inestable", "temporal", "estable"
 ]);
 
+// Migración 20260830110001 añade los dos niveles agregados que el equipo usa
+// (y que el informe IRPF ya calculaba por rollup). Los cuatro desglosados
+// antiguos siguen siendo válidos para las fichas ya guardadas.
 export const NivelEstudiosSchema = z.enum([
-  "sin_estudios", "primaria", "secundaria", "bachillerato",
-  "formacion_profesional", "universitario", "postgrado"
+  "sin_estudios", "primaria", "secundaria",
+  "postsecundaria_no_superior", "superior",
+  "bachillerato", "formacion_profesional", "universitario", "postgrado"
 ]);
 
 export const SituacionLaboralSchema = z.enum([
