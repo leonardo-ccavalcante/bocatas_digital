@@ -152,4 +152,11 @@ describe('PhotoUploadInput', () => {
 
     expect(onError).not.toHaveBeenCalled();
   });
+
+  it('uses a real camera button, not a capture= hint the desktop ignores (#178)', () => {
+    const { container } = render(<PhotoUploadInput onPhotoSelected={vi.fn()} />);
+    expect(container.querySelector('input[capture]')).toBeNull();
+    expect(screen.getByText('Capturar Foto')).toBeInTheDocument();
+    expect(screen.getByText('Seleccionar Archivo')).toBeInTheDocument();
+  });
 });

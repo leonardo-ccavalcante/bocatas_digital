@@ -38,15 +38,18 @@ describe("enrichOfflineItems", () => {
 });
 
 describe("offlineAttendanceRows", () => {
-  it("builds a row for a real item with the derived timestamp/date", () => {
+  const ACTOR = "3f1c0a5e-2b7d-4c8a-9e10-5d6b7c8a9f01";
+
+  it("builds a row for a real item with the derived timestamp/date + server actor", () => {
     const enriched = enrichOfflineItems([item()]);
-    const [row] = offlineAttendanceRows(enriched);
+    const [row] = offlineAttendanceRows(enriched, ACTOR);
     expect(row).toEqual({
       person_id: "p1",
       location_id: "l1",
       programa: "comedor",
       metodo: "qr_scan",
       es_demo: false,
+      registrado_por: ACTOR,
       checked_in_at: "2020-01-15T23:55:00.000Z",
       checked_in_date: "2020-01-15",
     });
@@ -57,9 +60,10 @@ describe("offlineAttendanceRows", () => {
       item({ clientId: "real", isDemoMode: false }),
       item({ clientId: "demo", isDemoMode: true }),
     ]);
-    const rows = offlineAttendanceRows(enriched);
+    const rows = offlineAttendanceRows(enriched, ACTOR);
     expect(rows).toHaveLength(1);
     expect(rows[0].es_demo).toBe(false);
+    expect(rows[0].registrado_por).toBe(ACTOR);
   });
 });
 

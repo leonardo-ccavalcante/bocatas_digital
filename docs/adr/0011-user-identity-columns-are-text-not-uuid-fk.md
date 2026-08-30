@@ -30,3 +30,32 @@ Columns that store the **acting app user's identity are `text`**, holding `Strin
 **Negative / accepted**
 - No DB-level referential integrity to an auth users table. Accepted: the Manus `users` table is a legacy helper (not the source of truth) and RLS is bypassed app-wide anyway.
 - `attendances.registrado_por` and `consents.registrado_por` remain `uuid` today. They are **not broken** (they write `null` under Manus), but they are inconsistent with this decision. Aligning them to `text` is a **follow-up**, out of #116 scope.
+
+## Amendment (2026-08-30, #145) — the premise changed, the decision holds
+
+The premise above ("Authentication is **Manus OAuth**, not Supabase Auth") is **no
+longer true**: Manus is gone and identity now comes from **Supabase Auth**, so
+`ctx.user.id` IS a real `auth.users` UUID (`authenticateRequest` reads it from
+GoTrue). This does **not** reverse the decision — it only retires its stale premise.
+
+What stays true, and must not be "finished" into a regression:
+
+- The columns already migrated to `text` — `deliveries.registrado_por`,
+  `announcements.autor_id` / `edited_by`, `programs.created_by`,
+  `instituciones.created_by`, `familySavedViews.user_id` — **remain `text`**. Do
+  **not** convert them back to `uuid`: `entregas.createDelivery` and the announcements
+  writers store `String(ctx.user.id)`, and a `uuid` column reintroduces the `#116`
+  `22P02 invalid input syntax for type uuid` on a clean `db reset`.
+
+- `attendances.registrado_por` and `consents.registrado_por` **remain
+  `uuid REFERENCES auth.users(id)`**. They are no longer written as `null`: since
+  #145 they receive `ctx.user.id` written **server-side** via `authActorId`
+  (`server/_core/actorId.ts`). Because they FK-reference `auth.users`, `authActorId`
+  returns `null` for an id that is not a real auth UUID — notably the
+  `DEV_ADMIN_LOGIN` synthetic user (`"dev-admin-uuid"`), which is not an `auth.users`
+  row and would otherwise raise `23503`. The earlier "align them to `text`" follow-up
+  is **withdrawn**: as `uuid`-FK columns fed a real auth UUID, they are correct as-is.
+
+Net: two representations coexist on purpose — `text` (no FK) for the older Manus-era
+columns that already hold `String(ctx.user.id)`, and `uuid`-FK for the check-in/consent
+columns now fed a verified `auth.users` id. Neither should be migrated toward the other.
