@@ -15,6 +15,9 @@ type AdminDb = ReturnType<typeof createAdminClient>;
  * `getAll` no, y por eso una novedad segmentada por programa desaparecía incluso
  * para quien acababa de crearla (FAMILIAS-9).
  */
+/** Tope de filas a escanear cuando el filtro de audiencia corre en memoria. */
+const MAX_SCAN = 500;
+
 function seesEveryAudience(userRole: string): boolean {
   return userRole === "admin" || userRole === "superadmin";
 }
@@ -98,13 +101,28 @@ export const readsRouter = router({
 
       const now = new Date().toISOString();
 
+      // Quien ve todas las audiencias no pasa por el filtro en memoria, así que
+      // para esa ruta el corte SÍ puede hacerse en SQL y el count es exacto.
+      // Para el resto hay que filtrar ANTES de cortar: paginar primero devolvía
+      // páginas medio vacías —o vacías— dejando fuera novedades visibles que
+      // venían más abajo, y `total` acababa siendo el tamaño de la página ya
+      // filtrada, es decir, un número que no sirve para paginar.
+      const cortaEnSql = seesEveryAudience(userRole);
+
       let query = db
         .from("announcements")
-        .select(FEED_COLUMNS)
+        .select(FEED_COLUMNS, cortaEnSql ? { count: "exact" } : {})
         .order("es_urgente", { ascending: false })
         .order("fijado", { ascending: false })
-        .order("fecha_inicio", { ascending: false, nullsFirst: false })
-        .range(offset, offset + limit - 1);
+        .order("fecha_inicio", { ascending: false, nullsFirst: false });
+
+      if (cortaEnSql) {
+        query = query.range(offset, offset + limit - 1);
+      } else {
+        // Tope duro para no traer la tabla entera (misma clase que #80). Si se
+        // alcanza, se avisa: un recorte silencioso se lee como "esto es todo".
+        query = query.range(0, MAX_SCAN - 1);
+      }
 
       if (!includeInactive) {
         query = query
@@ -120,7 +138,7 @@ export const readsRouter = router({
         query = query.eq("es_urgente", true);
       }
 
-      const { data, error } = await query;
+      const { data, error, count } = await query;
       if (error) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
@@ -128,14 +146,30 @@ export const readsRouter = router({
         });
       }
 
-      const visible = (data ?? []).filter((row) => {
-        if (seesEveryAudience(userRole)) return true;
+      const filas = data ?? [];
+      if (!cortaEnSql && filas.length === MAX_SCAN) {
+        console.warn(
+          `[announcements.getAll] se alcanzó el tope de ${MAX_SCAN} filas escaneadas: ` +
+            "el listado puede estar incompleto. Toca bajar el filtro de audiencia a SQL.",
+        );
+      }
+
+      if (cortaEnSql) {
+        return { announcements: filas, total: count ?? filas.length };
+      }
+
+      const visible = filas.filter((row) => {
         const audiences = (row.announcement_audiences ?? []) as AudienceRule[];
         if (audiences.length === 0) return false;
         return matchesAudience(audiences, userRole, userProgramSlugs);
       });
 
-      return { announcements: visible, total: visible.length };
+      // El offset se aplica sobre lo VISIBLE: sobre las filas crudas saltaría
+      // novedades del usuario por cada ajena que hubiera por delante.
+      return {
+        announcements: visible.slice(offset, offset + limit),
+        total: visible.length,
+      };
     }),
 
   /**
