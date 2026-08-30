@@ -90,7 +90,7 @@ export async function buildFamilyDataContext(
     .from("families")
     .select(
       `id, familia_numero, num_adultos, num_menores_18, distrito, codigo_postal, estado,
-       fecha_alta, situacion_familiar_texto,
+       fecha_alta, situacion_familiar_texto, informe_social_fecha,
        persons!titular_id(nombre, apellidos, numero_documento, telefono,
                           pais_origen, fecha_nacimiento, direccion)`
     )
@@ -228,6 +228,9 @@ export async function buildFamilyDataContext(
       notas_seguimiento: notasConcatenated,
       effective_date: mostRecentFecha,
       has_informe_previo: hasInformePrevio,
+      // Solo tiene sentido junto a has_informe_previo: con documento vigente,
+      // su antigüedad decide si esto es una corrección o una renovación.
+      fecha_informe_vigente: coerce(family.informe_social_fecha),
     };
   }
 

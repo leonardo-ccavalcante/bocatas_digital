@@ -17,8 +17,17 @@ import {
   useAllFamilyDocuments,
   useDeleteFamilyDocument,
 } from "@/features/families/hooks/useFamilias";
-import { FAMILIA_DOCS_CONFIG } from "@/features/families/constants";
+import { trpc } from "@/lib/trpc";
+import { acceptParaTipo, ayudaFormatoParaTipo, soloAdmitePdf } from "@shared/documentFormat";
 import type { FamilyDocType } from "@shared/familyDocuments";
+import {
+  archivoEsPdf,
+  compressImage,
+  extFromFile,
+  labelFor,
+  MAX_FILE_BYTES,
+  STORAGE_BUCKET,
+} from "./documentUploadHelpers";
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -29,67 +38,6 @@ interface DocumentUploadModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function labelFor(tipo: FamilyDocType): string {
-  return FAMILIA_DOCS_CONFIG.find((d) => d.key === tipo)?.label ?? tipo;
-}
-
-function extFromFile(file: File): string {
-  const fromName = file.name.split(".").pop();
-  if (fromName) return fromName.toLowerCase();
-  if (file.type === "application/pdf") return "pdf";
-  if (file.type.startsWith("image/")) return file.type.split("/")[1] ?? "jpg";
-  return "bin";
-}
-
-/**
- * Compress an image file to reduce upload size.
- * Returns a Blob with JPEG compression at 0.8 quality.
- * Inlined from DocumentPhotoCapture.tsx (not exported from that module).
- */
-async function compressImage(file: File, maxDimension = 1920): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      const canvas = document.createElement("canvas");
-      let { width, height } = img;
-      if (width > maxDimension || height > maxDimension) {
-        if (width > height) {
-          height = Math.round((height * maxDimension) / width);
-          width = maxDimension;
-        } else {
-          width = Math.round((width * maxDimension) / height);
-          height = maxDimension;
-        }
-      }
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return reject(new Error("Canvas context unavailable"));
-      ctx.drawImage(img, 0, 0, width, height);
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) return reject(new Error("Compression failed"));
-          resolve(blob);
-        },
-        "image/jpeg",
-        0.8
-      );
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("Image load failed"));
-    };
-    img.src = url;
-  });
-}
-
-const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
-const STORAGE_BUCKET = "family-documents";
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -112,6 +60,8 @@ export function DocumentUploadModal({
   // ── Mutations ─────────────────────────────────────────────────────────────
   const uploadMutation = useUploadFamilyDocument();
   const deleteMutation = useDeleteFamilyDocument(familyId);
+  const verifyPdf = trpc.families.verifyUploadedPdf.useMutation();
+  const utils = trpc.useUtils();
 
   // ── Derived state ─────────────────────────────────────────────────────────
   const docRows = memberIndex === -1
@@ -141,6 +91,14 @@ export function DocumentUploadModal({
       return;
     }
 
+    // El informe social es un documento legal y debe ser un PDF de verdad, no un
+    // JPG renombrado: se mira la cabecera antes de subir nada (FAMILIAS-4).
+    if (soloAdmitePdf(documentoTipo) && !(await archivoEsPdf(file))) {
+      toast.error("El informe social debe subirse en PDF.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
     setIsUploading(true);
 
     try {
@@ -156,7 +114,13 @@ export function DocumentUploadModal({
         contentType = file.type || "application/pdf";
       }
 
-      const ext = isImage ? "jpg" : extFromFile(file);
+      // Para los tipos solo-PDF ya hemos comprobado la cabecera: forzamos
+      // extensión y content-type en lugar de fiarnos del nombre del archivo
+      // (`extFromFile` devuelve el nombre entero si no lleva punto) — si no, la
+      // barrera de extensión del servidor rechazaría un PDF legítimo.
+      const esSoloPdf = soloAdmitePdf(documentoTipo);
+      if (esSoloPdf) contentType = "application/pdf";
+      const ext = isImage ? "jpg" : esSoloPdf ? "pdf" : extFromFile(file);
       const storagePath = `${familyId}/${memberIndex}/${documentoTipo}/${Date.now()}.${ext}`;
 
       // The family-documents bucket is private. We store the storage PATH (not a URL)
@@ -188,6 +152,18 @@ export function DocumentUploadModal({
         }
         toast.error(storageError.message || "Error al subir el archivo");
         return;
+      }
+
+      // Barrera real: el servidor lee la cabecera del objeto ya subido con el
+      // cliente service-role. Si no es un PDF, borra objeto y fila y lanza — el
+      // catch de abajo enseña el motivo y el modal se queda abierto.
+      if (soloAdmitePdf(documentoTipo)) {
+        try {
+          await verifyPdf.mutateAsync({ id: insertedDoc.id });
+        } catch (verifyErr) {
+          utils.families.getFamilyDocuments.invalidate({ family_id: familyId });
+          throw verifyErr;
+        }
       }
 
       capture("document_uploaded", { type: documentoTipo });
@@ -230,14 +206,16 @@ export function DocumentUploadModal({
               <Input
                 ref={fileInputRef}
                 type="file"
-                accept="application/pdf, image/*"
+                accept={acceptParaTipo(documentoTipo)}
                 className="hidden"
                 onChange={handleFileChange}
                 disabled={isBusy}
                 aria-label={`Cargar archivo para ${labelFor(documentoTipo)}`}
               />
             </Label>
-            <p className="text-xs text-muted-foreground mt-2">PDF, JPG, PNG (máx 10 MB)</p>
+            <p className="text-xs text-muted-foreground mt-2">
+              {ayudaFormatoParaTipo(documentoTipo)}
+            </p>
             {isBusy && (
               <p className="text-xs text-muted-foreground mt-1 animate-pulse">Subiendo...</p>
             )}

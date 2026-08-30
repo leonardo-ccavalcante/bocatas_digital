@@ -117,6 +117,7 @@ export async function fetchActiveFamiliesReadiness(db: Db): Promise<FamilyReadin
       latest_follow_up_fecha: latestFollowUp.get(r.id as string) ?? null,
       members: members.get(r.id as string) ?? [],
       has_informe_previo: hasInforme.has(r.id as string),
+      informe_social_fecha: (r.informe_social_fecha as string | null) ?? null,
     };
     const readiness = evaluateInformeReadiness(input);
     // Policy layer (on top of render-ability): a renderable family whose informe

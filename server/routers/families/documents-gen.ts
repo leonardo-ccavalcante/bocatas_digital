@@ -12,6 +12,10 @@ import {
   type InformeSkipReason,
 } from "../../services/informeEligibility";
 import {
+  fechaInformeTrasGenerar,
+  informeGenerationMode,
+} from "@shared/informeFreshness";
+import {
   computeSituacionChanges,
   lastSnapshot,
   appendHistorial,
@@ -99,7 +103,7 @@ async function generateAndPersist(
   const { data: fam } = await db
     .from("families")
     .select(
-      `num_adultos, num_menores_18, metadata,
+      `num_adultos, num_menores_18, metadata, informe_social_fecha,
        persons!titular_id(tipo_vivienda, situacion_laboral, nivel_ingresos,
                           nivel_estudios, empadronado, direccion)`,
     )
@@ -124,11 +128,18 @@ async function generateAndPersist(
 
     // Stamp status (generating IS producing the informe) AND persist history in
     // one update — aligns the badge/list/bulk rule with actual generation.
+    // Una CORRECCIÓN conserva la fecha del informe vigente: re-sellarla en cada
+    // regeneración permitiría encadenar correcciones y no registrar jamás un
+    // seguimiento, que es justo lo que protege la puerta (FAMILIAS-6).
+    const modo = informeGenerationMode(
+      context.informe?.has_informe_previo ?? false,
+      context.informe?.fecha_informe_vigente,
+    );
     const { error: updErr2 } = await db
       .from("families")
       .update({
         informe_social: true,
-        informe_social_fecha: today,
+        informe_social_fecha: fechaInformeTrasGenerar(modo, fam.informe_social_fecha, today),
         // Round-trip to a plain JSON value for the jsonb column (repo pattern —
         // see crud.ts baja_history); nextMetadata is already JSON-serializable.
         metadata: JSON.parse(JSON.stringify(nextMetadata)),

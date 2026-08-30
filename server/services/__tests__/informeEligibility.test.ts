@@ -13,6 +13,7 @@ function base(): InformeReadinessInput {
     members: [{ nombre: "Ahmed", apellidos: "García", fecha_nacimiento: "2015-01-01" }],
     // Renovación by default — the seguimiento rules only apply then (ADR-0014).
     has_informe_previo: true,
+    informe_social_fecha: null,
   };
 }
 

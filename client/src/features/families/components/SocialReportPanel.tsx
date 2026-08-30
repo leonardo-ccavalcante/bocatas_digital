@@ -9,7 +9,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { FileText, FileDown, AlertCircle, CheckCircle, Clock, Upload, Loader2, Wand2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
-import { isInformeStale, informeDocStatus } from "@shared/informeFreshness";
+import {
+  informeDocStatus,
+  informeGenerationMode,
+  isInformeStale,
+  requiereSeguimiento,
+  type InformeGenerationMode,
+} from "@shared/informeFreshness";
 import { DocumentUploadModal } from "@/components/DocumentUploadModal";
 import { useFamilyLevelDocuments } from "@/features/families/hooks/useFamilias";
 import { FollowUpsPanel } from "./FollowUpsPanel";
@@ -34,6 +40,20 @@ function getReportStatus(hasReport: boolean, fecha: string | null) {
       return { label: "Al día", variant: "default" as const, icon: CheckCircle };
   }
 }
+
+/**
+ * Rótulo y aviso según el modo de generación (FAMILIAS-6). El rótulo es el
+ * nombre accesible del botón — nada de aria-label distinto del texto visible.
+ */
+const MODO_UI: Record<InformeGenerationMode, { label: string; aviso: string | null }> = {
+  primera_emision: { label: "Generar informe social", aviso: null },
+  correccion: {
+    label: "Corregir informe social",
+    aviso:
+      "El informe vigente sigue al día: puedes corregirlo, por ejemplo para añadir algo a la valoración social. La corrección conserva la fecha del informe y no reinicia su validez.",
+  },
+  renovacion: { label: "Renovar informe social", aviso: null },
+};
 
 export function SocialReportPanel({ familyId, informeSocial, informeSocialFecha }: SocialReportPanelProps) {
   const [editing, setEditing] = useState(false);
@@ -65,10 +85,13 @@ export function SocialReportPanel({ familyId, informeSocial, informeSocialFecha 
   // PDF) — never the manually-settable informe_social boolean (ADR-0014).
   const hasPriorInforme = !!(informeRow || generatedRow);
 
+  // Primera emisión / corrección / renovación: la puerta de seguimiento solo
+  // aplica a la renovación (FAMILIAS-6). Las tres capas — este panel,
+  // documentService.validateContext e informeEligibility — comparten el helper.
+  const modo = informeGenerationMode(hasPriorInforme, informeSocialFecha);
+
   const blockingError: string | null = (() => {
-    // Seguimiento rules apply only to renovaciones; the first informe of a
-    // family needs no seguimiento (ADR-0014).
-    if (hasPriorInforme) {
+    if (requiereSeguimiento(modo)) {
       if (latest == null) {
         return "Sin seguimientos registrados. Añade un seguimiento para habilitar la generación.";
       }
@@ -250,6 +273,11 @@ export function SocialReportPanel({ familyId, informeSocial, informeSocialFecha 
                 {blockingError}
               </p>
             )}
+            {MODO_UI[modo].aviso && !blockingError && (
+              <p role="status" className="text-xs text-muted-foreground mb-2">
+                {MODO_UI[modo].aviso}
+              </p>
+            )}
             <Button
               size="sm"
               onClick={() => generateSaved.mutate({ family_id: familyId })}
@@ -259,10 +287,9 @@ export function SocialReportPanel({ familyId, informeSocial, informeSocialFecha 
               disabled={
                 !!blockingError || generateSaved.isPending || docsQuery.isPending || docsQuery.isError
               }
-              aria-label="Generar y guardar el informe de valoración social"
             >
               {generateSaved.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" aria-hidden="true" /> : <FileDown className="h-4 w-4 mr-1" aria-hidden="true" />}
-              Generar informe social
+              {MODO_UI[modo].label}
             </Button>
           </div>
         </CardContent>

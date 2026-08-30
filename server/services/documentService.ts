@@ -10,7 +10,11 @@ import Docxtemplater from "docxtemplater";
 import type { FamilyDocumentContext } from "./documentService.types";
 import { fetchStorageBuffer } from "../storage";
 import { createAdminClient } from "../../client/src/lib/supabase/server";
-import { isInformeStale } from "@shared/informeFreshness";
+import {
+  informeGenerationMode,
+  isInformeStale,
+  requiereSeguimiento,
+} from "@shared/informeFreshness";
 
 export class DocumentValidationError extends Error {
   readonly code: "MISSING_PLACEHOLDER" | "STALE_INFORME" | "TEMPLATE_NOT_FOUND" | "RENDER_FAILED";
@@ -72,8 +76,9 @@ export function validateContext(
     );
   }
 
-  // Freshness gate: only for informe_social, and only for renovaciones — the
-  // first informe of a family needs no seguimiento (ADR-0014).
+  // Freshness gate: only for informe_social, and only for RENOVACIONES. La
+  // primera emisión no puede exigir un seguimiento previo (ADR-0014) y una
+  // corrección de un informe todavía al día tampoco (FAMILIAS-6).
   if (template.slug === "informe_social") {
     const informe = context.informe;
     if (!informe) {
@@ -85,7 +90,11 @@ export function validateContext(
         { missing: ["informe"] }
       );
     }
-    if (informe.has_informe_previo) {
+    const modo = informeGenerationMode(
+      informe.has_informe_previo,
+      informe.fecha_informe_vigente,
+    );
+    if (requiereSeguimiento(modo)) {
       if (!informe.fecha_seguimiento) {
         throw new DocumentValidationError(
           "MISSING_PLACEHOLDER",

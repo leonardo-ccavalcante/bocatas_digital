@@ -89,6 +89,7 @@ const VALID_CONTEXT: FamilyDocumentContext = {
     notas_seguimiento: "Bien.",
     effective_date: "",
     has_informe_previo: true,
+    fecha_informe_vigente: "",
   },
   logos: [],
   static_blocks: {},
@@ -163,6 +164,7 @@ describe("validateContext", () => {
         notas_seguimiento: "",
         effective_date: "",
         has_informe_previo: false,
+        fecha_informe_vigente: "",
       },
     };
     expect(() => validateContext(MINIMAL_TEMPLATE, ctx)).not.toThrow();
@@ -177,6 +179,7 @@ describe("validateContext", () => {
         notas_seguimiento: "Antiguo.",
         effective_date: staleDate,
         has_informe_previo: false,
+        fecha_informe_vigente: "",
       },
     };
     expect(() => validateContext(MINIMAL_TEMPLATE, ctx)).not.toThrow();
@@ -227,5 +230,72 @@ describe("renderDocument", () => {
         familyId: "family-uuid-001",
       })
     ).rejects.toMatchObject({ code: "RENDER_FAILED" });
+  });
+});
+
+// ── FAMILIAS-6: corrección de un informe vigente ─────────────────────────────
+//
+// La puerta de seguimiento solo debe aplicarse cuando el informe vigente YA toca
+// renovar. Mientras siga al día, volver a generar es una CORRECCIÓN (p. ej. para
+// añadir algo a la valoración social) y no exige seguimiento.
+
+describe("validateContext — corrección (FAMILIAS-6)", () => {
+  const reciente = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
+  const vencido = new Date(Date.now() - 400 * 86_400_000).toISOString().slice(0, 10);
+
+  it("informe vigente al día + SIN seguimiento → no lanza (es corrección)", () => {
+    const ctx: FamilyDocumentContext = {
+      ...VALID_CONTEXT,
+      informe: {
+        fecha_seguimiento: "",
+        notas_seguimiento: "",
+        effective_date: "",
+        has_informe_previo: true,
+        fecha_informe_vigente: reciente,
+      },
+    };
+    expect(() => validateContext(MINIMAL_TEMPLATE, ctx)).not.toThrow();
+  });
+
+  it("informe vigente al día + seguimiento vencido → no lanza (la corrección no lo mira)", () => {
+    const ctx: FamilyDocumentContext = {
+      ...VALID_CONTEXT,
+      informe: {
+        fecha_seguimiento: vencido,
+        notas_seguimiento: "Antiguo.",
+        effective_date: vencido,
+        has_informe_previo: true,
+        fecha_informe_vigente: reciente,
+      },
+    };
+    expect(() => validateContext(MINIMAL_TEMPLATE, ctx)).not.toThrow();
+  });
+
+  it("informe vigente vencido + sin seguimiento → sigue bloqueando la renovación", () => {
+    const ctx: FamilyDocumentContext = {
+      ...VALID_CONTEXT,
+      informe: {
+        fecha_seguimiento: "",
+        notas_seguimiento: "",
+        effective_date: "",
+        has_informe_previo: true,
+        fecha_informe_vigente: vencido,
+      },
+    };
+    expect(() => validateContext(MINIMAL_TEMPLATE, ctx)).toThrowError(DocumentValidationError);
+  });
+
+  it("informe previo sin fecha conocida → se trata como renovación (fail-closed)", () => {
+    const ctx: FamilyDocumentContext = {
+      ...VALID_CONTEXT,
+      informe: {
+        fecha_seguimiento: "",
+        notas_seguimiento: "",
+        effective_date: "",
+        has_informe_previo: true,
+        fecha_informe_vigente: "",
+      },
+    };
+    expect(() => validateContext(MINIMAL_TEMPLATE, ctx)).toThrowError(DocumentValidationError);
   });
 });

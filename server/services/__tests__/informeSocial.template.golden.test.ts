@@ -97,6 +97,7 @@ function context(nMembers: number): FamilyDocumentContext {
       notas_seguimiento: "seg",
       effective_date: RECENT,
       has_informe_previo: true,
+      fecha_informe_vigente: "",
     },
     valoracion: "NARRATIVA_SENTINEL",
     logos: [],

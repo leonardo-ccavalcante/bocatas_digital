@@ -15,10 +15,18 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 
-/** Thrown when LibreOffice (soffice) is not installed on the host. */
+/**
+ * Thrown when LibreOffice (soffice) is not installed on the host.
+ *
+ * El mensaje NOMBRA la dependencia que falta a propósito: sin eso, «no se pudo
+ * generar el PDF» es indistinguible de un documento corrupto y nadie sabe que lo
+ * que falta es infraestructura, no datos (FAMILIAS-4).
+ */
 export class LibreOfficeUnavailableError extends Error {
   constructor() {
-    super("LibreOffice no disponible en el servidor");
+    super(
+      "Conversión a PDF no disponible: falta LibreOffice (soffice) en el servidor",
+    );
     this.name = "LibreOfficeUnavailableError";
   }
 }
@@ -33,20 +41,53 @@ const CONVERT_TIMEOUT_MS = 90_000;
 // (see `queue`) so a single shared profile never sees concurrent access.
 const PROFILE_DIR = join(tmpdir(), "bocatas-libreoffice-profile");
 
-/** Candidate soffice locations, absolute-first (dev server PATH may omit them). */
-function resolveSoffice(): string {
-  const candidates = [
+/** Rutas absolutas candidatas para soffice (el PATH del dev server puede no tenerlas). */
+function sofficeCandidates(): string[] {
+  return [
     process.env.LIBREOFFICE_BIN,
     "/opt/homebrew/bin/soffice", // macOS (Homebrew)
+    "/usr/local/bin/soffice", // macOS (Intel Homebrew) / symlink manual
     "/Applications/LibreOffice.app/Contents/MacOS/soffice", // macOS (cask app)
     "/usr/bin/soffice", // Linux
     "/usr/bin/libreoffice", // Linux (alt name)
+    "/usr/lib/libreoffice/program/soffice", // Linux (paquete distro)
   ].filter((c): c is string => !!c);
-  for (const c of candidates) {
+}
+
+/** Busca un ejecutable recorriendo PATH (equivalente a `which`, sin spawn). */
+function fromPath(name: string): string | null {
+  for (const dir of (process.env.PATH ?? "").split(":")) {
+    if (dir === "") continue;
+    const candidate = join(dir, name);
+    if (existsSync(candidate)) return candidate;
+  }
+  return null;
+}
+
+/**
+ * Ruta al binario, o null si no hay ninguno.
+ *
+ * Antes esto devolvía `"soffice"` a secas como último recurso: el fallo solo
+ * aparecía al hacer spawn, tras crear ficheros temporales, y el log no decía qué
+ * instalar. Devolver null permite fallar rápido y con diagnóstico.
+ */
+function resolveSoffice(): string | null {
+  for (const c of sofficeCandidates()) {
     if (existsSync(c)) return c;
   }
-  // Last resort: rely on PATH (Linux servers usually expose it).
-  return "soffice";
+  return fromPath("soffice") ?? fromPath("libreoffice");
+}
+
+/** Un único log accionable: qué falta, cómo instalarlo y dónde está documentado. */
+function logLibreOfficeMissing(): void {
+  console.error(
+    "[docxToPdf] LibreOffice no encontrado: la descarga/vista previa en PDF del informe " +
+      "social queda deshabilitada. Instálalo en el host " +
+      "(Linux: apt-get install -y libreoffice · macOS: brew install --cask libreoffice) " +
+      "o define LIBREOFFICE_BIN con la ruta absoluta de soffice. " +
+      "Runbook: docs/runbooks/libreoffice-setup.md. Rutas probadas: " +
+      sofficeCandidates().join(", "),
+  );
 }
 
 // Serialize conversions: LibreOffice is effectively single-instance per profile.
@@ -69,6 +110,12 @@ export function convertDocxToPdf(docx: Buffer): Promise<Buffer> {
 
 async function convertNow(docx: Buffer): Promise<Buffer> {
   const bin = resolveSoffice();
+  // Fail-fast ANTES de tocar el disco: sin binario no hay nada que intentar y el
+  // operador necesita el diagnóstico, no un timeout de 90 s.
+  if (bin === null) {
+    logLibreOfficeMissing();
+    throw new LibreOfficeUnavailableError();
+  }
   await mkdir(PROFILE_DIR, { recursive: true });
   const work = await mkdtemp(join(tmpdir(), "informe-pdf-"));
   const inPath = join(work, `${randomUUID()}.docx`);
@@ -114,7 +161,7 @@ function runSoffice(bin: string, inPath: string, outDir: string): Promise<void> 
     child.on("error", (err) => {
       clearTimeout(timer);
       if ((err as NodeJS.ErrnoException).code === "ENOENT") {
-        console.error("[docxToPdf] soffice binary not found:", bin);
+        logLibreOfficeMissing();
         return reject(new LibreOfficeUnavailableError());
       }
       console.error("[docxToPdf] soffice spawn error:", err.message);
