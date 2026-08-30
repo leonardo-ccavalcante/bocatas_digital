@@ -53,6 +53,8 @@ export const CAMPOS: Record<string, CampoDescriptor> = {
   situacion_laboral: { etiqueta: "Situación laboral", fase: 2 },
   situacion_ante_empleo: { etiqueta: "Situación ante el empleo (IRPF)", fase: 2 },
   nivel_ingresos: { etiqueta: "Ingresos aproximados", fase: 2 },
+  situacion_vulnerabilidad: { etiqueta: "Situación de vulnerabilidad", fase: 2 },
+  situacion_vulnerabilidad_otros: { etiqueta: "Otra situación", fase: 2 },
   colectivos: { etiqueta: "Pertenencia a colectivo", fase: 2 },
   colectivo_otros: { etiqueta: "Colectivo — otros", fase: 2 },
   program_ids: { etiqueta: "Programas", fase: 3 },

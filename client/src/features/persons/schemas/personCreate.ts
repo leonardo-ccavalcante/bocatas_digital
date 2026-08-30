@@ -90,6 +90,11 @@ export const PersonCreateSchema = z.object({
   // FSE/IRPF status ante el empleo (orthogonal to situacion_laboral — feeds the report)
   situacion_ante_empleo: SituacionAnteEmpleoSchema.optional().nullable(),
   nivel_ingresos: NivelIngresosSchema.optional().nullable(),
+  // Situación de vulnerabilidad — NO es categoría especial, así que NO pasa por
+  // la puerta de consentimiento del Art. 9: se guarda siempre. Vive aparte de
+  // `colectivos` a propósito (migración 20260831110000).
+  situacion_vulnerabilidad: z.boolean().optional().nullable(),
+  situacion_vulnerabilidad_otros: z.string().max(200).optional().nullable(),
   // RGPD Art. 9/10 special-category (persisted only under explicit consent)
   colectivos: z.array(ColectivoSchema).optional().nullable(),
   colectivo_otros: z.string().max(200).optional().nullable(),

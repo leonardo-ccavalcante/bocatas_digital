@@ -174,6 +174,12 @@ export const crudRouter = router({
         situacion_laboral: personData.situacion_laboral ?? null,
         situacion_ante_empleo: personData.situacion_ante_empleo ?? null,
         nivel_ingresos: personData.nivel_ingresos ?? null,
+        // Fuera de la puerta del Art. 9 a propósito: no es categoría especial,
+        // y como el equipo lo marca para casi todo el mundo, gatearlo detrás
+        // del consentimiento de colectivos lo perdería en silencio justo en el
+        // caso mayoritario (migración 20260831110000).
+        situacion_vulnerabilidad: personData.situacion_vulnerabilidad ?? null,
+        situacion_vulnerabilidad_otros: str(personData.situacion_vulnerabilidad_otros),
         // RGPD Art. 9/10 special-category — persisted ONLY under explicit
         // consent. The enum tags are stored plainly (needed for aggregation);
         // the free-text "otros" is app-layer encrypted at rest, and is stored

@@ -57,6 +57,10 @@ export const PersonCreateInput = z.object({
   situacion_laboral: SituacionLaboralEnum.optional().nullable(),
   situacion_ante_empleo: SituacionAnteEmpleoEnum.optional().nullable(),
   nivel_ingresos: NivelIngresosEnum.optional().nullable(),
+  // Situación de vulnerabilidad — NO es categoría especial: se guarda siempre,
+  // sin la puerta de consentimiento del Art. 9 (migración 20260831110000).
+  situacion_vulnerabilidad: z.boolean().optional().nullable(),
+  situacion_vulnerabilidad_otros: z.string().max(200).optional().nullable(),
   // RGPD Art. 9/10 — persisted only under explicit consent (see crud.ts).
   colectivos: z.array(ColectivoEnum).optional().nullable(),
   colectivo_otros: z.string().max(200).optional().nullable(),

@@ -80,6 +80,35 @@ export function Step4Situacion({ watch, setValue }: Step4SituacionProps) {
         </div>
       </div>
 
+      {/* Situación de vulnerabilidad. Bloque APARTE del de colectivos y antes
+          que él: no es categoría especial, así que no depende del
+          consentimiento Art. 9 y se guarda siempre. Es la casilla que el equipo
+          marcará en casi todas las altas. */}
+      <fieldset className="space-y-2 rounded-lg border border-border p-3">
+        <legend className="px-1 text-sm font-medium">Situación actual</legend>
+        <div className="flex items-start gap-2">
+          <Checkbox
+            id="situacion_vulnerabilidad"
+            className="mt-0.5"
+            checked={watch("situacion_vulnerabilidad") ?? false}
+            onCheckedChange={(v) => setValue("situacion_vulnerabilidad", v === true)}
+          />
+          <Label htmlFor="situacion_vulnerabilidad" className="cursor-pointer">
+            Situación de vulnerabilidad
+          </Label>
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="situacion_vulnerabilidad_otros">Otra situación (especificar)</Label>
+          <Input
+            id="situacion_vulnerabilidad_otros"
+            value={watch("situacion_vulnerabilidad_otros") ?? ""}
+            onChange={(e) => setValue("situacion_vulnerabilidad_otros", e.target.value)}
+            placeholder="Déjalo en blanco si no aplica"
+            maxLength={200}
+          />
+        </div>
+      </fieldset>
+
       {/* Colectivo — RGPD Art. 9/10 special-category (etnia / orientación /
           situación penal). Optional; persisted ONLY if the person grants the
           explicit consent in the Consentimiento step. */}
