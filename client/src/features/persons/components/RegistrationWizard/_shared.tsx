@@ -2,7 +2,7 @@ import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { ConsentLanguageSchema } from "../../schemas";
+import { ConsentLanguageSchema, type PersonCreate } from "../../schemas";
 
 export interface FamilyMember {
   nombre: string;
@@ -43,6 +43,19 @@ export const CONSENT_PURPOSE_LABELS: Record<string, string> = {
 // Slugs that trigger extra consent groups
 export const SLUG_BANCO_ALIMENTOS = "familia"; // Familia program uses Banco de Alimentos data
 export const SLUG_FAMILIA = "familia";
+
+// Per-phase validation fields for the wizard's goNext() gate (react-hook-form
+// trigger()). Indexes 0-2 = phases 1-3; phase 4 (Resumen) submits via
+// handleFinalSubmit. Every phase's format-validated inputs must be listed here
+// or their errors surface only as a server 400 at submit (QA F047/F058).
+// Phase 1 = Canal + Identidad + Documento · Phase 2 = Contacto + Situación
+// (see WizardPhases.tsx) · Phase 3 fields are free-text/selects with no
+// format rules beyond max-length.
+export const PHASE_FIELDS: readonly (keyof PersonCreate)[][] = [
+  ["canal_llegada", "nombre", "apellidos", "fecha_nacimiento", "idioma_principal", "fecha_llegada_espana"],
+  ["telefono", "email", "direccion", "codigo_postal", "municipio", "barrio_zona"],
+  [],
+];
 
 export function SelectField({
   label, id, value, onChange, options, placeholder, required,
