@@ -54,6 +54,9 @@ Se admite texto plano sólo donde el tráfico no sale a Internet:
 | Kubernetes / mDNS (`.local`) | `http://gotenberg.default.svc.cluster.local:3000` |
 | IP privada (RFC1918) | `http://10.0.0.5:3000` |
 
+No entran: IPv6 (nadie despliega aquí un sidecar IPv6-only) ni `169.254/16`, que
+es donde vive el endpoint de metadatos de las nubes.
+
 Cualquier otro host por `http://` se rechaza. Si el worker vive en otra máquina
 y se alcanza por Internet, tiene que ser `https://` — y conviene ponerle
 `LIBREOFFICE_WORKER_TOKEN`, que viaja como `Authorization: Bearer`.

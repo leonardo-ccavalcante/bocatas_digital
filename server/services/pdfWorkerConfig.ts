@@ -30,17 +30,21 @@ const LOOPBACK = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
 /** Sufijos DNS que, por definición, no se resuelven en Internet público. */
 const SUFIJOS_PRIVADOS = [".internal", ".local"];
 
-/** IPv4 privadas (RFC1918) y link-local (RFC3927). */
+/**
+ * IPv4 privadas (RFC1918) y loopback.
+ *
+ * NO se admite 169.254/16 (link-local) a propósito: ahí vive el endpoint de
+ * metadatos de las nubes (169.254.169.254), y un converter no se despliega en
+ * esa red. Admitirlo sólo abriría un destino interesante para un SSRF.
+ */
 function esIpv4Privada(hostname: string): boolean {
   const partes = hostname.split(".");
   if (partes.length !== 4) return false;
-  const [a, b] = partes.map(Number);
-  if (partes.some((p) => !/^\d{1,3}$/.test(p)) || a === undefined || b === undefined) return false;
+  if (partes.some((p) => !/^\d{1,3}$/.test(p) || Number(p) > 255)) return false;
+  const [a, b] = partes.map(Number) as [number, number, number, number];
   if (a === 10 || a === 127) return true;
   if (a === 172 && b >= 16 && b <= 31) return true;
-  if (a === 192 && b === 168) return true;
-  if (a === 169 && b === 254) return true; // link-local
-  return false;
+  return a === 192 && b === 168;
 }
 
 /**
@@ -51,15 +55,19 @@ function esIpv4Privada(hostname: string): boolean {
  * como `gotenberg.default.svc.cluster.local`, y un VPS con red privada por una
  * IP RFC1918. Aceptar sólo nombres sin puntos dejaba fuera todos esos casos y
  * empujaba al operador hacia el `http://` público, que es justo lo que hay que
- * evitar. IPv6 ULA (fd00::/8) y link-local (fe80::/10) entran también.
+ * evitar.
+ *
+ * IPv6 queda deliberadamente fuera: nadie despliega aquí un sidecar IPv6-only, y
+ * la comprobación que lo intentaba (`/^f[cd]/`) daba positivo con cualquier
+ * dominio que empezara por esas letras — `fcm.googleapis.com` entre ellos. Una
+ * rama especulativa que abría un agujero dentro del propio endurecimiento. Si
+ * algún día hace falta, el error dice exactamente qué se admite.
  */
 function esRedPrivada(hostname: string): boolean {
   const h = hostname.toLowerCase().replace(/\.$/, "");
   if (!h.includes(".") && !h.includes(":")) return true; // docker-compose
   if (SUFIJOS_PRIVADOS.some((suf) => h.endsWith(suf))) return true;
-  if (esIpv4Privada(h)) return true;
-  const sinCorchetes = h.replace(/^\[|\]$/g, "");
-  return /^f[cd]/.test(sinCorchetes) || sinCorchetes.startsWith("fe80:");
+  return esIpv4Privada(h);
 }
 
 export type WorkerEnv = Record<string, string | undefined>;

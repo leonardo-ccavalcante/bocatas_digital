@@ -94,6 +94,17 @@ describe("resolvePdfWorker", () => {
     }
   });
 
+  // La comprobación de IPv6 ULA corría contra CUALQUIER hostname, no sólo contra
+  // literales IPv6: `/^f[cd]/` daba positivo con `fcm.googleapis.com`. Un agujero
+  // abierto dentro del propio endurecimiento.
+  it("un dominio público que empieza por fc o fd NO es una red privada", () => {
+    for (const host of ["fcm.googleapis.com", "fcbarcelona.com", "fd-agency.co.uk"]) {
+      expect(() =>
+        resolvePdfWorker({ LIBREOFFICE_WORKER_URL: `http://${host}` })
+      ).toThrow(PdfWorkerConfigError);
+    }
+  });
+
   it("no confunde una IP pública con una privada", () => {
     for (const url of [
       "http://35.231.120.16:7654", // el valor que traía .env
