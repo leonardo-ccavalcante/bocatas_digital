@@ -1,9 +1,10 @@
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Camera, FileCheck2 } from "lucide-react";
+import { Upload, FileCheck2 } from "lucide-react";
 import { toast } from "sonner";
 import { compressImage } from "@/features/persons/utils/imageUtils";
 import { getSignedDocUrl } from "@/features/families/utils/signedUrl";
+import { CameraCaptureButton } from "@/features/persons/components/CameraCaptureButton";
 import { useAttachSignedActa } from "../hooks/useReparto";
 import type { Turno } from "../schemas";
 
@@ -28,9 +29,7 @@ export function SignedActaUpload({ roundId, slotId, existingPath }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
 
-  const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const processFile = async (file: File) => {
     setBusy(true);
     try {
       // 2000px @ 0.9 keeps signatures legible for the OCR close-out review.
@@ -45,6 +44,11 @@ export function SignedActaUpload({ roundId, slotId, existingPath }: Props) {
     }
   };
 
+  const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) void processFile(file);
+  };
+
   const view = async () => {
     const url = await getSignedDocUrl(existingPath);
     if (url) window.open(url, "_blank", "noopener");
@@ -53,10 +57,19 @@ export function SignedActaUpload({ roundId, slotId, existingPath }: Props) {
 
   return (
     <div className="flex items-center gap-2 print:hidden">
-      <input ref={inputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={onFile} />
+      {/* Real getUserMedia camera (works on laptops too); `capture` was only an
+          advisory hint desktop browsers ignore (#178). File upload kept as an
+          output — on Android the native picker still offers the camera app,
+          whose focus matters for the legal signature sheet. */}
+      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={onFile} />
+      <CameraCaptureButton
+        facingMode="environment"
+        label={busy ? "Guardando…" : existingPath ? "Reemplazar acta firmada" : "Fotografiar acta firmada"}
+        onCapture={(file) => void processFile(file)}
+      />
       <Button size="sm" variant="outline" disabled={busy} onClick={() => inputRef.current?.click()}>
-        <Camera className="mr-2 h-4 w-4" aria-hidden />
-        {busy ? "Guardando…" : existingPath ? "Reemplazar acta firmada" : "Fotografiar acta firmada"}
+        <Upload className="mr-2 h-4 w-4" aria-hidden />
+        Subir imagen
       </Button>
       {existingPath && (
         <Button size="sm" variant="ghost" onClick={view}>
