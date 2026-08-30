@@ -17,9 +17,14 @@ export default function FamiliasVerificar() {
   const [selectedFamilyId, setSelectedFamilyId] = useState<string | null>(null);
   const [verified, setVerified] = useState(false);
 
+  const trimmed = query.trim();
+  // ≥2 chars for name searches, but a single digit must search too —
+  // families #1-#9 were unreachable by number (RC-08 / F165).
+  const canSearch = trimmed.length >= 2 || /^\d$/.test(trimmed);
+
   const { data: results, isLoading } = trpc.families.verifyIdentity.useQuery(
-    { query },
-    { enabled: query.trim().length >= 2 }
+    { query: trimmed },
+    { enabled: canSearch }
   );
 
   const handleVerified = () => setVerified(true);
@@ -56,7 +61,7 @@ export default function FamiliasVerificar() {
       </div>
 
       {/* Search results */}
-      {!selectedFamilyId && query.trim().length >= 2 && (
+      {!selectedFamilyId && canSearch && (
         <div className="space-y-2">
           {isLoading && (
             <p className="text-sm text-muted-foreground text-center py-4">Buscando…</p>
@@ -78,7 +83,7 @@ export default function FamiliasVerificar() {
               <Users className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
               <div className="min-w-0 flex-1">
                 <p className="text-body-sm font-medium text-foreground truncate">
-                  {family.persons?.nombre} {family.persons?.apellidos}
+                  {family.titular_nombre}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   Familia #{family.familia_numero} · {family.num_miembros} miembro(s)

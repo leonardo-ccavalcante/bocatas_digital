@@ -47,7 +47,13 @@ export const PersonCreateSchema = z.object({
       const minAge = new Date();
       minAge.setFullYear(minAge.getFullYear() - 5);
       return d <= minAge;
-    }, "La persona debe tener al menos 5 años"),
+    }, "La persona debe tener al menos 5 años")
+    .refine((val) => {
+      const d = new Date(val);
+      const oldest = new Date();
+      oldest.setFullYear(oldest.getFullYear() - 120);
+      return d >= oldest;
+    }, "Fecha de nacimiento no válida: revisa el año"),
   genero: GeneroSchema.optional().nullable(),
   pais_origen: z.string().length(2).optional().nullable(), // ISO 3166-1 alpha-2
   idioma_principal: IdiomaSchema,

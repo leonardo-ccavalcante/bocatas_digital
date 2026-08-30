@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import {
   FormSchema,
   type FormValues,
+  toAnnouncementPayload,
   TIPO_LABELS,
   TIPO_COLORS,
   DEFAULT_AUDIENCE,
@@ -64,19 +65,20 @@ export default function AdminNovedades() {
       tipo: a.tipo as "info" | "evento" | "cierre_servicio" | "convocatoria",
       es_urgente: (a.es_urgente as boolean | undefined) ?? false,
       fijado: a.fijado as boolean,
-      fecha_fin: (a.fecha_fin as string | null) ?? undefined,
+      fecha_fin: ((a.fecha_fin as string | null) ?? "").slice(0, 10) || undefined,
     });
     setEditingId(a.id as string);
     setDialogOpen(true);
   }
 
   async function onSubmit(values: FormValues) {
+    const payload = toAnnouncementPayload(values);
     try {
       if (editingId) {
-        await updateMutation.mutateAsync({ id: editingId, ...values });
+        await updateMutation.mutateAsync({ id: editingId, ...payload });
         toast.success("Novedad actualizada");
       } else {
-        await createMutation.mutateAsync(values);
+        await createMutation.mutateAsync(payload);
         toast.success("Novedad creada");
       }
       setDialogOpen(false);

@@ -1,22 +1,19 @@
-// MYTHOS: MYT-129B
+// MYTHOS: MYT-129B (gh #129)
 //
-// gh #129: setContactoFamilia (rounds-contacto.ts) and the n8n inbound handler
-// (reparto-contacto-inbound.ts) hand-roll the SAME "apply a contacto outcome"
-// write (estado_contacto + preferred_slot_ids, with a renuncia clearing
-// preferred and stamping ausente) in two places. They already diverged once —
-// the renuncia-clears-preferred bug fixed in #125 — because there was no
-// single source of truth for this logic.
+// Shared "apply a contacto outcome" write, used by BOTH the admin mutation
+// (rounds-contacto.ts's setContactoFamilia) and the n8n inbound webhook
+// (reparto-contacto-inbound.ts). Before this file existed the two call sites
+// hand-rolled the same write independently and already diverged once — the
+// renuncia-clears-preferred bug fixed in #125. Pinning the derivation here
+// means a future edit to one call site can no longer silently re-diverge from
+// the other.
 //
-// This test does NOT re-test either router (those are covered by
-// rounds-contacto.test.ts and reparto-contacto-inbound.test.ts, which must stay
-// green and unmodified). It pins the CONTRACT of the shared helper the fix_hint
-// asks for: applyContactoOutcome(db, {assignmentId, estado, preferredSlotIds,
-// actor}), living at server/routers/families/contacto-outcome.ts, so a future
-// edit to one call site can no longer silently re-diverge from the other.
-//
-// RED (documented defect): the shared helper does not exist yet — the
-// duplication is still live in both files. This test fails at import time
-// until server/routers/families/contacto-outcome.ts exports it.
+// F185 (gh #129): a renuncia stamps attended=false, and ContactoFamiliaDialog
+// promises "puede revertirse volviendo a registrar el contacto" — so a
+// non-renuncia outcome recorded over a stored 'renuncia' MUST reset the
+// attended fields to NULL. getSlotRoster lists pending = attended IS NULL and
+// attended_here by attended_slot_id, so without the reset the family is
+// listed and counted nowhere on any day.
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
 const captured: Array<{ table: string; payload: Record<string, unknown>; eqCalls: Array<[string, unknown]> }> = [];
@@ -58,6 +55,7 @@ describe("applyContactoOutcome shared helper — MYT-129B (gh #129)", () => {
       estado: "renuncia",
       preferredSlotIds: ["slot-1", "slot-2"],
       actor: "user-123",
+      previousEstado: "confirmada",
     });
     const upd = captured.find((c) => c.table === "delivery_round_assignments");
     expect(upd?.payload.estado_contacto).toBe("renuncia");
@@ -68,18 +66,37 @@ describe("applyContactoOutcome shared helper — MYT-129B (gh #129)", () => {
     expect(upd?.eqCalls).toContainEqual(["id", A]);
   });
 
-  it("a non-renuncia outcome keeps the given preferred_slot_ids and never touches the attended fields", async () => {
+  it("a non-renuncia outcome over a non-renuncia estado keeps the given preferred_slot_ids and never touches the attended fields", async () => {
     const db = createAdminClient();
     await applyContactoOutcome(db, {
       assignmentId: A,
       estado: "confirmada",
       preferredSlotIds: ["slot-1"],
       actor: "user-123",
+      previousEstado: "pendiente",
     });
     const upd = captured.find((c) => c.table === "delivery_round_assignments");
     expect(upd?.payload.estado_contacto).toBe("confirmada");
     expect(upd?.payload.preferred_slot_ids).toEqual(["slot-1"]);
     expect(upd?.payload).not.toHaveProperty("attended");
     expect(upd?.payload).not.toHaveProperty("attended_slot_id");
+  });
+
+  it("re-registering contact over a stored renuncia resets attended/attended_slot_id/attended_at/attended_by to NULL so the family is pending again (F185, gh #129)", async () => {
+    const db = createAdminClient();
+    await applyContactoOutcome(db, {
+      assignmentId: A,
+      estado: "confirmada",
+      preferredSlotIds: ["slot-1"],
+      actor: "user-123",
+      previousEstado: "renuncia",
+    });
+    const upd = captured.find((c) => c.table === "delivery_round_assignments");
+    expect(upd?.payload.estado_contacto).toBe("confirmada");
+    expect(upd?.payload.preferred_slot_ids).toEqual(["slot-1"]);
+    expect(upd?.payload.attended).toBeNull();
+    expect(upd?.payload.attended_slot_id).toBeNull();
+    expect(upd?.payload.attended_at).toBeNull();
+    expect(upd?.payload.attended_by).toBeNull();
   });
 });

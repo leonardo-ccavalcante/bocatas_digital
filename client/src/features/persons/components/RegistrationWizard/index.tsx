@@ -40,6 +40,7 @@ import { useConsentTemplates } from "../../hooks/useConsentTemplates";
 import { compressImage } from "../../utils/imageUtils";
 import {
   type FamilyMember,
+  PHASE_FIELDS,
   SLUG_BANCO_ALIMENTOS,
   SLUG_FAMILIA,
 } from "./_shared";
@@ -58,17 +59,6 @@ const PHASES: readonly StepperPhase[] = [
   { n: 4, label: "Resumen" },
 ];
 const TOTAL_PHASES = PHASES.length;
-
-// Per-phase validation fields (derived from PersonCreateSchema keys). Phase 1
-// gate = identity required fields; phases 2/3 have no hard-required fields
-// beyond the program rule (handled in goNext). Static → module-level.
-// 3 entries only (phases 1-3); phase 4 (Resumen) submits via handleFinalSubmit
-// and is never reached by goNext.
-const PHASE_FIELDS: readonly (keyof PersonCreate)[][] = [
-  ["canal_llegada", "nombre", "apellidos", "fecha_nacimiento", "idioma_principal"],
-  [],
-  [],
-];
 
 // OCR returns tipo_documento in mixed/lowercase casing (LLM output); map to the
 // DB enum values. Static lookup → module-level.
