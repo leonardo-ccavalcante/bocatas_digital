@@ -14,7 +14,13 @@ vi.mock("../../../../client/src/lib/supabase/server", () => ({
   createServerClient: vi.fn(),
 }));
 
-const storagePut = vi.fn(async () => ({ bucket: "derivaciones-firmadas", path: "hoja-key.pdf" }));
+// Variadic args so the `storagePut(...args)` forward below type-checks: a bare
+// `vi.fn(async () => …)` infers a no-arg tuple type and spreading unknown[] into
+// it is TS2556.
+const storagePut = vi.fn(async (..._args: unknown[]) => ({
+  bucket: "derivaciones-firmadas",
+  path: "hoja-key.pdf",
+}));
 vi.mock("../../../storage", () => ({
   storagePut: (...args: unknown[]) => storagePut(...args),
   storageSignedUrl: vi.fn(),
