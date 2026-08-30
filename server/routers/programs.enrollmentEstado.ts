@@ -123,3 +123,97 @@ export async function logEnrollmentEvent(
     console.error("[enrollment_events] append failed:", error.message, ev);
   }
 }
+
+/**
+ * Crea la inscripción, o revive la que dejó una baja.
+ *
+ * `program_enrollments` arrastra un UNIQUE (person_id, program_id) NO parcial
+ * (migración 20260411181057) por encima del índice parcial activo-only: la fila
+ * que deja una baja bloquea cualquier INSERT posterior con 23505, así que un
+ * alta nueva en el mismo programa era imposible. Misma clase de conflicto que
+ * ya cerraron `persons.enroll` y `families.ensureFamiliaEnrollment`.
+ *
+ * Reglas: una inscripción viva sigue siendo CONFLICT (el volunteer no debe
+ * duplicarla); una cerrada (estado final) o borrada en blando se reactiva y la
+ * transición queda en `enrollment_events` con su estado anterior.
+ */
+export async function createOrReviveEnrollment(
+  supabase: Supabase,
+  actorId: string,
+  params: { personId: string; programId: string; estado: EstadoInscripcion; notas?: string | null }
+) {
+  const today = new Date().toISOString().split("T")[0];
+
+  const { data: previa } = await supabase
+    .from("program_enrollments")
+    .select("id, estado, deleted_at")
+    .eq("person_id", params.personId)
+    .eq("program_id", params.programId)
+    .maybeSingle();
+
+  if (previa && previa.deleted_at === null && !ESTADOS_FINALES.includes(previa.estado)) {
+    throw new TRPCError({
+      code: "CONFLICT",
+      message: "Esta persona ya está inscrita en este programa",
+    });
+  }
+
+  if (previa) {
+    const { data, error } = await supabase
+      .from("program_enrollments")
+      .update({
+        estado: params.estado,
+        motivo_baja: null,
+        fecha_inicio: today,
+        fecha_fin: null,
+        deleted_at: null,
+        notas: params.notas ?? null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", previa.id)
+      .select()
+      .single();
+
+    if (error) {
+      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+    }
+
+    await logEnrollmentEvent(supabase, {
+      enrollmentId: previa.id,
+      anterior: previa.estado,
+      nuevo: params.estado,
+      actorId,
+    });
+    return data;
+  }
+
+  const { data, error } = await supabase
+    .from("program_enrollments")
+    .insert({
+      person_id: params.personId,
+      program_id: params.programId,
+      estado: params.estado,
+      fecha_inicio: today,
+      notas: params.notas ?? null,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    if (error.code === "23505") {
+      throw new TRPCError({
+        code: "CONFLICT",
+        message: "Esta persona ya está inscrita en este programa",
+      });
+    }
+    throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+  }
+
+  await logEnrollmentEvent(supabase, {
+    enrollmentId: data.id,
+    anterior: null,
+    nuevo: params.estado,
+    actorId,
+  });
+  return data;
+}

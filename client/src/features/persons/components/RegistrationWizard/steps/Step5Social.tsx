@@ -1,8 +1,14 @@
 import type { UseFormRegister } from "react-hook-form";
+import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckCircle } from "lucide-react";
+import { CheckCircle, ChevronDown } from "lucide-react";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { type PersonCreate } from "../../../schemas";
 import { type ProgramRow } from "../_shared";
 
@@ -46,26 +52,31 @@ export function Step5Social({
         {programs.length === 0 ? (
           <p className="text-sm text-muted-foreground">Cargando programas...</p>
         ) : (
-          <div className="grid grid-cols-2 gap-2">
-            {programs.map((prog) => (
-              <button
-                key={prog.id}
-                type="button"
-                onClick={() => toggleProgram(prog.id)}
-                className={`flex items-center gap-2 rounded-lg border p-3 text-left text-sm transition-colors ${
-                  watchedProgramIds.includes(prog.id)
-                    ? "border-primary bg-primary/10 font-medium text-primary"
-                    : "border-border hover:bg-muted"
-                }`}
-                aria-pressed={watchedProgramIds.includes(prog.id)}
-              >
-                <span className="text-lg">{prog.icon}</span>
-                <span className="truncate">{prog.name}</span>
-                {watchedProgramIds.includes(prog.id) && (
-                  <CheckCircle className="ml-auto h-4 w-4 shrink-0 text-primary" />
-                )}
-              </button>
-            ))}
+          <div className="space-y-2" data-testid="programas-raiz">
+            {programs
+              .filter((p) => !p.parent_id)
+              .map((raiz) => {
+                const hijos = descendientes(programs, raiz.id);
+                if (hijos.length === 0) {
+                  return (
+                    <ProgramaBoton
+                      key={raiz.id}
+                      programa={raiz}
+                      seleccionado={watchedProgramIds.includes(raiz.id)}
+                      onToggle={toggleProgram}
+                    />
+                  );
+                }
+                return (
+                  <GrupoPrograma
+                    key={raiz.id}
+                    raiz={raiz}
+                    hijos={hijos}
+                    watchedProgramIds={watchedProgramIds}
+                    toggleProgram={toggleProgram}
+                  />
+                );
+              })}
           </div>
         )}
         {hasFamilia && (
@@ -94,5 +105,97 @@ export function Step5Social({
         />
       </div>
     </div>
+  );
+}
+
+/** Todos los descendientes de un programa, en el orden en que llegan del servidor. */
+function descendientes(programs: readonly ProgramRow[], raizId: string): ProgramRow[] {
+  const directos = programs.filter((p) => p.parent_id === raizId);
+  return directos.flatMap((h) => [h, ...descendientes(programs, h.id)]);
+}
+
+function ProgramaBoton({
+  programa,
+  seleccionado,
+  onToggle,
+}: {
+  programa: ProgramRow;
+  seleccionado: boolean;
+  onToggle: (id: string) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onToggle(programa.id)}
+      className={`flex w-full items-center gap-2 rounded-lg border p-3 text-left text-sm transition-colors ${
+        seleccionado
+          ? "border-primary bg-primary/10 font-medium text-primary"
+          : "border-border hover:bg-muted"
+      }`}
+      aria-pressed={seleccionado}
+    >
+      <span className="text-lg">{programa.icon}</span>
+      <span className="truncate">{programa.name}</span>
+      {seleccionado && <CheckCircle className="ml-auto h-4 w-4 shrink-0 text-primary" />}
+    </button>
+  );
+}
+
+/**
+ * Un programa con hijos se pinta como desplegable, que es justo lo que pidió el
+ * equipo para Formación. La cabecera sólo es seleccionable si el propio nodo
+ * admite inscripción: un contenedor no la admite por diseño (ADR-0013), y antes
+ * se podía inscribir a alguien en él.
+ */
+function GrupoPrograma({
+  raiz,
+  hijos,
+  watchedProgramIds,
+  toggleProgram,
+}: {
+  raiz: ProgramRow;
+  hijos: readonly ProgramRow[];
+  watchedProgramIds: string[];
+  toggleProgram: (id: string) => void;
+}) {
+  const algunHijoElegido = hijos.some((h) => watchedProgramIds.includes(h.id));
+  const [abierto, setAbierto] = useState(algunHijoElegido);
+
+  return (
+    <Collapsible open={abierto} onOpenChange={setAbierto} className="rounded-lg border">
+      <CollapsibleTrigger className="flex w-full items-center gap-2 p-3 text-left text-sm hover:bg-muted">
+        <span className="text-lg">{raiz.icon}</span>
+        <span className="truncate font-medium">{raiz.name}</span>
+        <span className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
+          {algunHijoElegido && <CheckCircle className="h-4 w-4 text-primary" />}
+          {hijos.length}
+          <ChevronDown
+            className={`h-4 w-4 transition-transform ${abierto ? "rotate-180" : ""}`}
+            aria-hidden="true"
+          />
+        </span>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div className="space-y-2 border-t p-2 pl-6" data-testid={`programa-hijos-${raiz.id}`}>
+          {raiz.inscribible !== false && (
+            <ProgramaBoton
+              programa={{ ...raiz, name: `${raiz.name} (general)` }}
+              seleccionado={watchedProgramIds.includes(raiz.id)}
+              onToggle={toggleProgram}
+            />
+          )}
+          {hijos
+            .filter((h) => h.inscribible !== false)
+            .map((h) => (
+              <ProgramaBoton
+                key={h.id}
+                programa={h}
+                seleccionado={watchedProgramIds.includes(h.id)}
+                onToggle={toggleProgram}
+              />
+            ))}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
