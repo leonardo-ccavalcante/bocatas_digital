@@ -1,5 +1,4 @@
 import { useRef, useState } from "react";
-import { useAuth } from "@/_core/hooks/useAuth";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +6,6 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Upload, Download, Calendar, User } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 import { capture } from "@/lib/posthog";
 import { getSignedDocUrl } from "@/features/families/utils/signedUrl";
 import {
@@ -17,17 +15,10 @@ import {
   useAllFamilyDocuments,
   useDeleteFamilyDocument,
 } from "@/features/families/hooks/useFamilias";
-import { trpc } from "@/lib/trpc";
+import { FAMILIA_DOCS_CONFIG } from "@/features/families/constants";
 import { acceptParaTipo, ayudaFormatoParaTipo, soloAdmitePdf } from "@shared/documentFormat";
+import { archivoEsPdf } from "./documentUploadHelpers";
 import type { FamilyDocType } from "@shared/familyDocuments";
-import {
-  archivoEsPdf,
-  compressImage,
-  extFromFile,
-  labelFor,
-  MAX_FILE_BYTES,
-  STORAGE_BUCKET,
-} from "./documentUploadHelpers";
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -38,6 +29,75 @@ interface DocumentUploadModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function labelFor(tipo: FamilyDocType): string {
+  return FAMILIA_DOCS_CONFIG.find((d) => d.key === tipo)?.label ?? tipo;
+}
+
+function extFromFile(file: File): string {
+  const fromName = file.name.split(".").pop();
+  if (fromName) return fromName.toLowerCase();
+  if (file.type === "application/pdf") return "pdf";
+  if (file.type.startsWith("image/")) return file.type.split("/")[1] ?? "jpg";
+  return "bin";
+}
+
+/**
+ * Compress an image file to reduce upload size.
+ * Returns a Blob with JPEG compression at 0.8 quality.
+ * Inlined from DocumentPhotoCapture.tsx (not exported from that module).
+ */
+async function compressImage(file: File, maxDimension = 1920): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const canvas = document.createElement("canvas");
+      let { width, height } = img;
+      if (width > maxDimension || height > maxDimension) {
+        if (width > height) {
+          height = Math.round((height * maxDimension) / width);
+          width = maxDimension;
+        } else {
+          width = Math.round((width * maxDimension) / height);
+          height = maxDimension;
+        }
+      }
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return reject(new Error("Canvas context unavailable"));
+      ctx.drawImage(img, 0, 0, width, height);
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) return reject(new Error("Compression failed"));
+          resolve(blob);
+        },
+        "image/jpeg",
+        0.8
+      );
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Image load failed"));
+    };
+    img.src = url;
+  });
+}
+
+async function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve((reader.result as string).split(",")[1] ?? "");
+    reader.onerror = () => reject(new Error("No se pudo leer el archivo"));
+    reader.readAsDataURL(blob);
+  });
+}
+
+const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -50,7 +110,6 @@ export function DocumentUploadModal({
 }: DocumentUploadModalProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const { user } = useAuth();
 
   // ── Queries ──────────────────────────────────────────────────────────────
   const familyLevelQuery = useFamilyLevelDocuments(familyId);
@@ -60,8 +119,6 @@ export function DocumentUploadModal({
   // ── Mutations ─────────────────────────────────────────────────────────────
   const uploadMutation = useUploadFamilyDocument();
   const deleteMutation = useDeleteFamilyDocument(familyId);
-  const verifyPdf = trpc.families.verifyUploadedPdf.useMutation();
-  const utils = trpc.useUtils();
 
   // ── Derived state ─────────────────────────────────────────────────────────
   const docRows = memberIndex === -1
@@ -91,8 +148,9 @@ export function DocumentUploadModal({
       return;
     }
 
-    // El informe social es un documento legal y debe ser un PDF de verdad, no un
-    // JPG renombrado: se mira la cabecera antes de subir nada (FAMILIAS-4).
+    // Se comprueba aquí además de en el servidor para no gastar una subida
+    // entera y que la rechacen al final. La barrera de verdad es la del
+    // servidor, que lee la cabecera de los bytes: la extensión se renombra.
     if (soloAdmitePdf(documentoTipo) && !(await archivoEsPdf(file))) {
       toast.error("El informe social debe subirse en PDF.");
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -114,57 +172,22 @@ export function DocumentUploadModal({
         contentType = file.type || "application/pdf";
       }
 
-      // Para los tipos solo-PDF ya hemos comprobado la cabecera: forzamos
-      // extensión y content-type en lugar de fiarnos del nombre del archivo
-      // (`extFromFile` devuelve el nombre entero si no lleva punto) — si no, la
-      // barrera de extensión del servidor rechazaría un PDF legítimo.
-      const esSoloPdf = soloAdmitePdf(documentoTipo);
-      if (esSoloPdf) contentType = "application/pdf";
-      const ext = isImage ? "jpg" : esSoloPdf ? "pdf" : extFromFile(file);
+      const ext = isImage ? "jpg" : extFromFile(file);
       const storagePath = `${familyId}/${memberIndex}/${documentoTipo}/${Date.now()}.${ext}`;
 
-      // The family-documents bucket is private. We store the storage PATH (not a URL)
-      // so we can re-sign on demand at view time via getSignedDocUrl.
-      const supabase = createClient();
-
-      // 1. DB row first — if this fails nothing hits Storage, no orphan PII.
-      const insertedDoc = await uploadMutation.mutateAsync({
+      // The private family-documents bucket is written SERVER-SIDE (ADR-0002):
+      // the bytes travel as base64 through families.uploadFamilyDocument, which
+      // stores object + row in one procedure. We persist the storage PATH (not
+      // a URL) and re-sign on demand at view time via getSignedDocUrl.
+      await uploadMutation.mutateAsync({
         family_id: familyId,
         member_index: memberIndex,
         documento_tipo: documentoTipo,
         documento_url: storagePath,
+        base64: await blobToBase64(blob),
+        content_type: contentType,
         // verified_by is set server-side from ctx.user
       });
-
-      // 2. Storage upload — if this fails, await the soft-delete to roll back.
-      const { error: storageError } = await supabase.storage
-        .from(STORAGE_BUCKET)
-        .upload(storagePath, blob, { contentType, upsert: false });
-
-      if (storageError) {
-        try {
-          await deleteMutation.mutateAsync({ id: insertedDoc.id });
-        } catch {
-          toast.error(
-            `Error al subir archivo y al limpiar el registro. Contacta al admin con ID: ${insertedDoc.id}`
-          );
-          return;
-        }
-        toast.error(storageError.message || "Error al subir el archivo");
-        return;
-      }
-
-      // Barrera real: el servidor lee la cabecera del objeto ya subido con el
-      // cliente service-role. Si no es un PDF, borra objeto y fila y lanza — el
-      // catch de abajo enseña el motivo y el modal se queda abierto.
-      if (soloAdmitePdf(documentoTipo)) {
-        try {
-          await verifyPdf.mutateAsync({ id: insertedDoc.id });
-        } catch (verifyErr) {
-          utils.families.getFamilyDocuments.invalidate({ family_id: familyId });
-          throw verifyErr;
-        }
-      }
 
       capture("document_uploaded", { type: documentoTipo });
       toast.success("Documento subido");
@@ -203,6 +226,9 @@ export function DocumentUploadModal({
             <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" aria-hidden="true" />
             <Label className="cursor-pointer">
               <span className="text-sm font-medium">Haz clic para cargar un archivo</span>
+              <span className="block text-xs text-muted-foreground">
+                {ayudaFormatoParaTipo(documentoTipo)}
+              </span>
               <Input
                 ref={fileInputRef}
                 type="file"
@@ -213,9 +239,7 @@ export function DocumentUploadModal({
                 aria-label={`Cargar archivo para ${labelFor(documentoTipo)}`}
               />
             </Label>
-            <p className="text-xs text-muted-foreground mt-2">
-              {ayudaFormatoParaTipo(documentoTipo)}
-            </p>
+            <p className="text-xs text-muted-foreground mt-2">PDF, JPG, PNG (máx 10 MB)</p>
             {isBusy && (
               <p className="text-xs text-muted-foreground mt-1 animate-pulse">Subiendo...</p>
             )}

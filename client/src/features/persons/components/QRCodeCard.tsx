@@ -21,9 +21,10 @@ import { trpc } from "@/lib/trpc";
 import type { Database } from "@/lib/database.types";
 
 type PersonRow = Database["public"]["Tables"]["persons"]["Row"];
+type QrPerson = Pick<PersonRow, "id" | "nombre" | "apellidos">;
 
 interface QRCodeCardProps {
-  person: PersonRow;
+  person: QrPerson;
 }
 
 export function QRCodeCard({ person }: QRCodeCardProps) {

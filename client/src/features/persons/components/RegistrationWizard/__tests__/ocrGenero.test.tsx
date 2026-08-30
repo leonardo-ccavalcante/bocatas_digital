@@ -44,6 +44,13 @@ vi.mock("wouter", () => ({
 // useEnrollPerson, none of which fire in this test (no submit click). ───────
 vi.mock("@/lib/trpc", () => ({
   trpc: {
+    // useRegistrationSubmit ahora consulta el rol vía useAuth para elegir el
+    // destino tras registrar, y useAuth usa useUtils + auth.me/auth.logout.
+    useUtils: () => ({ auth: { me: { setData: vi.fn(), invalidate: vi.fn() } } }),
+    auth: {
+      me: { useQuery: () => ({ data: null, isLoading: false, error: null, refetch: vi.fn() }) },
+      logout: { useMutation: () => ({ isPending: false, error: null, mutate: vi.fn() }) },
+    },
     persons: {
       programs: { useQuery: () => ({ data: [], isLoading: false }) },
       consentTemplates: { useQuery: () => ({ data: [], isLoading: false }) },

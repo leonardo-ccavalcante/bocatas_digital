@@ -83,15 +83,26 @@ describe("RBAC hardening — voluntarioProcedure floor on entregas", () => {
   });
 });
 
-describe("RBAC hardening — adminProcedure floor on programs writes/config", () => {
-  it("programs.getBySlug rejects a 'voluntario' with FORBIDDEN", async () => {
-    const caller = programsRouter.createCaller(buildContext(buildUser("voluntario")));
-    await expect(caller.getBySlug({ slug: "comedor" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+describe("programs.getBySlug — voluntario read access (RC-07)", () => {
+  beforeEach(() => {
+    eqCalls.length = 0;
   });
 
-  it("programs.getBySlug admits an 'admin'", async () => {
+  it("admits a 'voluntario' and applies the volunteer_can_access filter", async () => {
+    const caller = programsRouter.createCaller(buildContext(buildUser("voluntario")));
+    await expect(caller.getBySlug({ slug: "comedor" })).resolves.toBeDefined();
+    expect(eqCalls).toContainEqual(["volunteer_can_access", true]);
+  });
+
+  it("admits an 'admin' WITHOUT the volunteer filter", async () => {
     const caller = programsRouter.createCaller(buildContext(buildUser("admin")));
     await expect(caller.getBySlug({ slug: "comedor" })).resolves.toBeDefined();
+    expect(eqCalls).not.toContainEqual(["volunteer_can_access", true]);
+  });
+
+  it("still rejects 'beneficiario' with FORBIDDEN", async () => {
+    const caller = programsRouter.createCaller(buildContext(buildUser("beneficiario")));
+    await expect(caller.getBySlug({ slug: "comedor" })).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 });
 

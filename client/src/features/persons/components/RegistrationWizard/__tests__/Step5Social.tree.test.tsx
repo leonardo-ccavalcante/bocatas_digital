@@ -72,6 +72,23 @@ describe("Step5Social — árbol de programas", () => {
     expect(formacion).not.toHaveAttribute("aria-pressed");
   });
 
+  // Hallazgo de revisión adversarial, confirmado contra la BD: hoy `formacion`
+  // es un contenedor SIN hijos, así que caía en la rama del botón suelto y se
+  // podía inscribir a alguien en él, que es justo lo que ADR-0013 prohíbe.
+  it("no ofrece un contenedor sin hijos como programa seleccionable", () => {
+    render(
+      <Step5Social
+        register={(() => ({})) as never}
+        programs={[COMEDOR, FORMACION]}
+        watchedProgramIds={[]}
+        toggleProgram={() => {}}
+        hasFamilia={false}
+      />
+    );
+    expect(screen.queryByRole("button", { name: /Formación/ })).toBeNull();
+    expect(screen.getByRole("button", { name: /Comedor Social/ })).toBeInTheDocument();
+  });
+
   it("abre el desplegable cuando ya hay un hijo seleccionado", () => {
     renderStep([COCINA.id]);
     const grupo = screen.getByTestId("programa-hijos-p-formacion");

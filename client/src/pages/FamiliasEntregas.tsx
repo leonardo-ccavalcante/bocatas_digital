@@ -28,11 +28,11 @@ export default function FamiliasEntregas() {
 
   const today = new Date().toISOString().split("T")[0];
 
-  // Get all active families for delivery
-  const { data: families, isLoading } = trpc.families.getAll.useQuery(
-    { estado: "activa" },
-    { staleTime: 30_000 }
-  );
+  // Get all active families for delivery (admin-only procedure — errors must
+  // surface, not masquerade as an empty list; do NOT widen families.getAll,
+  // it returns family PII — ADR-0002)
+  const { data: families, isLoading, error: familiesError, refetch: refetchFamilies } =
+    trpc.families.getAll.useQuery({ estado: "activa" }, { staleTime: 30_000 });
 
   // Get today's deliveries to mark which families already received
   const { data: todayDeliveries } = trpc.entregas.getDeliveries.useQuery(
@@ -137,6 +137,17 @@ export default function FamiliasEntregas() {
 
           {isLoading ? (
             <p className="text-sm text-muted-foreground text-center py-8">Cargando familias…</p>
+          ) : familiesError ? (
+            <div role="alert" className="py-8 text-center space-y-3">
+              <p className="text-body-sm text-destructive">
+                {familiesError.data?.code === "FORBIDDEN"
+                  ? "No tienes permiso para ver la lista de familias. Pide a una persona administradora que registre las entregas."
+                  : "No se pudo cargar la lista de familias. Inténtalo de nuevo."}
+              </p>
+              <Button size="sm" variant="outline" onClick={() => void refetchFamilies()}>
+                Reintentar
+              </Button>
+            </div>
           ) : (
             <div className="space-y-2">
               {/* Pending deliveries */}

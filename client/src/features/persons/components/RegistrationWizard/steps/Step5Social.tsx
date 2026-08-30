@@ -58,6 +58,10 @@ export function Step5Social({
               .map((raiz) => {
                 const hijos = descendientes(programs, raiz.id);
                 if (hijos.length === 0) {
+                  // Un contenedor sin hijos no es inscribible por diseño
+                  // (ADR-0013): ofrecerlo como botón dejaba inscribir a alguien
+                  // en el paraguas en vez de en un curso concreto.
+                  if (raiz.inscribible === false) return null;
                   return (
                     <ProgramaBoton
                       key={raiz.id}

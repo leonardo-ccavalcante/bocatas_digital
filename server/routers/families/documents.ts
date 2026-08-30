@@ -10,19 +10,18 @@ import {
 import {
   uuidLike,
   familyDocTypeSchema,
+  recomputeDocBooleanCache,
   type FamiliesUpdate,
 } from "./_shared";
-import { esRutaPdf, soloAdmitePdf } from "@shared/documentFormat";
-import {
-  informeDocumentProcedures,
-  recomputeBooleanCache,
-} from "./documents-informe";
+import { convertDocxToPdf, LibreOfficeUnavailableError } from "../../services/docxToPdf";
+import { storagePut } from "../../storage";
+import { soloAdmitePdf, esPdfPorContenido } from "@shared/documentFormat";
+
+/** Client caps files at 10 MB; base64 inflates ~33% and the body limit for
+ *  this path is 10 MB (server/_core/index.ts), so ~7.5 MB is the effective ceiling. */
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 
 export const documentsRouter = router({
-  // Procedimientos del informe social (vista previa en PDF y verificacion
-  // del formato subido) — viven aparte para no rebasar el tope de 300 lineas.
-  ...informeDocumentProcedures,
-
   // ─── Job 8: Member Document Write ────────────────────────────────────────
   /** POST member document (identity doc for member ≥14) */
   createMemberDocument: adminProcedure
@@ -124,7 +123,50 @@ export const documentsRouter = router({
       return { signedUrl: data.signedUrl };
     }),
 
-  /** POST upload a document — versions any existing current row and recomputes boolean cache */
+  /**
+   * Faithful on-screen preview: downloads the generated .docx from the private
+   * bucket and returns it converted to PDF (base64). Pure-JS docx renderers drop
+   * the running header (membrete) and floating signature; a server-side
+   * LibreOffice conversion is pixel-faithful and the browser renders PDF
+   * natively. adminProcedure-gated — this carries Art.9 special-category data;
+   * the base64 travels only over the authenticated tRPC channel, never persisted.
+   * If LibreOffice is absent on the host, throws PRECONDITION_FAILED so the
+   * client falls back to the .docx download.
+   */
+  getSocialReportPdf: adminProcedure
+    .input(z.object({ path: z.string().min(1) }))
+    .query(async ({ input }) => {
+      const db = createAdminClient();
+      const { data, error } = await db.storage
+        .from("family-documents")
+        .download(input.path);
+      if (error || !data) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "No se pudo abrir el documento",
+        });
+      }
+      const docxBuffer = Buffer.from(await data.arrayBuffer());
+      try {
+        const pdf = await convertDocxToPdf(docxBuffer);
+        return { pdfBase64: pdf.toString("base64") };
+      } catch (e) {
+        if (e instanceof LibreOfficeUnavailableError) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: "La vista previa en PDF no está disponible en este servidor",
+          });
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "No se pudo generar la vista previa en PDF",
+        });
+      }
+    }),
+
+  /** POST upload a document — stores the bytes SERVER-SIDE in the private
+   *  family-documents bucket (ADR-0002; the browser anon key cannot write it),
+   *  versions any existing current row and recomputes the boolean cache. */
   uploadFamilyDocument: adminProcedure
     .input(
       z.object({
@@ -133,13 +175,24 @@ export const documentsRouter = router({
         member_person_id: uuidLike.nullable().optional(),
         documento_tipo: familyDocTypeSchema,
         documento_url: z.string().min(1),
+        base64: z.string().min(1),
+        content_type: z.string().max(100).default("application/octet-stream"),
       })
     )
     .mutation(async ({ input, ctx }) => {
-      // El informe social es un documento legal: una foto (o un .docx) no vale.
-      // Barrera barata por extensión; el contenido real lo comprueba
-      // verifyUploadedPdf sobre el objeto ya subido (FAMILIAS-4).
-      if (soloAdmitePdf(input.documento_tipo) && !esRutaPdf(input.documento_url)) {
+      const buffer = Buffer.from(input.base64, "base64");
+      if (buffer.length === 0) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "El archivo está vacío" });
+      }
+      if (buffer.length > MAX_UPLOAD_BYTES) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "El archivo supera el límite de 10 MB" });
+      }
+      // El informe social sólo se admite en PDF, y la comprobación va aquí:
+      // el servidor ya tiene los bytes, así que mirar la cabecera es gratis y
+      // nada llega a Storage si no cuadra. Comprobarlo DESPUÉS de subir obliga a
+      // borrar objeto y fila, y deja una ventana en la que el fichero equivocado
+      // ya está guardado. La extensión no basta: se puede renombrar.
+      if (soloAdmitePdf(input.documento_tipo) && !esPdfPorContenido(buffer)) {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "El informe social debe subirse en PDF.",
@@ -147,6 +200,10 @@ export const documentsRouter = router({
       }
 
       const db = createAdminClient();
+
+      // Object first: an orphan object without a row is invisible; a row
+      // pointing at a missing object breaks every viewer.
+      await storagePut("family-documents", input.documento_url, buffer, input.content_type);
 
       // Atomic UPSERT via Postgres function — handles concurrent callers correctly.
       const { data: inserted, error: rpcErr } = await db.rpc("upload_family_document", {
@@ -164,27 +221,7 @@ export const documentsRouter = router({
         });
       }
 
-      // Recompute boolean cache (unchanged from before).
-      const cacheCol = FAMILY_DOC_TO_BOOLEAN_COLUMN[input.documento_tipo as FamilyDocType];
-      if (cacheCol) {
-        const { data: existsRows } = await db
-          .from("family_member_documents")
-          .select("id")
-          .eq("family_id", input.family_id)
-          .eq("documento_tipo", input.documento_tipo)
-          .not("documento_url", "is", null)
-          .is("deleted_at", null)
-          .eq("is_current", true)
-          .limit(1);
-        const newCacheValue = (existsRows?.length ?? 0) > 0;
-        const updatePayload: FamiliesUpdate = { [cacheCol]: newCacheValue } as FamiliesUpdate;
-        if (input.documento_tipo === "informe_social" && newCacheValue) {
-          (updatePayload as Record<string, unknown>).informe_social_fecha = new Date().toISOString().slice(0, 10);
-        }
-        const { error: cacheErr } = await db.from("families").update(updatePayload).eq("id", input.family_id);
-        if (cacheErr) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: cacheErr.message });
-      }
-
+      await recomputeDocBooleanCache(db, input.family_id, input.documento_tipo);
       return inserted;
     }),
 
@@ -208,7 +245,20 @@ export const documentsRouter = router({
         .eq("id", input.id);
       if (delErr) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: delErr.message });
 
-      await recomputeBooleanCache(db, existing.family_id, existing.documento_tipo);
+      const cacheCol = FAMILY_DOC_TO_BOOLEAN_COLUMN[existing.documento_tipo as FamilyDocType];
+      if (cacheCol) {
+        const { data: existsRows } = await db
+          .from("family_member_documents")
+          .select("id")
+          .eq("family_id", existing.family_id)
+          .eq("documento_tipo", existing.documento_tipo)
+          .not("documento_url", "is", null)
+          .is("deleted_at", null)
+          .eq("is_current", true)
+          .limit(1);
+        const deletePayload = { [cacheCol]: (existsRows?.length ?? 0) > 0 } as FamiliesUpdate;
+        await db.from("families").update(deletePayload).eq("id", existing.family_id);
+      }
 
       return { success: true };
     }),

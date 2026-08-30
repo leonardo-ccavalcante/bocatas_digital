@@ -403,6 +403,8 @@ describe("UploadModal", () => {
           member_index: -1,
           documento_tipo: "padron_municipal",
           documento_url: expect.stringMatching(/^f1\/-1\/padron_municipal\//),
+          base64: "Y29udGVudA==",
+          content_type: "application/pdf",
         })
       );
     });
@@ -462,7 +464,7 @@ describe("UploadModal", () => {
     });
   });
 
-  it("14. Subir uploads the file to Storage with the path returned by the DB row", async () => {
+  it("14. Subir sends the file bytes as base64 through tRPC and never touches browser Storage", async () => {
     mockDocTypesUseQuery.mockReturnValue({ data: [FAMILIA_TYPE], isLoading: false });
     mockFamiliesGetAllUseQuery.mockImplementation((params: { search?: string; estado?: string }) => {
       if (params?.search && params.search.length >= 2) {
@@ -497,15 +499,20 @@ describe("UploadModal", () => {
     await userEvent.click(subirBtn);
 
     await waitFor(() => {
-      expect(mockStorageUpload).toHaveBeenCalledWith(
-        expect.stringMatching(/^f1\/-1\/padron_municipal\/.+\.pdf$/),
-        file,
-        expect.objectContaining({ contentType: "application/pdf", upsert: false })
+      expect(mockUploadMutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          base64: "Y29udGVudA==",
+          content_type: "application/pdf",
+          documento_url: expect.stringMatching(/^f1\/-1\/padron_municipal\/.+\.pdf$/),
+        })
       );
     });
+    // The vi.mock of @/lib/supabase/client STAYS in this file as a regression
+    // lock — the component must never call it again:
+    expect(mockStorageUpload).not.toHaveBeenCalled();
   });
 
-  it("15. if Storage upload fails, the DB row is soft-deleted via deleteFamilyDocument", async () => {
+  it("15. if the upload mutation fails, an error toast shows and no rollback delete is attempted", async () => {
     mockDocTypesUseQuery.mockReturnValue({ data: [FAMILIA_TYPE], isLoading: false });
     mockFamiliesGetAllUseQuery.mockImplementation((params: { search?: string; estado?: string }) => {
       if (params?.search && params.search.length >= 2) {
@@ -514,25 +521,20 @@ describe("UploadModal", () => {
       return { data: [], isLoading: false };
     });
     mockFamiliesGetByIdUseQuery.mockReturnValue({ data: null, isLoading: false });
-    mockUploadMutateAsync.mockResolvedValue({ id: "doc-88" });
-    mockStorageUpload.mockResolvedValue({ error: { message: "Storage error" } });
-    mockDeleteMutateAsync.mockResolvedValue(undefined);
+    mockUploadMutateAsync.mockRejectedValue(new Error("No se pudo guardar el archivo"));
 
     renderModal();
 
-    // Select type
     const typeTrigger = screen.getByRole("combobox", { name: "Tipo de documento" });
     await userEvent.click(typeTrigger);
     const typeOption = await screen.findByText(/Padrón municipal/);
     await userEvent.click(typeOption);
 
-    // Select family
     const familiaInput = screen.getByLabelText("Buscar familia");
     await userEvent.type(familiaInput, "An");
     const familyBtn = await screen.findByRole("button", { name: "#42 Ana García" });
     await userEvent.click(familyBtn);
 
-    // Attach file
     const fileInput = screen.getByLabelText("Archivo *");
     const file = new File(["content"], "padron.pdf", { type: "application/pdf" });
     await userEvent.upload(fileInput, file);
@@ -540,9 +542,12 @@ describe("UploadModal", () => {
     const subirBtn = screen.getByRole("button", { name: "Subir" });
     await userEvent.click(subirBtn);
 
+    const { toast } = await import("sonner");
     await waitFor(() => {
-      expect(mockDeleteMutateAsync).toHaveBeenCalledWith({ id: "doc-88" });
+      expect(toast.error).toHaveBeenCalledWith("No se pudo guardar el archivo");
     });
+    expect(mockDeleteMutateAsync).not.toHaveBeenCalled();
+    expect(mockStorageUpload).not.toHaveBeenCalled();
   });
 
   it("16. Cancelar button calls onClose", async () => {
