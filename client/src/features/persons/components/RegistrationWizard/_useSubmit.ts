@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import { useLocation } from "wouter";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { toast } from "sonner";
 import { PersonCreateSchema, type ConsentTemplate, type PersonCreate } from "../../schemas";
 import { useCreatePerson } from "../../hooks/useCreatePerson";
@@ -29,6 +30,8 @@ interface UseSubmitArgs {
 
 export function useRegistrationSubmit(args: UseSubmitArgs) {
   const [, navigate] = useLocation();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin" || user?.role === "superadmin";
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { mutateAsync: createPerson } = useCreatePerson();
   const { mutateAsync: enrollPerson } = useEnrollPerson();
@@ -131,7 +134,9 @@ export function useRegistrationSubmit(args: UseSubmitArgs) {
       }
 
       toast.success("Persona registrada correctamente");
-      navigate(`/personas/${person.id}`);
+      // Voluntarios no pueden abrir la ficha (persons.getById es admin-only,
+      // #46): aterrizan en la tarjeta QR imprimible, que sí es voluntario-safe.
+      navigate(isAdmin ? `/personas/${person.id}` : `/personas/${person.id}/qr`);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Error desconocido";
       toast.error(`Error al registrar: ${message}`);
@@ -139,7 +144,7 @@ export function useRegistrationSubmit(args: UseSubmitArgs) {
       setIsSubmitting(false);
     }
   }, [
-    isSubmitting, args, navigate,
+    isSubmitting, args, navigate, isAdmin,
     createPerson, enrollPerson, saveConsents, createFamily, uploadPhoto,
   ]);
 

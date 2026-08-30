@@ -31,6 +31,13 @@ vi.mock("../../../hooks/useEnrollPerson", () => ({
 }));
 vi.mock("@/lib/trpc", () => ({
   trpc: {
+    // useRegistrationSubmit ahora consulta el rol vía useAuth para elegir el
+    // destino tras registrar, y useAuth usa useUtils + auth.me/auth.logout.
+    useUtils: () => ({ auth: { me: { setData: vi.fn(), invalidate: vi.fn() } } }),
+    auth: {
+      me: { useQuery: () => ({ data: null, isLoading: false, error: null, refetch: vi.fn() }) },
+      logout: { useMutation: () => ({ isPending: false, error: null, mutate: vi.fn() }) },
+    },
     persons: {
       saveConsents: { useMutation: () => ({ mutateAsync: saveConsentsMock }) },
       createFamily: { useMutation: () => ({ mutateAsync: createFamilyMock }) },
@@ -91,7 +98,10 @@ describe("useRegistrationSubmit — submits parsed values (F024/F047/F250)", () 
         data: expect.objectContaining({ fecha_llegada_espana: null, nombre: "QA" }),
       })
     );
-    expect(navigateMock).toHaveBeenCalledWith("/personas/11111111-1111-1111-1111-111111111111");
+    // El mock de auth.me devuelve null -> rama no-admin, que RC-07 (F054) manda
+    // a la tarjeta QR: persons.getById es admin-only (#46) y la ficha saldría
+    // en blanco para un voluntario. Aquí solo prueba que el flujo termina.
+    expect(navigateMock).toHaveBeenCalledWith("/personas/11111111-1111-1111-1111-111111111111/qr");
   });
 
   it("blocks submit with a Spanish field-list toast when values fail PersonCreateSchema", async () => {
