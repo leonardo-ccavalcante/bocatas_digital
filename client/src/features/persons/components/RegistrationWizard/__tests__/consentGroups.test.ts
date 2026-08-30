@@ -15,43 +15,40 @@ import { buildConsentGroups, puedeGuardarFoto } from "../_consentRows";
 
 describe("buildConsentGroups", () => {
   it("sólo exige el tratamiento de datos de Bocatas", () => {
-    const { groupA } = buildConsentGroups({ hasBancoAlimentos: false, hasFamilia: false });
+    const { groupA } = buildConsentGroups({ hasProgramaFamilias: false });
     expect(groupA).toEqual(["tratamiento_datos_bocatas"]);
   });
 
   it("no bloquea el registro por la cesión de imagen", () => {
-    const { groupA, groupC } = buildConsentGroups({ hasBancoAlimentos: false, hasFamilia: false });
+    const { groupA, groupC } = buildConsentGroups({ hasProgramaFamilias: false });
     expect(groupA).not.toContain("fotografia");
     expect(groupC).toContain("fotografia");
   });
 
   it("no bloquea el registro por las comunicaciones de WhatsApp", () => {
-    const { groupA, groupC } = buildConsentGroups({ hasBancoAlimentos: false, hasFamilia: false });
+    const { groupA, groupC } = buildConsentGroups({ hasProgramaFamilias: false });
     expect(groupA).not.toContain("comunicaciones_whatsapp");
     expect(groupC).toContain("comunicaciones_whatsapp");
   });
 
   it("añade el fin del Banco de Alimentos sólo con ese programa", () => {
-    expect(buildConsentGroups({ hasBancoAlimentos: true, hasFamilia: false }).groupB).toEqual([
+    expect(buildConsentGroups({ hasProgramaFamilias: true }).groupB).toEqual([
       "tratamiento_datos_banco_alimentos",
     ]);
-    expect(buildConsentGroups({ hasBancoAlimentos: false, hasFamilia: false }).groupB).toEqual([]);
+    expect(buildConsentGroups({ hasProgramaFamilias: false }).groupB).toEqual([]);
   });
 
   it("añade compartir datos en red sólo con Programa Familias", () => {
-    expect(buildConsentGroups({ hasBancoAlimentos: false, hasFamilia: true }).groupC).toContain(
+    expect(buildConsentGroups({ hasProgramaFamilias: true }).groupC).toContain(
       "compartir_datos_red"
     );
     expect(
-      buildConsentGroups({ hasBancoAlimentos: false, hasFamilia: false }).groupC
+      buildConsentGroups({ hasProgramaFamilias: false }).groupC
     ).not.toContain("compartir_datos_red");
   });
 
   it("sigue guardando todos los fines, obligatorios y opcionales", () => {
-    const { groupA, groupB, groupC } = buildConsentGroups({
-      hasBancoAlimentos: true,
-      hasFamilia: true,
-    });
+    const { groupA, groupB, groupC } = buildConsentGroups({ hasProgramaFamilias: true });
     expect([...groupA, ...groupB, ...groupC].sort()).toEqual(
       [
         "comunicaciones_whatsapp",

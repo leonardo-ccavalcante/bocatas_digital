@@ -6,19 +6,17 @@
  * El wizard de alta se quedó atrás con `"familia"`, y como el slug sólo se
  * compara —nunca se busca— el fallo fue mudo durante meses:
  *
- *   · `hasFamilia` y `hasBancoAlimentos` eran SIEMPRE false;
  *   · el paso de composición del hogar no aparecía nunca;
  *   · y el consentimiento del Banco de Alimentos no se pedía jamás por esta
  *     vía — que es el que sostiene la subvención.
  *
- * Este test ata la constante a la migración que manda, para que un renombrado
- * futuro rompa aquí y no en producción seis meses después.
+ * Este test ata la constante al SQL de la migración que manda, para que un
+ * renombrado futuro rompa aquí y no en producción seis meses después.
  */
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { SLUG_PROGRAMA_FAMILIAS } from "@shared/programSlugs";
-import { SLUG_FAMILIA, SLUG_BANCO_ALIMENTOS } from "../components/RegistrationWizard/_shared";
+import { SLUG_PROGRAMA_FAMILIAS } from "../components/RegistrationWizard/_shared";
 
 const MIGRACION = resolve(
   __dirname,
@@ -32,12 +30,7 @@ describe("slug del Programa Familias", () => {
     expect(match?.[1]).toBe(SLUG_PROGRAMA_FAMILIAS);
   });
 
-  it("el wizard usa esa constante y no una copia suelta", () => {
-    expect(SLUG_FAMILIA).toBe(SLUG_PROGRAMA_FAMILIAS);
-    expect(SLUG_BANCO_ALIMENTOS).toBe(SLUG_PROGRAMA_FAMILIAS);
-  });
-
   it("no es el valor viejo", () => {
-    expect(SLUG_FAMILIA).not.toBe("familia");
+    expect(SLUG_PROGRAMA_FAMILIAS).not.toBe("familia");
   });
 });

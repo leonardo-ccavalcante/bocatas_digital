@@ -2,7 +2,6 @@ import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { SLUG_PROGRAMA_FAMILIAS } from "@shared/programSlugs";
 import { ConsentLanguageSchema, type PersonCreate } from "../../schemas";
 
 export interface FamilyMember {
@@ -46,11 +45,17 @@ export const CONSENT_PURPOSE_LABELS: Record<string, string> = {
   fotografia: "Uso de fotografía e imagen",
 };
 
-// Slugs que disparan grupos de consentimiento adicionales. El valor vive en
-// shared/programSlugs.ts: esta copia se quedó en "familia" cuando la migración
-// 20260507000002 renombró el slug, y el fallo fue mudo durante meses.
-export const SLUG_BANCO_ALIMENTOS = SLUG_PROGRAMA_FAMILIAS; // el Programa Familias usa datos del Banco de Alimentos
-export const SLUG_FAMILIA = SLUG_PROGRAMA_FAMILIAS;
+/**
+ * Programa Familias. Es el único slug que el código tiene que reconocer: dispara
+ * el paso de composición del hogar y los consentimientos de Banco de Alimentos y
+ * de compartir datos en red. El catálogo es dinámico (ADR-0013) y nadie más debe
+ * enumerarlo.
+ *
+ * Esta constante se quedó en `"familia"` cuando la migración 20260507000002
+ * renombró el slug, y como sólo se compara —nunca se busca— el fallo fue mudo
+ * durante meses. La ata a la migración `__tests__/programSlugs.test.ts`.
+ */
+export const SLUG_PROGRAMA_FAMILIAS = "programa_familias";
 
 // Per-phase validation fields for the wizard's goNext() gate (react-hook-form
 // trigger()). Indexes 0-2 = phases 1-3; phase 4 (Resumen) submits via

@@ -41,8 +41,7 @@ import { compressImage } from "../../utils/imageUtils";
 import {
   type FamilyMember,
   PHASE_FIELDS,
-  SLUG_BANCO_ALIMENTOS,
-  SLUG_FAMILIA,
+  SLUG_PROGRAMA_FAMILIAS,
 } from "./_shared";
 import { useRegistrationSubmit } from "./_useSubmit";
 import { buildConsentGroups, computeVerbalFallback } from "./_consentRows";
@@ -155,15 +154,14 @@ export function RegistrationWizard() {
     () => programs.filter((p) => watchedProgramIds.includes(p.id)),
     [programs, watchedProgramIds]
   );
-  const hasBancoAlimentos = selectedPrograms.some((p) => p.slug === SLUG_BANCO_ALIMENTOS);
-  const hasFamilia = selectedPrograms.some((p) => p.slug === SLUG_FAMILIA);
+  const hasFamilia = selectedPrograms.some((p) => p.slug === SLUG_PROGRAMA_FAMILIAS);
 
   // ── Dynamic consent groups ────────────────────────────────────────────────
   const {
     groupA: groupAPurposes,
     groupB: groupBPurposes,
     groupC: groupCPurposes,
-  } = buildConsentGroups({ hasBancoAlimentos, hasFamilia });
+  } = buildConsentGroups({ hasProgramaFamilias: hasFamilia });
   const groupAAccepted = groupAPurposes.every((p) => consentChoices[p] === true);
 
   // ── OCR handler ─────────────────────────────────────────────────────────────
