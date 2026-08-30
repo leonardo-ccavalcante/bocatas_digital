@@ -10,6 +10,10 @@ import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import type { ConsentTemplate } from "../schemas";
 import { TEMPLATE_LANGUAGES } from "./RegistrationWizard/_shared";
+import {
+  useSeededConsents,
+  describeConsentSignature,
+} from "../hooks/usePersonConsents";
 import { compressImage, base64ToBlob } from "../utils/imageUtils";
 
 const CONSENT_PURPOSE_LABELS: Record<string, string> = {
@@ -27,16 +31,13 @@ interface ConsentModalProps {
   onClose: () => void;
   onSaved: () => void;
   /**
-   * Phase B.5 — beneficiary's primary language (idioma). Used by tests + future
-   * fallback flow to detect when no template matches and show the verbal-translation
-   * banner. Optional: existing call sites pass undefined and behavior is unchanged.
+   * Idioma principal REAL de la persona (enum `idioma`, 9 valores) — no el
+   * idioma de la plantilla. Es lo que detecta que no hay plantilla en su lengua
+   * y dispara el banner de traducción verbal (ADR-0006). La ficha lo pasa desde
+   * `persons.idioma_principal`; sigue siendo opcional para no obligar a futuros
+   * call sites a conocerlo.
    */
   personLanguage?: string;
-}
-
-interface ConsentState {
-  granted: boolean;
-  documentoFotoUrl?: string;
 }
 
 // TEMPLATE_LANGUAGES (consent_language enum) is the single source in
@@ -54,7 +55,11 @@ export function ConsentModal({ open, personId, templates, onClose, onSaved, pers
     (!TEMPLATE_LANGUAGES.has(personLanguage) || templates.length === 0);
   const dir = personLanguage && RTL_LANGUAGES.has(personLanguage) ? "rtl" : "ltr";
   const supabase = createClient();
-  const [consents, setConsents] = useState<Record<string, ConsentState>>({});
+  // Las casillas arrancan con lo que la persona YA firmó, no vacías.
+  const { consents, setConsents, isLoadingSaved, cargaFallida } = useSeededConsents(
+    personId,
+    open,
+  );
   const [isSaving, setIsSaving] = useState(false);
   const [captureForPurpose, setCaptureForPurpose] = useState<string | null>(null);
   const fileInputRef = { current: null as HTMLInputElement | null };
@@ -64,7 +69,7 @@ export function ConsentModal({ open, personId, templates, onClose, onSaved, pers
       ...prev,
       [purpose]: { ...prev[purpose], granted: !(prev[purpose]?.granted ?? false) },
     }));
-  }, []);
+  }, [setConsents]);
 
   const handleDocumentCapture = useCallback(async (purpose: string, file: File) => {
     try {
@@ -77,31 +82,37 @@ export function ConsentModal({ open, personId, templates, onClose, onSaved, pers
 
       if (error || !data) throw error ?? new Error("Upload failed");
 
-      const { data: urlData } = supabase.storage
-        .from("documentos-consentimiento")
-        .getPublicUrl(data.path);
-
+      // Se guarda el PATH, no una URL. `documentos-consentimiento` es un bucket
+      // PRIVADO, así que la URL pública que había aquí ni siquiera resolvía; y si
+      // resolviera sería un enlace reenviable al consentimiento escaneado de una
+      // persona beneficiaria (hallazgo CAS-02). La lectura se firma en el
+      // servidor, en el resolver que seleccione la columna.
       setConsents((prev) => ({
         ...prev,
-        [purpose]: { ...prev[purpose], documentoFotoUrl: urlData.publicUrl },
+        [purpose]: { ...prev[purpose], documentoFotoUrl: data.path },
       }));
       toast.success("Documento de consentimiento subido");
     } catch {
       toast.error("Error al subir el documento de consentimiento");
     }
     setCaptureForPurpose(null);
-  }, [personId, supabase]);
+  }, [personId, supabase, setConsents]);
 
   const handleSave = useCallback(async () => {
-    const grantedTemplates = templates.filter((t) => consents[t.purpose]?.granted);
-    if (grantedTemplates.length === 0) {
-      toast.info("No hay consentimientos seleccionados");
+    // Sólo lo marcado AHORA: re-subir un consentimiento que ya constaba le
+    // pondría la fecha de hoy y falsearía un registro con valor de firma
+    // manuscrita ante el Banco de Alimentos.
+    const nuevos = templates.filter(
+      (t) => consents[t.purpose]?.granted && !consents[t.purpose]?.firmadoEl,
+    );
+    if (nuevos.length === 0) {
+      toast.info("No hay consentimientos nuevos que guardar");
       return;
     }
 
     setIsSaving(true);
     try {
-      const rows = grantedTemplates.map((t) => ({
+      const rows = nuevos.map((t) => ({
         person_id: personId,
         purpose: t.purpose,
         idioma: t.idioma,
@@ -118,7 +129,7 @@ export function ConsentModal({ open, personId, templates, onClose, onSaved, pers
 
       if (error) throw error;
 
-      toast.success(`${grantedTemplates.length} consentimiento(s) guardado(s)`);
+      toast.success(`${nuevos.length} consentimiento(s) guardado(s)`);
       onSaved();
       onClose();
     } catch (err) {
@@ -154,6 +165,24 @@ export function ConsentModal({ open, personId, templates, onClose, onSaved, pers
                 </span>
               </div>
             )}
+            {isLoadingSaved && (
+              <p className="text-sm text-muted-foreground" role="status">
+                Cargando los consentimientos ya firmados…
+              </p>
+            )}
+            {cargaFallida && (
+              <div
+                className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800"
+                data-testid="consent-carga-fallida"
+                role="status"
+              >
+                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                <span>
+                  No se han podido consultar los consentimientos ya firmados.
+                  Comprueba con el equipo responsable antes de volver a firmar.
+                </span>
+              </div>
+            )}
             {templates.length === 0 && (
               <div className="flex items-center gap-2 rounded-md bg-muted p-3 text-sm text-muted-foreground">
                 <AlertCircle className="h-4 w-4 shrink-0" />
@@ -162,6 +191,7 @@ export function ConsentModal({ open, personId, templates, onClose, onSaved, pers
             )}
             {templates.map((t) => {
               const state = consents[t.purpose];
+              const firma = describeConsentSignature(state);
               return (
                 <div key={t.purpose} className="rounded-lg border p-3 space-y-2">
                   <div className="flex items-start gap-3">
@@ -177,11 +207,21 @@ export function ConsentModal({ open, personId, templates, onClose, onSaved, pers
                       </Label>
                       <Badge variant="outline" className="text-xs">{t.idioma.toUpperCase()} · v{t.version}</Badge>
                       <p lang={t.idioma} className="text-xs text-muted-foreground line-clamp-3">{t.text_content}</p>
+                      {firma && (
+                        <p
+                          className="text-xs font-medium text-green-700"
+                          data-testid={`consent-firma-${t.purpose}`}
+                        >
+                          {firma}
+                        </p>
+                      )}
                     </div>
                   </div>
 
-                  {/* Document capture for this consent */}
-                  {state?.granted && (
+                  {/* Adjuntar documento: sólo para lo que se marca ahora — lo
+                      ya firmado no se re-guarda, así que el botón no
+                      persistiría nada. */}
+                  {state?.granted && !state.firmadoEl && (
                     <div className="ml-7 flex items-center gap-2">
                       {state.documentoFotoUrl ? (
                         <div className="flex items-center gap-2 text-xs text-green-600">

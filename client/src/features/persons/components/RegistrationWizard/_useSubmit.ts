@@ -6,7 +6,7 @@ import { useCreatePerson } from "../../hooks/useCreatePerson";
 import { useEnrollPerson } from "../../hooks/useEnrollPerson";
 import { trpc } from "@/lib/trpc";
 import type { FamilyMember } from "./_shared";
-import { buildConsentRows } from "./_consentRows";
+import { buildConsentRows, puedeGuardarFoto } from "./_consentRows";
 
 interface UseSubmitArgs {
   groupAAccepted: boolean;
@@ -60,9 +60,14 @@ export function useRegistrationSubmit(args: UseSubmitArgs) {
 
     setIsSubmitting(true);
     try {
-      // 1. Upload profile photo if captured
+      // 1. Upload profile photo if captured AND the person consented to it.
+      // `fotografia` es opcional desde ALTAS-8: sin esta puerta se guardaría la
+      // cara de quien acaba de denegar el uso de imagen.
       let fotoPerfilUrl: string | null = null;
-      if (args.profilePhotoBase64) {
+      if (args.profilePhotoBase64 && !puedeGuardarFoto(args.consentChoices)) {
+        toast.info("La foto no se guarda: no se autorizó el uso de imagen.");
+      }
+      if (args.profilePhotoBase64 && puedeGuardarFoto(args.consentChoices)) {
         try {
           const result = await uploadPhoto({
             bucket: "fotos-perfil",
@@ -70,7 +75,7 @@ export function useRegistrationSubmit(args: UseSubmitArgs) {
           });
           fotoPerfilUrl = result.path;
         } catch {
-          toast.warning("Foto de perfil no guardada. Puedes añadirla desde el perfil.");
+          toast.warning("Foto de perfil no guardada. La ficha se crea igualmente.");
         }
       }
 

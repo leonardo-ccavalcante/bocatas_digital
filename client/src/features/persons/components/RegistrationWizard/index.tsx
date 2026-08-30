@@ -45,7 +45,7 @@ import {
   SLUG_FAMILIA,
 } from "./_shared";
 import { useRegistrationSubmit } from "./_useSubmit";
-import { computeVerbalFallback } from "./_consentRows";
+import { buildConsentGroups, computeVerbalFallback } from "./_consentRows";
 import { type StepperPhase } from "../registration/WizardStepper";
 import { WizardHeader } from "../registration/WizardHeader";
 import { WizardPhases } from "../registration/WizardPhases";
@@ -159,9 +159,11 @@ export function RegistrationWizard() {
   const hasFamilia = selectedPrograms.some((p) => p.slug === SLUG_FAMILIA);
 
   // ── Dynamic consent groups ────────────────────────────────────────────────
-  const groupAPurposes = ["tratamiento_datos_bocatas", "fotografia", "comunicaciones_whatsapp"];
-  const groupBPurposes = hasBancoAlimentos ? ["tratamiento_datos_banco_alimentos"] : [];
-  const groupCPurposes = hasFamilia ? ["compartir_datos_red"] : [];
+  const {
+    groupA: groupAPurposes,
+    groupB: groupBPurposes,
+    groupC: groupCPurposes,
+  } = buildConsentGroups({ hasBancoAlimentos, hasFamilia });
   const groupAAccepted = groupAPurposes.every((p) => consentChoices[p] === true);
 
   // ── OCR handler ─────────────────────────────────────────────────────────────

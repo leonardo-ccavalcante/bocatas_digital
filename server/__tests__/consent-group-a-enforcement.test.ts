@@ -1,18 +1,28 @@
 /**
- * consent-group-a-enforcement.test.ts — Phase 6 QA-9 / F-110.
+ * consent-group-a-enforcement.test.ts — Phase 6 QA-9 / F-110, revisado en ALTAS-8.
  *
- * CLAUDE.md §3 RGPD guard-rail: Group A consents
- *   (tratamiento_datos_bocatas, fotografia, comunicaciones_whatsapp)
- * are mandatory. The server's `persons.saveConsents` mutation must
- * reject any submission where ANY Group A purpose is missing or
- * explicitly denied, with `TRPCError({ code: "BAD_REQUEST" })`.
+ * Este fichero fijaba una regla que era ella misma el defecto: exigía los TRES
+ * fines (`tratamiento_datos_bocatas`, `fotografia`, `comunicaciones_whatsapp`)
+ * como condición para registrar a una persona. El equipo lo detectó desde el
+ * mostrador — "podría darse el caso de que la persona no autorizara a ceder
+ * imagen" — y tienen razón en Derecho: el RGPD Art. 7(4) sólo considera libre
+ * el consentimiento si negarlo no cuesta el servicio. Empaquetar la cesión de
+ * imagen y las comunicaciones por WhatsApp con la base de tratamiento invalidaba
+ * los tres, y además dejaba fuera del comedor a quien no quisiera salir en una
+ * foto.
  *
- * Pre-Phase-6 this enforcement existed in code but no test locked it
- * in. A future refactor that accidentally weakens the gate would have
- * shipped silently. This file fills that gap.
+ * La regla correcta separa dos cosas que no son la misma:
+ *   · COMPLETITUD — los tres fines viajan SIEMPRE en la petición. Una negativa
+ *     se prueba con su fila `granted=false`, que es lo que exige el principio de
+ *     responsabilidad proactiva (Art. 5.2). Esta parte NO se relaja.
+ *   · BLOQUEO — sólo `tratamiento_datos_bocatas` puede impedir el registro.
  *
- * The check happens BEFORE the Supabase call (consents.ts:69-85), so we
- * can use a pure tRPC caller without a DB mock.
+ * No contradice ninguna ADR: la exigencia de los tres no está recogida en
+ * AGENTS.md, CONTEXT.md ni en docs/adr/ — vivía sólo en el código y en este
+ * test. La referencia a "CLAUDE.md §3" de la cabecera anterior estaba obsoleta.
+ *
+ * La comprobación ocurre ANTES de la llamada a Supabase, así que basta un caller
+ * tRPC puro sin mock de base de datos.
  */
 import { describe, it, expect } from "vitest";
 import { TRPCError } from "@trpc/server";
@@ -68,8 +78,8 @@ function consentRow(purpose: typeof GROUP_A_PURPOSES[number] | "tratamiento_dato
   };
 }
 
-describe("persons.saveConsents — Group A mandatory enforcement (F-110)", () => {
-  it("rejects with BAD_REQUEST when ANY Group A purpose is missing", async () => {
+describe("persons.saveConsents — qué puede bloquear un registro (F-110, ALTAS-8)", () => {
+  it("rechaza si falta cualquiera de los tres fines: sin fila no hay prueba", async () => {
     const caller = appRouter.createCaller(authCtx());
     // Submit only 2 of the 3 required Group A purposes.
     await expect(
@@ -84,19 +94,13 @@ describe("persons.saveConsents — Group A mandatory enforcement (F-110)", () =>
     ).rejects.toThrow(TRPCError);
   });
 
-  it("rejects with BAD_REQUEST when ANY Group A purpose is explicitly denied", async () => {
-    const caller = appRouter.createCaller(authCtx());
-    await expect(
-      caller.persons.saveConsents({
-        personId: PERSON_ID,
-        consents: GROUP_A_PURPOSES.map((p) =>
-          consentRow(p, p === "comunicaciones_whatsapp" ? false : true)
-        ),
-      })
-    ).rejects.toThrow(TRPCError);
-  });
+  // El cambio de fondo de ALTAS-8 —que negar imagen o WhatsApp ya NO impide
+  // registrar— se prueba en server/routers/__tests__/persons.saveConsents.grupoA.test.ts:
+  // ese caso atraviesa la puerta y llega al INSERT, así que necesita mock de base
+  // de datos. Este fichero se queda, por diseño, con lo que se rechaza ANTES de
+  // tocar Supabase y no necesita mock.
 
-  it("rejects when ALL Group A are denied", async () => {
+  it("sigue rechazando si se niega el tratamiento de datos", async () => {
     const caller = appRouter.createCaller(authCtx());
     await expect(
       caller.persons.saveConsents({
@@ -106,7 +110,7 @@ describe("persons.saveConsents — Group A mandatory enforcement (F-110)", () =>
     ).rejects.toThrow(TRPCError);
   });
 
-  it("error message is descriptive (mentions Grupo A)", async () => {
+  it("el mensaje de error nombra el consentimiento que falta", async () => {
     const caller = appRouter.createCaller(authCtx());
     try {
       await caller.persons.saveConsents({
@@ -122,11 +126,11 @@ describe("persons.saveConsents — Group A mandatory enforcement (F-110)", () =>
       expect(err).toBeInstanceOf(TRPCError);
       const trpcErr = err as TRPCError;
       expect(trpcErr.code).toBe("BAD_REQUEST");
-      expect(trpcErr.message.toLowerCase()).toContain("grupo a");
+      expect(trpcErr.message.toLowerCase()).toContain("tratamiento de datos");
     }
   });
 
-  it("rejects unauthenticated callers (defense-in-depth)", async () => {
+  it("rechaza a quien no ha iniciado sesión (defensa en profundidad)", async () => {
     const caller = appRouter.createCaller({
       user: null,
       logger: new Logger(),

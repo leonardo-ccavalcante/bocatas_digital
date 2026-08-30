@@ -4,7 +4,7 @@
  * Procedures (preserved verbatim from the pre-split persons.ts):
  *   crud.ts:     create, getById, getAll, search, findDuplicates
  *   enroll.ts:   enroll
- *   consents.ts: programs, consentTemplates, saveConsents
+ *   consents.ts: programs, consentTemplates, saveConsents, getPersonConsents
  *   photo.ts:    uploadPhoto
  *   family.ts:   createFamily
  *   admin.ts:    updateRole, updateFaseItinerario
@@ -31,6 +31,7 @@ export const personsRouter = router({
   programs: consentsRouter.programs,
   consentTemplates: consentsRouter.consentTemplates,
   saveConsents: consentsRouter.saveConsents,
+  getPersonConsents: consentsRouter.getPersonConsents,
   uploadPhoto: photoRouter.uploadPhoto,
   createFamily: familyRouter.createFamily,
   updateRole: adminRouter.updateRole,

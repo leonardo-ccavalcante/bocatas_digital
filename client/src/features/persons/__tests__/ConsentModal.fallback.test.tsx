@@ -28,6 +28,18 @@ vi.mock("@/lib/supabase/client", () => ({
   }),
 }));
 
+// El modal siembra sus casillas con `persons.getPersonConsents` (FAMILIAS-7),
+// y ese hook necesita el contexto de tRPC. Estos tests renderizan el componente
+// suelto, sin provider: se moquea el cliente para devolver "aún no ha firmado
+// nada", que es el escenario que estos casos describen.
+vi.mock("@/lib/trpc", () => ({
+  trpc: {
+    persons: {
+      getPersonConsents: { useQuery: () => ({ data: [], isLoading: false }) },
+    },
+  },
+}));
+
 // Radix Dialog renders into a portal which requires a DOM. With vitest's
 // `node` env we bypass the portal and inline the children so the body
 // markup is reachable from `renderToStaticMarkup`. This is a render-shim,

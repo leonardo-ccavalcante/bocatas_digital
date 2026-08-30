@@ -5,7 +5,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { AlertCircle, Camera, ShieldCheck, ShieldX, Upload, X } from "lucide-react";
+import { AlertCircle, ShieldCheck, ShieldX, Upload, X } from "lucide-react";
+import { CameraCaptureButton } from "../../CameraCaptureButton";
+import { NumeroSerieInfo } from "../../NumeroSerieInfo";
 import type { ConsentTemplate } from "../../../schemas";
 import { CONSENT_PURPOSE_LABELS } from "../_shared";
 
@@ -49,7 +51,8 @@ export function Step7Consent({
       <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
         <p className="text-sm font-medium text-blue-800">🔒 Protección de datos (RGPD Art. 7)</p>
         <p className="text-xs text-blue-700 mt-1">
-          El Grupo A es obligatorio. Sin su aceptación no se puede completar el registro.
+          Solo el Grupo A es obligatorio: sin él no hay base para tratar los datos. El resto
+          puede denegarse sin perder el servicio.
         </p>
       </div>
 
@@ -166,10 +169,13 @@ export function Step7Consent({
         </div>
       )}
 
-      {/* Group C — Familias (if familia selected) */}
+      {/* Group C — opcionales: negarlos nunca impide el registro */}
       {groupCPurposes.length > 0 && (
         <div className="space-y-2">
-          <Label className="font-semibold">Grupo C — Programa Familias</Label>
+          <Label className="font-semibold">Grupo C — Opcionales</Label>
+          <p className="text-xs text-muted-foreground">
+            La persona puede negarlos y aun así quedar registrada.
+          </p>
           {groupCPurposes.map((purpose) => {
             const templateEs = consentTemplatesEs.find((t) => t.purpose === purpose);
             const templateLang = consentTemplatesLang.find((t) => t.purpose === purpose);
@@ -216,12 +222,15 @@ export function Step7Consent({
         <div className="rounded-lg border p-3 space-y-3">
           <p className="text-sm font-medium">📄 Documento firmado (opcional)</p>
           <div className="space-y-1">
-            <Label htmlFor="numero_serie">Nº de serie del formulario</Label>
+            <div className="flex items-center gap-1">
+              <Label htmlFor="numero_serie">Nº de serie del formulario</Label>
+              <NumeroSerieInfo />
+            </div>
             <Input
               id="numero_serie"
               value={numeroSerie}
               onChange={(e) => setNumeroSerie(e.target.value)}
-              placeholder="BCT-2026-00142"
+              placeholder="Ver el formato en la (i)"
             />
           </div>
           {consentDocPreview ? (
@@ -232,35 +241,28 @@ export function Step7Consent({
                   onClick={() => { setConsentDocBase64(null); setConsentDocPreview(null); }}>
                   <X className="mr-1 h-3 w-3" /> Eliminar
                 </Button>
-                <Button type="button" size="sm" variant="outline"
-                  onClick={() => consentDocInputRef.current?.click()}>
-                  <Camera className="mr-1 h-3 w-3" /> Repetir
-                </Button>
+                <CameraCaptureButton
+                  facingMode="environment"
+                  label="Repetir"
+                  onCapture={(file) => void handleConsentDocFile(file)}
+                />
               </div>
             </div>
           ) : (
             <div className="flex gap-2">
+              <CameraCaptureButton
+                facingMode="environment"
+                label="Cámara"
+                onCapture={(file) => void handleConsentDocFile(file)}
+                className="flex-1"
+              />
               <Button type="button" size="sm" variant="outline" className="flex-1"
-                onClick={() => {
-                  if (consentDocInputRef.current) {
-                    consentDocInputRef.current.setAttribute("capture", "environment");
-                    consentDocInputRef.current.click();
-                  }
-                }}>
-                <Camera className="mr-1 h-3 w-3" /> Cámara
-              </Button>
-              <Button type="button" size="sm" variant="outline" className="flex-1"
-                onClick={() => {
-                  if (consentDocInputRef.current) {
-                    consentDocInputRef.current.removeAttribute("capture");
-                    consentDocInputRef.current.click();
-                  }
-                }}>
+                onClick={() => consentDocInputRef.current?.click()}>
                 <Upload className="mr-1 h-3 w-3" /> Subir imagen
               </Button>
             </div>
           )}
-          <input ref={consentDocInputRef} type="file" accept="image/*" capture="environment" className="hidden"
+          <input ref={consentDocInputRef} type="file" accept="image/*" className="hidden"
             onChange={(e) => {
               const file = e.target.files?.[0];
               if (file) void handleConsentDocFile(file);
