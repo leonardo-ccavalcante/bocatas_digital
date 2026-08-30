@@ -1,5 +1,4 @@
 import { useRef, useState } from "react";
-import { useAuth } from "@/_core/hooks/useAuth";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +6,6 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Upload, Download, Calendar, User } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 import { capture } from "@/lib/posthog";
 import { getSignedDocUrl } from "@/features/families/utils/signedUrl";
 import {
@@ -88,8 +86,16 @@ async function compressImage(file: File, maxDimension = 1920): Promise<Blob> {
   });
 }
 
+async function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve((reader.result as string).split(",")[1] ?? "");
+    reader.onerror = () => reject(new Error("No se pudo leer el archivo"));
+    reader.readAsDataURL(blob);
+  });
+}
+
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
-const STORAGE_BUCKET = "family-documents";
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -102,7 +108,6 @@ export function DocumentUploadModal({
 }: DocumentUploadModalProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const { user } = useAuth();
 
   // ── Queries ──────────────────────────────────────────────────────────────
   const familyLevelQuery = useFamilyLevelDocuments(familyId);
@@ -159,36 +164,19 @@ export function DocumentUploadModal({
       const ext = isImage ? "jpg" : extFromFile(file);
       const storagePath = `${familyId}/${memberIndex}/${documentoTipo}/${Date.now()}.${ext}`;
 
-      // The family-documents bucket is private. We store the storage PATH (not a URL)
-      // so we can re-sign on demand at view time via getSignedDocUrl.
-      const supabase = createClient();
-
-      // 1. DB row first — if this fails nothing hits Storage, no orphan PII.
-      const insertedDoc = await uploadMutation.mutateAsync({
+      // The private family-documents bucket is written SERVER-SIDE (ADR-0002):
+      // the bytes travel as base64 through families.uploadFamilyDocument, which
+      // stores object + row in one procedure. We persist the storage PATH (not
+      // a URL) and re-sign on demand at view time via getSignedDocUrl.
+      await uploadMutation.mutateAsync({
         family_id: familyId,
         member_index: memberIndex,
         documento_tipo: documentoTipo,
         documento_url: storagePath,
+        base64: await blobToBase64(blob),
+        content_type: contentType,
         // verified_by is set server-side from ctx.user
       });
-
-      // 2. Storage upload — if this fails, await the soft-delete to roll back.
-      const { error: storageError } = await supabase.storage
-        .from(STORAGE_BUCKET)
-        .upload(storagePath, blob, { contentType, upsert: false });
-
-      if (storageError) {
-        try {
-          await deleteMutation.mutateAsync({ id: insertedDoc.id });
-        } catch {
-          toast.error(
-            `Error al subir archivo y al limpiar el registro. Contacta al admin con ID: ${insertedDoc.id}`
-          );
-          return;
-        }
-        toast.error(storageError.message || "Error al subir el archivo");
-        return;
-      }
 
       capture("document_uploaded", { type: documentoTipo });
       toast.success("Documento subido");
