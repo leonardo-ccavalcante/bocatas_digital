@@ -51,6 +51,10 @@ describe("buildConsentGroups", () => {
     const { groupA, groupB, groupC } = buildConsentGroups({ hasProgramaFamilias: true });
     expect([...groupA, ...groupB, ...groupC].sort()).toEqual(
       [
+        // Fin propio para conservar la imagen del documento: `fotografia` cubre
+        // fotos «durante las actividades», no archivar un DNI (migración
+        // 20260831120000).
+        "archivo_documento_identidad",
         "comunicaciones_whatsapp",
         "compartir_datos_red",
         "fotografia",
@@ -79,5 +83,37 @@ describe("puedeGuardarFoto", () => {
 
   it("NO guarda la foto si no consta decisión alguna", () => {
     expect(puedeGuardarFoto({})).toBe(false);
+  });
+});
+
+describe("buildConsentGroups — el fin nuevo y el orden de despliegue", () => {
+  it("archivar el documento va en el grupo OPCIONAL, nunca en el A", () => {
+    // Art. 7(4): guardar una copia del DNI no puede ser condición para comer.
+    const { groupA, groupC } = buildConsentGroups({ hasProgramaFamilias: false });
+    expect(groupA).not.toContain("archivo_documento_identidad");
+    expect(groupC).toContain("archivo_documento_identidad");
+  });
+
+  it("sin plantilla en la base, NO se pregunta", () => {
+    // `archivo_documento_identidad` es un valor de enum NUEVO. Si el código
+    // llega a producción antes que su migración, pedirlo haría que el insert
+    // de consentimientos muriera contra el enum viejo y el alta entera fallara
+    // en silencio — que es lo que ya pasa allí con tipo_vivienda y
+    // nivel_estudios. Su plantilla se siembra en la migración siguiente a la
+    // del enum, así que "hay plantilla" implica "hay valor de enum".
+    const { groupC } = buildConsentGroups({
+      hasProgramaFamilias: false,
+      purposesConPlantilla: new Set(["tratamiento_datos_bocatas", "fotografia"]),
+    });
+    expect(groupC).not.toContain("archivo_documento_identidad");
+    expect(groupC).toContain("fotografia");
+  });
+
+  it("con plantilla, sí se pregunta", () => {
+    const { groupC } = buildConsentGroups({
+      hasProgramaFamilias: false,
+      purposesConPlantilla: new Set(["archivo_documento_identidad"]),
+    });
+    expect(groupC).toContain("archivo_documento_identidad");
   });
 });

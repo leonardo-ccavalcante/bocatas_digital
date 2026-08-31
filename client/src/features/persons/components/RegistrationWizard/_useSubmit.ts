@@ -7,7 +7,7 @@ import { useCreatePerson } from "../../hooks/useCreatePerson";
 import { useEnrollPerson } from "../../hooks/useEnrollPerson";
 import { trpc } from "@/lib/trpc";
 import type { FamilyMember } from "./_shared";
-import { buildConsentRows, puedeGuardarFoto } from "./_consentRows";
+import { buildConsentRows, puedeArchivarDocumento, puedeGuardarFoto } from "./_consentRows";
 import {
   describirErrores,
   mensajeDeErrores,
@@ -111,20 +111,22 @@ export function useRegistrationSubmit(args: UseSubmitArgs) {
         }
       }
 
-      // 2b. Foto del documento — dos condiciones, no una.
+      // 2b. Foto del documento — su PROPIA puerta, no la de la foto de perfil.
       //
-      // La casilla de archivar se marca en la FASE 1 y los consentimientos se
-      // deciden en la FASE 3, así que marcarla no puede ser la única puerta:
-      // una persona que después deniega el uso de su imagen acabaría con la
-      // foto de su DNI archivada igualmente. Se exige además `fotografia`,
-      // igual que la foto de perfil. Es condición NECESARIA, no suficiente:
-      // ese texto de consentimiento cubre fotos de actividades, no el archivo
-      // del documento — ver el cuerpo de la PR y #149.
+      // Antes esto colgaba de `puedeGuardarFoto`, o sea del consentimiento
+      // `fotografia`, cuyo texto autoriza imágenes «durante las actividades de
+      // la asociación»: no ampara conservar la imagen de un DNI. Era la base
+      // jurídica equivocada. Ahora hay un fin propio,
+      // `archivo_documento_identidad` (migración 20260831120000), opcional
+      // (Art. 7(4)) y con su plazo de conservación.
+      //
+      // La casilla de la fase 1 es el opt-out del caso concreto; esta es la
+      // puerta. Ausencia de decisión = no se archiva.
       let fotoDocumentoUrl: string | null = null;
-      if (args.documentoBase64 && !puedeGuardarFoto(args.consentChoices)) {
-        toast.info("La foto del documento no se archiva: no se autorizó el uso de imagen.");
+      if (args.documentoBase64 && !puedeArchivarDocumento(args.consentChoices)) {
+        toast.info("La foto del documento no se archiva: no se autorizó conservarla.");
       }
-      if (args.documentoBase64 && puedeGuardarFoto(args.consentChoices)) {
+      if (args.documentoBase64 && puedeArchivarDocumento(args.consentChoices)) {
         try {
           const result = await uploadPhoto({
             bucket: "documentos-identidad",

@@ -34,6 +34,14 @@ vi.mock("../../client/src/lib/supabase/server", () => ({
         select: () => b,
         eq: () => b,
         in: () => b,
+        // `is` y `update`: saveConsents lee ahora las decisiones PREVIAS antes
+        // de escribir, para poder sellar `revoked_at` sólo cuando un fin pasa
+        // de otorgado a denegado — y para borrar la imagen del documento si el
+        // fin retirado es `archivo_documento_identidad`.
+        is: () => b,
+        not: () => b,
+        update: () => b,
+        maybeSingle: async () => ({ data: null, error: null }),
         upsert: () => ({
           select: async () => ({ data: [{ id: "c1", purpose: "x", granted: true }], error: null }),
         }),

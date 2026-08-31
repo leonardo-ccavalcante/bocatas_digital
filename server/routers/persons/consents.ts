@@ -3,6 +3,8 @@ import { z } from "zod";
 import { createAdminClient } from "../../../client/src/lib/supabase/server";
 import { adminProcedure, voluntarioProcedure, router } from "../../_core/trpc";
 import { authActorId } from "../../_core/actorId";
+import { logAudit } from "../../_core/logging-middleware";
+import { ID_DOCUMENT_BUCKET, storageRemove } from "../../storage";
 import { uuidLike } from "./_shared";
 
 export const consentsRouter = router({
@@ -129,7 +131,10 @@ export const consentsRouter = router({
     .input(z.object({
       personId: z.string().uuid(),
       consents: z.array(z.object({
-        purpose: z.enum(["tratamiento_datos_bocatas", "tratamiento_datos_banco_alimentos", "compartir_datos_red", "comunicaciones_whatsapp", "fotografia"]),
+        // `archivo_documento_identidad` (migración 20260831120000) es fin PROPIO:
+        // conservar la imagen del documento no lo ampara `fotografia`, cuyo
+        // texto cubre fotos «durante las actividades de la asociación».
+        purpose: z.enum(["tratamiento_datos_bocatas", "tratamiento_datos_banco_alimentos", "compartir_datos_red", "comunicaciones_whatsapp", "fotografia", "archivo_documento_identidad"]),
         idioma: z.enum(["es", "ar", "fr", "bm"]),
         granted: z.boolean(),
         granted_at: z.string(),
@@ -151,6 +156,19 @@ export const consentsRouter = router({
 
       if (input.consents.length === 0) return [];
 
+      // Revocar de verdad. `revoked_at` se leía en cuatro sitios y no lo
+      // escribía NADIE: un fin que pasaba de otorgado a `granted:false` se
+      // guardaba sin fecha de retirada. Se marca aquí, no en el cliente.
+      const { data: previos } = await supabase
+        .from("consents")
+        .select("purpose, granted, revoked_at")
+        .eq("person_id", input.personId)
+        .is("deleted_at", null);
+      const otorgadoAntes = new Map(
+        (previos ?? []).map((p) => [p.purpose as string, p.granted === true])
+      );
+      const ahora = new Date().toISOString();
+
       const rows = input.consents.map((c) => ({
         person_id: input.personId,
         purpose: c.purpose,
@@ -161,9 +179,48 @@ export const consentsRouter = router({
         consent_version: c.consent_version ?? "",
         documento_foto_url: c.documento_foto_url ?? null,
         numero_serie: c.numero_serie ?? null,
+        // Sólo se sella al PASAR de otorgado a denegado. Un "no" que ya era
+        // "no" no se revoca cada vez que se reabre el modal.
+        revoked_at:
+          !c.granted && otorgadoAntes.get(c.purpose) === true ? ahora : null,
         // Authorship written server-side from the session (#145).
         registrado_por: authActorId(ctx.user),
       }));
+
+      // Retirar el consentimiento de archivo obliga a BORRAR la imagen. Un
+      // consentimiento que no se puede retirar de verdad no es consentimiento:
+      // sin esto, la casilla sería decorativa y el derecho de supresión,
+      // teórico. Se borra el objeto PRIMERO y se limpia la columna DESPUÉS —
+      // una columna que apunta a un archivo inexistente es peor que un
+      // reintento.
+      const retiraArchivo = input.consents.some(
+        (c) =>
+          c.purpose === "archivo_documento_identidad" &&
+          !c.granted &&
+          otorgadoAntes.get(c.purpose) === true
+      );
+      if (retiraArchivo) {
+        const { data: persona } = await supabase
+          .from("persons")
+          .select("foto_documento_url")
+          .eq("id", input.personId)
+          .maybeSingle();
+        const ruta = persona?.foto_documento_url;
+        if (typeof ruta === "string" && ruta) {
+          const borrado = await storageRemove(ID_DOCUMENT_BUCKET, ruta);
+          if (borrado) {
+            await supabase
+              .from("persons")
+              .update({ foto_documento_url: null })
+              .eq("id", input.personId);
+          }
+          logAudit(ctx, "persons.documentoIdentidadBorrado", {
+            personId: input.personId,
+            motivo: "consentimiento_retirado",
+            borrado,
+          });
+        }
+      }
 
       const { data, error } = await supabase
         .from("consents")

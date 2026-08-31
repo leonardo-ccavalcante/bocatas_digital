@@ -89,12 +89,34 @@ export function buildConsentRows({
  * Todo lo demás se sigue recogiendo y se sigue guardando: un fin denegado
  * escribe su fila con granted=false, que es justo el registro que exige el
  * principio de responsabilidad proactiva (Art. 5.2).
+ *
+ * `purposesConPlantilla` existe por un riesgo de ORDEN DE DESPLIEGUE, no por
+ * estética. `archivo_documento_identidad` es un valor de enum NUEVO: si el
+ * código llega a producción antes que su migración, pedirlo haría que el
+ * `insert` de consentimientos muriera contra el enum viejo y el alta entera
+ * fallaría en silencio — que es exactamente lo que ya está pasando allí con
+ * `tipo_vivienda` y `nivel_estudios` (ver el runbook de migraciones
+ * pendientes). Su plantilla se siembra en la migración inmediatamente
+ * posterior a la del enum, así que "hay plantilla" implica "hay valor de
+ * enum": preguntamos sólo cuando la base puede recibir la respuesta.
+ *
+ * El filtro se aplica SÓLO al fin nuevo. Los demás llevan tiempo en el enum, y
+ * `compartir_datos_red` hoy no tiene plantilla en producción pero sí valor de
+ * enum: filtrarlo también dejaría de recoger un consentimiento que sí se puede
+ * guardar (su texto vacío es #167, otro problema).
  */
 export function buildConsentGroups({
   hasProgramaFamilias,
+  purposesConPlantilla,
 }: {
   hasProgramaFamilias: boolean;
+  /** Fines con plantilla activa. Si no se pasa, no se filtra nada. */
+  purposesConPlantilla?: ReadonlySet<string>;
 }): { groupA: string[]; groupB: string[]; groupC: string[] } {
+  const hayPlantillaArchivo =
+    purposesConPlantilla === undefined ||
+    purposesConPlantilla.has("archivo_documento_identidad");
+
   return {
     groupA: ["tratamiento_datos_bocatas"],
     // Los dos los dispara el mismo programa. Eran dos parámetros idénticos con
@@ -103,6 +125,9 @@ export function buildConsentGroups({
     groupC: [
       ...(hasProgramaFamilias ? ["compartir_datos_red"] : []),
       "fotografia",
+      // Archivar la imagen del DNI va aquí y NUNCA en el grupo A: Art. 7(4).
+      // Guardar una copia del documento no puede ser condición para comer.
+      ...(hayPlantillaArchivo ? ["archivo_documento_identidad"] : []),
       "comunicaciones_whatsapp",
     ],
   };
@@ -120,4 +145,20 @@ export function buildConsentGroups({
  */
 export function puedeGuardarFoto(consentChoices: Record<string, boolean>): boolean {
   return consentChoices["fotografia"] === true;
+}
+
+/**
+ * ¿Se puede archivar la foto del DOCUMENTO DE IDENTIDAD?
+ *
+ * Fin propio, no `fotografia`. El texto que la persona firma bajo `fotografia`
+ * autoriza imágenes «en las que pueda aparecer durante las actividades de la
+ * asociación»: no ampara conservar la imagen de su DNI, que es otro tratamiento,
+ * con otra finalidad y otro riesgo. Antes esta foto colgaba de esa puerta
+ * prestada — base jurídica equivocada.
+ *
+ * La casilla de la fase 1 es un opt-out; esto es la puerta. Ausencia de
+ * decisión = no.
+ */
+export function puedeArchivarDocumento(consentChoices: Record<string, boolean>): boolean {
+  return consentChoices["archivo_documento_identidad"] === true;
 }

@@ -15,9 +15,16 @@
  */
 import React from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, cleanup, within } from "@testing-library/react";
+import { fireEvent, render, screen, cleanup, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type * as Wouter from "wouter";
+
+// Cada prueba monta la PÁGINA entera y abre un modal de ocho secciones. Con la
+// suite completa en paralelo eso pasa de los 5s por defecto de vitest, y un
+// test abortado a mitad de interacción dejaba un guardado PARCIAL en vuelo que
+// ensuciaba el siguiente. No se está midiendo velocidad aquí: el default es
+// arbitrario y este archivo hace bastante más trabajo que una prueba unitaria.
+vi.setConfig({ testTimeout: 20_000 });
 
 class ResizeObserverStub {
   observe() {}
@@ -133,6 +140,11 @@ function setup(role = "admin") {
   mockCheckin.mockReturnValue({ data: { total: 7 } });
 }
 
+/** Escribe de una vez: el tecleo carácter a carácter es lo que hacía flaky. */
+function escribir(campo: HTMLElement, valor: string) {
+  fireEvent.change(campo, { target: { value: valor } });
+}
+
 async function abrirEditor() {
   await userEvent.click(screen.getByRole("button", { name: /Editar ficha/i }));
   return screen.getByRole("dialog");
@@ -186,11 +198,11 @@ describe("Editar ficha — se llega a todas las secciones", () => {
     render(<PersonaDetalle />);
     const dialogo = await abrirEditor();
 
-    await userEvent.type(within(dialogo).getByLabelText(/Entidad derivadora/i), "Cruz Roja");
-    await userEvent.type(within(dialogo).getByLabelText(/Observaciones/i), "Nota");
+    escribir(within(dialogo).getByLabelText(/Entidad derivadora/i), "Cruz Roja");
+    escribir(within(dialogo).getByLabelText(/Observaciones/i), "Nota");
     await userEvent.click(within(dialogo).getByRole("button", { name: /Guardar cambios/i }));
 
-    expect(updateSpy).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(updateSpy).toHaveBeenCalledTimes(1));
     expect(updateSpy).toHaveBeenCalledWith({
       id: PERSON_ID,
       data: { entidad_derivadora: "Cruz Roja", observaciones: "Nota" },
@@ -202,6 +214,7 @@ describe("Editar ficha — se llega a todas las secciones", () => {
     render(<PersonaDetalle />);
     const dialogo = await abrirEditor();
     await userEvent.click(within(dialogo).getByRole("button", { name: /Guardar cambios/i }));
+    await new Promise((r) => setTimeout(r, 0));
     expect(updateSpy).not.toHaveBeenCalled();
   });
 
@@ -210,12 +223,12 @@ describe("Editar ficha — se llega a todas las secciones", () => {
     render(<PersonaDetalle />);
     const dialogo = await abrirEditor();
 
-    await userEvent.type(within(dialogo).getByLabelText(/Municipio/i), "Madrid");
+    escribir(within(dialogo).getByLabelText(/Municipio/i), "Madrid");
     await userEvent.click(within(dialogo).getByRole("button", { name: /Guardar cambios/i }));
 
     // Sin esto, el listado enseña el dato viejo hasta un minuto — y
     // persons.search sirve el aviso de alergia que lee el comedor.
-    expect(invalidaciones.getById).toHaveBeenCalledWith({ id: PERSON_ID });
+    await waitFor(() => expect(invalidaciones.getById).toHaveBeenCalledWith({ id: PERSON_ID }));
     expect(invalidaciones.getAll).toHaveBeenCalled();
     expect(invalidaciones.search).toHaveBeenCalled();
   });
@@ -247,12 +260,12 @@ describe("Editar ficha — candado Art. 9", () => {
     render(<PersonaDetalle />);
     const dialogo = await abrirEditor();
 
-    const nombre = within(dialogo).getByLabelText("Nombre");
-    await userEvent.clear(nombre);
-    await userEvent.type(nombre, "Ana María");
+    escribir(within(dialogo).getByLabelText("Nombre"), "Ana María");
     await userEvent.click(within(dialogo).getByRole("button", { name: /Guardar cambios/i }));
 
-    expect(updateSpy).toHaveBeenCalledWith({ id: PERSON_ID, data: { nombre: "Ana María" } });
+    await waitFor(() =>
+      expect(updateSpy).toHaveBeenCalledWith({ id: PERSON_ID, data: { nombre: "Ana María" } })
+    );
     const [[{ data }]] = updateSpy.mock.calls as [[{ data: Record<string, unknown> }]];
     expect(data).not.toHaveProperty("colectivos");
     expect(data).not.toHaveProperty("colectivo_consentimiento");
@@ -280,6 +293,7 @@ describe("Editar ficha — candado Art. 9", () => {
     await userEvent.click(within(dialogo).getByLabelText(/consiente explícitamente/i));
     await userEvent.click(within(dialogo).getByRole("button", { name: /Guardar cambios/i }));
 
+    await waitFor(() => expect(updateSpy).toHaveBeenCalledTimes(1));
     const [[{ data }]] = updateSpy.mock.calls as [[{ data: Record<string, unknown> }]];
     // Orden canónico del mapa de etiquetas, no orden de clic.
     expect(data.colectivos).toEqual(["gitanos", "lgtbi"]);
