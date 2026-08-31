@@ -146,6 +146,9 @@ function escribir(campo: HTMLElement, valor: string) {
 }
 
 async function abrirEditor() {
+  // Las acciones viven plegadas dentro de la cabecera desde el rediseño de la
+  // barra: primero el desplegable, luego el botón.
+  await userEvent.click(screen.getByRole("button", { name: "Acciones" }));
   await userEvent.click(screen.getByRole("button", { name: /Editar ficha/i }));
   return screen.getByRole("dialog");
 }
@@ -314,6 +317,8 @@ describe("Editar ficha — lápices del Resumen", () => {
     setup("voluntario");
     render(<PersonaDetalle />);
 
+    // Sin acciones, PersonaHeader no pinta ni el desplegable.
+    expect(screen.queryByRole("button", { name: "Acciones" })).toBeNull();
     expect(screen.queryByRole("button", { name: /Editar ficha/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /Editar datos de contacto/i })).toBeNull();
   });

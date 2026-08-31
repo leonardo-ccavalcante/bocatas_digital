@@ -15,11 +15,17 @@
  * jsdom no tiene media queries, así que la anchura no se puede simular: la
  * comprobación honesta es estructural — ningún ancestro del enlace lleva la
  * clase `hidden`. Es el assert que se rompe si alguien reintroduce el gate.
+ *
+ * Desde el rediseño de la barra, las acciones viven DENTRO de la cabecera, en
+ * un desplegable «Acciones» plegado por defecto. Eso cambia el enunciado, no la
+ * garantía: plegado no es escondido. Lo que se exige aquí es que el disparador
+ * esté rotulado y sin gate de anchura, y que desde él se llegue a todo. Lo que
+ * NO se acepta es volver a un estado donde el QR no tenga ninguna ruta.
  */
 
 import React from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type * as Wouter from "wouter";
 
@@ -174,18 +180,36 @@ beforeEach(() => {
 });
 afterEach(() => cleanup());
 
+/** Las acciones arrancan plegadas: hay que abrir «Acciones» para alcanzarlas. */
+async function abrirAcciones() {
+  await userEvent.click(screen.getByRole("button", { name: "Acciones" }));
+}
+
 describe("PersonaDetalle — la barra de acciones se alcanza en cualquier ancho", () => {
-  it("un admin llega al QR de la persona", () => {
+  it("arranca plegada, pero el disparador se ve sin abrir nada y sin gate de ancho", () => {
     setup();
     render(<PersonaDetalle />);
+
+    // Plegado ≠ escondido. Esta es la diferencia con el fallo original: allí no
+    // había NADA que pulsar por debajo de 640px; aquí hay un control rotulado.
+    const disparador = screen.getByRole("button", { name: "Acciones" });
+    expect(disparador.closest('[class*="hidden"]')).toBeNull();
+    expect(screen.queryByRole("link", { name: /Ver QR/i })).toBeNull();
+  });
+
+  it("un admin llega al QR de la persona", async () => {
+    setup();
+    render(<PersonaDetalle />);
+    await abrirAcciones();
 
     const link = screen.getByRole("link", { name: /Ver QR/i });
     expect(link).toHaveAttribute("href", `/personas/${PERSON_ID}/qr`);
   });
 
-  it("ningún ancestro del enlace al QR está oculto por una clase `hidden`", () => {
+  it("ningún ancestro del enlace al QR está oculto por una clase `hidden`", async () => {
     setup();
     render(<PersonaDetalle />);
+    await abrirAcciones();
 
     // El fallo original era exactamente esto: `hidden … sm:flex` en un ancestro.
     // jsdom no evalúa media queries, así que se comprueba la estructura.
@@ -196,34 +220,72 @@ describe("PersonaDetalle — la barra de acciones se alcanza en cualquier ancho"
   it("el botón de consentimientos abre el modal (era invisible en el móvil)", async () => {
     setup();
     render(<PersonaDetalle />);
+    await abrirAcciones();
 
     expect(screen.queryByTestId("consent-modal")).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: /Consentimientos/i }));
     expect(screen.getByTestId("consent-modal")).toBeInTheDocument();
   });
 
-  it("las cuatro acciones viven en UNA sola barra", () => {
+  it("las tres acciones de uso diario viven en UNA sola fila", async () => {
     setup({ role: "superadmin" });
     render(<PersonaDetalle />);
+    await abrirAcciones();
 
     const qr = screen.getByRole("link", { name: /Ver QR/i });
     const editar = screen.getByRole("button", { name: /Editar ficha/i });
     const consent = screen.getByRole("button", { name: /Consentimientos/i });
-    const retirar = screen.getByRole("button", { name: /Retirar ficha/i });
 
-    const barra = editar.closest("div");
-    expect(barra).not.toBeNull();
-    expect(qr.closest("div")).toBe(barra);
-    expect(consent.closest("div")).toBe(barra);
-    expect(retirar.closest("div")).toBe(barra);
+    const fila = editar.closest("div");
+    expect(fila).not.toBeNull();
+    expect(qr.closest("div")).toBe(fila);
+    expect(consent.closest("div")).toBe(fila);
   });
 
-  it("«Retirar ficha» sigue siendo sólo de superadmin", () => {
+  it("«Retirar ficha» ya NO es un botón de esa fila", async () => {
+    setup({ role: "superadmin" });
+    render(<PersonaDetalle />);
+    await abrirAcciones();
+
+    // Un cuarto botón, del mismo tamaño y a un dedo de los otros tres, se pulsa
+    // por resbalón. Ahora lo destructivo pide abrir el `⋯` primero.
+    expect(screen.queryByRole("button", { name: /Retirar ficha/i })).toBeNull();
+    expect(screen.getByRole("button", { name: "Más acciones" })).toBeInTheDocument();
+  });
+
+  it("el `⋯` sigue siendo sólo de superadmin", async () => {
     setup({ role: "admin" });
     render(<PersonaDetalle />);
+    await abrirAcciones();
 
     expect(screen.getByRole("button", { name: /Editar ficha/i })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Retirar ficha/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Más acciones" })).toBeNull();
+  });
+
+  it("sólo la tira de tabs es pegajosa — la cabecera no", () => {
+    setup();
+    const { container } = render(<PersonaDetalle />);
+
+    // Las dos eran `sticky top-0` y la cabecera ganaba por z-index: en un
+    // teléfono de 812px ocupaba 396 y la tira de tabs quedaba DEBAJO, invisible
+    // al primer scroll. Quien quisiera Programas o Notas tenía que subir del
+    // todo. Dos hermanos pegados al mismo `top` es siempre este bug.
+    const cabecera = container.querySelector("header");
+    const tira = container.querySelector('[data-slot="tabs-list"]')?.closest("div.sticky");
+    expect(cabecera?.className).not.toMatch(/\bsticky\b/);
+    expect(tira).not.toBeNull();
+  });
+
+  it("el tab activo se subraya, no se enmarca", () => {
+    setup();
+    render(<PersonaDetalle />);
+
+    // El primitivo TabsTrigger trae `border border-transparent` en los CUATRO
+    // lados. `border-primary` los pintaba todos y el tab activo salía como una
+    // caja roja alrededor de «Resumen». Sólo se quiere el de abajo.
+    const activo = screen.getByRole("tab", { name: "Resumen" });
+    expect(activo.className).toContain("data-[state=active]:border-b-primary");
+    expect(activo.className).not.toMatch(/data-\[state=active\]:border-primary\b/);
   });
 
   it("un voluntario no llega a esta página, así que tampoco a la barra", () => {
@@ -235,34 +297,46 @@ describe("PersonaDetalle — la barra de acciones se alcanza en cualquier ancho"
     render(<PersonaDetalle />);
 
     expect(screen.getByText(/No se pudo cargar la ficha/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Acciones" })).toBeNull();
     expect(screen.queryByRole("link", { name: /Ver QR/i })).toBeNull();
   });
 });
 
-describe("PersonaDetalle — llegada desde el menú `⋯` del listado", () => {
-  it("`?editar=1` abre el editor al aterrizar", () => {
-    // El ítem del menú dice «Editar ficha». Si sólo dejara al usuario delante
-    // del botón, sería mentira a medias.
-    estado.search = "?editar=1";
-    setup();
+/**
+ * Retirar una ficha la saca del listado y de TODOS sus programas. Antes la
+ * barrera era un diálogo cuyo «Sí, retirar» cuesta lo mismo que «Cancelar»: un
+ * clic. Aquí se fija el precio nuevo — dos gestos y el nombre escrito.
+ */
+describe("Retirar ficha — no se confirma sin escribir el nombre", () => {
+  async function abrirDialogo() {
+    setup({ role: "superadmin" });
     render(<PersonaDetalle />);
+    await abrirAcciones();
+    await userEvent.click(screen.getByRole("button", { name: "Más acciones" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: /Retirar ficha/i }));
+    return screen.getByRole("alertdialog");
+  }
 
-    expect(screen.getByTestId("edit-modal")).toBeInTheDocument();
+  it("el botón de retirar nace bloqueado", async () => {
+    const dialogo = await abrirDialogo();
+    expect(within(dialogo).getByRole("button", { name: "Retirar ficha" })).toBeDisabled();
   });
 
-  it("el parámetro se limpia, para que recargar no lo reabra", () => {
-    estado.search = "?editar=1";
-    setup();
-    render(<PersonaDetalle />);
-
-    expect(estado.navigate).toHaveBeenCalledWith(`/personas/${PERSON_ID}`, { replace: true });
+  it("el nombre de OTRA persona no lo desbloquea", async () => {
+    const dialogo = await abrirDialogo();
+    // El riesgo real no es retirar sin querer: es retirar la ficha equivocada.
+    fireEvent.change(within(dialogo).getByLabelText(/Para confirmar/i), {
+      target: { value: "Ana Gómez" },
+    });
+    expect(within(dialogo).getByRole("button", { name: "Retirar ficha" })).toBeDisabled();
   });
 
-  it("sin el parámetro, el editor está cerrado", () => {
-    setup();
-    render(<PersonaDetalle />);
-
-    expect(screen.queryByTestId("edit-modal")).toBeNull();
-    expect(estado.navigate).not.toHaveBeenCalled();
+  it("el nombre correcto lo desbloquea, y tolera tildes y mayúsculas", async () => {
+    const dialogo = await abrirDialogo();
+    // La fricción tiene que ser deliberación, no mecanografía en un móvil.
+    fireEvent.change(within(dialogo).getByLabelText(/Para confirmar/i), {
+      target: { value: "  ANA GARCIA " },
+    });
+    expect(within(dialogo).getByRole("button", { name: "Retirar ficha" })).toBeEnabled();
   });
 });

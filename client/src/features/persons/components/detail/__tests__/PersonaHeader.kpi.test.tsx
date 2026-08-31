@@ -39,3 +39,35 @@ describe("PersonaHeader collapsible KPI (#141 salvage)", () => {
     expect(screen.getByRole("button", { name: "Ocultar datos" })).toBeInTheDocument();
   });
 });
+
+/**
+ * Las acciones de la ficha se mudaron aquí dentro. Estaban entre el `<header>`
+ * y la tira de tabs, y esos dos van pegados a propósito: la tira lleva `-mt-px`
+ * para solapar el `border-b` del header. Con la barra intercalada, ese `-mt-px`
+ * tiraba de los tabs contra los botones — y la barra, huérfana entre dos
+ * `sticky top-0`, desaparecía al primer scroll.
+ */
+describe("PersonaHeader — acciones plegables (dentro de la cabecera)", () => {
+  it("sin acciones no pinta ni el desplegable", () => {
+    render(<PersonaHeader person={person} visitas={5} />);
+    expect(screen.queryByRole("button", { name: "Acciones" })).toBeNull();
+  });
+
+  it("arrancan plegadas y, al abrirlas, viven DENTRO del <header>", () => {
+    render(
+      <PersonaHeader
+        person={person}
+        visitas={5}
+        acciones={<button type="button">Editar ficha</button>}
+      />
+    );
+
+    const trigger = screen.getByRole("button", { name: "Acciones" });
+    expect(screen.queryByRole("button", { name: "Editar ficha" })).toBeNull();
+
+    fireEvent.click(trigger);
+
+    expect(screen.getByRole("button", { name: "Editar ficha" }).closest("header")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Ocultar acciones" })).toBeInTheDocument();
+  });
+});

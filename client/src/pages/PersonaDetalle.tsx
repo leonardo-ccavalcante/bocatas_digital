@@ -16,7 +16,7 @@ import {
   EditPersonModal,
   type SeccionEditable,
 } from "@/features/persons/components/detail/EditPersonModal";
-import { DeletePersonButton } from "@/features/persons/components/detail/DeletePersonButton";
+import { RetirarFichaMenu } from "@/features/persons/components/detail/RetirarFichaMenu";
 import { useConsentTemplates } from "@/features/persons/hooks/useConsentTemplates";
 import { usePersonById } from "@/features/persons/hooks/usePersonById";
 import { getConsentTemplateLanguage } from "@/features/persons/schemas/enums";
@@ -106,42 +106,48 @@ export default function PersonaDetalle() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <PersonaHeader person={personRow} visitas={visitas} />
+      {/* Las acciones van DENTRO de la cabecera, en su desplegable «Acciones».
+          Estaban aquí fuera, entre el header y la tira de tabs, y esos dos van
+          pegados a propósito: la tira lleva `-mt-px` para solapar el `border-b`
+          del header. Con la barra intercalada —`pt-4` y sin padding inferior—
+          ese `-mt-px` tiraba de los tabs contra los botones. Además la barra
+          quedaba huérfana entre dos `sticky top-0` y desaparecía al primer
+          scroll, justo el momento en que hace falta editar.
 
-      {/* UNA sola barra de acciones, visible en TODOS los anchos.
-          La cabecera ya no lleva acciones rápidas: su bloque `hidden sm:flex`
-          (port visual v4, 1ddf694) escondía el QR y los consentimientos justo
-          por debajo de 640px — el móvil desde el que se dan las altas. Un admin
-          no tenía NINGUNA ruta al QR de una persona desde el teléfono.
+          El gate sigue siendo `isAdmin` y no restringe nada: `persons.getById`
+          es adminProcedure, así que un voluntario nunca pasa del early-return
+          de error de arriba.
 
-          El gate es `isAdmin` y eso no restringe nada: `persons.getById` es
-          adminProcedure, así que un voluntario nunca pasa del early-return de
-          error de arriba. El botón del escudo ya era admin-only en la práctica.
-
-          «Editar ficha» es el único primario de la pantalla; lo destructivo va
-          al final. Texto visible, no iconos sueltos: cuatro iconos sin rótulo en
-          una barra que envuelve a dos líneas es adivinar. */}
-      {isAdmin && (
-        <div className="mx-auto flex w-full max-w-6xl flex-wrap gap-2 px-4 pt-4 sm:px-8">
-          <Button size="sm" onClick={() => abrirEdicion()}>
-            <Pencil className="mr-1 h-4 w-4" aria-hidden="true" /> Editar ficha
-          </Button>
-          <Link href={`/personas/${personRow.id}/qr`}>
-            <Button variant="outline" size="sm">
-              <QrCode className="mr-1 h-4 w-4" aria-hidden="true" /> Ver QR
-            </Button>
-          </Link>
-          <Button variant="outline" size="sm" onClick={() => setShowConsent(true)}>
-            <Shield className="mr-1 h-4 w-4" aria-hidden="true" /> Consentimientos
-          </Button>
-          {isSuperadmin && (
-            <DeletePersonButton
-              personId={personRow.id}
-              nombreCompleto={`${personRow.nombre} ${personRow.apellidos ?? ""}`.trim()}
-            />
-          )}
-        </div>
-      )}
+          «Editar ficha» es el único primario; lo destructivo ya no está en la
+          fila — vive en el `⋯` y pide escribir el nombre. Texto visible, no
+          iconos sueltos: cuatro iconos sin rótulo son adivinar. */}
+      <PersonaHeader
+        person={personRow}
+        visitas={visitas}
+        acciones={
+          isAdmin ? (
+            <>
+              <Button size="sm" onClick={() => abrirEdicion()}>
+                <Pencil className="mr-1 h-4 w-4" aria-hidden="true" /> Editar ficha
+              </Button>
+              <Link href={`/personas/${personRow.id}/qr`}>
+                <Button variant="outline" size="sm">
+                  <QrCode className="mr-1 h-4 w-4" aria-hidden="true" /> Ver QR
+                </Button>
+              </Link>
+              <Button variant="outline" size="sm" onClick={() => setShowConsent(true)}>
+                <Shield className="mr-1 h-4 w-4" aria-hidden="true" /> Consentimientos
+              </Button>
+              {isSuperadmin && (
+                <RetirarFichaMenu
+                  personId={personRow.id}
+                  nombreCompleto={`${personRow.nombre} ${personRow.apellidos ?? ""}`.trim()}
+                />
+              )}
+            </>
+          ) : undefined
+        }
+      />
 
       {isAdmin && showEdit && (
         <EditPersonModal
@@ -177,7 +183,7 @@ export default function PersonaDetalle() {
                     shrink-0 rounded-none border-b-2 border-transparent bg-transparent
                     px-3 py-2.5 text-[13px] font-medium text-muted-foreground shadow-none
                     transition-colors hover:text-foreground
-                    data-[state=active]:border-primary data-[state=active]:text-foreground
+                    data-[state=active]:border-b-primary data-[state=active]:text-foreground
                     data-[state=active]:bg-transparent data-[state=active]:shadow-none
                   "
                 >
