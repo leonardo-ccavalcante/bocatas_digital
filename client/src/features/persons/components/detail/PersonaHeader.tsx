@@ -7,14 +7,17 @@
  * KPI strip uses ONLY real person fields — no fabricated counts. The check-in
  * count comes from the (admin-only) history query passed down by the page; when
  * it is undefined (non-admin or not loaded) the cell shows an em dash.
+ *
+ * El header NO lleva acciones: viven en la barra única de PersonaDetalle, visible
+ * en TODOS los anchos. El bloque `hidden … sm:flex` que había aquí (port visual v4,
+ * 1ddf694) escondía el QR y los consentimientos justo por debajo de 640px — que es
+ * el móvil desde el que se dan las altas. No devolver acciones a este archivo.
  */
 import { useState } from "react";
-import { Link } from "wouter";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, QrCode, Shield } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import BackLink from "@/components/layout/BackLink";
 import { formatDateDisplay, calculateAge } from "@/lib/dateUtils";
 import type { Database } from "@/lib/database.types";
@@ -26,7 +29,6 @@ interface PersonaHeaderProps {
   person: PersonRow;
   /** Real check-in total (admin-only). Undefined → cell shows "—". */
   visitas?: number;
-  onConsent: () => void;
 }
 
 function getInitials(nombre: string, apellidos: string | null): string {
@@ -61,7 +63,7 @@ function KPICell({
   );
 }
 
-export function PersonaHeader({ person, visitas, onConsent }: PersonaHeaderProps) {
+export function PersonaHeader({ person, visitas }: PersonaHeaderProps) {
   const fullName = `${person.nombre} ${person.apellidos ?? ""}`.trim();
   const initials = getInitials(person.nombre, person.apellidos);
   const estado = getEstadoChip(person.fase_itinerario);
@@ -125,23 +127,6 @@ export function PersonaHeader({ person, visitas, onConsent }: PersonaHeaderProps
                 {person.municipio ? ` · ${person.municipio}` : ""}
               </p>
             )}
-          </div>
-
-          {/* Quick actions */}
-          <div className="hidden shrink-0 flex-col gap-2 sm:flex">
-            <Link href={`/personas/${person.id}/qr`}>
-              <Button size="sm" variant="outline" aria-label="Ver código QR">
-                <QrCode className="h-4 w-4" />
-              </Button>
-            </Link>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={onConsent}
-              aria-label="Gestionar consentimientos"
-            >
-              <Shield className="h-4 w-4" />
-            </Button>
           </div>
         </div>
 

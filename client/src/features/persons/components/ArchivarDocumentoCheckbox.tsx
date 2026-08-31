@@ -10,9 +10,12 @@
  * Aquí se pinta junto al aviso de "datos extraídos", que es donde quien atiende
  * está mirando en ese momento.
  *
- * Se muestra sólo si hay imagen capturada, y por defecto NO se archiva: los
- * textos de consentimiento que la persona firma hoy no amparan guardar la
- * imagen de su documento (ver el cuerpo de la PR y #149).
+ * Se muestra sólo si hay imagen capturada y viene MARCADA: la puerta real es el
+ * consentimiento `archivo_documento_identidad`, que se pide en la fase 3 y se
+ * comprueba al enviar. Sin él la imagen no se guarda aunque esto esté marcado,
+ * así que apagarla por defecto no añadiría ninguna garantía — sólo garantizaría
+ * que, con prisa, no se archive nunca. Esto es el opt-out del caso concreto:
+ * foto ilegible, documento de un tercero, duda.
  */
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -41,8 +44,9 @@ export function ArchivarDocumentoCheckbox({
       />
       <Label htmlFor="archivar_documento" className="cursor-pointer text-xs font-normal">
         <span className="font-medium">Archivar la foto del documento en la ficha.</span>{" "}
-        Queda guardada de forma privada y sólo la ve personal de administración.
-        Márcalo únicamente si la persona lo ha autorizado.
+        Queda guardada de forma privada y sólo la ve superadministración. Se
+        pedirá la autorización de la persona más adelante: sin ella no se
+        archiva. Desmárcalo si la foto no sirve o no es su documento.
       </Label>
     </div>
   );

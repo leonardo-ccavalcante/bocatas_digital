@@ -36,6 +36,7 @@ import { adminProcedure, superadminProcedure } from "../../_core/trpc";
 import { logProcedureAction, logProcedureError } from "../../_core/logging-middleware";
 import { encryptPII, isPiiCryptoConfigured } from "../../_core/pii-crypto";
 import { softDeleteWithCascade } from "../../db/soft-delete-cascade";
+import { AVATAR_BUCKET, ID_DOCUMENT_BUCKET, storageRemove } from "../../storage";
 import type { Database } from "../../../client/src/lib/database.types";
 import { PersonCreateInput, uuidLike } from "./_shared";
 
@@ -49,6 +50,10 @@ type PersonsUpdate = Database["public"]["Tables"]["persons"]["Update"];
 export const PersonUpdateFields = PersonCreateInput.omit({
   program_ids: true,
   fase_itinerario: true,
+  // Desde que getById dejó de devolverlo, un admin podría escribir un campo
+  // que ya no puede leer — justo el invariante que la cabecera de este archivo
+  // afirma. Se cambia volviendo a subir la foto, no parcheando la columna.
+  foto_documento_url: true,
 }).partial();
 
 /** Campos de categoría especial: sólo se escriben con consentimiento declarado. */
@@ -166,7 +171,7 @@ export const softDeletePerson = superadminProcedure
 
     const { data: persona, error: errorLectura } = await supabase
       .from("persons")
-      .select("id, nombre, apellidos")
+      .select("id, nombre, apellidos, foto_perfil_url, foto_documento_url")
       .eq("id", input.id)
       .is("deleted_at", null)
       .maybeSingle();
@@ -213,10 +218,28 @@ export const softDeletePerson = superadminProcedure
       });
     }
 
+    // Las fotos se borran de verdad, aunque el soft-delete sea reversible.
+    //
+    // softDeleteWithCascade sólo marca filas: no toca el Storage. Una ficha
+    // retirada dejaba la imagen de su DNI en el bucket indefinidamente, sin
+    // plazo y sin nadie mirándola — conservación indefinida de una copia de
+    // documento de identidad, que es justo lo que no se puede sostener. La
+    // ficha se puede recuperar; la imagen no, y esa asimetría es deliberada:
+    // recuperar la persona no debe resucitar su DNI.
+    const fotos: Array<[string, unknown]> = [
+      [AVATAR_BUCKET, persona.foto_perfil_url],
+      [ID_DOCUMENT_BUCKET, persona.foto_documento_url],
+    ];
+    let borradas = 0;
+    for (const [bucket, ruta] of fotos) {
+      if (typeof ruta !== "string" || !ruta) continue;
+      if (await storageRemove(bucket, ruta)) borradas += 1;
+    }
+
     // Marca deleted_at en persons y arrastra sus inscripciones
     // (server/db/soft-delete-cascade.ts). Reversible: admin/soft-delete-recovery.
     await softDeleteWithCascade(supabase, "persons", input.id);
 
-    logProcedureAction(ctx, "Person soft-deleted", { personId: input.id });
+    logProcedureAction(ctx, "Person soft-deleted", { personId: input.id, fotosBorradas: borradas });
     return { id: persona.id };
   });

@@ -118,6 +118,42 @@ export async function storageSignedUrls(
 }
 
 /**
+ * Borra un objeto del Storage. Devuelve `true` si ya no está.
+ *
+ * No existía ninguna función para borrar. Mientras no se guardaba nada era
+ * deuda teórica; desde que la imagen de un documento de identidad se conserva
+ * bajo consentimiento, poder borrarla ES la base jurídica: un consentimiento
+ * que no se puede retirar de verdad no es consentimiento.
+ *
+ * Recibe un PATH leído de la base, nunca un patrón ni un prefijo — borrar es
+ * irreversible y no hay copia. `remove()` no distingue "borrado" de "no
+ * estaba", y aquí da igual: las dos cosas significan que ya no hay imagen.
+ *
+ * Un valor absoluto `http(s)` es una fila legada anterior a CAS-02: no hay
+ * ningún objeto nuestro detrás, así que se devuelve `true` para que la columna
+ * sí se limpie.
+ *
+ * Devuelve `false` en vez de lanzar: quien llama decide si el fallo bloquea la
+ * operación. La regla es la misma en todos los sitios — borrar el objeto
+ * PRIMERO y limpiar la columna DESPUÉS: una columna que apunta a un archivo
+ * inexistente es peor que un reintento.
+ */
+export async function storageRemove(bucket: string, path: string): Promise<boolean> {
+  const key = normalizeKey(path);
+  if (!key) return true;
+  if (/^https?:\/\//i.test(key)) return true;
+
+  const { error } = await createAdminClient().storage.from(bucket).remove([key]);
+  if (error) {
+    // El mensaje del driver puede llevar la ruta: fuera de la respuesta al
+    // cliente y fuera de cualquier toast.
+    console.error(`[storage] remove from '${bucket}' failed: ${error.message}`);
+    return false;
+  }
+  return true;
+}
+
+/**
  * Replace a storage-path field with a short-lived signed URL, IN PLACE, across
  * a list of rows — one Storage round trip for the whole page (never one per
  * row: these run inside the check-in and "Sin QR" search paths, which carry
@@ -162,3 +198,9 @@ export const AVATAR_BUCKET = "fotos-perfil";
  * `redactHighRiskFields` (admin/superadmin).
  */
 export const ID_DOCUMENT_BUCKET = "documentos-identidad";
+/**
+ * Foto del documento de consentimiento firmado a mano
+ * (`consents.documento_foto_url`). Es la prueba del Art. 7: privada, y sólo se
+ * firma bajo demanda desde persons.getDocumentUrls.
+ */
+export const CONSENT_DOCUMENT_BUCKET = "documentos-consentimiento";

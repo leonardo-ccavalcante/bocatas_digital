@@ -2867,6 +2867,7 @@ export type Database = {
         | "compartir_datos_red"
         | "comunicaciones_whatsapp"
         | "fotografia"
+        | "archivo_documento_identidad"
       estabilidad_habitacional:
         | "sin_hogar"
         | "inestable"
@@ -3113,6 +3114,7 @@ export const Constants = {
         "compartir_datos_red",
         "comunicaciones_whatsapp",
         "fotografia",
+        "archivo_documento_identidad",
       ],
       estabilidad_habitacional: [
         "sin_hogar",

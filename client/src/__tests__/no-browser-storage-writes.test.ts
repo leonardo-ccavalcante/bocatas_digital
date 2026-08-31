@@ -14,6 +14,10 @@ const COMPONENTS = [
   "client/src/features/familias-reparto/components/SignedActaUpload.tsx",
   "client/src/components/DocumentUploadModal.tsx",
   "client/src/features/uploads-tab/UploadModal.tsx",
+  // Pintan imágenes que salen de Storage: exactamente la regresión que este
+  // bloqueo evita (nada de cliente Supabase de navegador ni getPublicUrl).
+  "client/src/features/persons/components/documents/PersonDocumentsModal.tsx",
+  "client/src/features/persons/components/documents/PersonDocumentViewer.tsx",
 ];
 
 describe("RC-03 — no browser-side Supabase writes", () => {

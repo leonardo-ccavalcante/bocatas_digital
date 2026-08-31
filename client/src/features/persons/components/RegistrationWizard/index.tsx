@@ -82,11 +82,19 @@ export function RegistrationWizard() {
   // ── OCR shared state ──────────────────────────────────────────────────────
   const [ocrUsed, setOcrUsed] = useState(false);
   // Foto del documento. `documentoBase64` se rellena en cuanto hay captura;
-  // `archivarDocumento` es la decisión explícita de guardarla, apagada por
-  // defecto. Separarlas es lo que permite que la casilla siga en pantalla
-  // después de que el OCR desmonte el componente de captura.
+  // `archivarDocumento` es la decisión de quien atiende. Separarlas es lo que
+  // permite que la casilla siga en pantalla después de que el OCR desmonte el
+  // componente de captura.
+  //
+  // Viene MARCADA. La puerta que decide de verdad es el consentimiento
+  // `archivo_documento_identidad`, que se pide dos fases más adelante y se
+  // comprueba al enviar: si la persona no lo otorga, la imagen no se guarda
+  // aunque la casilla esté marcada. Dejarla apagada por defecto no añadiría
+  // ninguna garantía y, con voluntarios con prisa, significaría en la práctica
+  // no archivar nunca. Queda como opt-out para el caso concreto: foto ilegible,
+  // documento de un tercero, duda.
   const [documentoBase64, setDocumentoBase64] = useState<string | null>(null);
-  const [archivarDocumento, setArchivarDocumento] = useState(false);
+  const [archivarDocumento, setArchivarDocumento] = useState(true);
 
   // ── Profile photo ─────────────────────────────────────────────────────────
   const [profilePhotoBase64, setProfilePhotoBase64] = useState<string | null>(null);
@@ -177,7 +185,12 @@ export function RegistrationWizard() {
     groupA: groupAPurposes,
     groupB: groupBPurposes,
     groupC: groupCPurposes,
-  } = buildConsentGroups({ hasProgramaFamilias: hasFamilia });
+  } = buildConsentGroups({
+    hasProgramaFamilias: hasFamilia,
+    // Ver buildConsentGroups: el fin nuevo sólo se pregunta si su plantilla ya
+    // está en la base, porque eso demuestra que su migración de enum también.
+    purposesConPlantilla: new Set(consentTemplatesEs.map((t) => t.purpose)),
+  });
   const groupAAccepted = groupAPurposes.every((p) => consentChoices[p] === true);
 
   // ── OCR handler ─────────────────────────────────────────────────────────────

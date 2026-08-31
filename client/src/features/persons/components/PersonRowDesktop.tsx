@@ -5,7 +5,7 @@
  * estado badge, and action buttons. Keyboard-navigable.
  */
 import { useLocation } from "wouter";
-import { Eye, QrCode } from "lucide-react";
+import { PersonActionsMenu } from "./PersonActionsMenu";
 import { Badge } from "@/components/ui/badge";
 import { FASE_ITINERARIO_CONFIG } from "@/features/persons/schemas/labels";
 
@@ -214,42 +214,27 @@ export function PersonRowDesktop({
         <EstadoBadge estado={estado} />
       </span>
 
-      {/* Actions (visible on hover/focus) */}
+      {/* Acciones. Ya NO son `opacity-0 group-hover:opacity-100`: eso las hacía
+          invisibles sin ratón, o sea siempre invisibles en una tableta o un
+          teléfono. Ahora el menú está presente y sube de contraste al pasar por
+          encima.
+
+          Sustituye a dos botones que no aportaban nada propio: el de «Check-in»
+          navegaba a /checkin ignorando por completo a la persona de la fila (y
+          esa página ya está en la navegación), y el de «Ver ficha» repetía lo
+          que hace pulsar la fila entera. El menú cubre las dos y además abre la
+          edición y el QR de ESTA persona. */}
       <div
-        className="flex items-center justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+        className="flex items-center justify-end opacity-70 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
         style={{ opacity: active ? 1 : undefined }}
         onClick={(e) => e.stopPropagation()}
       >
-        <ActionBtn
-          icon={<QrCode className="h-3.5 w-3.5" />}
-          label="Check-in"
-          onClick={() => navigate("/checkin")}
-        />
-        <ActionBtn
-          icon={<Eye className="h-3.5 w-3.5" />}
-          label="Ver ficha"
-          onClick={goToDetail}
+        <PersonActionsMenu
+          personId={person.id}
+          nombreCompleto={`${person.nombre} ${person.apellidos ?? ""}`.trim()}
+          variant="icon"
         />
       </div>
     </div>
-  );
-}
-
-interface ActionBtnProps {
-  icon: React.ReactNode;
-  label: string;
-  onClick: () => void;
-}
-
-function ActionBtn({ icon, label, onClick }: ActionBtnProps) {
-  return (
-    <button
-      onClick={onClick}
-      aria-label={label}
-      title={label}
-      className="h-7 w-7 rounded-md hover:bg-card text-muted-foreground hover:text-foreground inline-flex items-center justify-center transition-colors"
-    >
-      {icon}
-    </button>
   );
 }

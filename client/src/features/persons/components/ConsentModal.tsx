@@ -12,14 +12,7 @@ import type { ConsentTemplate } from "../schemas";
 import { TEMPLATE_LANGUAGES } from "./RegistrationWizard/_shared";
 import { compressImage } from "../utils/imageUtils";
 import { useSavedConsents, describeConsentSignature } from "../hooks/usePersonConsents";
-
-const CONSENT_PURPOSE_LABELS: Record<string, string> = {
-  tratamiento_datos_bocatas: "Tratamiento de datos — Bocatas",
-  tratamiento_datos_banco_alimentos: "Tratamiento de datos — Banco de Alimentos",
-  compartir_datos_red: "Compartir datos en red",
-  comunicaciones_whatsapp: "Comunicaciones por WhatsApp",
-  fotografia: "Uso de fotografía",
-};
+import { CONSENT_PURPOSE_LABELS } from "../schemas";
 
 interface ConsentModalProps {
   open: boolean;

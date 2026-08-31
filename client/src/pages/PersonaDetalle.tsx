@@ -1,6 +1,6 @@
-import { useState } from "react";
-import { Link, useParams } from "wouter";
-import { Loader2, AlertCircle, Users, Lock, Pencil } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Link, useLocation, useParams, useSearch } from "wouter";
+import { Loader2, AlertCircle, Users, Lock, Pencil, QrCode, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CheckinHistoryTable } from "@/features/persons/components/CheckinHistoryTable";
@@ -12,7 +12,10 @@ import {
   NotasTab,
   DetailEmptyState,
 } from "@/features/persons/components/detail";
-import { EditPersonModal } from "@/features/persons/components/detail/EditPersonModal";
+import {
+  EditPersonModal,
+  type SeccionEditable,
+} from "@/features/persons/components/detail/EditPersonModal";
 import { DeletePersonButton } from "@/features/persons/components/detail/DeletePersonButton";
 import { useConsentTemplates } from "@/features/persons/hooks/useConsentTemplates";
 import { usePersonById } from "@/features/persons/hooks/usePersonById";
@@ -29,7 +32,26 @@ export default function PersonaDetalle() {
   const { data: person, isLoading, isError, refetch } = usePersonById(id ?? "");
   const { user } = useAuth();
   const [showConsent, setShowConsent] = useState(false);
-  const [showEdit, setShowEdit] = useState(false);
+
+  // `?editar=1` llega desde el menú `⋯` del listado: un ítem que dice «Editar
+  // ficha» y sólo te deja delante del botón sería mentira a medias. Se lee una
+  // vez al montar (es cuando se navega hasta aquí) y se limpia enseguida, para
+  // que cerrar el modal y recargar no lo vuelva a abrir.
+  const search = useSearch();
+  const [, navigate] = useLocation();
+  const [showEdit, setShowEdit] = useState(
+    () => new URLSearchParams(search).get("editar") === "1"
+  );
+  // Sección a la que salta el editor. La fijan los lápices del Resumen.
+  const [seccionEdicion, setSeccionEdicion] = useState<SeccionEditable | undefined>();
+  const abrirEdicion = (seccion?: SeccionEditable) => {
+    setSeccionEdicion(seccion);
+    setShowEdit(true);
+  };
+  useEffect(() => {
+    if (new URLSearchParams(search).get("editar") !== "1") return;
+    navigate(`/personas/${id}`, { replace: true });
+  }, [search, id, navigate]);
   const [activeTab, setActiveTab] = useState("resumen");
 
   // Only admins and superadmins see check-in data + the Familia CTA + the
@@ -84,20 +106,33 @@ export default function PersonaDetalle() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <PersonaHeader
-        person={personRow}
-        visitas={visitas}
-        onConsent={() => setShowConsent(true)}
-      />
+      <PersonaHeader person={personRow} visitas={visitas} />
 
-      {/* Acciones sobre la ficha. Van aquí y no en la cabecera porque el bloque
-          de acciones rápidas de PersonaHeader es `hidden sm:flex` — invisible
-          justo en el móvil, que es el dispositivo desde el que se dan las
-          altas y donde se detectan los errores que hay que corregir. */}
+      {/* UNA sola barra de acciones, visible en TODOS los anchos.
+          La cabecera ya no lleva acciones rápidas: su bloque `hidden sm:flex`
+          (port visual v4, 1ddf694) escondía el QR y los consentimientos justo
+          por debajo de 640px — el móvil desde el que se dan las altas. Un admin
+          no tenía NINGUNA ruta al QR de una persona desde el teléfono.
+
+          El gate es `isAdmin` y eso no restringe nada: `persons.getById` es
+          adminProcedure, así que un voluntario nunca pasa del early-return de
+          error de arriba. El botón del escudo ya era admin-only en la práctica.
+
+          «Editar ficha» es el único primario de la pantalla; lo destructivo va
+          al final. Texto visible, no iconos sueltos: cuatro iconos sin rótulo en
+          una barra que envuelve a dos líneas es adivinar. */}
       {isAdmin && (
         <div className="mx-auto flex w-full max-w-6xl flex-wrap gap-2 px-4 pt-4 sm:px-8">
-          <Button variant="outline" size="sm" onClick={() => setShowEdit(true)}>
+          <Button size="sm" onClick={() => abrirEdicion()}>
             <Pencil className="mr-1 h-4 w-4" aria-hidden="true" /> Editar ficha
+          </Button>
+          <Link href={`/personas/${personRow.id}/qr`}>
+            <Button variant="outline" size="sm">
+              <QrCode className="mr-1 h-4 w-4" aria-hidden="true" /> Ver QR
+            </Button>
+          </Link>
+          <Button variant="outline" size="sm" onClick={() => setShowConsent(true)}>
+            <Shield className="mr-1 h-4 w-4" aria-hidden="true" /> Consentimientos
           </Button>
           {isSuperadmin && (
             <DeletePersonButton
@@ -114,6 +149,7 @@ export default function PersonaDetalle() {
           isAdmin={isAdmin}
           open={showEdit}
           onOpenChange={setShowEdit}
+          seccionInicial={seccionEdicion}
           onSaved={() => void refetch()}
         />
       )}
@@ -155,7 +191,11 @@ export default function PersonaDetalle() {
         <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-8">
           {/* Resumen — restyled summary of real person fields */}
           <TabsContent value="resumen" className="mt-0">
-            <ResumenTab person={personRow} isAdmin={isAdmin} />
+            <ResumenTab
+              person={personRow}
+              isAdmin={isAdmin}
+              onEditar={isAdmin ? abrirEdicion : undefined}
+            />
           </TabsContent>
 
           {/* Programas — existing EnrollmentPanel, same props as before */}
@@ -186,7 +226,11 @@ export default function PersonaDetalle() {
 
           {/* Documentos — no endpoint yet: honest empty state (see component) */}
           <TabsContent value="documentos" className="mt-0">
-            {activeTab === "documentos" && <DocumentosTab person={personRow} isAdmin={isAdmin} />}
+            {activeTab === "documentos" && <DocumentosTab
+              personId={personRow.id}
+              nombreCompleto={`${personRow.nombre} ${personRow.apellidos ?? ""}`.trim()}
+              isSuperadmin={isSuperadmin}
+            />}
           </TabsContent>
 
           {/* Asistencias — admin only, existing CheckinHistoryTable */}

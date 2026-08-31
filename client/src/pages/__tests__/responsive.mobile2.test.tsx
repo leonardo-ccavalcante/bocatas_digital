@@ -82,3 +82,30 @@ describe("Typography consistency — design tokens instead of raw Tailwind sizes
     expect(source).not.toMatch(/<h1[^>]*className="[^"]*text-2xl font-bold[^"]*"/);
   });
 });
+
+// ── Test 4: la ficha no vuelve a esconder acciones por debajo de sm ───────────
+// El port visual v4 (1ddf694) metió las acciones rápidas de PersonaHeader en un
+// `hidden … sm:flex`: el QR y los consentimientos desaparecían por debajo de
+// 640px, justo en el teléfono desde el que se dan las altas. La prueba de
+// alcanzabilidad (PersonaDetalle.qr.reachability.test.tsx) monta la página y lo
+// demuestra; este guard de fuente es el segundo cinturón, y nombra el patrón
+// exacto para que reintroducirlo sea caro.
+// Sólo dentro de className: los comentarios de esos archivos NOMBRAN el patrón
+// para explicar por qué se quitó, y un regex sobre el fuente entero se los come.
+const GATE_DE_ANCHURA = /className=\{?["`][^"`]*\bhidden\b[^"`]*\bsm:(flex|block|grid|inline)/;
+
+describe("Ficha de persona — ninguna acción escondida por anchura", () => {
+  it("PersonaHeader no esconde ningún bloque por debajo de sm", () => {
+    const source = readFileSync(
+      resolve(SRC, "features/persons/components/detail/PersonaHeader.tsx"),
+      "utf-8"
+    );
+    expect(source).not.toMatch(GATE_DE_ANCHURA);
+  });
+
+  it("PersonaDetalle expone el QR en una barra sin gate de anchura", () => {
+    const source = readFileSync(resolve(SRC, "pages/PersonaDetalle.tsx"), "utf-8");
+    expect(source).toMatch(/\/personas\/\$\{personRow\.id\}\/qr/);
+    expect(source).not.toMatch(GATE_DE_ANCHURA);
+  });
+});

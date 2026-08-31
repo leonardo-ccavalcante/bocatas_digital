@@ -31,11 +31,13 @@ if (!Element.prototype.scrollIntoView) {
 }
 
 // ── hoisted mock fns ───────────────────────────────────────────────────────────
-const { mockUsePersonById, mockUseAuth, mockCheckinUseQuery } = vi.hoisted(() => ({
-  mockUsePersonById: vi.fn(),
-  mockUseAuth: vi.fn(),
-  mockCheckinUseQuery: vi.fn(),
-}));
+const { mockUsePersonById, mockUseAuth, mockCheckinUseQuery, mockDocumentosUseQuery } =
+  vi.hoisted(() => ({
+    mockUsePersonById: vi.fn(),
+    mockUseAuth: vi.fn(),
+    mockCheckinUseQuery: vi.fn(),
+    mockDocumentosUseQuery: vi.fn(),
+  }));
 
 vi.mock("@/features/persons/hooks/usePersonById", () => ({
   usePersonById: mockUsePersonById,
@@ -53,6 +55,12 @@ vi.mock("@/lib/trpc", () => ({
   trpc: {
     persons: {
       getCheckinHistory: { useQuery: mockCheckinUseQuery },
+      // La pestaña Documentos ya no lee la fila: pide las URLs firmadas bajo
+      // demanda a una procedure de superadmin.
+      getDocumentUrls: { useQuery: mockDocumentosUseQuery },
+      // Con rol superadmin la barra pinta DeletePersonButton, que monta esta
+      // mutación al renderizar.
+      softDelete: { useMutation: () => ({ mutateAsync: vi.fn(), isPending: false }) },
     },
   },
 }));
@@ -176,6 +184,7 @@ function setup({
   });
   mockUseAuth.mockReturnValue({ user: { role } });
   mockCheckinUseQuery.mockReturnValue({ data: { total } });
+  mockDocumentosUseQuery.mockReturnValue({ data: { documentos: [] }, isLoading: false });
 }
 
 beforeEach(() => {
@@ -249,11 +258,21 @@ describe("PersonaDetalle — Asistencias gating", () => {
 });
 
 describe("PersonaDetalle — empty states (no fabricated data)", () => {
-  it("Documentos shows an empty state when there is no document", async () => {
-    setup({ person: makePerson({ foto_documento_url: null }) });
+  it("Documentos shows an empty state when a superadmin has none", async () => {
+    setup({ role: "superadmin" });
     render(<PersonaDetalle />);
     await userEvent.click(screen.getByRole("tab", { name: "Documentos" }));
     expect(await screen.findByText("Sin documentos")).toBeInTheDocument();
+  });
+
+  it("Documentos tells an admin it is restricted — never 'no documents'", async () => {
+    // Decirle a un admin que no hay documentos cuando sí los hay sería
+    // fabricar datos. Se sigue el patrón de la pestaña de Asistencias.
+    setup({ role: "admin" });
+    render(<PersonaDetalle />);
+    await userEvent.click(screen.getByRole("tab", { name: "Documentos" }));
+    expect(await screen.findByText("Acceso restringido")).toBeInTheDocument();
+    expect(screen.queryByText("Sin documentos")).toBeNull();
   });
 
   it("Notas shows an empty state when there are no notas", async () => {

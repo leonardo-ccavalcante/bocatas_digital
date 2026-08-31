@@ -126,6 +126,10 @@ export const ConsentPurposeSchema = z.enum([
   "compartir_datos_red",
   "comunicaciones_whatsapp",
   "fotografia",
+  // Conservar la imagen del documento de identidad. Fin PROPIO y no un caso de
+  // `fotografia`: ese texto cubre fotos «durante las actividades», no archivar
+  // un DNI. Migración 20260831120000.
+  "archivo_documento_identidad",
 ]);
 
 export type ConsentPurpose = z.infer<typeof ConsentPurposeSchema>;

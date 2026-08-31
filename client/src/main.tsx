@@ -1,4 +1,14 @@
-import "@/lib/i18n"; // must be first — initializes i18n before any component renders
+// i18n NO se importa aquí. Este import de efecto lateral metía i18next,
+// react-i18next, i18next-browser-languagedetector y los DOCE JSON de locales en
+// el chunk de entrada — o sea, en cada carga de /login — para servir a un único
+// componente, LanguageSwitcher, que no está referenciado en ninguna parte.
+//
+// La UI es sólo en español (AGENTS.md); el único texto no español es el del
+// modal de consentimiento, y ese viene de `consent_templates` en la base, no de
+// i18next. Los archivos se quedan en el repo para cuando la UI multiidioma se
+// construya de verdad: entonces hay que volver a importar `@/lib/i18n` ANTES de
+// montar el primer componente que use `useTranslation`, o el hook fallará en
+// tiempo de ejecución porque nadie habrá llamado a init().
 import { trpc } from "@/lib/trpc";
 import { UNAUTHED_ERR_MSG } from '@shared/const';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";

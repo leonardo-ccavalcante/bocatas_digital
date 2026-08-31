@@ -4,7 +4,7 @@
  * trigger reveals it, with a compact "Fase" summary while collapsed.
  */
 import React from "react";
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import type { Database } from "@/lib/database.types";
 import { PersonaHeader } from "../PersonaHeader";
@@ -26,7 +26,7 @@ afterEach(cleanup);
 
 describe("PersonaHeader collapsible KPI (#141 salvage)", () => {
   it("hides the KPI grid by default and reveals it on toggle", () => {
-    render(<PersonaHeader person={person} visitas={5} onConsent={vi.fn()} />);
+    render(<PersonaHeader person={person} visitas={5} />);
 
     // Collapsed: the trigger says "Ver datos"; the KPI cells are not rendered.
     const trigger = screen.getByRole("button", { name: "Ver datos" });
