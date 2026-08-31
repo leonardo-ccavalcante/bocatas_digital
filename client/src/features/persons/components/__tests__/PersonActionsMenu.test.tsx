@@ -15,15 +15,18 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-const { mockUseAuth, mockNavigate, mockIdsConDocumentos } = vi.hoisted(() => ({
-  mockUseAuth: vi.fn(),
+const { mockMe, mockNavigate, mockIdsConDocumentos } = vi.hoisted(() => ({
+  mockMe: vi.fn(),
   mockNavigate: vi.fn(),
   mockIdsConDocumentos: vi.fn(),
 }));
 
-vi.mock("@/_core/hooks/useAuth", () => ({ useAuth: mockUseAuth }));
+// El rol se lee con `trpc.auth.me` y NO con useAuth: ese hook arrastra un
+// localStorage.setItem síncrono que, con un hook por fila, golpea el hilo
+// principal en la pantalla que ya tuvo un INP de 3.562 ms.
 vi.mock("@/lib/trpc", () => ({
   trpc: {
+    auth: { me: { useQuery: mockMe } },
     persons: {
       getPersonIdsWithDocuments: { useQuery: mockIdsConDocumentos },
       getDocumentUrls: { useQuery: () => ({ data: undefined, isLoading: false }) },
@@ -47,7 +50,7 @@ const PERSON: PersonRowData = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockUseAuth.mockReturnValue({ user: { role: "admin" } });
+  mockMe.mockReturnValue({ data: { role: "admin" } });
   mockIdsConDocumentos.mockReturnValue({ data: undefined, isSuccess: false });
 });
 afterEach(() => cleanup());
@@ -96,7 +99,7 @@ describe("PersonCardMobile — el `⋯` ya no es decorativo", () => {
   });
 
   it("un voluntario no ve «Editar ficha»", async () => {
-    mockUseAuth.mockReturnValue({ user: { role: "voluntario" } });
+    mockMe.mockReturnValue({ data: { role: "voluntario" } });
     render(<PersonCardMobile person={PERSON} />);
     await abrirMenu();
     expect(await screen.findByRole("menuitem", { name: /Ver ficha/i })).toBeInTheDocument();

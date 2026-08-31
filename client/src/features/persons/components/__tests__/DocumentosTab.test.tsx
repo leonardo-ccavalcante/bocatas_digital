@@ -31,7 +31,10 @@ const IDENTIDAD = {
 };
 const CONSENTIMIENTO = {
   kind: "consentimiento" as const,
-  purposes: ["fotografia", "tratamiento_datos_bocatas"],
+  purposes: [
+    { purpose: "tratamiento_datos_bocatas", granted: true },
+    { purpose: "fotografia", granted: false },
+  ],
   url: "https://firmada/hoja.jpg",
   archivadoEn: "2026-01-10T00:00:00Z",
 };
@@ -118,5 +121,30 @@ describe("DocumentosTab — el visor es in-app", () => {
     await userEvent.click(screen.getAllByRole("button", { name: "Ver" })[0]);
     const dialogo = await screen.findByRole("dialog");
     expect(within(dialogo).getByText(/requiere autorización expresa/i)).toBeInTheDocument();
+  });
+});
+
+describe("DocumentosTab — hallazgos de la revisión cruzada con Codex", () => {
+  it("un fin DENEGADO no se presenta como autorizado", async () => {
+    // La hoja firmada documenta los síes y los noes. Decir «autoriza: uso de
+    // fotografía» sobre una hoja donde la persona dijo que NO sería afirmar un
+    // consentimiento inexistente, en la pantalla que es la prueba del Art. 7.
+    pintar(true, [CONSENTIMIENTO]);
+    await userEvent.click(screen.getAllByRole("button", { name: "Ver" })[0]);
+    const dialogo = await screen.findByRole("dialog");
+
+    expect(within(dialogo).getByText(/Autoriza:.*Tratamiento de datos/i)).toBeInTheDocument();
+    expect(within(dialogo).getByText(/Denegado:.*Uso de fotografía/i)).toBeInTheDocument();
+    expect(within(dialogo).queryByText(/Autoriza:.*Uso de fotografía/i)).toBeNull();
+  });
+
+  it("«Ver» en la SEGUNDA fila abre la segunda, no la primera", async () => {
+    pintar(true, [IDENTIDAD, CONSENTIMIENTO]);
+    await userEvent.click(screen.getAllByRole("button", { name: "Ver" })[1]);
+    const dialogo = await screen.findByRole("dialog");
+
+    expect(
+      within(dialogo).getByAltText(/Foto archivada del consentimiento firmado/i)
+    ).toBeInTheDocument();
   });
 });

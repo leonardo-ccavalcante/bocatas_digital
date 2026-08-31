@@ -10,7 +10,7 @@
  * abre esto. `gcTime` corto para que el enlace a la PII no se quede en la
  * caché de React Query los cinco minutos por defecto tras cerrar.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FileText, IdCard, Loader2, Lock } from "lucide-react";
 import {
   Dialog,
@@ -31,6 +31,8 @@ interface PersonDocumentsModalProps {
   nombreCompleto?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Documento a mostrar al abrir. Lo fija la fila que se ha pulsado. */
+  indiceInicial?: number;
 }
 
 const TITULO = { identidad: "Documento de identidad", consentimiento: "Consentimiento firmado" };
@@ -40,8 +42,13 @@ export function PersonDocumentsModal({
   nombreCompleto,
   open,
   onOpenChange,
+  indiceInicial = 0,
 }: PersonDocumentsModalProps) {
-  const [indice, setIndice] = useState(0);
+  const [indice, setIndice] = useState(indiceInicial);
+  // Pulsar «Ver» en la segunda fila tiene que abrir la segunda, no la primera.
+  useEffect(() => {
+    if (open) setIndice(indiceInicial);
+  }, [open, indiceInicial]);
   const { data, isLoading, error, refetch } = trpc.persons.getDocumentUrls.useQuery(
     { personId },
     { enabled: open, staleTime: 30_000, gcTime: 30_000, retry: false, refetchOnWindowFocus: false }
@@ -130,9 +137,25 @@ export function PersonDocumentsModal({
                 </span>
               )}
             </div>
-            {actual.purposes.length > 0 && (
+            {/* Sí y no por separado: la hoja documenta las dos cosas, y decir
+                «autoriza» sobre un fin denegado sería afirmar un
+                consentimiento que no existe. */}
+            {actual.purposes.some((p) => p.granted) && (
               <p className="text-xs text-muted-foreground">
-                Cubre: {actual.purposes.map((p) => CONSENT_PURPOSE_LABELS[p] ?? p).join(" · ")}
+                Autoriza:{" "}
+                {actual.purposes
+                  .filter((p) => p.granted)
+                  .map((p) => CONSENT_PURPOSE_LABELS[p.purpose] ?? p.purpose)
+                  .join(" · ")}
+              </p>
+            )}
+            {actual.purposes.some((p) => !p.granted) && (
+              <p className="text-xs text-muted-foreground">
+                Denegado:{" "}
+                {actual.purposes
+                  .filter((p) => !p.granted)
+                  .map((p) => CONSENT_PURPOSE_LABELS[p.purpose] ?? p.purpose)
+                  .join(" · ")}
               </p>
             )}
             {actual.url ? (

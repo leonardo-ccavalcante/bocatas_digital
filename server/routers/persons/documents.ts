@@ -37,8 +37,18 @@ const DOCUMENT_URL_TTL_SECONDS = 300;
 
 export const PersonDocumentSchema = z.object({
   kind: z.enum(["identidad", "consentimiento"]),
-  /** Fines que cubre ESTA imagen. Vacío para el documento de identidad. */
-  purposes: z.array(z.string()),
+  /**
+   * Fines que documenta ESTA imagen, CON su decisión. Vacío para el documento
+   * de identidad.
+   *
+   * Lleva `granted` y no sólo el nombre porque la hoja firmada documenta tanto
+   * los síes como los noes: el alta escribe la misma ruta en todas las filas de
+   * consents, incluidas las de un fin DENEGADO. Enseñar «Cubre: uso de
+   * fotografía» sobre una hoja donde la persona dijo que NO sería afirmar un
+   * consentimiento que no existe, justo en la pantalla que es la prueba del
+   * Art. 7. (Hallazgo de la revisión cruzada con Codex.)
+   */
+  purposes: z.array(z.object({ purpose: z.string(), granted: z.boolean() })),
   /** URL firmada de vida corta. `null` = consta pero no se pudo firmar. */
   url: z.string().nullable(),
   archivadoEn: z.string().nullable(),
@@ -72,7 +82,7 @@ export const getDocumentUrls = superadminProcedure
 
     const { data: filasConsent, error: errorConsent } = await supabase
       .from("consents")
-      .select("purpose, documento_foto_url, granted_at")
+      .select("purpose, granted, documento_foto_url, granted_at")
       .eq("person_id", input.personId)
       .is("deleted_at", null)
       .not("documento_foto_url", "is", null);
@@ -91,19 +101,24 @@ export const getDocumentUrls = superadminProcedure
     // TODAS las filas de consents de esa persona (_consentRows.ts), así que una
     // sola hoja firmada produce hasta cinco registros. Sin esto el visor
     // enseñaría la misma foto cinco veces y la auditoría mentiría al contar.
-    const porRuta = new Map<string, { purposes: string[]; grantedAt: string | null }>();
+    type FinDocumentado = { purpose: string; granted: boolean };
+    const porRuta = new Map<string, { purposes: FinDocumentado[]; grantedAt: string | null }>();
     for (const fila of filasConsent ?? []) {
       const ruta = fila.documento_foto_url;
       if (typeof ruta !== "string" || !ruta) continue;
       const previo = porRuta.get(ruta);
       const grantedAt = (fila.granted_at as string | null) ?? null;
+      const fin: FinDocumentado = {
+        purpose: fila.purpose as string,
+        granted: fila.granted === true,
+      };
       if (previo) {
-        previo.purposes.push(fila.purpose as string);
+        previo.purposes.push(fin);
         if (grantedAt && (!previo.grantedAt || grantedAt < previo.grantedAt)) {
           previo.grantedAt = grantedAt;
         }
       } else {
-        porRuta.set(ruta, { purposes: [fila.purpose as string], grantedAt });
+        porRuta.set(ruta, { purposes: [fin], grantedAt });
       }
     }
 
@@ -130,7 +145,7 @@ export const getDocumentUrls = superadminProcedure
     for (const [ruta, meta] of porRuta) {
       documentos.push({
         kind: "consentimiento",
-        purposes: meta.purposes.sort(),
+        purposes: [...meta.purposes].sort((a, b) => a.purpose.localeCompare(b.purpose)),
         url: firmadasConsent.get(ruta) ?? null,
         archivadoEn: meta.grantedAt,
       });

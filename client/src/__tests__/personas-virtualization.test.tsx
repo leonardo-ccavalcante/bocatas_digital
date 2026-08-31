@@ -12,6 +12,8 @@
  * 5. PostHog config sampleRate is ≤ 0.1 (not 1).
  */
 import React from "react";
+import { readFileSync } from "fs";
+import { resolve } from "path";
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import { buildPostHogConfig } from "@/lib/posthog/config";
@@ -27,9 +29,9 @@ global.ResizeObserver = global.ResizeObserver ?? ResizeObserverStub;
 
 // PersonRowDesktop lleva ahora PersonActionsMenu, que consulta el rol y la
 // lista de personas con documentos archivados.
-vi.mock("@/_core/hooks/useAuth", () => ({ useAuth: () => ({ user: { role: "admin" } }) }));
 vi.mock("@/lib/trpc", () => ({
   trpc: {
+    auth: { me: { useQuery: () => ({ data: { role: "admin" } }) } },
     persons: {
       getPersonIdsWithDocuments: {
         useQuery: () => ({ data: undefined, isSuccess: false }),
@@ -236,5 +238,21 @@ describe("counts useMemo — single-pass correctness", () => {
     expect(byFase["acogida"]).toBe(2);
     expect(byFase["formacion"]).toBe(1);
     expect(Array.from(faseSet).sort()).toEqual(["acogida", "formacion"]);
+  });
+});
+
+// ── Nada que se monte POR FILA puede usar useAuth ─────────────────────────────
+describe("filas del listado — ningún hook con efectos por fila", () => {
+  it("PersonActionsMenu no importa useAuth", () => {
+    // useAuth arrastra un useEffect con `localStorage.setItem` SÍNCRONO. Con un
+    // hook por fila eso pasa de una escritura por página a una por fila
+    // visible, en la pantalla cuyo INP ya fue de 3.562 ms (Bug 3, este mismo
+    // archivo). La query `auth.me` sí es compartida; el resto del hook no.
+    const fuente = readFileSync(
+      resolve(process.cwd(), "client/src/features/persons/components/PersonActionsMenu.tsx"),
+      "utf-8"
+    );
+    expect(fuente).not.toMatch(/from\s+["']@\/_core\/hooks\/useAuth["']/);
+    expect(fuente).toMatch(/trpc\.auth\.me\.useQuery/);
   });
 });

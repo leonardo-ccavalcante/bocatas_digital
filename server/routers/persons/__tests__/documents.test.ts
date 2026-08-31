@@ -136,6 +136,7 @@ describe("getDocumentUrls — contenido", () => {
           ["tratamiento_datos_bocatas", "fotografia", "comunicaciones_whatsapp",
            "compartir_datos_red", "tratamiento_datos_banco_alimentos"].map((purpose, i) => ({
             purpose,
+            granted: true,
             documento_foto_url: "hoja.jpg",
             granted_at: `2026-01-0${i + 1}`,
           }))
@@ -192,7 +193,11 @@ describe("getDocumentUrls — auditoría", () => {
   it("registra UNA línea por consulta, sin ruta, URL ni nombre", async () => {
     fromMock
       .mockReturnValueOnce(personaChain({ id: PERSON_ID, foto_documento_url: "dni.jpg", updated_at: null }))
-      .mockReturnValueOnce(consentsChain([{ purpose: "fotografia", documento_foto_url: "hoja.jpg", granted_at: null }]));
+      .mockReturnValueOnce(
+        consentsChain([
+          { purpose: "fotografia", granted: true, documento_foto_url: "hoja.jpg", granted_at: null },
+        ])
+      );
 
     await testRouter.createCaller(ctx("superadmin")).getDocumentUrls({ personId: PERSON_ID });
 
@@ -236,5 +241,29 @@ describe("getPersonIdsWithDocuments", () => {
 
     expect(r.personIds.sort()).toEqual([PERSON_ID, OTRA].sort());
     expect(JSON.stringify(r)).not.toMatch(/jpg|https/);
+  });
+});
+
+describe("getDocumentUrls — un fin DENEGADO no se presenta como cubierto", () => {
+  it("cada fin viaja con su decisión", async () => {
+    // El alta escribe la MISMA ruta en todas las filas, incluidas las de un fin
+    // denegado. Devolver sólo el nombre haría que la ficha afirmara un
+    // consentimiento que la persona rechazó, justo en la pantalla que es la
+    // prueba del Art. 7. (Revisión cruzada con Codex.)
+    fromMock
+      .mockReturnValueOnce(personaChain({ id: PERSON_ID, foto_documento_url: null, updated_at: null }))
+      .mockReturnValueOnce(
+        consentsChain([
+          { purpose: "tratamiento_datos_bocatas", granted: true, documento_foto_url: "hoja.jpg", granted_at: null },
+          { purpose: "fotografia", granted: false, documento_foto_url: "hoja.jpg", granted_at: null },
+        ])
+      );
+
+    const r = await testRouter.createCaller(ctx("superadmin")).getDocumentUrls({ personId: PERSON_ID });
+
+    expect(r.documentos[0].purposes).toEqual([
+      { purpose: "fotografia", granted: false },
+      { purpose: "tratamiento_datos_bocatas", granted: true },
+    ]);
   });
 });

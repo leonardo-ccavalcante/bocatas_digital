@@ -27,6 +27,7 @@ interface DocumentosTabProps {
 
 export function DocumentosTab({ personId, nombreCompleto, isSuperadmin }: DocumentosTabProps) {
   const [abierto, setAbierto] = useState(false);
+  const [indice, setIndice] = useState(0);
   const { data, isLoading } = trpc.persons.getDocumentUrls.useQuery(
     { personId },
     { enabled: isSuperadmin, staleTime: 30_000, gcTime: 30_000, retry: false }
@@ -78,7 +79,14 @@ export function DocumentosTab({ personId, nombreCompleto, isSuperadmin }: Docume
                   {doc.archivadoEn ? `Archivado el ${formatDateDisplay(doc.archivadoEn)}` : "Foto archivada"}
                 </p>
               </div>
-              <Button size="sm" variant="outline" onClick={() => setAbierto(true)}>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setIndice(i);
+                  setAbierto(true);
+                }}
+              >
                 Ver
               </Button>
             </li>
@@ -91,6 +99,7 @@ export function DocumentosTab({ personId, nombreCompleto, isSuperadmin }: Docume
         nombreCompleto={nombreCompleto}
         open={abierto}
         onOpenChange={setAbierto}
+        indiceInicial={indice}
       />
     </>
   );

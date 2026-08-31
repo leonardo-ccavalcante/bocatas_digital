@@ -12,10 +12,14 @@
  * Un solo menú resuelve el acceso a las tres cosas (ficha, edición, QR) sin
  * meter tres iconos en una columna de 80px ni rehacer la tarjeta móvil.
  *
- * El rol se lee aquí con useAuth en vez de bajarlo por props a través de
- * Personas → Personas.lists → fila/tarjeta: `auth.me` es una sola query
- * cacheada, así que N filas comparten una petición y el diff no atraviesa
- * cuatro archivos.
+ * El rol se lee con `trpc.auth.me` DIRECTAMENTE, no con useAuth, y esto no es
+ * un detalle: useAuth arrastra un `useEffect` que hace
+ * `localStorage.setItem(..., JSON.stringify(user))` en cada cambio del dato.
+ * Ese setItem es SÍNCRONO y bloquea el hilo principal. Con un hook por fila
+ * pasaría de una escritura por página a una por fila visible — en la pantalla
+ * que ya tuvo un INP de 3.562 ms y para la que existe una suite de
+ * virtualización entera. La query en sí sí es compartida (misma clave de
+ * caché); lo que no era gratis es el resto del hook.
  *
  * Primer consumidor de components/ui/dropdown-menu en la app. Si Radix diera
  * problemas en Android, el plan B es Sheet (ya probado en FamiliaDrawer,
@@ -30,7 +34,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { PersonDocumentsModal } from "./documents";
 
@@ -47,7 +50,10 @@ export function PersonActionsMenu({
   variant,
 }: PersonActionsMenuProps) {
   const [, navigate] = useLocation();
-  const { user } = useAuth();
+  const { data: user } = trpc.auth.me.useQuery(undefined, {
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+  });
   const isAdmin = user?.role === "admin" || user?.role === "superadmin";
   const isSuperadmin = user?.role === "superadmin";
   const [documentosAbierto, setDocumentosAbierto] = useState(false);
