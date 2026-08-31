@@ -15,8 +15,9 @@
  * error a evitar no es retirar sin querer — es retirar la ficha EQUIVOCADA. El
  * nombre es lo único que distingue una de otra.
  *
- * Se comparan sin tildes ni mayúsculas: la fricción tiene que ser deliberación,
- * no un examen de mecanografía en un teclado de móvil.
+ * Se comparan ignorando tildes y mayúsculas —la fricción tiene que ser
+ * deliberación, no un examen de mecanografía en un teclado de móvil— pero
+ * respetando la ñ como letra propia: ver `COMPARADOR_ES` más abajo.
  *
  * Sigue siendo un soft-delete: la ficha desaparece de la aplicación y de los
  * listados de programa, pero el registro sigue en la base y se puede restaurar
@@ -54,15 +55,22 @@ interface RetirarFichaMenuProps {
   nombreCompleto: string;
 }
 
-/** Sin tildes, sin dobles espacios, sin mayúsculas. */
-function normalizar(valor: string): string {
-  return valor
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .toLowerCase();
-}
+/**
+ * Compara nombres con las reglas del español, no con las de Unicode.
+ *
+ * La versión ingenua —descomponer en NFD y borrar todo lo que sea marca
+ * combinante— convierte «Peña» en «Pena», y entonces el campo de confirmación
+ * acepta el nombre de OTRA persona. Es justo el fallo que esta pantalla existe
+ * para impedir: en español la ñ es una letra propia, no una n con adorno.
+ *
+ * `Intl.Collator("es", { sensitivity: "base" })` da exactamente lo que se
+ * quiere: ignora tildes y mayúsculas (García = garcia, MARTÍNEZ = martinez)
+ * pero mantiene Peña ≠ Pena. La ç sí colapsa con la c — no es letra del
+ * español y no produce pares de apellidos distintos como sí lo hace la ñ.
+ */
+const COMPARADOR_ES = new Intl.Collator("es", { sensitivity: "base" });
+
+const limpiarEspacios = (valor: string) => valor.replace(/\s+/g, " ").trim();
 
 export function RetirarFichaMenu({ personId, nombreCompleto }: RetirarFichaMenuProps) {
   const [, navigate] = useLocation();
@@ -72,8 +80,10 @@ export function RetirarFichaMenu({ personId, nombreCompleto }: RetirarFichaMenuP
 
   // Un nombre vacío jamás debe habilitar el botón: sin este guard, una ficha sin
   // nombre se retiraría con el campo en blanco — la puerta abierta otra vez.
-  const nombreEsperado = normalizar(nombreCompleto);
-  const coincide = nombreEsperado !== "" && normalizar(confirmacion) === nombreEsperado;
+  const nombreEsperado = limpiarEspacios(nombreCompleto);
+  const coincide =
+    nombreEsperado !== "" &&
+    COMPARADOR_ES.compare(limpiarEspacios(confirmacion), nombreEsperado) === 0;
 
   const abrirDialogo = () => {
     setConfirmacion("");

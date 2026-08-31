@@ -339,4 +339,63 @@ describe("Retirar ficha — no se confirma sin escribir el nombre", () => {
     });
     expect(within(dialogo).getByRole("button", { name: "Retirar ficha" })).toBeEnabled();
   });
+  it("EL CASO CLAVE: «Pena» no confirma la ficha de «Peña»", async () => {
+    // Descomponer en NFD y borrar marcas combinantes convierte «Peña» en
+    // «Pena»: el campo aceptaba el nombre de OTRA persona, que es exactamente
+    // el fallo que esta pantalla existe para impedir. En español la ñ es letra
+    // propia, no una n con adorno.
+    setup({ role: "superadmin" });
+    mockUsePersonById.mockReturnValue({
+      data: { ...BASE_PERSON, apellidos: "Peña" },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+    render(<PersonaDetalle />);
+    await abrirAcciones();
+    await userEvent.click(screen.getByRole("button", { name: "Más acciones" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: /Retirar ficha/i }));
+    const dialogo = screen.getByRole("alertdialog");
+
+    fireEvent.change(within(dialogo).getByLabelText(/Para confirmar/i), {
+      target: { value: "Ana Pena" },
+    });
+    expect(within(dialogo).getByRole("button", { name: "Retirar ficha" })).toBeDisabled();
+
+    fireEvent.change(within(dialogo).getByLabelText(/Para confirmar/i), {
+      target: { value: "ana peña" },
+    });
+    expect(within(dialogo).getByRole("button", { name: "Retirar ficha" })).toBeEnabled();
+  });
+});
+
+describe("PersonaDetalle — llegada desde el menú `⋯` del listado", () => {
+  it("`?editar=1` abre el editor al aterrizar", () => {
+    // El ítem del menú dice «Editar ficha». Si sólo dejara al usuario delante
+    // del botón, sería mentira a medias.
+    //
+    // Ojo: esta ruta NO pasa por el desplegable «Acciones». El editor se abre
+    // por el parámetro, no por el botón — por eso sigue sin abrir nada aquí.
+    estado.search = "?editar=1";
+    setup();
+    render(<PersonaDetalle />);
+
+    expect(screen.getByTestId("edit-modal")).toBeInTheDocument();
+  });
+
+  it("el parámetro se limpia, para que recargar no lo reabra", () => {
+    estado.search = "?editar=1";
+    setup();
+    render(<PersonaDetalle />);
+
+    expect(estado.navigate).toHaveBeenCalledWith(`/personas/${PERSON_ID}`, { replace: true });
+  });
+
+  it("sin el parámetro, el editor está cerrado", () => {
+    setup();
+    render(<PersonaDetalle />);
+
+    expect(screen.queryByTestId("edit-modal")).toBeNull();
+    expect(estado.navigate).not.toHaveBeenCalled();
+  });
 });
