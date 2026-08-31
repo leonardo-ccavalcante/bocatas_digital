@@ -1,13 +1,11 @@
 import { TRPCError } from "@trpc/server";
-import { signPathField, AVATAR_BUCKET } from "../../storage";
+import { signPathField, AVATAR_BUCKET, ID_DOCUMENT_BUCKET } from "../../storage";
 import { z } from "zod";
 import { createAdminClient } from "../../../client/src/lib/supabase/server";
 import { adminProcedure, voluntarioProcedure, router } from "../../_core/trpc";
 import { logProcedureAction, logProcedureError } from "../../_core/logging-middleware";
 import { redactHighRiskFields } from "../../_core/rlsRedaction";
 import { encryptPII, decryptPII, isPiiCryptoConfigured } from "../../_core/pii-crypto";
-import { ilikeValue } from "../../_core/postgrestFilter";
-import { nameSearchTokens } from "../../../shared/nameSearch";
 import { PersonCreateInput } from "./_shared";
 
 const ELEVATED_ROLES = new Set(["admin", "superadmin"]);
@@ -176,6 +174,12 @@ export const crudRouter = router({
         situacion_laboral: personData.situacion_laboral ?? null,
         situacion_ante_empleo: personData.situacion_ante_empleo ?? null,
         nivel_ingresos: personData.nivel_ingresos ?? null,
+        // Fuera de la puerta del Art. 9 a propósito: no es categoría especial,
+        // y como el equipo lo marca para casi todo el mundo, gatearlo detrás
+        // del consentimiento de colectivos lo perdería en silencio justo en el
+        // caso mayoritario (migración 20260831110000).
+        situacion_vulnerabilidad: personData.situacion_vulnerabilidad ?? null,
+        situacion_vulnerabilidad_otros: str(personData.situacion_vulnerabilidad_otros),
         // RGPD Art. 9/10 special-category — persisted ONLY under explicit
         // consent. The enum tags are stored plainly (needed for aggregation);
         // the free-text "otros" is app-layer encrypted at rest, and is stored
@@ -281,7 +285,16 @@ export const crudRouter = router({
           }
         }
       }
-      if (redacted) await signPathField(AVATAR_BUCKET, [redacted], "foto_perfil_url");
+      if (redacted) {
+        await signPathField(AVATAR_BUCKET, [redacted], "foto_perfil_url");
+        // La foto del documento vive en otro bucket y también se guarda como
+        // PATH, así que sin firmarla la pestaña Documentos enlazaba a una ruta
+        // cruda que no abre. Sólo llega aquí con rol elevado: para el resto
+        // redactHighRiskFields ya ha borrado el campo.
+        if (ELEVATED_ROLES.has(ctx.user.role)) {
+          await signPathField(ID_DOCUMENT_BUCKET, [redacted], "foto_documento_url");
+        }
+      }
       return redacted;
     }),
 
@@ -333,41 +346,5 @@ export const crudRouter = router({
     )
     .query(async ({ input }) => {
       return findDuplicatesHandler(input);
-    }),
-
-  /**
-   * Search persons by name.
-   * Uses service role key to bypass RLS.
-   */
-  search: voluntarioProcedure
-    .input(z.object({ query: z.string().min(2).max(100) }))
-    .query(async ({ input }) => {
-      // RC-06: accent- and word-order-insensitive — one AND'ed ilike per
-      // normalised token against the generated nombre_norm column.
-      const tokens = nameSearchTokens(input.query);
-      if (tokens.length === 0) return [];
-      const supabase = createAdminClient();
-
-      let q = supabase
-        .from("persons")
-        .select("id, nombre, apellidos, fecha_nacimiento, foto_perfil_url, restricciones_alimentarias, fase_itinerario")
-        .is("deleted_at", null);
-      for (const tok of tokens) {
-        q = q.ilike("nombre_norm", ilikeValue(tok));
-      }
-      const { data, error } = await q.order("nombre").limit(20);
-
-      if (error) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: `Error en búsqueda: ${error.message}`,
-        });
-      }
-
-      // Resolve stored photo paths to short-lived signed URLs (one Storage
-      // round trip for the page) so `<AvatarImage src>` keeps working.
-      const rows = data ?? [];
-      await signPathField(AVATAR_BUCKET, rows, "foto_perfil_url");
-      return rows;
     }),
 });

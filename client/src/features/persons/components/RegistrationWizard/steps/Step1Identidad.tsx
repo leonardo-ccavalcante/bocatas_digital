@@ -12,6 +12,8 @@ import {
 } from "../../../schemas";
 import { DocumentCaptureInline } from "../../DocumentCaptureInline";
 import { DuplicateWarningCard } from "../../DuplicateWarningCard";
+import { SearchableSelect } from "../../SearchableSelect";
+import { DateField } from "../../DateField";
 import { SelectField, FieldError } from "../_shared";
 
 interface Step1IdentidadProps {
@@ -21,6 +23,7 @@ interface Step1IdentidadProps {
   errors: FieldErrors<PersonCreate>;
   ocrUsed: boolean;
   handleOCRExtracted: (data: OcrExtracted) => void;
+  onArchivarDocumento: (base64: string | null) => void;
   showDuplicateWarning: boolean;
   duplicateCheckDegraded: boolean;
   duplicates: DuplicateCandidate[];
@@ -29,14 +32,17 @@ interface Step1IdentidadProps {
 
 export function Step1Identidad({
   register, watch, setValue, errors,
-  ocrUsed, handleOCRExtracted,
+  ocrUsed, handleOCRExtracted, onArchivarDocumento,
   showDuplicateWarning, duplicateCheckDegraded, duplicates, onDismissDuplicate,
 }: Step1IdentidadProps) {
   return (
     <div className="space-y-4">
       {/* OCR — offered here if not yet used */}
       {!ocrUsed ? (
-        <DocumentCaptureInline onExtracted={handleOCRExtracted} />
+        <DocumentCaptureInline
+          onExtracted={handleOCRExtracted}
+          onArchivarImagen={onArchivarDocumento}
+        />
       ) : (
         <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700">
           <CheckCircle className="h-4 w-4 shrink-0" />
@@ -80,10 +86,15 @@ export function Step1Identidad({
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1">
-          <Label htmlFor="fecha_nacimiento">Fecha de nacimiento <span className="text-destructive">*</span></Label>
-          <Input id="fecha_nacimiento" type="date" {...register("fecha_nacimiento")}
+          <DateField
+            label="Fecha de nacimiento"
+            id="fecha_nacimiento"
+            required
+            value={watch("fecha_nacimiento")}
+            onChange={(iso) => setValue("fecha_nacimiento", iso, { shouldDirty: true })}
             aria-describedby={errors.fecha_nacimiento ? "fecha_nacimiento-error" : undefined}
-            aria-invalid={!!errors.fecha_nacimiento} />
+            aria-invalid={!!errors.fecha_nacimiento}
+          />
           <FieldError id="fecha_nacimiento-error" message={errors.fecha_nacimiento?.message} />
         </div>
         <SelectField
@@ -96,13 +107,14 @@ export function Step1Identidad({
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <SelectField
+        <SearchableSelect
           label="País de origen"
           id="pais_origen"
           value={watch("pais_origen") ?? ""}
           onChange={(v) => setValue("pais_origen", v || null)}
           options={PAIS_LABELS}
           placeholder="Seleccionar país..."
+          searchPlaceholder="Escribe el país..."
         />
         <SelectField
           label="Idioma principal"

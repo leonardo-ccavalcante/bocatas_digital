@@ -48,6 +48,7 @@ export interface WizardPhasesProps {
   // OCR
   ocrUsed: boolean;
   handleOCRExtracted: (data: OcrExtracted) => void;
+  onArchivarDocumento: (base64: string | null) => void;
   // duplicates
   showDuplicateWarning: boolean;
   duplicateCheckDegraded: boolean;
@@ -124,6 +125,7 @@ export function WizardPhases(props: WizardPhasesProps) {
             errors={props.errors}
             ocrUsed={props.ocrUsed}
             handleOCRExtracted={props.handleOCRExtracted}
+            onArchivarDocumento={props.onArchivarDocumento}
             showDuplicateWarning={props.showDuplicateWarning}
             duplicateCheckDegraded={props.duplicateCheckDegraded}
             duplicates={props.duplicates}
@@ -141,6 +143,7 @@ export function WizardPhases(props: WizardPhasesProps) {
             watch={props.watch}
             setValue={props.setValue}
             handleOCRExtracted={props.handleOCRExtracted}
+            onArchivarDocumento={props.onArchivarDocumento}
           />
         </section>
       </div>

@@ -57,6 +57,10 @@ export const PersonCreateInput = z.object({
   situacion_laboral: SituacionLaboralEnum.optional().nullable(),
   situacion_ante_empleo: SituacionAnteEmpleoEnum.optional().nullable(),
   nivel_ingresos: NivelIngresosEnum.optional().nullable(),
+  // Situación de vulnerabilidad — NO es categoría especial: se guarda siempre,
+  // sin la puerta de consentimiento del Art. 9 (migración 20260831110000).
+  situacion_vulnerabilidad: z.boolean().optional().nullable(),
+  situacion_vulnerabilidad_otros: z.string().max(200).optional().nullable(),
   // RGPD Art. 9/10 — persisted only under explicit consent (see crud.ts).
   colectivos: z.array(ColectivoEnum).optional().nullable(),
   colectivo_otros: z.string().max(200).optional().nullable(),
@@ -70,7 +74,10 @@ export const PersonCreateInput = z.object({
   // Holds a Storage PATH now, not a URL (persons.uploadPhoto returns a path;
   // reads are signed server-side). `.url()` would reject every new value.
   foto_perfil_url: z.string().max(255).optional().nullable(),
-  foto_documento_url: z.string().url().optional().nullable(),
+  // Igual que foto_perfil_url: guarda un PATH de Storage, no una URL. `.url()`
+  // rechazaba todo valor nuevo (persons.uploadPhoto devuelve un path), así que
+  // la foto del documento no se podía guardar ni aunque se enviara.
+  foto_documento_url: z.string().max(255).optional().nullable(),
   fase_itinerario: FaseItinerarioEnum.optional(),
   program_ids: z.array(z.string().uuid()),
 });

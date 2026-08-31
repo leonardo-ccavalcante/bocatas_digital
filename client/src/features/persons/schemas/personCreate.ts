@@ -90,6 +90,11 @@ export const PersonCreateSchema = z.object({
   // FSE/IRPF status ante el empleo (orthogonal to situacion_laboral — feeds the report)
   situacion_ante_empleo: SituacionAnteEmpleoSchema.optional().nullable(),
   nivel_ingresos: NivelIngresosSchema.optional().nullable(),
+  // Situación de vulnerabilidad — NO es categoría especial, así que NO pasa por
+  // la puerta de consentimiento del Art. 9: se guarda siempre. Vive aparte de
+  // `colectivos` a propósito (migración 20260831110000).
+  situacion_vulnerabilidad: z.boolean().optional().nullable(),
+  situacion_vulnerabilidad_otros: z.string().max(200).optional().nullable(),
   // RGPD Art. 9/10 special-category (persisted only under explicit consent)
   colectivos: z.array(ColectivoSchema).optional().nullable(),
   colectivo_otros: z.string().max(200).optional().nullable(),
@@ -107,7 +112,8 @@ export const PersonCreateSchema = z.object({
   // Section 6 — Foto perfil (handled via upload)
   // Storage PATH, not a URL — mirrors server/routers/persons/_shared.ts.
   foto_perfil_url: z.string().max(255).optional().nullable(),
-  foto_documento_url: z.string().url().optional().nullable(),
+  // PATH de Storage, no URL (ver el esquema espejo en server/routers/persons/_shared.ts).
+  foto_documento_url: z.string().max(255).optional().nullable(),
 
   // Metadata
   fase_itinerario: FaseItinerarioSchema.optional(), // has DB default "acogida"
