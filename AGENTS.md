@@ -148,6 +148,13 @@ that repeatedly bite agents:
   unclear → escalate to Leo.
 - **Tests first** (RED → GREEN → IMPROVE): write the failing test, implement to
   green, refactor only after.
+- **Test reachability, not just units.** A green unit test proves the component
+  works in the state you rendered it in — not that anyone can get there. When new
+  UI lives inside a component a parent renders conditionally, ask what sets that
+  condition and whether it fires in the same render as the state you're painting;
+  if it does, the UI is dead. Cover at least one whole path (mount → act → assert
+  it is still on screen). State that must survive a step transition belongs in the
+  parent, never in the child the parent unmounts.
 - **Do not pre-create folders for future modules** — create them when the feature
   actually starts.
 

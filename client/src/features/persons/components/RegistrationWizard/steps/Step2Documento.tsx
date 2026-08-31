@@ -10,6 +10,7 @@ import {
   SITUACION_LEGAL_LABELS,
 } from "../../../schemas";
 import { DocumentCaptureInline } from "../../DocumentCaptureInline";
+import { ArchivarDocumentoCheckbox } from "../../ArchivarDocumentoCheckbox";
 import { SelectField } from "../_shared";
 
 interface Step2DocumentoProps {
@@ -17,10 +18,15 @@ interface Step2DocumentoProps {
   watch: UseFormWatch<PersonCreate>;
   setValue: UseFormSetValue<PersonCreate>;
   handleOCRExtracted: (data: OcrExtracted) => void;
+  onImagenDocumento: (base64: string | null) => void;
+  hayImagenDocumento: boolean;
+  archivarDocumento: boolean;
+  setArchivarDocumento: (v: boolean) => void;
 }
 
 export function Step2Documento({
-  register, watch, setValue, handleOCRExtracted,
+  register, watch, setValue, handleOCRExtracted, onImagenDocumento,
+  hayImagenDocumento, archivarDocumento, setArchivarDocumento,
 }: Step2DocumentoProps) {
   return (
     <div className="space-y-4">
@@ -35,9 +41,18 @@ export function Step2Documento({
           <p className="text-sm text-muted-foreground">
             Puedes escanear el documento para rellenar los campos automáticamente.
           </p>
-          <DocumentCaptureInline onExtracted={handleOCRExtracted} />
+          <DocumentCaptureInline
+            onExtracted={handleOCRExtracted}
+            onImagenCapturada={onImagenDocumento}
+          />
         </>
       )}
+
+      <ArchivarDocumentoCheckbox
+        hayImagen={hayImagenDocumento}
+        archivar={archivarDocumento}
+        onChange={setArchivarDocumento}
+      />
 
       <div className="grid grid-cols-2 gap-3">
         <SelectField

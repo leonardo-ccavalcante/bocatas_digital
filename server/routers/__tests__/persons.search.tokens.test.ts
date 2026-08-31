@@ -26,7 +26,13 @@ vi.mock("../../storage", () => ({
 }));
 
 // Import AFTER vi.mock is registered.
-import { crudRouter } from "../persons/crud";
+import { router } from "../../_core/trpc";
+import { searchPersons } from "../persons/search";
+
+// La búsqueda vive en su propio módulo (server/routers/persons/search.ts); se
+// envuelve en un router mínimo para poder usar createCaller sin arrastrar el
+// resto del router de personas al test.
+const crudRouter = router({ search: searchPersons });
 
 function voluntarioCtx(): TrpcContext {
   const user: NonNullable<TrpcContext["user"]> = {
@@ -101,5 +107,71 @@ describe("persons.search — tokenised accent-insensitive search (RC-06)", () =>
 
     expect(rows).toEqual([]);
     expect(fromMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("persons.search — carril de nº de documento y teléfono", () => {
+  it("no toca las columnas de identificador cuando se busca un nombre", async () => {
+    const chain = searchChain([]);
+    fromMock.mockReturnValueOnce(chain);
+
+    const caller = crudRouter.createCaller(voluntarioCtx());
+    await caller.search({ query: "Awa Diop" });
+
+    // Un solo carril: sin dígitos no hay nada que buscar en documento/teléfono.
+    expect(fromMock).toHaveBeenCalledTimes(1);
+    expect(chain.or).not.toHaveBeenCalled();
+  });
+
+  it("busca en numero_documento y telefono cuando lo tecleado lleva dígitos", async () => {
+    const porNombre = searchChain([]);
+    const porIdentificador = searchChain([]);
+    fromMock.mockReturnValueOnce(porNombre).mockReturnValueOnce(porIdentificador);
+
+    const caller = crudRouter.createCaller(voluntarioCtx());
+    await caller.search({ query: "600123456" });
+
+    expect(fromMock).toHaveBeenCalledTimes(2);
+    expect(porIdentificador.or).toHaveBeenCalledWith(
+      'numero_documento.ilike."%600123456%",telefono.ilike."%600123456%"'
+    );
+  });
+
+  it("entrecomilla el valor para que una coma no inyecte filtros (CAS-04)", async () => {
+    const porNombre = searchChain([]);
+    const porIdentificador = searchChain([]);
+    fromMock.mockReturnValueOnce(porNombre).mockReturnValueOnce(porIdentificador);
+
+    const caller = crudRouter.createCaller(voluntarioCtx());
+    await caller.search({ query: "123,deleted_at.is.null" });
+
+    const filtro = porIdentificador.or.mock.calls[0][0] as string;
+    // El valor viaja entrecomillado: la coma queda DENTRO del token y no puede
+    // añadir un filtro propio al árbol de PostgREST. El `_` sale escapado
+    // porque es un comodín de LIKE (ilikeForOr), no por seguridad.
+    expect(filtro).toContain('numero_documento.ilike."%123,deleted\\\\_at.is.null%"');
+    // Exactamente dos filtros: la coma inyectada no ha creado un tercero.
+    expect(filtro.match(/\.ilike\./g)).toHaveLength(2);
+  });
+
+  it("no repite a quien aparece en los dos carriles", async () => {
+    const fila = {
+      id: "p1",
+      nombre: "Ana",
+      apellidos: "Ruiz",
+      fecha_nacimiento: null,
+      foto_perfil_url: null,
+      restricciones_alimentarias: null,
+      fase_itinerario: null,
+    };
+    fromMock
+      .mockReturnValueOnce(searchChain([fila]))
+      .mockReturnValueOnce(searchChain([fila]));
+
+    const caller = crudRouter.createCaller(voluntarioCtx());
+    const rows = await caller.search({ query: "Ana 12345678A" });
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].id).toBe("p1");
   });
 });

@@ -108,7 +108,7 @@ export function PersonsFilterBar({
             type="search"
             value={query}
             onChange={(e) => onQueryChange(e.target.value)}
-            placeholder="Buscar por nombre, apellidos o ID…"
+            placeholder="Nombre, apellidos, nº de documento o teléfono…"
             aria-label="Buscar persona"
             className="
               w-full h-11 pl-10 pr-24 border border-border rounded-xl

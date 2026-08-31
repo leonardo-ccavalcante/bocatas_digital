@@ -20,16 +20,20 @@ const CASCADE_RULES: CascadeRule[] = [
     foreignKeyColumn: "familia_id",
     parentIdColumn: "id",
   },
+  // `programa_participante` no existe en la base: la tabla de inscripciones es
+  // `program_enrollments`. Las dos reglas apuntaban a una tabla fantasma, así
+  // que el cascade de personas y de programas no hacía nada — el `select` fallaba
+  // y el bucle seguía con un console.error. Ambas tienen deleted_at y su FK.
   {
     parentTable: "persons",
-    childTable: "programa_participante",
-    foreignKeyColumn: "persona_id",
+    childTable: "program_enrollments",
+    foreignKeyColumn: "person_id",
     parentIdColumn: "id",
   },
   {
     parentTable: "programs",
-    childTable: "programa_participante",
-    foreignKeyColumn: "programa_id",
+    childTable: "program_enrollments",
+    foreignKeyColumn: "program_id",
     parentIdColumn: "id",
   },
 ];

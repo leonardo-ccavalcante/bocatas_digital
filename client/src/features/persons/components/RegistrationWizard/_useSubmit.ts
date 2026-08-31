@@ -8,11 +8,18 @@ import { useEnrollPerson } from "../../hooks/useEnrollPerson";
 import { trpc } from "@/lib/trpc";
 import type { FamilyMember } from "./_shared";
 import { buildConsentRows, puedeGuardarFoto } from "./_consentRows";
+import {
+  describirErrores,
+  mensajeDeErrores,
+  primeraFaseConError,
+} from "./_formErrors";
 
 interface UseSubmitArgs {
   groupAAccepted: boolean;
   getValues: () => PersonCreate;
   profilePhotoBase64: string | null;
+  /** Foto del documento a archivar; null si no se marcó archivarla. */
+  documentoBase64: string | null;
   consentDocBase64: string | null;
   consentChoices: Record<string, boolean>;
   consentTemplatesEs: ConsentTemplate[];
@@ -26,6 +33,10 @@ interface UseSubmitArgs {
   familyMembers: FamilyMember[];
   numAdultos: number;
   numMenores: number;
+  /** Lleva al paso donde está el campo que falla, para no buscarlo a ciegas. */
+  irAFase?: (fase: number) => void;
+  /** La ficha ya existe: el borrador deja de representar trabajo pendiente. */
+  onCreada?: () => void;
 }
 
 export function useRegistrationSubmit(args: UseSubmitArgs) {
@@ -55,8 +66,12 @@ export function useRegistrationSubmit(args: UseSubmitArgs) {
     // and the server copy rejects what the transform would have fixed (F024).
     const parsed = PersonCreateSchema.safeParse(args.getValues());
     if (!parsed.success) {
-      const campos = [...new Set(parsed.error.issues.map((i) => i.path.join(".")))].join(", ");
-      toast.error(`Revisa los campos: ${campos}`);
+      // Nombre en pantalla + motivo + paso, en vez de la lista de columnas:
+      // el aviso anterior no permitía saber ni qué fallaba ni dónde mirar.
+      const campos = describirErrores(parsed.error.issues);
+      toast.error(mensajeDeErrores(campos));
+      const fase = primeraFaseConError(campos);
+      if (fase !== null) args.irAFase?.(fase);
       return;
     }
     const data = parsed.data;
@@ -96,9 +111,34 @@ export function useRegistrationSubmit(args: UseSubmitArgs) {
         }
       }
 
+      // 2b. Foto del documento — dos condiciones, no una.
+      //
+      // La casilla de archivar se marca en la FASE 1 y los consentimientos se
+      // deciden en la FASE 3, así que marcarla no puede ser la única puerta:
+      // una persona que después deniega el uso de su imagen acabaría con la
+      // foto de su DNI archivada igualmente. Se exige además `fotografia`,
+      // igual que la foto de perfil. Es condición NECESARIA, no suficiente:
+      // ese texto de consentimiento cubre fotos de actividades, no el archivo
+      // del documento — ver el cuerpo de la PR y #149.
+      let fotoDocumentoUrl: string | null = null;
+      if (args.documentoBase64 && !puedeGuardarFoto(args.consentChoices)) {
+        toast.info("La foto del documento no se archiva: no se autorizó el uso de imagen.");
+      }
+      if (args.documentoBase64 && puedeGuardarFoto(args.consentChoices)) {
+        try {
+          const result = await uploadPhoto({
+            bucket: "documentos-identidad",
+            base64: args.documentoBase64,
+          });
+          fotoDocumentoUrl = result.path;
+        } catch {
+          toast.warning("Foto del documento no archivada. La ficha se crea igualmente.");
+        }
+      }
+
       // 3. Create person
       const person = await createPerson({
-        data: { ...data, foto_perfil_url: fotoPerfilUrl },
+        data: { ...data, foto_perfil_url: fotoPerfilUrl, foto_documento_url: fotoDocumentoUrl },
       });
 
       // 4. Enroll in programs
@@ -138,6 +178,7 @@ export function useRegistrationSubmit(args: UseSubmitArgs) {
         }
       }
 
+      args.onCreada?.();
       toast.success("Persona registrada correctamente");
       // Voluntarios no pueden abrir la ficha (persons.getById es admin-only,
       // #46): aterrizan en la tarjeta QR imprimible, que sí es voluntario-safe.

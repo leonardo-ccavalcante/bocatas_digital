@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useParams } from "wouter";
-import { Loader2, AlertCircle, Users, Lock } from "lucide-react";
+import { Loader2, AlertCircle, Users, Lock, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CheckinHistoryTable } from "@/features/persons/components/CheckinHistoryTable";
@@ -12,6 +12,8 @@ import {
   NotasTab,
   DetailEmptyState,
 } from "@/features/persons/components/detail";
+import { EditPersonModal } from "@/features/persons/components/detail/EditPersonModal";
+import { DeletePersonButton } from "@/features/persons/components/detail/DeletePersonButton";
 import { useConsentTemplates } from "@/features/persons/hooks/useConsentTemplates";
 import { usePersonById } from "@/features/persons/hooks/usePersonById";
 import { getConsentTemplateLanguage } from "@/features/persons/schemas/enums";
@@ -27,11 +29,14 @@ export default function PersonaDetalle() {
   const { data: person, isLoading, isError, refetch } = usePersonById(id ?? "");
   const { user } = useAuth();
   const [showConsent, setShowConsent] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
   const [activeTab, setActiveTab] = useState("resumen");
 
   // Only admins and superadmins see check-in data + the Familia CTA + the
   // high-risk fields gated inside the tabs.
   const isAdmin = user?.role === "admin" || user?.role === "superadmin";
+  // Retirar una ficha es más que corregirla: sólo superadmin (#177).
+  const isSuperadmin = user?.role === "superadmin";
 
   // Real check-in total for the KPI strip — admin-only (preserves the gating
   // that already restricts all check-in data to admins). No fabricated count.
@@ -84,6 +89,34 @@ export default function PersonaDetalle() {
         visitas={visitas}
         onConsent={() => setShowConsent(true)}
       />
+
+      {/* Acciones sobre la ficha. Van aquí y no en la cabecera porque el bloque
+          de acciones rápidas de PersonaHeader es `hidden sm:flex` — invisible
+          justo en el móvil, que es el dispositivo desde el que se dan las
+          altas y donde se detectan los errores que hay que corregir. */}
+      {isAdmin && (
+        <div className="mx-auto flex w-full max-w-6xl flex-wrap gap-2 px-4 pt-4 sm:px-8">
+          <Button variant="outline" size="sm" onClick={() => setShowEdit(true)}>
+            <Pencil className="mr-1 h-4 w-4" aria-hidden="true" /> Editar ficha
+          </Button>
+          {isSuperadmin && (
+            <DeletePersonButton
+              personId={personRow.id}
+              nombreCompleto={`${personRow.nombre} ${personRow.apellidos ?? ""}`.trim()}
+            />
+          )}
+        </div>
+      )}
+
+      {isAdmin && showEdit && (
+        <EditPersonModal
+          person={personRow}
+          isAdmin={isAdmin}
+          open={showEdit}
+          onOpenChange={setShowEdit}
+          onSaved={() => void refetch()}
+        />
+      )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-1 flex-col">
         {/* Underline tab strip — flush with the header's border-b.

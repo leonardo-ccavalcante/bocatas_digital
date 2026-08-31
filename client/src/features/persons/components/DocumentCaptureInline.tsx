@@ -19,9 +19,25 @@ type CaptureState = "idle" | "camera" | "preview" | "processing" | "done";
 
 interface DocumentCaptureInlineProps {
   onExtracted: (data: OcrExtracted) => void;
+  /**
+   * Entrega la imagen capturada (base64) al PADRE en cuanto existe, y `null`
+   * al repetir la captura. Sin esto la foto se usaba para el OCR y se tiraba
+   * ("debería dejarla en documentos").
+   *
+   * La decisión de archivarla NO vive aquí: los pasos que montan este
+   * componente lo desmontan en cuanto el OCR tiene éxito (Step1 conmuta por
+   * `ocrUsed`, Step2 por `numero_documento`), así que una casilla dentro de
+   * este componente sería inalcanzable justo en el único camino que la
+   * necesita. La casilla la pinta el paso, junto al aviso de "datos
+   * extraídos", que es donde quien atiende está mirando.
+   */
+  onImagenCapturada?: (base64: string | null) => void;
 }
 
-export function DocumentCaptureInline({ onExtracted }: DocumentCaptureInlineProps) {
+export function DocumentCaptureInline({
+  onExtracted,
+  onImagenCapturada,
+}: DocumentCaptureInlineProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -56,7 +72,10 @@ export function DocumentCaptureInline({ onExtracted }: DocumentCaptureInlineProp
     setPreviewUrl(null);
     setCapturedBase64(null);
     setErrorMsg(null);
-  }, [stopCamera]);
+    // Repetir la captura invalida la imagen anterior: si no, se archivaría la
+    // foto vieja junto a los datos de la nueva.
+    onImagenCapturada?.(null);
+  }, [stopCamera, onImagenCapturada]);
 
   const startCamera = useCallback(async () => {
     setErrorMsg(null);
@@ -104,7 +123,8 @@ export function DocumentCaptureInline({ onExtracted }: DocumentCaptureInlineProp
     setPreviewUrl(`data:image/jpeg;base64,${base64}`);
     setCapturedBase64(base64);
     setCaptureState("preview");
-  }, [stopCamera]);
+    onImagenCapturada?.(base64);
+  }, [stopCamera, onImagenCapturada]);
 
   const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -116,11 +136,12 @@ export function DocumentCaptureInline({ onExtracted }: DocumentCaptureInlineProp
       setPreviewUrl(dataUrl);
       setCapturedBase64(base64);
       setCaptureState("preview");
+      onImagenCapturada?.(base64);
     } catch {
       setErrorMsg("Error al procesar la imagen. Inténtalo de nuevo.");
     }
     if (fileInputRef.current) fileInputRef.current.value = "";
-  }, []);
+  }, [onImagenCapturada]);
 
   const handleExtract = useCallback(() => {
     if (!capturedBase64) return;
