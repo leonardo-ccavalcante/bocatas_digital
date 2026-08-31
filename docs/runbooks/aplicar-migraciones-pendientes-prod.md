@@ -41,13 +41,59 @@ voluntario elige algo legítimo y el registro se pierde sin explicación útil.
 
 ## 1 · Antes de tocar nada
 
-```bash
-# Copia de seguridad del proyecto de producción antes de la primera migración.
-# (Supabase Dashboard → Database → Backups, o pg_dump con la DB_URL de prod.)
+### ⛔ NO uses `supabase db push`. Destruiría la base.
+
+Esto no es precaución genérica: está medido contra producción.
+
+`db push` decide qué aplicar comparando el PREFIJO del fichero contra
+`supabase_migrations.schema_migrations.version`. Y en esta base **esas dos cosas
+no coinciden**: las migraciones se registraron con la hora en que se APLICARON,
+no con el prefijo del fichero.
+
+```sql
+select version, name from supabase_migrations.schema_migrations
+where name like '20260708000002%' or name like '20260723100001%';
 ```
 
+| Fichero en el repo | `version` registrada |
+|---|---|
+| `20260707000001_reparto_slots_turnos.sql` | `20260707144140` |
+| `20260723100001_programs_tree.sql` | `20260723135615` |
+| `20260708000002_add_colectivos_special_category.sql` | `20260722154723` **y** `20260723142822` |
+
+Consecuencia: de los 164 ficheros del repo, `db push` considera pendientes
+**119**, no 6. Volvería a ejecutar `CREATE TYPE`, backfills, `INSERT` de datos y
+migraciones de reparto que ya corrieron. Comprobado con:
+
+```sql
+with locales(version) as (select unnest(array[/* los 164 prefijos */]))
+select l.version from locales l
+left join supabase_migrations.schema_migrations m on m.version = l.version
+where m.version is null;
+-- → 119 filas
+```
+
+Las migraciones de este repo son existence-tolerant, así que muchas
+sobrevivirían — pero no todas, y "muchas" no es una garantía sobre la base de
+producción. **Se aplican a mano, una a una.**
+
+*(Arreglar `db push` de verdad es otra tarea: `supabase migration repair
+--status applied <version>` por cada fichero ya aplicado, para reescribir la
+tabla de seguimiento. Merece su propia sesión y su propia copia de seguridad.)*
+
+### Copia de seguridad
+
+Supabase Dashboard → Database → Backups (o `pg_dump` con la DB_URL de prod).
 Ninguna de las seis borra datos, pero dos añaden valores a un `enum` y eso no se
-revierte con un simple `DROP`: hay que tener la copia.
+revierte con un `DROP`: hay que tener la copia.
+
+### Nota sobre los enums
+
+Las migraciones 2.3 y 2.4 usan `ALTER TYPE … ADD VALUE IF NOT EXISTS` dentro de
+bloques `DO`. Producción corre **PostgreSQL 17.6**, donde eso es legal dentro de
+una transacción (PG 12+); la única restricción es que el valor nuevo no se puede
+USAR en la misma transacción, y estas migraciones sólo lo añaden. El editor SQL
+del Dashboard sirve.
 
 ---
 
@@ -56,6 +102,27 @@ revierte con un simple `DROP`: hay que tener la copia.
 El orden es el del prefijo. No lo alteres: `nombre_norm` recrea la vista
 `persons_safe` y las demás no dependen entre sí, pero el registro de versiones
 debe quedar monótono.
+
+### Cómo se ejecuta cada una
+
+Supabase Dashboard → SQL Editor. Para CADA fichero, en orden, y de uno en uno:
+
+1. Pega el contenido íntegro de `supabase/migrations/<fichero>.sql` y ejecútalo.
+2. Ejecuta su comprobación posterior (abajo, en cada apartado).
+3. Sólo si la comprobación pasa, registra la migración:
+
+```sql
+insert into supabase_migrations.schema_migrations (version, name)
+values ('20260830100001', '20260830100001_persons_nombre_norm_search')
+on conflict (version) do nothing;
+```
+
+Se registra con el **prefijo del fichero** como `version` (no con la hora de
+aplicación, que es justo la costumbre que dejó la tabla inservible para
+`db push`). Cada migración aplicada así reduce en una el desfase.
+
+De una en una y comprobando entre medias: si algo falla, sabes exactamente
+cuál fue y las anteriores ya están registradas.
 
 ### 2.1 `20260830100000_grant_service_role_secdef_rpcs`
 
