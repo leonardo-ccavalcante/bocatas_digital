@@ -12,6 +12,7 @@
  *   admin.ts:    updateRole, updateFaseItinerario
  *   history.ts:  getCheckinHistory
  *   qr.ts:       getQrPayload, getCheckinTarget    (Phase 6 QA-1A)
+ *   documents.ts: getDocumentUrls, getPersonIdsWithDocuments (superadmin)
  */
 
 import { router } from "../../_core/trpc";
@@ -25,6 +26,7 @@ import { familyRouter } from "./family";
 import { adminRouter } from "./admin";
 import { historyRouter } from "./history";
 import { qrRouter } from "./qr";
+import { getDocumentUrls, getPersonIdsWithDocuments } from "./documents";
 
 export const personsRouter = router({
   create: crudRouter.create,
@@ -46,4 +48,6 @@ export const personsRouter = router({
   getQrPayload: qrRouter.getQrPayload,
   getCheckinTarget: qrRouter.getCheckinTarget,
   findDuplicates: crudRouter.findDuplicates,
+  getDocumentUrls,
+  getPersonIdsWithDocuments,
 });

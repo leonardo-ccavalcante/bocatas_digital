@@ -189,8 +189,12 @@ that repeatedly bite agents:
 - **EIPD before any data collection — no exceptions.** Never collect data not listed
   in it; data minimization is mandatory.
 - No PII in QR codes (internal UUID only). No PII in logs or error messages — IDs only.
-- High-risk fields (`situacion_legal`, `foto_documento_url`, `recorrido_migratorio`):
-  read access restricted to superadmin/admin.
+- High-risk fields (`situacion_legal`, `recorrido_migratorio`): read access
+  restricted to superadmin/admin. `foto_documento_url` is NARROWER (ADR-0017):
+  it never travels in the person row for any role — the signed URL is minted on
+  demand, superadmin-only and audited, by `persons.getDocumentUrls`. A UI-only
+  gate is not a restriction: the field was on the wire regardless of what
+  rendered.
 - **DB RLS is NOT the enforcement boundary.** All DB access uses the service-role
   client, bypassing RLS app-wide; tRPC procedure guards + `redactHighRiskFields` are
   the ONLY PII wall (ADR-0002, `ARCHITECTURE.md`, issue #50). Treat every router as

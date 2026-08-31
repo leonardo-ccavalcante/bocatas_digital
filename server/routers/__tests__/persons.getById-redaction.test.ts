@@ -96,10 +96,38 @@ describe("persons.getById — high-risk PII redaction (C-01)", () => {
       string,
       unknown
     >;
-    for (const field of HIGH_RISK) {
+    // `foto_documento_url` sale de esta lista a propósito: ya no viaja en la
+    // ficha para NADIE. Ver el bloqueo positivo justo debajo.
+    for (const field of HIGH_RISK.filter((f) => f !== "foto_documento_url")) {
       expect(result[field]).toBe(FULL_ROW[field]);
     }
   });
+
+  /**
+   * BLOQUEO: la foto del documento NO viaja en la ficha, para ningún rol.
+   *
+   * Antes se firmaba en getById para todo rol elevado, así que CADA carga de
+   * ficha devolvía en el JSON una URL válida diez minutos al DNI de esa
+   * persona, renderizara la UI lo que renderizara — un admin con las
+   * herramientas del navegador la tenía igual, y ninguna lectura dejaba rastro.
+   * Ahora se acuña bajo demanda, sólo para superadministración y con
+   * auditoría, en persons.getDocumentUrls.
+   *
+   * Esta aserción es ESTRICTAMENTE MÁS FUERTE que la que sustituye: antes se
+   * comprobaba que el campo llegaba; ahora que no llega nunca.
+   */
+  it.each(["admin", "superadmin"] as const)(
+    "NUNCA devuelve foto_documento_url — tampoco a un %s",
+    async (rol) => {
+      fromMock.mockReturnValueOnce(mockGetByIdChain({ ...FULL_ROW }));
+      const caller = crudRouter.createCaller(ctxWithRole(rol));
+      const result = (await caller.getById({ id: FULL_ROW.id })) as Record<
+        string,
+        unknown
+      >;
+      expect(result).not.toHaveProperty("foto_documento_url");
+    }
+  );
 
   it("returns high-risk fields to a superadmin", async () => {
     fromMock.mockReturnValueOnce(mockGetByIdChain({ ...FULL_ROW }));

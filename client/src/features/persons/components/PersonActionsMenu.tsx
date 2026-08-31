@@ -21,8 +21,9 @@
  * problemas en Android, el plan B es Sheet (ya probado en FamiliaDrawer,
  * DistritoPanel y HojaDrawer).
  */
+import { useState } from "react";
 import { useLocation } from "wouter";
-import { MoreHorizontal, Eye, Pencil, QrCode } from "lucide-react";
+import { MoreHorizontal, Eye, FileText, Pencil, QrCode } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,6 +31,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { trpc } from "@/lib/trpc";
+import { PersonDocumentsModal } from "./documents";
 
 interface PersonActionsMenuProps {
   personId: string;
@@ -46,10 +49,27 @@ export function PersonActionsMenu({
   const [, navigate] = useLocation();
   const { user } = useAuth();
   const isAdmin = user?.role === "admin" || user?.role === "superadmin";
+  const isSuperadmin = user?.role === "superadmin";
+  const [documentosAbierto, setDocumentosAbierto] = useState(false);
+
+  // Una sola consulta compartida por todas las filas (misma clave de caché), y
+  // sólo para superadmin. Se descartó añadir un `tiene_documento` a getAll:
+  // metería la columna de la RUTA en una consulta de cientos de filas.
+  const idsConDocumentos = trpc.persons.getPersonIdsWithDocuments.useQuery(undefined, {
+    enabled: isSuperadmin,
+    staleTime: 60_000,
+    retry: false,
+  });
+  // Fail-open: mientras carga, o si falla, el ítem aparece igual. La pared es
+  // el servidor (superadminProcedure), no esta lista de conveniencia.
+  const puedeTenerDocumentos =
+    isSuperadmin &&
+    (!idsConDocumentos.isSuccess || idsConDocumentos.data.personIds.includes(personId));
 
   const irA = (destino: string) => navigate(destino);
 
   return (
+    <>
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label={`Acciones de ${nombreCompleto}`}
@@ -91,7 +111,23 @@ export function PersonActionsMenu({
         <DropdownMenuItem className="h-11" onSelect={() => irA(`/personas/${personId}/qr`)}>
           <QrCode aria-hidden="true" /> Ver QR
         </DropdownMenuItem>
+        {puedeTenerDocumentos && (
+          <DropdownMenuItem className="h-11" onSelect={() => setDocumentosAbierto(true)}>
+            <FileText aria-hidden="true" /> Documentos
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
+
+    {/* Fuera del menú: al elegir el ítem, el menú se desmonta. */}
+    {isSuperadmin && (
+      <PersonDocumentsModal
+        personId={personId}
+        nombreCompleto={nombreCompleto}
+        open={documentosAbierto}
+        onOpenChange={setDocumentosAbierto}
+      />
+    )}
+    </>
   );
 }

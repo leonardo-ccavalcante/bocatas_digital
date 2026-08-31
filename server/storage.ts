@@ -162,3 +162,9 @@ export const AVATAR_BUCKET = "fotos-perfil";
  * `redactHighRiskFields` (admin/superadmin).
  */
 export const ID_DOCUMENT_BUCKET = "documentos-identidad";
+/**
+ * Foto del documento de consentimiento firmado a mano
+ * (`consents.documento_foto_url`). Es la prueba del Art. 7: privada, y sólo se
+ * firma bajo demanda desde persons.getDocumentUrls.
+ */
+export const CONSENT_DOCUMENT_BUCKET = "documentos-consentimiento";

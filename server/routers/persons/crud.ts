@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { signPathField, AVATAR_BUCKET, ID_DOCUMENT_BUCKET } from "../../storage";
+import { signPathField, AVATAR_BUCKET } from "../../storage";
 import { z } from "zod";
 import { createAdminClient } from "../../../client/src/lib/supabase/server";
 import { adminProcedure, voluntarioProcedure, router } from "../../_core/trpc";
@@ -281,13 +281,19 @@ export const crudRouter = router({
       }
       if (redacted) {
         await signPathField(AVATAR_BUCKET, [redacted], "foto_perfil_url");
-        // La foto del documento vive en otro bucket y también se guarda como
-        // PATH, así que sin firmarla la pestaña Documentos enlazaba a una ruta
-        // cruda que no abre. Sólo llega aquí con rol elevado: para el resto
-        // redactHighRiskFields ya ha borrado el campo.
-        if (ELEVATED_ROLES.has(ctx.user.role)) {
-          await signPathField(ID_DOCUMENT_BUCKET, [redacted], "foto_documento_url");
-        }
+        // La foto del documento NO viaja en la ficha, y esto no es cosmética.
+        //
+        // Antes se firmaba aquí para todo rol elevado: CADA carga de ficha
+        // devolvía en el JSON una URL firmada y válida diez minutos al DNI de
+        // esa persona, renderizara la UI lo que renderizara. Un admin con las
+        // herramientas del navegador, un proxy, o una mirada a la caché de
+        // React Query la tenía igual. Esconder el botón no restringe nada.
+        //
+        // Ahora se acuña bajo demanda, sólo para superadministración y con
+        // registro de auditoría, en persons.getDocumentUrls. Si esta línea
+        // volviera, cada apertura de ficha sería una lectura sin rastro y la
+        // auditoría de allí sería mentira.
+        delete (redacted as Record<string, unknown>).foto_documento_url;
       }
       return redacted;
     }),

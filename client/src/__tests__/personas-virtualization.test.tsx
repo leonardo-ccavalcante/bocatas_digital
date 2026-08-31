@@ -25,6 +25,20 @@ class ResizeObserverStub {
 }
 global.ResizeObserver = global.ResizeObserver ?? ResizeObserverStub;
 
+// PersonRowDesktop lleva ahora PersonActionsMenu, que consulta el rol y la
+// lista de personas con documentos archivados.
+vi.mock("@/_core/hooks/useAuth", () => ({ useAuth: () => ({ user: { role: "admin" } }) }));
+vi.mock("@/lib/trpc", () => ({
+  trpc: {
+    persons: {
+      getPersonIdsWithDocuments: {
+        useQuery: () => ({ data: undefined, isSuccess: false }),
+      },
+      getDocumentUrls: { useQuery: () => ({ data: undefined, isLoading: false }) },
+    },
+  },
+}));
+
 // ── Mock wouter (no real navigation needed) ───────────────────────────────────
 vi.mock("wouter", async () => {
   const real = await vi.importActual<typeof import("wouter")>("wouter");

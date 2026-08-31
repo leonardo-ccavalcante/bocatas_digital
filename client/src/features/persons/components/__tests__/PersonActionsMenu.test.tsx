@@ -15,12 +15,21 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-const { mockUseAuth, mockNavigate } = vi.hoisted(() => ({
+const { mockUseAuth, mockNavigate, mockIdsConDocumentos } = vi.hoisted(() => ({
   mockUseAuth: vi.fn(),
   mockNavigate: vi.fn(),
+  mockIdsConDocumentos: vi.fn(),
 }));
 
 vi.mock("@/_core/hooks/useAuth", () => ({ useAuth: mockUseAuth }));
+vi.mock("@/lib/trpc", () => ({
+  trpc: {
+    persons: {
+      getPersonIdsWithDocuments: { useQuery: mockIdsConDocumentos },
+      getDocumentUrls: { useQuery: () => ({ data: undefined, isLoading: false }) },
+    },
+  },
+}));
 vi.mock("wouter", () => ({
   useLocation: () => ["/personas", mockNavigate],
 }));
@@ -39,6 +48,7 @@ const PERSON: PersonRowData = {
 beforeEach(() => {
   vi.clearAllMocks();
   mockUseAuth.mockReturnValue({ user: { role: "admin" } });
+  mockIdsConDocumentos.mockReturnValue({ data: undefined, isSuccess: false });
 });
 afterEach(() => cleanup());
 

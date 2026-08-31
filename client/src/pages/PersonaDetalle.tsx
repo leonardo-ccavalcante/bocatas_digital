@@ -226,7 +226,11 @@ export default function PersonaDetalle() {
 
           {/* Documentos — no endpoint yet: honest empty state (see component) */}
           <TabsContent value="documentos" className="mt-0">
-            {activeTab === "documentos" && <DocumentosTab person={personRow} isAdmin={isAdmin} />}
+            {activeTab === "documentos" && <DocumentosTab
+              personId={personRow.id}
+              nombreCompleto={`${personRow.nombre} ${personRow.apellidos ?? ""}`.trim()}
+              isSuperadmin={isSuperadmin}
+            />}
           </TabsContent>
 
           {/* Asistencias — admin only, existing CheckinHistoryTable */}

@@ -49,6 +49,10 @@ type PersonsUpdate = Database["public"]["Tables"]["persons"]["Update"];
 export const PersonUpdateFields = PersonCreateInput.omit({
   program_ids: true,
   fase_itinerario: true,
+  // Desde que getById dejó de devolverlo, un admin podría escribir un campo
+  // que ya no puede leer — justo el invariante que la cabecera de este archivo
+  // afirma. Se cambia volviendo a subir la foto, no parcheando la columna.
+  foto_documento_url: true,
 }).partial();
 
 /** Campos de categoría especial: sólo se escriben con consentimiento declarado. */

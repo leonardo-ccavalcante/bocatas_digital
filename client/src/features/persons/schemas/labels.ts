@@ -105,6 +105,17 @@ export const ESTABILIDAD_HABITACIONAL_LABELS: Record<string, string> = {
   estable: "Estable",
 };
 
+/** Etiquetas de los fines de consentimiento. Vivía suelto en ConsentModal;
+ *  el visor de documentos necesita el mismo mapa y dos copias derivan. */
+export const CONSENT_PURPOSE_LABELS: Record<string, string> = {
+  tratamiento_datos_bocatas: "Tratamiento de datos — Bocatas",
+  tratamiento_datos_banco_alimentos: "Tratamiento de datos — Banco de Alimentos",
+  compartir_datos_red: "Compartir datos en red",
+  comunicaciones_whatsapp: "Comunicaciones por WhatsApp",
+  fotografia: "Uso de fotografía",
+  archivo_documento_identidad: "Archivo del documento de identidad",
+};
+
 export const COLECTIVO_LABELS: Record<string, string> = {
   gitanos: "Población gitana",
   lgtbi: "LGTBI",
