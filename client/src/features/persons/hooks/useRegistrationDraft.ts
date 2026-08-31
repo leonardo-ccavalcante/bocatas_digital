@@ -37,6 +37,10 @@ export function useRegistrationDraft({ watch, reset, fase, setFase }: Args) {
   // formulario vacío que se está mostrando lo machacaría antes de que a nadie
   // le dé tiempo a pulsar "Recuperar".
   const ofreciendo = useRef(false);
+  // El watch se suscribe UNA vez; sin esta ref capturaría el `descartar` del
+  // primer render para siempre. Se declara aquí y se apunta al actual más
+  // abajo, cuando `descartar` ya existe.
+  const descartarRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     const encontrado = leerBorrador();
@@ -48,7 +52,15 @@ export function useRegistrationDraft({ watch, reset, fase, setFase }: Args) {
 
   useEffect(() => {
     const sub = watch((valores) => {
-      if (ofreciendo.current) return;
+      if (ofreciendo.current) {
+        // Quien ignora el aviso y empieza a teclear ya ha decidido: empieza de
+        // cero. Sin esto el aviso se quedaba en pantalla para siempre —
+        // ofreciendo un "Recuperar" que machacaría lo recién escrito— y el
+        // guardado quedaba bloqueado el resto de la sesión, que es justo el
+        // caso que el borrador venía a cubrir.
+        descartarRef.current();
+        return;
+      }
       if (temporizador.current) clearTimeout(temporizador.current);
       temporizador.current = setTimeout(() => {
         const v = valores as Record<string, unknown>;
@@ -74,6 +86,8 @@ export function useRegistrationDraft({ watch, reset, fase, setFase }: Args) {
     ofreciendo.current = false;
     setBorradorPendiente(null);
   }, []);
+  descartarRef.current = descartar;
+
 
   /** Tras crear la ficha: el borrador ya no representa nada pendiente. */
   const limpiar = useCallback(() => {

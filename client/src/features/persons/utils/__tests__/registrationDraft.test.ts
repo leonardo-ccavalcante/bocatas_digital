@@ -14,6 +14,7 @@ import {
   borrarBorrador,
   CAMPOS_EXCLUIDOS,
 } from "../registrationDraft";
+import { HIGH_RISK_FIELD_NAMES } from "../../../../../../server/_core/rlsRedaction";
 
 beforeEach(() => {
   sessionStorage.clear();
@@ -43,6 +44,24 @@ describe("limpiarValores — qué NO sale del formulario", () => {
   it("todos los campos excluidos están cubiertos por la prueba", () => {
     const entrada = Object.fromEntries(CAMPOS_EXCLUIDOS.map((c) => [c, "x"]));
     expect(limpiarValores({ ...entrada, nombre: "Ana" })).toEqual({ nombre: "Ana" });
+  });
+
+  /**
+   * Candado contra la deriva. `situacion_legal` es campo de alto riesgo y el
+   * wizard lo recoge (Step2Documento), pero no estaba en la lista de exclusión:
+   * el borrador lo escribía en sessionStorage, dejando en el navegador de un
+   * voluntario un dato que ese voluntario no puede ni leer en la ficha.
+   *
+   * Se comprueba contra la lista CANÓNICA, no contra una copia, para que añadir
+   * un campo de alto riesgo nuevo rompa aquí en vez de filtrarse en silencio.
+   */
+  it("ningún campo de alto riesgo sobrevive al borrador", () => {
+    const entrada = Object.fromEntries(HIGH_RISK_FIELD_NAMES.map((c) => [c, "secreto"]));
+    const limpios = limpiarValores({ ...entrada, nombre: "Ana" });
+    for (const campo of HIGH_RISK_FIELD_NAMES) {
+      expect(limpios, `${campo} no debería sobrevivir al borrador`).not.toHaveProperty(campo);
+    }
+    expect(limpios).toEqual({ nombre: "Ana" });
   });
 
   it("descarta vacíos para no ocupar cuota", () => {

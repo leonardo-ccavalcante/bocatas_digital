@@ -109,6 +109,17 @@ export function usePersonsData({
         );
         return tokens.every((t) => haystack.includes(t));
       });
+
+      // El teléfono NO viaja en el listado (traerlo sólo para filtrar pondría
+      // 600+ teléfonos en el navegador), así que este carril no puede
+      // encontrarlo — y el buscador PROMETE buscar por teléfono. Se suman los
+      // resultados del servidor, que sí miran `telefono`: la consulta ya está
+      // hecha (useSearchPersons corre para cualquier rol), así que esto no
+      // añade ni una petición.
+      if (searchRows.length > 0) {
+        const vistos = new Set(rows.map((r) => r.id));
+        rows = [...rows, ...searchRows.filter((r) => !vistos.has(r.id))];
+      }
     }
 
     // Estado filter

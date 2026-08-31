@@ -72,11 +72,17 @@ export function construirPayload(parche: Parche): PersonsUpdate {
   for (const [clave, valor] of Object.entries(campos)) {
     if (valor === undefined) continue;
     if (clave === "colectivo_otros") {
-      // El texto libre de colectivo va cifrado en reposo, igual que en el alta.
-      // Sin clave configurada NO se guarda en claro: se omite del parche.
-      payload[clave] = isPiiCryptoConfigured()
-        ? encryptPII(str(valor as string | null))
-        : null;
+      const texto = str(valor as string | null);
+      // Vaciar el campo es legítimo y no necesita clave.
+      // Con texto, `encryptPII` cifra o lanza: nunca se guarda en claro.
+      //
+      // Antes esta rama escribía `null` cuando faltaba la clave, contra lo que
+      // decía su propio comentario. En un INSERT eso sólo significa "no se
+      // guarda"; aquí es un UPDATE, así que BORRABA el dato de categoría
+      // especial que ya estuviera cifrado en la ficha. El resolver rechaza
+      // antes ese caso (ver updatePerson), y aquí nunca se asigna null salvo
+      // que se pida vaciar.
+      payload[clave] = texto === null ? null : encryptPII(texto);
       continue;
     }
     payload[clave] = typeof valor === "string" ? str(valor) : valor;
@@ -98,6 +104,23 @@ export const updatePerson = adminProcedure
         code: "BAD_REQUEST",
         message:
           "Para modificar los datos de colectivo hace falta declarar el consentimiento explícito de la persona.",
+      });
+    }
+
+    // Fail-closed y RUIDOSO: sin clave de cifrado no se puede guardar texto de
+    // categoría especial, y tampoco se puede fingir que se guardó. Vaciar el
+    // campo sí se permite (no necesita clave).
+    const textoColectivo = input.data.colectivo_otros;
+    if (
+      textoColectivo !== undefined &&
+      textoColectivo !== null &&
+      textoColectivo !== "" &&
+      !isPiiCryptoConfigured()
+    ) {
+      throw new TRPCError({
+        code: "PRECONDITION_FAILED",
+        message:
+          "No se puede guardar el texto de colectivo: falta la clave de cifrado en el servidor.",
       });
     }
 
@@ -161,12 +184,29 @@ export const softDeletePerson = superadminProcedure
     // Una persona con asistencias registradas es historia de servicio: retirarla
     // dejaría check-ins colgando de una ficha invisible. Los duplicados que hay
     // que limpiar no tienen ninguna.
-    const { count } = await supabase
+    const { count, error: errorConteo } = await supabase
       .from("attendances")
       .select("id", { count: "exact", head: true })
       .eq("person_id", input.id);
 
-    if ((count ?? 0) > 0) {
+    // La guarda tiene que fallar CERRADA. Descartando el error, un timeout en
+    // `attendances` devolvía count=null, `(count ?? 0) > 0` daba false, y la
+    // ficha se retiraba con todo su historial de servicio colgando — justo el
+    // caso que esta comprobación existe para impedir, y sin dejar rastro.
+    if (errorConteo || count === null) {
+      logProcedureError(
+        ctx,
+        "Failed to count attendances before delete",
+        (errorConteo ?? new Error("count nulo")) as Error,
+        { personId: input.id }
+      );
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "No se pudo comprobar el historial de la ficha. No se ha retirado nada.",
+      });
+    }
+
+    if (count > 0) {
       throw new TRPCError({
         code: "PRECONDITION_FAILED",
         message: `No se puede retirar: la ficha tiene ${count} check-in(s) registrados. Revisa si en realidad hay que fusionarla con otra.`,

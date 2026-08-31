@@ -12,6 +12,7 @@ import {
 } from "../../../schemas";
 import { DocumentCaptureInline } from "../../DocumentCaptureInline";
 import { DuplicateWarningCard } from "../../DuplicateWarningCard";
+import { ArchivarDocumentoCheckbox } from "../../ArchivarDocumentoCheckbox";
 import { SearchableSelect } from "../../SearchableSelect";
 import { DateField } from "../../DateField";
 import { SelectField, FieldError } from "../_shared";
@@ -23,7 +24,10 @@ interface Step1IdentidadProps {
   errors: FieldErrors<PersonCreate>;
   ocrUsed: boolean;
   handleOCRExtracted: (data: OcrExtracted) => void;
-  onArchivarDocumento: (base64: string | null) => void;
+  onImagenDocumento: (base64: string | null) => void;
+  hayImagenDocumento: boolean;
+  archivarDocumento: boolean;
+  setArchivarDocumento: (v: boolean) => void;
   showDuplicateWarning: boolean;
   duplicateCheckDegraded: boolean;
   duplicates: DuplicateCandidate[];
@@ -32,7 +36,8 @@ interface Step1IdentidadProps {
 
 export function Step1Identidad({
   register, watch, setValue, errors,
-  ocrUsed, handleOCRExtracted, onArchivarDocumento,
+  ocrUsed, handleOCRExtracted, onImagenDocumento,
+  hayImagenDocumento, archivarDocumento, setArchivarDocumento,
   showDuplicateWarning, duplicateCheckDegraded, duplicates, onDismissDuplicate,
 }: Step1IdentidadProps) {
   return (
@@ -41,7 +46,7 @@ export function Step1Identidad({
       {!ocrUsed ? (
         <DocumentCaptureInline
           onExtracted={handleOCRExtracted}
-          onArchivarImagen={onArchivarDocumento}
+          onImagenCapturada={onImagenDocumento}
         />
       ) : (
         <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700">
@@ -49,6 +54,14 @@ export function Step1Identidad({
           <span>Datos extraídos del documento. Revisa y edita si es necesario.</span>
         </div>
       )}
+
+      {/* Sobrevive al desmonte de DocumentCaptureInline: ver el comentario de
+          ArchivarDocumentoCheckbox. */}
+      <ArchivarDocumentoCheckbox
+        hayImagen={hayImagenDocumento}
+        archivar={archivarDocumento}
+        onChange={setArchivarDocumento}
+      />
 
       {showDuplicateWarning && (
         <DuplicateWarningCard

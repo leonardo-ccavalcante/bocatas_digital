@@ -111,10 +111,20 @@ export function useRegistrationSubmit(args: UseSubmitArgs) {
         }
       }
 
-      // 2b. Foto del documento — sólo si se marcó archivarla en el escaneo.
-      // Bucket propio y privado; se guarda el PATH, nunca una URL firmada.
+      // 2b. Foto del documento — dos condiciones, no una.
+      //
+      // La casilla de archivar se marca en la FASE 1 y los consentimientos se
+      // deciden en la FASE 3, así que marcarla no puede ser la única puerta:
+      // una persona que después deniega el uso de su imagen acabaría con la
+      // foto de su DNI archivada igualmente. Se exige además `fotografia`,
+      // igual que la foto de perfil. Es condición NECESARIA, no suficiente:
+      // ese texto de consentimiento cubre fotos de actividades, no el archivo
+      // del documento — ver el cuerpo de la PR y #149.
       let fotoDocumentoUrl: string | null = null;
-      if (args.documentoBase64) {
+      if (args.documentoBase64 && !puedeGuardarFoto(args.consentChoices)) {
+        toast.info("La foto del documento no se archiva: no se autorizó el uso de imagen.");
+      }
+      if (args.documentoBase64 && puedeGuardarFoto(args.consentChoices)) {
         try {
           const result = await uploadPhoto({
             bucket: "documentos-identidad",

@@ -90,6 +90,45 @@ describe("construirPayload", () => {
       colectivo_otros: "cifrado:algo",
     });
   });
+
+  it("vaciar el texto de colectivo escribe null, no cifra la cadena vacía", () => {
+    expect(construirPayload({ colectivo_otros: "" })).toEqual({ colectivo_otros: null });
+  });
+});
+
+/**
+ * Sin clave de cifrado NO se puede guardar texto de categoría especial — y
+ * sobre todo NO se puede machacar con null lo que ya estuviera cifrado.
+ *
+ * En el alta escribir null sólo significa "no se guarda"; aquí es un UPDATE, y
+ * significaba DESTRUIR el dato Art. 9 previamente consentido, respondiendo 200.
+ */
+describe("persons.update — texto de colectivo sin clave de cifrado", () => {
+  it("rechaza el parche en vez de borrar el dato cifrado", async () => {
+    const crypto = await import("../../../_core/pii-crypto");
+    vi.mocked(crypto.isPiiCryptoConfigured).mockReturnValueOnce(false);
+
+    const caller = testRouter.createCaller(ctx("admin"));
+    await expect(
+      caller.update({
+        id: ID,
+        data: { colectivo_otros: "texto corregido", colectivo_consentimiento: true },
+      })
+    ).rejects.toThrow(/clave de cifrado/i);
+    // Nada se escribió: el valor cifrado anterior sigue intacto.
+    expect(fromMock).not.toHaveBeenCalled();
+  });
+
+  it("permite VACIAR el campo aunque no haya clave", async () => {
+    const crypto = await import("../../../_core/pii-crypto");
+    vi.mocked(crypto.isPiiCryptoConfigured).mockReturnValueOnce(false);
+    fromMock.mockReturnValueOnce(updateChain({ id: ID, nombre: "Ana", apellidos: "Ruiz" }));
+
+    const caller = testRouter.createCaller(ctx("admin"));
+    await expect(
+      caller.update({ id: ID, data: { colectivo_otros: "", colectivo_consentimiento: true } })
+    ).resolves.toBeTruthy();
+  });
 });
 
 describe("persons.update — política de acceso", () => {
@@ -166,10 +205,10 @@ describe("persons.softDelete", () => {
     return chain;
   }
 
-  function countChain(count: number) {
+  function countChain(count: number | null, error: unknown = null) {
     const chain: Record<string, ReturnType<typeof vi.fn>> = {
       select: vi.fn(),
-      eq: vi.fn().mockResolvedValue({ count, error: null }),
+      eq: vi.fn().mockResolvedValue({ count, error }),
     };
     chain.select.mockReturnValue(chain);
     return chain;
@@ -179,6 +218,37 @@ describe("persons.softDelete", () => {
     const caller = testRouter.createCaller(ctx("admin"));
     await expect(caller.softDelete({ id: ID })).rejects.toThrow();
     expect(fromMock).not.toHaveBeenCalled();
+  });
+
+  /**
+   * La guarda de asistencias tiene que fallar CERRADA.
+   *
+   * Descartando el error de la consulta, un timeout sobre `attendances`
+   * devolvía count=null, `(count ?? 0) > 0` daba false, y la ficha se retiraba
+   * con todo su historial colgando — el caso exacto que la guarda impide — sin
+   * un solo log del motivo.
+   */
+  it("NO retira nada si no puede comprobar el historial (falla cerrada)", async () => {
+    fromMock
+      .mockReturnValueOnce(readChain({ id: ID, nombre: "Ana", apellidos: "Ruiz" }))
+      .mockReturnValueOnce(
+        countChain(null, { code: "57014", message: "canceling statement due to statement timeout" })
+      );
+
+    const caller = testRouter.createCaller(ctx("superadmin"));
+    await expect(caller.softDelete({ id: ID })).rejects.toThrow(/No se ha retirado nada/i);
+    // Lo decisivo: la cascada NUNCA llegó a ejecutarse.
+    expect(fromMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("NO retira nada si el conteo vuelve nulo sin error", async () => {
+    fromMock
+      .mockReturnValueOnce(readChain({ id: ID, nombre: "Ana", apellidos: "Ruiz" }))
+      .mockReturnValueOnce(countChain(null));
+
+    const caller = testRouter.createCaller(ctx("superadmin"));
+    await expect(caller.softDelete({ id: ID })).rejects.toThrow(/No se ha retirado nada/i);
+    expect(fromMock).toHaveBeenCalledTimes(2);
   });
 
   it("se niega a retirar una ficha con check-ins registrados", async () => {

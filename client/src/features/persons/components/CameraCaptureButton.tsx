@@ -45,6 +45,8 @@ export function CameraCaptureButton({
   // limpieza corría con streamRef todavía a null y la pista quedaba viva:
   // LED encendido y batería hasta recargar la página.
   const montado = useRef(true);
+  /** Cerrojo del giro: ver `girar`. */
+  const girando = useRef(false);
   const [open, setOpen] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -87,6 +89,11 @@ export function CameraCaptureButton({
         if (videoRef.current) videoRef.current.srcObject = stream;
       }, 50);
     } catch {
+      // Cerrar el visor es parte del manejo del error, no un detalle: el aviso
+      // sólo se pinta en la rama cerrada. Al girar, un fallo dejaba el visor
+      // abierto con la pista ya parada, el mensaje invisible, y "Capturar"
+      // guardando el último fotograma congelado como si fuera la foto nueva.
+      setOpen(false);
       setErrorMsg("No se pudo acceder a la cámara. Usa el botón de subir imagen.");
     }
   }, []);
@@ -97,10 +104,20 @@ export function CameraCaptureButton({
    * si se pide la segunda con la primera todavía viva.
    */
   const girar = useCallback(async () => {
-    const siguiente: Facing = facing === "user" ? "environment" : "user";
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    streamRef.current = null;
-    await start(siguiente);
+    // La guarda anti-doble-toque de start() mira streamRef, y girar lo pone a
+    // null antes de pedir la cámara nueva: sin este cerrojo, dos toques
+    // seguidos abrían DOS getUserMedia y una de las pistas quedaba viva — LED
+    // encendido y batería hasta recargar la página.
+    if (girando.current) return;
+    girando.current = true;
+    try {
+      const siguiente: Facing = facing === "user" ? "environment" : "user";
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+      await start(siguiente);
+    } finally {
+      girando.current = false;
+    }
   }, [facing, start]);
 
   const capture = useCallback(async () => {

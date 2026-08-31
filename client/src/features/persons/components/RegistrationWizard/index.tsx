@@ -81,10 +81,12 @@ export function RegistrationWizard() {
 
   // ── OCR shared state ──────────────────────────────────────────────────────
   const [ocrUsed, setOcrUsed] = useState(false);
-  // Foto del documento a archivar. Sólo se rellena si quien atiende lo marca
-  // explícitamente en el paso de escaneo: hasta ahora la imagen se usaba para
-  // el OCR y se descartaba.
+  // Foto del documento. `documentoBase64` se rellena en cuanto hay captura;
+  // `archivarDocumento` es la decisión explícita de guardarla, apagada por
+  // defecto. Separarlas es lo que permite que la casilla siga en pantalla
+  // después de que el OCR desmonte el componente de captura.
   const [documentoBase64, setDocumentoBase64] = useState<string | null>(null);
+  const [archivarDocumento, setArchivarDocumento] = useState(false);
 
   // ── Profile photo ─────────────────────────────────────────────────────────
   const [profilePhotoBase64, setProfilePhotoBase64] = useState<string | null>(null);
@@ -276,7 +278,7 @@ export function RegistrationWizard() {
     groupAAccepted,
     getValues,
     profilePhotoBase64,
-    documentoBase64,
+    documentoBase64: archivarDocumento ? documentoBase64 : null,
     consentDocBase64,
     consentChoices,
     consentTemplatesEs,
@@ -354,7 +356,15 @@ export function RegistrationWizard() {
                 errors={errors}
                 ocrUsed={ocrUsed}
                 handleOCRExtracted={handleOCRExtracted}
-                onArchivarDocumento={setDocumentoBase64}
+                onImagenDocumento={(b) => {
+                  setDocumentoBase64(b);
+                  // Repetir la captura retira también el permiso: no se archiva
+                  // una foto que nadie ha vuelto a autorizar.
+                  if (b === null) setArchivarDocumento(false);
+                }}
+                hayImagenDocumento={documentoBase64 !== null}
+                archivarDocumento={archivarDocumento}
+                setArchivarDocumento={setArchivarDocumento}
                 showDuplicateWarning={showDuplicateWarning}
                 duplicateCheckDegraded={duplicateCheckDegraded}
                 duplicates={duplicates as DuplicateCandidate[]}

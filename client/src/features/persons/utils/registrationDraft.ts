@@ -16,9 +16,14 @@
  *
  * QUÉ NO SE GUARDA
  * ----------------
- * - `colectivos`, `colectivo_otros`, `colectivo_consentimiento`: categoría
- *   especial (Art. 9/10). No se escriben ni siquiera en la base sin
- *   consentimiento explícito, así que menos aún en el navegador.
+ * - TODOS los campos de alto riesgo (`HIGH_RISK_FIELD_NAMES` en
+ *   server/_core/rlsRedaction.ts): `situacion_legal`, `recorrido_migratorio`,
+ *   `colectivos`, `colectivo_otros`… Su LECTURA ya está restringida a
+ *   admin/superadmin, así que dejarlos en el navegador de un voluntario sería
+ *   una puerta trasera a datos que ese voluntario no puede ni ver en la ficha.
+ *   `__tests__/registrationDraft.test.ts` importa esa lista canónica y falla si
+ *   alguno se queda fuera: la lista de aquí NO se mantiene a mano.
+ * - `colectivo_consentimiento`: bandera transitoria del Art. 9.
  * - `notas_privadas`: notas internas restringidas.
  * - Las fotos (perfil, documento, consentimiento): son base64 de cientos de KB
  *   y reventarían la cuota, además de ser lo más sensible del formulario.
@@ -33,12 +38,28 @@ const CLAVE = "bocatas:alta-borrador:v1";
 /** Un borrador más viejo que esto ya no se ofrece: la jornada ha terminado. */
 const VIGENCIA_MS = 12 * 60 * 60 * 1000;
 
-/** Campos que NUNCA entran en el borrador. Ver la cabecera. */
+/**
+ * Campos que NUNCA entran en el borrador. Ver la cabecera.
+ *
+ * Los de alto riesgo van primero y deben coincidir con HIGH_RISK_FIELD_NAMES
+ * (server/_core/rlsRedaction.ts); el test lo comprueba contra esa lista, no
+ * contra una copia. `situacion_legal` faltaba aquí y el wizard SÍ lo recoge
+ * (Step2Documento), así que el borrador lo estaba escribiendo en el navegador.
+ */
 export const CAMPOS_EXCLUIDOS = [
+  // Alto riesgo — lectura restringida a admin/superadmin.
+  "situacion_legal",
+  "recorrido_migratorio",
   "colectivos",
   "colectivo_otros",
+  "situacion_familiar_texto",
+  "necesidades_texto",
+  "metadata",
+  // Transitorio del Art. 9.
   "colectivo_consentimiento",
+  // Notas internas restringidas.
   "notas_privadas",
+  // Fotos: base64 de cientos de KB y lo más sensible del formulario.
   "foto_perfil_url",
   "foto_documento_url",
 ] as const;
