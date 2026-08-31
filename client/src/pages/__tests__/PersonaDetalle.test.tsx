@@ -58,7 +58,7 @@ vi.mock("@/lib/trpc", () => ({
       // La pestaña Documentos ya no lee la fila: pide las URLs firmadas bajo
       // demanda a una procedure de superadmin.
       getDocumentUrls: { useQuery: mockDocumentosUseQuery },
-      // Con rol superadmin la barra pinta DeletePersonButton, que monta esta
+      // Con rol superadmin la cabecera pinta RetirarFichaMenu, que monta esta
       // mutación al renderizar.
       softDelete: { useMutation: () => ({ mutateAsync: vi.fn(), isPending: false }) },
     },

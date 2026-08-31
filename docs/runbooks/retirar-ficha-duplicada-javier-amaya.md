@@ -49,9 +49,15 @@ intacta.** Ver `aplicar-migraciones-pendientes-prod.md`.
 
 ## 3 · Ejecutar
 
-A partir de esta rama existe `persons.softDelete` (superadmin) en la interfaz:
-ficha → **Retirar ficha**. Es el camino preferido, porque deja rastro en el log
-de la aplicación y arrastra las inscripciones.
+`persons.softDelete` (superadmin) está en la interfaz, pero deliberadamente
+NO a un clic: ficha → desplegable **«Acciones»** → menú **`⋯`** → **Retirar
+ficha…**, y el diálogo no habilita el botón hasta escribir el nombre completo
+de la persona (acepta minúsculas y sin tildes; la ñ sí cuenta). Los dos gestos
+y el nombre escrito son la protección: en una pantalla de fichas casi idénticas
+el error caro no es retirar sin querer, es retirar la ficha equivocada.
+
+Es el camino preferido, porque deja rastro en el log de la aplicación y arrastra
+las inscripciones.
 
 Si se prefiere hacerlo en la base antes de desplegar:
 
