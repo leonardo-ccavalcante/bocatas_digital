@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useParams } from "wouter";
-import { Loader2, AlertCircle, Users, Lock, Pencil } from "lucide-react";
+import { Loader2, AlertCircle, Users, Lock, Pencil, QrCode, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CheckinHistoryTable } from "@/features/persons/components/CheckinHistoryTable";
@@ -84,20 +84,33 @@ export default function PersonaDetalle() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <PersonaHeader
-        person={personRow}
-        visitas={visitas}
-        onConsent={() => setShowConsent(true)}
-      />
+      <PersonaHeader person={personRow} visitas={visitas} />
 
-      {/* Acciones sobre la ficha. Van aquí y no en la cabecera porque el bloque
-          de acciones rápidas de PersonaHeader es `hidden sm:flex` — invisible
-          justo en el móvil, que es el dispositivo desde el que se dan las
-          altas y donde se detectan los errores que hay que corregir. */}
+      {/* UNA sola barra de acciones, visible en TODOS los anchos.
+          La cabecera ya no lleva acciones rápidas: su bloque `hidden sm:flex`
+          (port visual v4, 1ddf694) escondía el QR y los consentimientos justo
+          por debajo de 640px — el móvil desde el que se dan las altas. Un admin
+          no tenía NINGUNA ruta al QR de una persona desde el teléfono.
+
+          El gate es `isAdmin` y eso no restringe nada: `persons.getById` es
+          adminProcedure, así que un voluntario nunca pasa del early-return de
+          error de arriba. El botón del escudo ya era admin-only en la práctica.
+
+          «Editar ficha» es el único primario de la pantalla; lo destructivo va
+          al final. Texto visible, no iconos sueltos: cuatro iconos sin rótulo en
+          una barra que envuelve a dos líneas es adivinar. */}
       {isAdmin && (
         <div className="mx-auto flex w-full max-w-6xl flex-wrap gap-2 px-4 pt-4 sm:px-8">
-          <Button variant="outline" size="sm" onClick={() => setShowEdit(true)}>
+          <Button size="sm" onClick={() => setShowEdit(true)}>
             <Pencil className="mr-1 h-4 w-4" aria-hidden="true" /> Editar ficha
+          </Button>
+          <Link href={`/personas/${personRow.id}/qr`}>
+            <Button variant="outline" size="sm">
+              <QrCode className="mr-1 h-4 w-4" aria-hidden="true" /> Ver QR
+            </Button>
+          </Link>
+          <Button variant="outline" size="sm" onClick={() => setShowConsent(true)}>
+            <Shield className="mr-1 h-4 w-4" aria-hidden="true" /> Consentimientos
           </Button>
           {isSuperadmin && (
             <DeletePersonButton

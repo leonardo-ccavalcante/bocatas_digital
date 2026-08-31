@@ -64,29 +64,51 @@ export function QRCodeCard({ person }: QRCodeCardProps) {
   const handlePrint = () => {
     if (!qrDataUrl) return;
     const win = window.open("", "_blank");
-    if (!win) return;
+    if (!win) {
+      // En una PWA instalada o con el bloqueador de pop-ups activo, window.open
+      // devuelve null. Callar aquí deja al operador tocando un botón muerto.
+      toast.error("El navegador bloqueó la ventana de impresión. Usa Descargar o Compartir.");
+      return;
+    }
     const fullName = `${person.nombre} ${person.apellidos ?? ""}`.trim();
     // fullName is operator-entered DB data; buildQrPrintDocument escapes it.
     win.document.write(buildQrPrintDocument(fullName, qrDataUrl, person.id.slice(0, 8)));
     win.document.close();
   };
 
+  /**
+   * Copia la URI firmada (sin PII). `navigator.clipboard` sólo existe en
+   * contexto seguro: sobre http://<ip-de-la-lan> es undefined y llamarlo
+   * lanzaba un TypeError sin toast — el operador no veía nada.
+   */
+  const copiarUri = async () => {
+    if (!navigator.clipboard?.writeText) {
+      toast.error("Este navegador no permite copiar. Usa Descargar.");
+      return;
+    }
+    await navigator.clipboard.writeText(qrPayload);
+    toast.success("Código QR copiado al portapapeles");
+  };
+
   const handleShare = async () => {
     if (!qrDataUrl) return;
-    if (navigator.share) {
+    const blob = await (await fetch(qrDataUrl)).blob();
+    // Generic title — never carry PII into a system share dialog.
+    const file = new File([blob], `bocatas-qr-${person.id}.png`, { type: "image/png" });
+
+    // Que `navigator.share` exista NO implica que acepte ficheros: varios
+    // WebView de Android rechazan {files} con TypeError. El `catch {}` de antes
+    // se lo tragaba como "el usuario canceló", así que ni compartía ni copiaba.
+    // Sólo AbortError es una cancelación real; todo lo demás cae al fallback.
+    if (navigator.share && navigator.canShare?.({ files: [file] })) {
       try {
-        const blob = await (await fetch(qrDataUrl)).blob();
-        // Generic title — never carry PII into a system share dialog.
-        const file = new File([blob], `bocatas-qr-${person.id}.png`, { type: "image/png" });
         await navigator.share({ files: [file], title: "Código QR de Bocatas" });
-      } catch {
-        // User cancelled share
+        return;
+      } catch (err) {
+        if (err instanceof Error && err.name === "AbortError") return;
       }
-    } else {
-      // Clipboard receives the signed URI (no PII), not a JSON of person fields.
-      await navigator.clipboard.writeText(qrPayload);
-      toast.success("Código QR copiado al portapapeles");
     }
+    await copiarUri();
   };
 
   const fullName = `${person.nombre} ${person.apellidos ?? ""}`.trim();
@@ -115,15 +137,15 @@ export function QRCodeCard({ person }: QRCodeCardProps) {
         <p className="text-center text-xs text-muted-foreground">
           Escanea este código para hacer check-in rápido en el comedor.
         </p>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap justify-center gap-2">
+          <Button size="sm" variant="outline" onClick={handleShare} disabled={!qrDataUrl} aria-label="Compartir QR">
+            <Share2 className="mr-1 h-4 w-4" /> Compartir
+          </Button>
           <Button size="sm" variant="outline" onClick={handleDownload} disabled={!qrDataUrl} aria-label="Descargar QR">
             <Download className="mr-1 h-4 w-4" /> Descargar
           </Button>
           <Button size="sm" variant="outline" onClick={handlePrint} disabled={!qrDataUrl} aria-label="Imprimir QR">
             <Printer className="mr-1 h-4 w-4" /> Imprimir
-          </Button>
-          <Button size="sm" variant="outline" onClick={handleShare} disabled={!qrDataUrl} aria-label="Compartir QR">
-            <Share2 className="mr-1 h-4 w-4" /> Compartir
           </Button>
         </div>
       </CardContent>
