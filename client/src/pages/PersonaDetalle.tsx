@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link, useParams } from "wouter";
+import { useEffect, useState } from "react";
+import { Link, useLocation, useParams, useSearch } from "wouter";
 import { Loader2, AlertCircle, Users, Lock, Pencil, QrCode, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -29,7 +29,20 @@ export default function PersonaDetalle() {
   const { data: person, isLoading, isError, refetch } = usePersonById(id ?? "");
   const { user } = useAuth();
   const [showConsent, setShowConsent] = useState(false);
-  const [showEdit, setShowEdit] = useState(false);
+
+  // `?editar=1` llega desde el menú `⋯` del listado: un ítem que dice «Editar
+  // ficha» y sólo te deja delante del botón sería mentira a medias. Se lee una
+  // vez al montar (es cuando se navega hasta aquí) y se limpia enseguida, para
+  // que cerrar el modal y recargar no lo vuelva a abrir.
+  const search = useSearch();
+  const [, navigate] = useLocation();
+  const [showEdit, setShowEdit] = useState(
+    () => new URLSearchParams(search).get("editar") === "1"
+  );
+  useEffect(() => {
+    if (new URLSearchParams(search).get("editar") !== "1") return;
+    navigate(`/personas/${id}`, { replace: true });
+  }, [search, id, navigate]);
   const [activeTab, setActiveTab] = useState("resumen");
 
   // Only admins and superadmins see check-in data + the Familia CTA + the

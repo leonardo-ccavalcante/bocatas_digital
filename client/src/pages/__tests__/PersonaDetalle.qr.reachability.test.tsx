@@ -33,10 +33,12 @@ if (!Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = () => {};
 }
 
-const { mockUsePersonById, mockUseAuth, mockCheckinUseQuery } = vi.hoisted(() => ({
+const { mockUsePersonById, mockUseAuth, mockCheckinUseQuery, estado } = vi.hoisted(() => ({
   mockUsePersonById: vi.fn(),
   mockUseAuth: vi.fn(),
   mockCheckinUseQuery: vi.fn(),
+  /** Cadena de búsqueda que devuelve el useSearch mockeado. */
+  estado: { search: "", navigate: vi.fn() },
 }));
 
 vi.mock("@/features/persons/hooks/usePersonById", () => ({
@@ -67,6 +69,11 @@ vi.mock("@/features/persons/components/CheckinHistoryTable", () => ({
   CheckinHistoryTable: () => <div>CheckinHistoryTable</div>,
 }));
 
+vi.mock("@/features/persons/components/detail/EditPersonModal", () => ({
+  EditPersonModal: ({ open }: { open: boolean }) =>
+    open ? <div data-testid="edit-modal">EditPersonModal</div> : null,
+}));
+
 // A diferencia de PersonaDetalle.test.tsx, aquí el modal NO se stubea a `null`:
 // hace falta poder demostrar que el botón del escudo lo abre de verdad.
 vi.mock("@/features/persons/components/ConsentModal", () => ({
@@ -81,7 +88,8 @@ vi.mock("wouter", async () => {
   return {
     ...actual,
     useParams: () => ({ id: PERSON_ID }),
-    useLocation: () => ["/personas/" + PERSON_ID, vi.fn()],
+    useSearch: () => estado.search,
+    useLocation: () => ["/personas/" + PERSON_ID, estado.navigate],
     Link: ({ href, children }: { href: string; children: React.ReactNode }) => (
       <a href={href}>{children}</a>
     ),
@@ -160,7 +168,10 @@ function setup({ role = "admin", isError = false }: { role?: string; isError?: b
   mockCheckinUseQuery.mockReturnValue({ data: { total: 7 } });
 }
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  estado.search = "";
+});
 afterEach(() => cleanup());
 
 describe("PersonaDetalle — la barra de acciones se alcanza en cualquier ancho", () => {
@@ -225,5 +236,33 @@ describe("PersonaDetalle — la barra de acciones se alcanza en cualquier ancho"
 
     expect(screen.getByText(/No se pudo cargar la ficha/i)).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /Ver QR/i })).toBeNull();
+  });
+});
+
+describe("PersonaDetalle — llegada desde el menú `⋯` del listado", () => {
+  it("`?editar=1` abre el editor al aterrizar", () => {
+    // El ítem del menú dice «Editar ficha». Si sólo dejara al usuario delante
+    // del botón, sería mentira a medias.
+    estado.search = "?editar=1";
+    setup();
+    render(<PersonaDetalle />);
+
+    expect(screen.getByTestId("edit-modal")).toBeInTheDocument();
+  });
+
+  it("el parámetro se limpia, para que recargar no lo reabra", () => {
+    estado.search = "?editar=1";
+    setup();
+    render(<PersonaDetalle />);
+
+    expect(estado.navigate).toHaveBeenCalledWith(`/personas/${PERSON_ID}`, { replace: true });
+  });
+
+  it("sin el parámetro, el editor está cerrado", () => {
+    setup();
+    render(<PersonaDetalle />);
+
+    expect(screen.queryByTestId("edit-modal")).toBeNull();
+    expect(estado.navigate).not.toHaveBeenCalled();
   });
 });
