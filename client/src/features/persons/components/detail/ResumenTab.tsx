@@ -5,6 +5,7 @@
  * social, estado actual). High-risk `situacion_legal` is admin-gated, matching
  * the RLS guarantee in CLAUDE.md §3. No fabricated data.
  */
+import { Pencil } from "lucide-react";
 import { formatDateDisplay } from "@/lib/dateUtils";
 import type { Database } from "@/lib/database.types";
 import {
@@ -15,6 +16,7 @@ import {
   TIPO_VIVIENDA_LABELS,
 } from "../../schemas";
 import { getEstadoChip } from "./personaEstado";
+import type { SeccionEditable } from "./EditPersonModal";
 
 // Los mapas de `schemas/labels.ts` son la lista de opciones DEL FORMULARIO. La
 // ficha además tiene que saber leer los valores que se retiraron del
@@ -46,21 +48,44 @@ type PersonRow = Database["public"]["Tables"]["persons"]["Row"];
 interface ResumenTabProps {
   person: PersonRow;
   isAdmin: boolean;
+  /** Abre el editor ya colocado en esa sección. Ausente = sin lápices. */
+  onEditar?: (seccion: SeccionEditable) => void;
 }
 
+/**
+ * Editar donde se lee.
+ *
+ * El lápiz de cada bloque abre EL MISMO modal, ya desplazado a la sección
+ * correspondiente: un solo escritor, varios puntos de entrada. Sin esto, quien
+ * ve mal la nacionalidad tiene que subir a la barra, abrir un formulario de
+ * ocho bloques y buscar el campo.
+ */
 function DetailCard({
   title,
   className,
+  onEditar,
   children,
 }: {
   title: string;
   className?: string;
+  onEditar?: () => void;
   children: React.ReactNode;
 }) {
   return (
     <section className={`bocatas-card ${className ?? ""}`}>
-      <header className="border-b border-border px-5 py-3">
+      <header className="flex items-center justify-between gap-2 border-b border-border px-5 py-3">
         <p className="text-eyebrow text-muted-foreground">{title}</p>
+        {onEditar && (
+          <button
+            type="button"
+            onClick={onEditar}
+            aria-label={`Editar ${title.toLowerCase()}`}
+            title={`Editar ${title.toLowerCase()}`}
+            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+        )}
       </header>
       <div className="px-5 py-4">{children}</div>
     </section>
@@ -97,12 +122,16 @@ function EstadoRow({ label, value }: { label: string; value: string | null | und
   );
 }
 
-export function ResumenTab({ person, isAdmin }: ResumenTabProps) {
+export function ResumenTab({ person, isAdmin, onEditar }: ResumenTabProps) {
   const estado = getEstadoChip(person.fase_itinerario);
 
   return (
     <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-      <DetailCard title="Datos de contacto" className="lg:col-span-2">
+      <DetailCard
+        title="Datos de contacto"
+        className="lg:col-span-2"
+        onEditar={onEditar && (() => onEditar("contacto"))}
+      >
         <DataGrid
           items={[
             ["Teléfono", person.telefono],
@@ -137,7 +166,11 @@ export function ResumenTab({ person, isAdmin }: ResumenTabProps) {
         </ul>
       </DetailCard>
 
-      <DetailCard title="Situación socioeconómica" className="lg:col-span-2">
+      <DetailCard
+        title="Situación socioeconómica"
+        className="lg:col-span-2"
+        onEditar={onEditar && (() => onEditar("situacion"))}
+      >
         <DataGrid
           items={[
             ["Tipo de vivienda", etiqueta(VIVIENDA_TEXTO, person.tipo_vivienda)],
@@ -148,7 +181,7 @@ export function ResumenTab({ person, isAdmin }: ResumenTabProps) {
         />
       </DetailCard>
 
-      <DetailCard title="Información social">
+      <DetailCard title="Información social" onEditar={onEditar && (() => onEditar("social"))}>
         <div className="space-y-3 text-body-sm">
           {person.necesidades_principales ? (
             <div>

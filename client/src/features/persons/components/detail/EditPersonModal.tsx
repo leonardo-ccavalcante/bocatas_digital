@@ -4,8 +4,12 @@
  * Sólo se envía lo que ha CAMBIADO: el servidor trata el parche como parcial y
  * lo ausente no se toca. Mandar la ficha entera convertiría cada corrección de
  * un apellido en una reescritura de treinta columnas.
+ *
+ * Las listas de campos y el motor del diff viven en edit/editableFields.ts;
+ * aquí queda la orquestación: diff → puerta Art. 9 → validación → mutación →
+ * invalidación de caché.
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Loader2, Save } from "lucide-react";
 import {
@@ -19,59 +23,31 @@ import {
 import { Button } from "@/components/ui/button";
 import { trpc } from "@/lib/trpc";
 import type { Database } from "@/lib/database.types";
-import { PersonCreateSchema } from "../../schemas";
 import {
   describirErrores,
   mensajeDeErrores,
 } from "../RegistrationWizard/_formErrors";
-import { EditPersonForm, type EditableValues } from "./EditPersonForm";
+import { EditPersonForm } from "./EditPersonForm";
+import {
+  EditableSchema,
+  calcularCambios,
+  tocaArt9,
+  valoresIniciales,
+  type EditableValues,
+} from "./edit/editableFields";
 
 type PersonRow = Database["public"]["Tables"]["persons"]["Row"];
 
-/** Los mismos campos que el servidor acepta parchear. */
-const EditableSchema = PersonCreateSchema.omit({
-  program_ids: true,
-  fase_itinerario: true,
-}).partial();
-
-const CAMPOS_EDITABLES = [
-  "nombre", "apellidos", "fecha_nacimiento", "genero", "pais_origen", "idioma_principal",
-  "tipo_documento", "numero_documento", "pais_documento", "situacion_legal",
-  "fecha_llegada_espana", "telefono", "email", "direccion", "codigo_postal",
-  "municipio", "barrio_zona", "tipo_vivienda", "nivel_estudios",
-  "situacion_laboral", "situacion_ante_empleo", "nivel_ingresos", "empadronado",
-] as const;
-
-type CampoEditable = (typeof CAMPOS_EDITABLES)[number];
-
-function valoresIniciales(person: PersonRow): EditableValues {
-  const iniciales: Record<string, unknown> = {};
-  for (const campo of CAMPOS_EDITABLES) {
-    iniciales[campo] = (person as unknown as Record<string, unknown>)[campo] ?? undefined;
-  }
-  return iniciales as EditableValues;
-}
-
-/**
- * Diferencia contra los valores de partida. `""` y `null` se consideran lo
- * mismo (campo vacío) para que abrir y cerrar el formulario sin tocar nada no
- * genere un parche.
- */
-export function calcularCambios(
-  iniciales: EditableValues,
-  actuales: EditableValues
-): EditableValues {
-  const vacio = (v: unknown) => v === "" || v === null || v === undefined;
-  const cambios: Record<string, unknown> = {};
-  for (const campo of CAMPOS_EDITABLES) {
-    const antes = iniciales[campo as CampoEditable];
-    const ahora = actuales[campo as CampoEditable];
-    if (vacio(antes) && vacio(ahora)) continue;
-    if (antes === ahora) continue;
-    cambios[campo] = ahora === undefined ? null : ahora;
-  }
-  return cambios as EditableValues;
-}
+/** Ancla de la sección a la que saltar al abrir (los lápices del Resumen). */
+export type SeccionEditable =
+  | "identidad"
+  | "documento"
+  | "contacto"
+  | "vivienda"
+  | "situacion"
+  | "social"
+  | "canal"
+  | "colectivo";
 
 interface EditPersonModalProps {
   person: PersonRow;
@@ -79,6 +55,8 @@ interface EditPersonModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
+  /** Sección a la que desplazarse al abrir. Sin esto, arriba del todo. */
+  seccionInicial?: SeccionEditable;
 }
 
 export function EditPersonModal({
@@ -87,19 +65,63 @@ export function EditPersonModal({
   open,
   onOpenChange,
   onSaved,
+  seccionInicial,
 }: EditPersonModalProps) {
-  const iniciales = useMemo(() => valoresIniciales(person), [person]);
+  const iniciales = useMemo(
+    () => valoresIniciales(person as unknown as Record<string, unknown>),
+    [person]
+  );
   const [values, setValues] = useState<EditableValues>(iniciales);
-  const { mutateAsync: update, isPending } = trpc.persons.update.useMutation();
+
+  // Art. 9: candado cerrado y declaración sin marcar en cada apertura. No hay
+  // nada persistido que leer — el flag es transitorio y `consents` cubre otros
+  // fines — así que el cliente no puede saltarse la pregunta honestamente.
+  const [art9Desbloqueado, setArt9Desbloqueado] = useState(false);
+  const [consentimientoArt9, setConsentimientoArt9] = useState(false);
+
+  const contenidoRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open || !seccionInicial) return;
+    const destino = contenidoRef.current?.querySelector(`#edit-seccion-${seccionInicial}`);
+    destino?.scrollIntoView({ block: "start" });
+  }, [open, seccionInicial]);
+
+  const utils = trpc.useUtils();
+  const { mutateAsync: update, isPending } = trpc.persons.update.useMutation({
+    onSuccess: async () => {
+      await Promise.all([
+        utils.persons.getById.invalidate({ id: person.id }),
+        // Sin filtro de input a propósito: el directorio se pide con un límite
+        // y PersonsTable con otro, así que filtrar dejaría uno sin refrescar.
+        utils.persons.getAll.invalidate(),
+        // Tampoco: la clave lleva el texto buscado, y hay una entrada por cada
+        // cadena tecleada. Y no es cosmético — persons.search devuelve
+        // `restricciones_alimentarias`, que es el aviso de alergia que lee el
+        // comedor: una alergia corregida y servida obsoleta es un fallo de
+        // seguridad alimentaria, no un refresco tardío.
+        utils.persons.search.invalidate(),
+      ]);
+    },
+  });
 
   const onChange = <K extends keyof EditableValues>(campo: K, valor: EditableValues[K]) => {
     setValues((prev) => ({ ...prev, [campo]: valor }));
   };
 
   const guardar = async () => {
-    const cambios = calcularCambios(iniciales, values);
+    const cambios = calcularCambios(iniciales, values, { incluirArt9: art9Desbloqueado });
     if (Object.keys(cambios).length === 0) {
       toast.info("No has cambiado nada.");
+      return;
+    }
+
+    // Espejo de la puerta del servidor (update.ts), no su sustituto: fallar
+    // aquí evita un viaje y un mensaje genérico.
+    const art9 = tocaArt9(cambios);
+    if (art9 && !consentimientoArt9) {
+      toast.error(
+        "Marca el consentimiento explícito de la persona para guardar los datos de colectivo."
+      );
       return;
     }
 
@@ -111,29 +133,50 @@ export function EditPersonModal({
       return;
     }
 
+    // El flag es transitorio y sólo viaja cuando el parche lleva Art. 9 de
+    // verdad: mandarlo siempre afirmaría un consentimiento que nadie ha pedido.
+    const data = art9 ? { ...parsed.data, colectivo_consentimiento: true } : parsed.data;
+
     try {
-      await update({ id: person.id, data: parsed.data });
+      await update({ id: person.id, data });
       toast.success("Ficha actualizada.");
       onSaved();
       onOpenChange(false);
     } catch (err) {
       const mensaje = err instanceof Error ? err.message : "Error desconocido";
+      // PRECONDITION_FAILED = falta PII_ENCRYPTION_KEY en el servidor. El
+      // prefijo genérico lo enterraba y parecía un fallo de la ficha.
+      if (/PII_ENCRYPTION_KEY|cifrado/i.test(mensaje)) {
+        toast.error(
+          "No se pueden guardar los datos de colectivo: falta la clave de cifrado " +
+            "(PII_ENCRYPTION_KEY) en el servidor. El resto de la ficha sí se puede guardar."
+        );
+        return;
+      }
       toast.error(`No se pudo guardar: ${mensaje}`);
     }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent ref={contenidoRef} className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Editar ficha</DialogTitle>
           <DialogDescription>
-            Se guarda sólo lo que cambies. Los datos de colectivo no se editan
-            aquí: requieren declarar el consentimiento de la persona.
+            Se guarda sólo lo que cambies. Los datos de colectivo están bajo
+            candado: abrirlo exige declarar el consentimiento de la persona.
           </DialogDescription>
         </DialogHeader>
 
-        <EditPersonForm values={values} onChange={onChange} isAdmin={isAdmin} />
+        <EditPersonForm
+          values={values}
+          onChange={onChange}
+          isAdmin={isAdmin}
+          art9Desbloqueado={art9Desbloqueado}
+          onArt9Desbloquear={setArt9Desbloqueado}
+          consentimientoArt9={consentimientoArt9}
+          onConsentimientoArt9={setConsentimientoArt9}
+        />
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>

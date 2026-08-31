@@ -96,6 +96,15 @@ export const SITUACION_ANTE_EMPLEO_LABELS: Record<string, string> = {
 };
 
 // RGPD Art. 9/10 special-category — "otras características / colectivo".
+/** EstabilidadHabitacionalSchema. No existía mapa de etiquetas: el alta nunca
+ *  llegó a pintar este campo, aunque el esquema y el insert sí lo llevan. */
+export const ESTABILIDAD_HABITACIONAL_LABELS: Record<string, string> = {
+  sin_hogar: "Sin hogar",
+  inestable: "Inestable",
+  temporal: "Temporal",
+  estable: "Estable",
+};
+
 export const COLECTIVO_LABELS: Record<string, string> = {
   gitanos: "Población gitana",
   lgtbi: "LGTBI",

@@ -12,7 +12,10 @@ import {
   NotasTab,
   DetailEmptyState,
 } from "@/features/persons/components/detail";
-import { EditPersonModal } from "@/features/persons/components/detail/EditPersonModal";
+import {
+  EditPersonModal,
+  type SeccionEditable,
+} from "@/features/persons/components/detail/EditPersonModal";
 import { DeletePersonButton } from "@/features/persons/components/detail/DeletePersonButton";
 import { useConsentTemplates } from "@/features/persons/hooks/useConsentTemplates";
 import { usePersonById } from "@/features/persons/hooks/usePersonById";
@@ -39,6 +42,12 @@ export default function PersonaDetalle() {
   const [showEdit, setShowEdit] = useState(
     () => new URLSearchParams(search).get("editar") === "1"
   );
+  // Sección a la que salta el editor. La fijan los lápices del Resumen.
+  const [seccionEdicion, setSeccionEdicion] = useState<SeccionEditable | undefined>();
+  const abrirEdicion = (seccion?: SeccionEditable) => {
+    setSeccionEdicion(seccion);
+    setShowEdit(true);
+  };
   useEffect(() => {
     if (new URLSearchParams(search).get("editar") !== "1") return;
     navigate(`/personas/${id}`, { replace: true });
@@ -114,7 +123,7 @@ export default function PersonaDetalle() {
           una barra que envuelve a dos líneas es adivinar. */}
       {isAdmin && (
         <div className="mx-auto flex w-full max-w-6xl flex-wrap gap-2 px-4 pt-4 sm:px-8">
-          <Button size="sm" onClick={() => setShowEdit(true)}>
+          <Button size="sm" onClick={() => abrirEdicion()}>
             <Pencil className="mr-1 h-4 w-4" aria-hidden="true" /> Editar ficha
           </Button>
           <Link href={`/personas/${personRow.id}/qr`}>
@@ -140,6 +149,7 @@ export default function PersonaDetalle() {
           isAdmin={isAdmin}
           open={showEdit}
           onOpenChange={setShowEdit}
+          seccionInicial={seccionEdicion}
           onSaved={() => void refetch()}
         />
       )}
@@ -181,7 +191,11 @@ export default function PersonaDetalle() {
         <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-8">
           {/* Resumen — restyled summary of real person fields */}
           <TabsContent value="resumen" className="mt-0">
-            <ResumenTab person={personRow} isAdmin={isAdmin} />
+            <ResumenTab
+              person={personRow}
+              isAdmin={isAdmin}
+              onEditar={isAdmin ? abrirEdicion : undefined}
+            />
           </TabsContent>
 
           {/* Programas — existing EnrollmentPanel, same props as before */}
