@@ -17,9 +17,9 @@ const PARTICULAS = new Set([
 /** Sube la inicial de cada segmento, también tras apóstrofo o guion. */
 function capitalizar(palabra: string): string {
   return palabra
-    .split(/([-'])/)
+    .split(/([-'’])/)
     .map((parte) =>
-      parte === "-" || parte === "'"
+      parte === "-" || parte === "'" || parte === "’"
         ? parte
         : parte.charAt(0).toUpperCase() + parte.slice(1),
     )

@@ -35,6 +35,8 @@ describe("titleCaseEs", () => {
 
   it("capitaliza tras apóstrofo y tras guion", () => {
     expect(titleCaseEs("D'ANGELO")).toBe("D'Angelo");
+    // El OCR es un LLM y a veces emite el apóstrofo tipográfico U+2019.
+    expect(titleCaseEs("D’ANGELO")).toBe("D’Angelo");
     expect(titleCaseEs("O'BRIEN")).toBe("O'Brien");
     expect(titleCaseEs("ANNE-MARIE")).toBe("Anne-Marie");
     expect(titleCaseEs("JEAN-PIERRE DUPONT")).toBe("Jean-Pierre Dupont");
