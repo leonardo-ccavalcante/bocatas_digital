@@ -9,7 +9,12 @@
  */
 import { describe, it, expect } from "vitest";
 import type { EnrollmentEstado } from "../schemas";
-import { ESTADO_LABEL, buildCountLabel } from "../components/EnrolledPersonsTable";
+import {
+  ESTADO_LABEL,
+  buildCountLabel,
+  ESTADO_FILTRO_INICIAL,
+} from "../components/EnrolledPersonsTable";
+import * as tablaModule from "../components/EnrolledPersonsTable";
 
 // ─── Mirrors the handleFilterChange logic in EnrolledPersonsTable ─────────────
 
@@ -22,9 +27,11 @@ function handleFilterChange(
   return next as EnrollmentEstado;
 }
 
-// ─── Mirrors the "active" default state ──────────────────────────────────────
+// ─── Estado inicial del filtro ───────────────────────────────────────────────
+// Se IMPORTA de la tabla, no se copia: antes esta constante era una réplica
+// local, así que cambiar el componente no rompía ningún test (falso verde).
 
-const DEFAULT_FILTER: EnrollmentEstado = "activo";
+const DEFAULT_FILTER: EnrollmentEstado | undefined = ESTADO_FILTRO_INICIAL;
 
 // ─── Enrollment fixture ───────────────────────────────────────────────────────
 
@@ -49,14 +56,39 @@ function filterByEstado(
 
 describe("EnrolledPersonsTable — ToggleGroup status filter logic", () => {
   describe("default state", () => {
-    it("starts with 'activo' as the default filter", () => {
-      expect(DEFAULT_FILTER).toBe("activo");
+    // Un curso de formación no habilita 'activo' (su embudo es inscrito →
+    // preseleccionado → admitido → …). Con 'activo' por defecto la tabla pedía
+    // un estado que ese programa no usa y devolvía 0 inscritos en cursos que sí
+    // tenían gente. Por defecto no se filtra: "Todos".
+    // Sin esta comprobación el bloque entero es un falso verde: un import de un
+    // export inexistente llega como `undefined` y las aserciones de abajo pasan
+    // solas, sin que el componente haya cambiado nada.
+    it("la tabla exporta ESTADO_FILTRO_INICIAL (el test lee el valor real)", () => {
+      expect(Object.keys(tablaModule)).toContain("ESTADO_FILTRO_INICIAL");
     });
 
-    it("shows only active enrollments by default", () => {
+    it("arranca sin filtro — la pestaña activa es «Todos»", () => {
+      expect(DEFAULT_FILTER).toBeUndefined();
+    });
+
+    it("muestra todas las inscripciones por defecto, sea cual sea el estado", () => {
       const result = filterByEstado(ENROLLMENTS, DEFAULT_FILTER);
-      expect(result).toHaveLength(2);
-      expect(result.every((r) => r.estado === "activo")).toBe(true);
+      expect(result).toHaveLength(ENROLLMENTS.length);
+    });
+
+    it("no esconde las inscripciones de un programa que no usa 'activo'", () => {
+      const embudoFormacion: StubEnrollment[] = [
+        { id: "e1", estado: "inscrito" as EnrollmentEstado },
+        { id: "e2", estado: "preseleccionado" as EnrollmentEstado },
+        { id: "e3", estado: "admitido" as EnrollmentEstado },
+      ];
+      expect(filterByEstado(embudoFormacion, DEFAULT_FILTER)).toHaveLength(3);
+      // Con el valor anterior ('activo') este mismo curso salía vacío:
+      expect(filterByEstado(embudoFormacion, "activo")).toHaveLength(0);
+    });
+
+    it("el conteo no lleva sufijo de estado cuando no hay filtro", () => {
+      expect(buildCountLabel(23, DEFAULT_FILTER)).toBe("23 personas inscritas");
     });
   });
 
