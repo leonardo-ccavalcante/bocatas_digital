@@ -30,6 +30,7 @@ import { useSearchPersons } from "@/features/persons/hooks/useSearchPersons";
 import { PersonsFilterBar } from "@/features/persons/components/PersonsFilterBar";
 import { PersonasSearchView } from "@/features/persons/components/PersonasSearchView";
 import { PersonsEmptyState } from "@/features/persons/components/PersonsEmptyState";
+import { BuscarPorQrButton } from "@/features/persons/components/BuscarPorQrButton";
 import { Loader2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { usePersonsData } from "@/pages/Personas.hooks";
@@ -236,6 +237,13 @@ export default function Personas() {
         counts={counts}
         showNewButton={isAdmin}
       />
+
+      {/* Buscar por QR: la persona llega con su código y se abre su ficha.
+          Va aquí y no dentro de PersonsFilterBar porque ese fichero está en
+          298 líneas y el cap de max-lines es 300. */}
+      <div className="max-w-5xl mx-auto w-full px-4 sm:px-8 pt-3">
+        <BuscarPorQrButton />
+      </div>
 
       <div className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-8 py-5">
         {isLoading ? (
