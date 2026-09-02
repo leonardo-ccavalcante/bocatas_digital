@@ -454,6 +454,8 @@ export default function ProgramaDetalle() {
             <div className="px-5 py-4">
               <EnrolledPersonsTable
                 programId={program.id}
+                programSlug={slug}
+                programName={program.name}
                 isAdmin={isAdmin}
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 volunteerVisibleFields={(program as any).volunteer_visible_fields ?? []}

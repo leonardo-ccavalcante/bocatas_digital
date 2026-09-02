@@ -19,11 +19,16 @@ import {
 import { ESTADO_LABELS, ESTADOS_CATALOGO } from "@shared/programEstados";
 import { useEnrollments } from "../hooks/useEnrollment";
 import { filterVisibleColumns } from "../utils/volunteerVisibility";
+import { buildGrupoQuery } from "@/lib/volverNav";
 import { EnrollmentRowActions } from "./EnrollmentRowActions";
 import type { EnrollmentEstado } from "../schemas";
 
 interface EnrolledPersonsTableProps {
   programId: string;
+  /** Slug del programa — la ficha lo usa para «volver» aquí (?volver=…). */
+  programSlug?: string;
+  /** Nombre visible del programa — rótulo del enlace «volver». */
+  programName?: string;
   isAdmin?: boolean;
   volunteerVisibleFields?: string[];
   /** Program's enabled enrollment states (from programs.estados_habilitados). */
@@ -124,10 +129,17 @@ function EstadoChip({ estado }: { estado: string }) {
 
 export function EnrolledPersonsTable({
   programId,
+  programSlug,
+  programName,
   isAdmin,
   volunteerVisibleFields = [],
   estadosHabilitados = [],
 }: EnrolledPersonsTableProps) {
+  // Contexto de origen para la ficha: «volver» a este programa + navegación
+  // anterior/siguiente dentro del grupo (?grupo=). PersonaDetalle sanea `volver`.
+  const fichaQuery = programSlug
+    ? buildGrupoQuery(programId, `/programas/${programSlug}`, programName)
+    : "";
   const [search, setSearch] = useState("");
   const [estadoFilter, setEstadoFilter] = useState<EnrollmentEstado | undefined>(
     ESTADO_FILTRO_INICIAL
@@ -229,7 +241,7 @@ export function EnrolledPersonsTable({
                   {visibleCols.has("nombre") && (
                     <TableCell>
                       <Link
-                        href={`/personas/${enrollment.persons.id}`}
+                        href={`/personas/${enrollment.persons.id}${fichaQuery}`}
                         className="hover:underline font-medium text-sm"
                       >
                         {enrollment.persons.apellidos}, {enrollment.persons.nombre}
