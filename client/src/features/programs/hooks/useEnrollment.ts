@@ -57,20 +57,34 @@ export function useUnenrollPerson(programId: string, personId?: string) {
 }
 
 /**
- * Changes an enrollment's estado within the program's enabled set.
- * Opening BajaDialog first is the caller's responsibility when targeting 'baja'.
+ * Cambia el estado de UNA o VARIAS inscripciones (el input es una lista).
+ * Abrir antes el BajaDialog sigue siendo cosa de quien llama cuando el
+ * destino es 'baja'. El lote puede volver a medias: `fallos` no es opcional.
  */
 export function useUpdateEnrollmentEstado(programId: string, personId?: string) {
   const utils = trpc.useUtils();
 
   return trpc.programs.updateEnrollmentEstado.useMutation({
-    onSuccess: () => {
+    onSuccess: (result) => {
       utils.programs.getEnrollments.invalidate({ programId });
       utils.programs.getAllWithCounts.invalidate();
       if (personId) {
         utils.programs.getPersonEnrollments.invalidate({ personId });
       }
-      toast.success("Estado actualizado");
+      // El servidor no revierte un lote a medias: si alguna fila no pasó, hay
+      // que decirlo aquí o el aviso «Estado actualizado» miente.
+      if (result.fallos.length > 0) {
+        toast.warning(
+          `${result.ok.length} actualizada${result.ok.length === 1 ? "" : "s"}, ${result.fallos.length} sin cambiar`,
+          { description: result.fallos[0].motivo, duration: 8000 }
+        );
+        return;
+      }
+      toast.success(
+        result.ok.length === 1
+          ? "Estado actualizado"
+          : `${result.ok.length} estados actualizados`
+      );
     },
     onError: (error) => {
       toast.error("Error al cambiar estado", { description: error.message });
