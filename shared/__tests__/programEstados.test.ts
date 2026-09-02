@@ -7,7 +7,8 @@
  * habilitado, así que toda formación nacía 'activo'.
  */
 import { describe, it, expect } from "vitest";
-import { TIPO_PRESETS, estadoInicial } from "../programEstados";
+import * as mod from "../programEstados";
+import { TIPO_PRESETS, estadoInicial, inscripcionAbierta } from "../programEstados";
 
 describe("estadoInicial — orden de embudo", () => {
   it("una edición (preset con 'inscrito' y 'activo') arranca en 'inscrito'", () => {
@@ -34,5 +35,25 @@ describe("estadoInicial — orden de embudo", () => {
 
   it("valores fuera del catálogo se ignoran y cae a 'activo'", () => {
     expect(estadoInicial(["cualquier_cosa"])).toBe("activo");
+  });
+});
+
+describe("inscripcionAbierta — una inscripción sólo libera plaza al cerrarse", () => {
+  it("el export existe (un import inexistente llega como undefined y pasa solo)", () => {
+    expect(Object.keys(mod)).toContain("inscripcionAbierta");
+  });
+
+  it("'inscrito' y 'activo' son inscripciones vivas — bloquean re-alta", () => {
+    expect(inscripcionAbierta("inscrito")).toBe(true);
+    expect(inscripcionAbierta("activo")).toBe(true);
+    expect(inscripcionAbierta("pausado")).toBe(true);
+    expect(inscripcionAbierta("lista_espera")).toBe(true);
+  });
+
+  it("estados finales (incl. legacy) NO están abiertos", () => {
+    expect(inscripcionAbierta("baja")).toBe(false);
+    expect(inscripcionAbierta("terminado")).toBe(false);
+    expect(inscripcionAbierta("completado")).toBe(false);
+    expect(inscripcionAbierta("rechazado")).toBe(false);
   });
 });

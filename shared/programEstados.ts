@@ -103,6 +103,15 @@ export const TIPO_PRESETS: Record<
 };
 
 /**
+ * An enrollment in any non-final state still occupies its plaza — it must
+ * block a re-alta (the server rejects the duplicate with a CONFLICT anyway).
+ * Accepts raw DB strings so client rows can be checked without casting.
+ */
+export function inscripcionAbierta(estado: string): boolean {
+  return !(ESTADOS_FINALES as readonly string[]).includes(estado);
+}
+
+/**
  * Initial state for a new enrollment given a program's enabled states.
  * Orden de embudo: el PRIMER estado de ESTADOS_INSCRIPCION habilitado —
  * 'inscrito' antes que 'activo' (una edición nace inscrita, no activa).
