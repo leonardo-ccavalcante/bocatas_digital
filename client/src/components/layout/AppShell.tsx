@@ -20,6 +20,7 @@ import {
   Bell,
   User,
   Megaphone,
+  FileBarChart,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -67,6 +68,15 @@ const NAV_ITEMS: NavItem[] = [
     roles: ["voluntario", "admin", "superadmin"],
   },
   // ── Admin+ ──
+  // Informes va justo debajo de Programas en el orden visible del menú.
+  // roles admin+: todo server/routers/reports/* es adminProcedure
+  // (reports/CODEMAP.md §Compliance) — un voluntario sólo vería FORBIDDEN.
+  {
+    label: "Informes",
+    href: "/informes",
+    icon: <FileBarChart className="h-5 w-5" />,
+    roles: ["admin", "superadmin"],
+  },
   {
     label: "Dashboard",
     href: "/dashboard",

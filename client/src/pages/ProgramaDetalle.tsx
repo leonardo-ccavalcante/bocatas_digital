@@ -75,7 +75,9 @@ export default function ProgramaDetalle() {
 
   const { data: completedEnrollments, isLoading: loadingCompleted } =
     trpc.programs.getEnrollments.useQuery(
-      { programId: program?.id ?? "", estado: "completado", limit: 1, offset: 0 },
+      // 'terminado' expande a IN ('terminado','completado') en el servidor:
+      // el KPI suma las filas modernas y las legacy, como la tabla.
+      { programId: program?.id ?? "", estado: "terminado", limit: 1, offset: 0 },
       { enabled: !!program?.id && program?.inscribible !== false }
     );
 
@@ -354,7 +356,7 @@ export default function ProgramaDetalle() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <KPICard label="Inscritos activos" value={activeEnrollments?.total} isLoading={loadingActive} icon={<Users className="w-5 h-5" aria-hidden="true" />} accentClass="text-emerald-600" />
                 <KPICard label="Nuevos este mes" value={newThisMonth} isLoading={loadingAllActive} icon={<TrendingUp className="w-5 h-5" aria-hidden="true" />} accentClass="text-blue-600" />
-                <KPICard label="Completados / Rechazados" value={inactiveCount} isLoading={loadingCompleted} icon={<UserMinus className="w-5 h-5" aria-hidden="true" />} accentClass="text-muted-foreground" />
+                <KPICard label="Terminados" value={inactiveCount} isLoading={loadingCompleted} icon={<UserMinus className="w-5 h-5" aria-hidden="true" />} accentClass="text-muted-foreground" />
               </div>
             </div>
             {estadosHabilitados.length > 0 && (
@@ -452,6 +454,8 @@ export default function ProgramaDetalle() {
             <div className="px-5 py-4">
               <EnrolledPersonsTable
                 programId={program.id}
+                programSlug={slug}
+                programName={program.name}
                 isAdmin={isAdmin}
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 volunteerVisibleFields={(program as any).volunteer_visible_fields ?? []}

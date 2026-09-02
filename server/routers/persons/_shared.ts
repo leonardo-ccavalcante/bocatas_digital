@@ -31,6 +31,8 @@ export const PersonCreateInput = z.object({
   canal_llegada: CanalLlegadaEnum,
   entidad_derivadora: z.string().max(200).optional().nullable(),
   persona_referencia: z.string().max(200).optional().nullable(),
+  // Observaciones del retorno — sólo aplica al canal «Bocatas» (retorno_bocatas).
+  motivo_retorno: z.string().max(500).optional().nullable(),
   nombre: z.string().min(1).max(100),
   apellidos: z.string().min(1).max(150),
   fecha_nacimiento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),

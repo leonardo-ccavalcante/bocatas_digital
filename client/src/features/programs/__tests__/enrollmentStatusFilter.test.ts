@@ -12,9 +12,11 @@ import type { EnrollmentEstado } from "../schemas";
 import {
   ESTADO_LABEL,
   buildCountLabel,
+  buildFilterStates,
   ESTADO_FILTRO_INICIAL,
 } from "../components/EnrolledPersonsTable";
 import * as tablaModule from "../components/EnrolledPersonsTable";
+import { ESTADO_LABELS } from "@shared/programEstados";
 
 // ─── Mirrors the handleFilterChange logic in EnrolledPersonsTable ─────────────
 
@@ -162,8 +164,13 @@ describe("EnrolledPersonsTable — ToggleGroup status filter logic", () => {
       expect(buildCountLabel(0, "completado")).toBe("0 personas inscritas (completados)");
     });
 
-    it("ESTADO_LABEL keys match the EnrollmentEstado enum values", () => {
-      expect(Object.keys(ESTADO_LABEL).sort()).toEqual(["activo", "completado", "rechazado"]);
+    it("ESTADO_LABEL cubre los estados que el contador puede nombrar", () => {
+      expect(Object.keys(ESTADO_LABEL).sort()).toEqual([
+        "activo",
+        "completado",
+        "rechazado",
+        "terminado",
+      ]);
     });
 
     it("ESTADO_LABEL does not contain pausado (not a valid EnrollmentEstado)", () => {
@@ -173,5 +180,46 @@ describe("EnrolledPersonsTable — ToggleGroup status filter logic", () => {
     it("rechazado label lowercases to 'rechazados'", () => {
       expect(buildCountLabel(2, "rechazado")).toBe("2 personas inscritas (rechazados)");
     });
+  });
+});
+
+// ─── buildFilterStates — chips sin «Terminado» duplicado ─────────────────────
+
+describe("buildFilterStates — chips de estado", () => {
+  it("con 'terminado' habilitado NO añade 'completado' (pintaba dos chips «Terminado»)", () => {
+    const chips = buildFilterStates([
+      "inscrito", "preseleccionado", "admitido", "lista_espera",
+      "activo", "baja", "terminado",
+    ]);
+    expect(chips).toContain("terminado");
+    expect(chips).not.toContain("completado");
+  });
+
+  it("las etiquetas visibles nunca se repiten", () => {
+    const labels = buildFilterStates(["activo", "terminado"]).map((e) => ESTADO_LABELS[e]);
+    expect(new Set(labels).size).toBe(labels.length);
+  });
+
+  it("sin 'terminado' habilitado, 'completado' sigue disponible para filas legacy", () => {
+    expect(buildFilterStates(["activo", "pausado", "baja"])).toEqual([
+      "activo", "pausado", "baja", "completado",
+    ]);
+  });
+
+  it("descarta valores fuera del catálogo", () => {
+    expect(buildFilterStates(["activo", "cualquier_cosa"])).toEqual(["activo", "completado"]);
+  });
+
+  it("con 'terminado' Y 'completado' habilitados explícitamente, sólo queda 'terminado'", () => {
+    // El form UI no ofrece estados legacy, pero la API y la DB los aceptan
+    // (el refine admite todo ESTADOS_CATALOGO): el invariante de etiquetas
+    // únicas debe aguantar también ese caso.
+    expect(buildFilterStates(["terminado", "completado"])).toEqual(["terminado"]);
+  });
+});
+
+describe("buildCountLabel — el chip único «Terminado» tiene etiqueta propia", () => {
+  it("'terminado' pinta '(terminados)', no el token crudo", () => {
+    expect(buildCountLabel(2, "terminado")).toBe("2 personas inscritas (terminados)");
   });
 });

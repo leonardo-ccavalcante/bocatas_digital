@@ -31,6 +31,7 @@ export const CAMPOS: Record<string, CampoDescriptor> = {
   canal_llegada: { etiqueta: "Canal de llegada", fase: 1 },
   entidad_derivadora: { etiqueta: "Entidad derivadora", fase: 1 },
   persona_referencia: { etiqueta: "Persona de referencia", fase: 1 },
+  motivo_retorno: { etiqueta: "Motivo del retorno", fase: 1 },
   nombre: { etiqueta: "Nombre", fase: 1 },
   apellidos: { etiqueta: "Apellidos", fase: 1 },
   fecha_nacimiento: { etiqueta: "Fecha de nacimiento", fase: 1 },

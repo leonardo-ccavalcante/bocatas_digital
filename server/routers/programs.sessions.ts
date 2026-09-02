@@ -18,39 +18,13 @@ import {
   ProgramacionSchema,
   type ProgramacionSlot,
 } from "../../shared/sessionSchemas";
+import { fechasProgramadas } from "../../shared/sessionCalendario";
 import { enforceCloseValidation } from "./programs.sessionClose";
 import { assertProgramAccessForRole } from "./programs.access";
 
 const uuidLike = z
   .string()
   .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, "UUID inválido");
-
-/** Yields {fecha, slot} pairs for dates in [fechaInicio, fechaFin] matching programacion.
- * v1: if multiple slots match the same day, only the first is used (logged). */
-function* iterateDateSlots(
-  fechaInicio: string,
-  fechaFin: string,
-  slots: ProgramacionSlot[]
-): Generator<{ fecha: string; slot: ProgramacionSlot }> {
-  const end = new Date(fechaFin + "T00:00:00Z");
-  for (
-    const d = new Date(fechaInicio + "T00:00:00Z");
-    d <= end;
-    d.setUTCDate(d.getUTCDate() + 1)
-  ) {
-    const dayOfWeek = d.getUTCDay();
-    const fecha = d.toISOString().split("T")[0];
-    const matching = slots.filter((s) => s.dia_semana === dayOfWeek);
-    if (matching.length > 1) {
-      console.warn(
-        `[generarSesiones] Múltiples slots el ${fecha} — solo se usará el primero (limitación v1).`
-      );
-    }
-    if (matching.length > 0) {
-      yield { fecha, slot: matching[0] };
-    }
-  }
-}
 
 export const sessionsRouter = router({
   /**
@@ -127,7 +101,12 @@ export const sessionsRouter = router({
 
       let created = 0;
       let skipped = 0;
-      for (const { fecha, slot } of iterateDateSlots(fechaInicio, fechaFin, slots)) {
+      for (const { fecha, slot, solapadas } of fechasProgramadas(fechaInicio, fechaFin, slots)) {
+        if (solapadas > 1) {
+          console.warn(
+            `[generarSesiones] Múltiples slots el ${fecha} — solo se usará el primero (limitación v1).`
+          );
+        }
         if (existingDates.has(fecha)) { skipped++; continue; }
         // RESIDUAL 2: surface insert error instead of silently counting it as created
         const { error: insertErr } = await supabase.from("program_sessions").insert({

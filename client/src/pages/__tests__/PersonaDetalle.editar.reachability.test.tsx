@@ -91,6 +91,11 @@ vi.mock("@/lib/trpc", () => ({
       },
       softDelete: { useMutation: () => ({ mutateAsync: vi.fn(), isPending: false }) },
     },
+    // SeccionCanal (modal de edición) monta InstitucionTypeahead (Task 4).
+    instituciones: {
+      search: { useQuery: () => ({ data: [] }) },
+      create: { useMutation: () => ({ isPending: false, mutateAsync: vi.fn() }) },
+    },
   },
 }));
 

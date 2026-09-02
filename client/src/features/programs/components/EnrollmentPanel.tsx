@@ -10,7 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { trpc } from "@/lib/trpc";
-import { ESTADO_LABELS } from "@shared/programEstados";
+import { ESTADO_LABELS, inscripcionAbierta } from "@shared/programEstados";
 import { useEnrollPerson, useUnenrollPerson } from "../hooks/useEnrollment";
 import { usePrograms } from "../hooks/usePrograms";
 import { BajaDialog } from "./BajaDialog";
@@ -35,7 +35,7 @@ export function EnrollmentPanel({ personId, isAdmin }: EnrollmentPanelProps) {
 
   const enrolledProgramIds = new Set(
     (enrollments ?? [])
-      .filter((e) => e.estado === "activo")
+      .filter((e) => inscripcionAbierta(e.estado))
       .map((e) => e.program_id)
   );
 

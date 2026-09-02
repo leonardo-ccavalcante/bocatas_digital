@@ -1,6 +1,12 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { signPathField, AVATAR_BUCKET } from "../storage";
+import { ilikeForOr } from "../_core/postgrestFilter";
+import {
+  GeneroSchema,
+  SituacionLaboralSchema,
+  SituacionAnteEmpleoSchema,
+} from "../../client/src/features/persons/schemas/enums";
 import { router, voluntarioProcedure, adminProcedure } from "../_core/trpc";
 import { createAdminClient } from "../../client/src/lib/supabase/server";
 import type { Database } from "../../client/src/lib/database.types";
@@ -13,6 +19,7 @@ import {
 import {
   applyEstadoChange,
   assertParentDepthOk,
+  cambiarEstadoEnLote,
   createOrReviveEnrollment,
 } from "./programs.enrollmentEstado";
 import { getListadoMensual } from "./programs.listado";
@@ -105,6 +112,68 @@ const ProgramWithCountsSchema = z.object({
   subtree_active_persons: z.number().nullable().optional(),
   subtree_total_persons: z.number().nullable().optional(),
 }).passthrough();
+
+/** Fila tal y como la devuelve el select de `getEnrollments`. */
+interface EnrollmentConPersona {
+  id: string;
+  estado: string;
+  fecha_inicio: string | null;
+  fecha_fin: string | null;
+  notas: string | null;
+  created_at: string;
+  persons: {
+    id: string;
+    nombre: string | null;
+    apellidos: string | null;
+    foto_perfil_url: string | null;
+    restricciones_alimentarias: string | null;
+    email: string | null;
+    telefono: string | null;
+  };
+}
+
+/**
+ * Ids de persona con `comunicaciones_whatsapp` CONCEDIDO y NO retirado.
+ *
+ * Mismo criterio que la comprobación de imagen de `persons` (Task 11): una
+ * revocación cuenta como un «no» porque `saveConsents` sí escribe
+ * `revoked_at`, y una fila borrada (`deleted_at`) no dice nada. `consents`
+ * tiene `upsert onConflict: "person_id,purpose"`, así que hay como mucho una
+ * fila viva por persona y fin: no hace falta ordenar por fecha.
+ */
+async function idsConWhatsappVigente(
+  supabase: ReturnType<typeof createAdminClient>,
+  personIds: readonly string[]
+): Promise<Set<string>> {
+  const ids = [...new Set(personIds)];
+  if (ids.length === 0) return new Set();
+
+  const { data, error } = await supabase
+    .from("consents")
+    .select("person_id")
+    .in("person_id", ids)
+    .eq("purpose", "comunicaciones_whatsapp")
+    .eq("granted", true)
+    .is("revoked_at", null)
+    .is("deleted_at", null);
+
+  if (error) {
+    // Sin la lista de permisos no se puede decidir a quién se puede escribir.
+    // Devolver el conjunto vacío marcaría a todo el mundo como «no
+    // autorizado» sin decirlo, y eso es una lista muda que parece una
+    // respuesta: se corta. Se deja el código real en stderr (sin PII) para
+    // poder diagnosticar; el mensaje al cliente es genérico.
+    console.error(
+      `[programs.getEnrollments] fallo al leer consents: ${error.code ?? "?"} ${error.message}`
+    );
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "No se pudieron leer los consentimientos de comunicaciones",
+    });
+  }
+
+  return new Set((data ?? []).map((r) => String(r.person_id)));
+}
 
 export const programsRouter = router({
   // ─── Job 1: Programs Catalog ─────────────────────────────────────────────
@@ -287,7 +356,19 @@ export const programsRouter = router({
     .input(z.object({
       programId: uuidLike,
       estado: z.enum(ESTADOS_CATALOGO).optional(),
-      search: z.string().optional(),
+      // Cap como persons/search.ts: sin él, una llamada directa podría mandar
+      // una aguja gigante al ilike. La UI ya recorta a ≥2 chars en el cliente.
+      search: z.string().trim().max(100).optional(),
+      // Ejes de la cabecera de la tabla. NO se ofrece `situacion_legal`
+      // (HIGH_RISK_PII_FIELDS, shared/reports/entities.ts:289; vetado también
+      // en programs.enlace.ts:241), ni `colectivos` ni `recorrido_migratorio`
+      // (Art. 9/10). Estos cuatro son los mismos que el informe demográfico
+      // ya agrega, y NO se añaden al select: filtrar por el embed no exige
+      // devolver el campo.
+      pais_origen: z.string().length(2).optional(),
+      genero: GeneroSchema.optional(),
+      situacion_laboral: SituacionLaboralSchema.optional(),
+      situacion_ante_empleo: SituacionAnteEmpleoSchema.optional(),
       limit: z.number().int().min(1).max(100).default(50),
       offset: z.number().int().min(0).default(0),
     }))
@@ -300,9 +381,15 @@ export const programsRouter = router({
       // program_enrollments rows, same defect shape as programs.listado.ts.
       let query = supabase
         .from("program_enrollments")
+        // `email` y `telefono` viajan porque el aviso del curso («copiar
+        // correos», WhatsApp) sale de esta lista y no de la ficha una a una.
+        // No hay proyección por rol aquí a propósito: este procedimiento es
+        // adminProcedure, así que un voluntario recibe FORBIDDEN y el contacto
+        // no llega a salir de la base. Si algún día pasa a voluntarioProcedure,
+        // hay que partir la lista de columnas por rol como en persons/crud.ts.
         .select(`
           id, estado, fecha_inicio, fecha_fin, notas, created_at,
-          persons!inner(id, nombre, apellidos, foto_perfil_url, restricciones_alimentarias)
+          persons!inner(id, nombre, apellidos, foto_perfil_url, restricciones_alimentarias, email, telefono)
         `, { count: "exact" })
         .eq("program_id", input.programId)
         .is("deleted_at", null)
@@ -311,7 +398,36 @@ export const programsRouter = router({
         .range(input.offset, input.offset + input.limit - 1);
 
       if (input.estado) {
-        query = query.eq("estado", input.estado);
+        // 'completado' es el alias legacy de 'terminado' (shared/programEstados):
+        // filtrar por 'terminado' debe traer también las filas antiguas.
+        query =
+          input.estado === "terminado"
+            ? query.in("estado", ["terminado", "completado"])
+            : query.eq("estado", input.estado);
+      }
+
+      // Los ejes se filtran DENTRO del embed `persons!inner`, igual que el
+      // `.is("persons.deleted_at", null)` de arriba: con !inner, un filtro
+      // sobre la tabla embebida descarta también la fila padre.
+      if (input.pais_origen) query = query.eq("persons.pais_origen", input.pais_origen);
+      if (input.genero) query = query.eq("persons.genero", input.genero);
+      if (input.situacion_laboral) {
+        query = query.eq("persons.situacion_laboral", input.situacion_laboral);
+      }
+      if (input.situacion_ante_empleo) {
+        query = query.eq("persons.situacion_ante_empleo", input.situacion_ante_empleo);
+      }
+
+      // `search` se aceptaba en el input y NO se usaba: el buscador de la
+      // cabecera nunca filtró nada. Un `.or()` de nivel superior sobre rutas
+      // con punto es un PGRST100 (500 en cada búsqueda), así que va acotado
+      // con { referencedTable } y con las columnas a pelo — mismo patrón que
+      // families/titular-search.ts y families/compliance.ts:114.
+      if (input.search) {
+        const token = ilikeForOr(input.search);
+        query = query.or(`nombre.ilike.${token},apellidos.ilike.${token}`, {
+          referencedTable: "persons",
+        });
       }
 
       const { data, error, count } = await query;
@@ -325,7 +441,35 @@ export const programsRouter = router({
         enrollments.map(e => (e as { persons?: unknown }).persons),
         "foto_perfil_url"
       );
-      return { enrollments, total: count ?? 0 };
+
+      // Tener el teléfono no es tener permiso para usarlo. El fin
+      // `comunicaciones_whatsapp` se recoge SIEMPRE en el alta y en producción
+      // hoy hay 60 negativas frente a 23 síes: sin esta marca, «copiar
+      // teléfonos» entregaría una difusión hecha contra la mayoría de la lista.
+      // Se decide aquí, en el servidor, porque el cliente no puede leer
+      // `consents` ni debe inferir un permiso de que exista el dato.
+      const puedenWhatsapp = await idsConWhatsappVigente(
+        supabase,
+        enrollments
+          .map((e) => (e as EnrollmentConPersona).persons?.id)
+          .filter((id): id is string => typeof id === "string")
+      );
+
+      const conConsentimiento = enrollments.map((fila) => {
+        const { persons, ...resto } = fila as EnrollmentConPersona;
+        return {
+          ...resto,
+          persons: {
+            ...persons,
+            // Ausencia de fila = NO: hay altas antiguas sin ninguna fila de
+            // consentimiento, y tratar el hueco como permiso convierte «no lo
+            // sabemos» en «adelante».
+            puede_whatsapp: puedenWhatsapp.has(persons.id),
+          },
+        };
+      });
+
+      return { enrollments: conConsentimiento, total: count ?? 0 };
     }),
 
   /** Enrolls a person in a program with consent pre-check (admin+) */
@@ -389,10 +533,11 @@ export const programsRouter = router({
         }
       }
 
-      // Alta con el estado inicial del programa (funnel-aware: una edición
-      // arranca en 'inscrito', un continuo en 'activo'). Si la persona ya pasó
-      // por aquí y se le dio de baja, se revive su inscripción en vez de
-      // intentar un INSERT que el UNIQUE no parcial rechaza.
+      // Alta con el estado inicial del programa: estadoInicial sigue el orden
+      // de embudo de ESTADOS_INSCRIPCION (una edición arranca en 'inscrito'
+      // AUNQUE tenga 'activo' habilitado; un continuo, en 'activo'). Si la
+      // persona ya pasó por aquí y se le dio de baja, se revive su inscripción
+      // en vez de intentar un INSERT que el UNIQUE no parcial rechaza.
       const estado = estadoInicial(program.estados_habilitados ?? ["activo"]);
       const data = await createOrReviveEnrollment(supabase, String(ctx.user.id), {
         personId: input.personId,
@@ -439,33 +584,27 @@ export const programsRouter = router({
       return getListadoMensual(supabase, input.programId, input.year, input.month);
     }),
 
-  /** Changes an enrollment's estado within the program's enabled set (admin+).
-   * baja requires a motivo; every transition is appended to enrollment_events. */
+  /** Cambia el estado de UNA o VARIAS inscripciones (admin+).
+   * Fila a fila: `baja` sigue exigiendo motivo y cada transición queda en
+   * enrollment_events. Sin transacción — un fallo parcial se devuelve en
+   * `fallos` y no revierte las filas ya aplicadas (ver cambiarEstadoEnLote). */
   updateEnrollmentEstado: adminProcedure
     .input(
       z.object({
-        enrollmentId: uuidLike,
+        enrollmentIds: z.array(uuidLike).min(1).max(200),
         estado: z.enum(ESTADOS_INSCRIPCION),
         motivo: z.string().max(500).optional(),
       })
     )
-    .mutation(async ({ ctx, input }) => {
-      const supabase = createAdminClient();
-      const { data: row, error } = await supabase
-        .from("program_enrollments")
-        .select("id, estado, programs!program_enrollments_program_id_fkey(estados_habilitados)")
-        .eq("id", input.enrollmentId)
-        .single();
-      if (error || !row) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Inscripción no encontrada" });
-      }
-      const enrollment = {
-        id: row.id,
-        estado: row.estado,
-        estados_habilitados: row.programs?.estados_habilitados ?? [],
-      };
-      return applyEstadoChange(supabase, String(ctx.user.id), enrollment, input.estado, input.motivo);
-    }),
+    .mutation(async ({ ctx, input }) =>
+      cambiarEstadoEnLote(
+        createAdminClient(),
+        String(ctx.user.id),
+        input.enrollmentIds,
+        input.estado,
+        input.motivo
+      )
+    ),
 
   /** Unenrolls a person = baja with a mandatory motivo (admin+). */
   unenrollPerson: adminProcedure

@@ -113,6 +113,25 @@ describe("softDelete — retirar la ficha borra las fotos", () => {
     expect(removeMock).toHaveBeenCalledWith("documentos-identidad", "dni.jpg");
   });
 
+  it("deja rastro durable (logAudit) de qué ficha se retira y con qué resultado", async () => {
+    // logProcedureAction sólo alimentaba el ring buffer que nada lee (#150);
+    // logAudit emite la línea durable a stderr con actorId + correlationId.
+    fromMock
+      .mockReturnValueOnce(personaChain({
+        id: PERSON_ID, nombre: "Ana", apellidos: "G",
+        foto_perfil_url: "perfil.jpg", foto_documento_url: "dni.jpg",
+      }))
+      .mockReturnValueOnce(conteoChain(0));
+
+    await testRouter.createCaller(ctx("superadmin")).softDelete({ id: PERSON_ID });
+
+    expect(auditMock).toHaveBeenCalledWith(
+      expect.objectContaining({ correlationId: "borrado-test" }),
+      "persons.softDelete",
+      { personId: PERSON_ID, fotosBorradas: 2 }
+    );
+  });
+
   it("sin fotos, no llama al Storage", async () => {
     fromMock
       .mockReturnValueOnce(personaChain({

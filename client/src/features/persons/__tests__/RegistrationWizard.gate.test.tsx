@@ -103,6 +103,12 @@ vi.mock("../components/RegistrationWizard/_useSubmit", () => ({
   useRegistrationSubmit: () => ({ isSubmitting: false, handleFinalSubmit: vi.fn() }),
 }));
 
+// Step0Canal monta InstitucionTypeahead (Task 4), que consulta trpc de verdad;
+// aquí sólo se prueban los gates de fase — se stubbea el componente entero.
+vi.mock("@/features/derivar/InstitucionTypeahead", () => ({
+  InstitucionTypeahead: () => <input placeholder="Buscar institución..." />,
+}));
+
 // Toast — assert the Phase-3 program gate fires toast.error.
 vi.mock("sonner", () => ({
   toast: { error: vi.fn(), success: vi.fn() },

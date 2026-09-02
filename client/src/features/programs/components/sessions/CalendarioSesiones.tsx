@@ -5,13 +5,14 @@
  * Admin: "Generar calendario" button + per-session actions (abrir/cancelar/reprogramar).
  * Cancelled rows appear greyed with a strikethrough and the motivo shown.
  */
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CalendarDays, RefreshCw } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { SesionCalendarRow, type SessionListItem } from "./SesionCalendarRow";
-import { useListSesiones, useGenerarSesionesMutation } from "../../hooks/useSesiones";
+import { useListSesiones } from "../../hooks/useSesiones";
+import { GenerarCalendarioDialog } from "./GenerarCalendarioDialog";
 import {
   useAbrirSesion,
   useCancelarSesion,
@@ -48,8 +49,11 @@ function formatMonthKey(key: string): string {
 
 export function CalendarioSesiones({ programId, isAdmin, onSelectSession }: CalendarioSesioneProps) {
   const [currentYear] = useState(() => new Date().getFullYear());
+  const [generarOpen, setGenerarOpen] = useState(false);
   const { data: sessions = [], isLoading } = useListSesiones(programId);
-  const generar = useGenerarSesionesMutation(programId);
+  // Se pasan al modal para que la previsualización descuente lo ya creado —
+  // generarSesiones salta esas fechas (dedupe por (program_id, fecha)).
+  const fechasExistentes = useMemo(() => sessions.map((s) => s.fecha), [sessions]);
 
   // Lightweight glance stat — shows Planes N/M in the header for quick context.
   // Full compliance dashboard lives in /dashboard when this edition is selected.
@@ -98,14 +102,10 @@ export function CalendarioSesiones({ programId, isAdmin, onSelectSession }: Cale
             variant="outline"
             size="sm"
             className="text-xs gap-1.5"
-            disabled={generar.isPending}
-            onClick={() => generar.mutate({ programId })}
+            onClick={() => setGenerarOpen(true)}
           >
-            <RefreshCw
-              className={`h-3.5 w-3.5 ${generar.isPending ? "animate-spin" : ""}`}
-              aria-hidden="true"
-            />
-            {generar.isPending ? "Generando..." : "Generar calendario"}
+            <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+            Generar calendario
           </Button>
         )}
       </div>
@@ -115,7 +115,7 @@ export function CalendarioSesiones({ programId, isAdmin, onSelectSession }: Cale
           <CalendarDays className="mx-auto h-10 w-10 text-muted-foreground mb-3" aria-hidden="true" />
           <p className="text-sm text-muted-foreground">
             No hay sesiones planificadas.
-            {isAdmin && " Usa 'Generar calendario' para crearlas desde el horario del programa."}
+            {isAdmin && " Usa «Generar calendario» para definir los días y las horas del curso."}
           </p>
         </div>
       )}
@@ -149,6 +149,15 @@ export function CalendarioSesiones({ programId, isAdmin, onSelectSession }: Cale
           </div>
         );
       })}
+
+      {isAdmin && (
+        <GenerarCalendarioDialog
+          open={generarOpen}
+          onOpenChange={setGenerarOpen}
+          programId={programId}
+          fechasExistentes={fechasExistentes}
+        />
+      )}
     </div>
   );
 }

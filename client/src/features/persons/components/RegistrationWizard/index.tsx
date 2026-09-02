@@ -39,6 +39,7 @@ import { useRegistrationDraft } from "../../hooks/useRegistrationDraft";
 import { usePrograms } from "../../hooks/usePrograms";
 import { useConsentTemplates } from "../../hooks/useConsentTemplates";
 import { compressImage } from "../../utils/imageUtils";
+import { titleCaseEs } from "../../utils/titleCaseEs";
 import {
   type FamilyMember,
   PHASE_FIELDS,
@@ -196,8 +197,10 @@ export function RegistrationWizard() {
   // ── OCR handler ─────────────────────────────────────────────────────────────
   const handleOCRExtracted = useCallback(
     (data: OcrExtracted) => {
-      if (data.nombre) setValue("nombre", data.nombre);
-      if (data.apellidos) setValue("apellidos", data.apellidos);
+      // El OCR devuelve el documento en MAYÚSCULAS: normalizar UNA vez aquí
+      // (no en el render ni en la BD; la digitación manual no pasa por aquí).
+      if (data.nombre) setValue("nombre", titleCaseEs(data.nombre));
+      if (data.apellidos) setValue("apellidos", titleCaseEs(data.apellidos));
       if (data.fecha_nacimiento) setValue("fecha_nacimiento", data.fecha_nacimiento);
       if (data.numero_documento) setValue("numero_documento", data.numero_documento);
       if (data.tipo_documento) {

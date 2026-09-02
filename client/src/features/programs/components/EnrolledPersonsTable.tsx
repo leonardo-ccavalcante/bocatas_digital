@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -19,11 +17,30 @@ import {
 import { ESTADO_LABELS, ESTADOS_CATALOGO } from "@shared/programEstados";
 import { useEnrollments } from "../hooks/useEnrollment";
 import { filterVisibleColumns } from "../utils/volunteerVisibility";
+import { buildGrupoQuery } from "@/lib/volverNav";
+import { Checkbox } from "@/components/ui/checkbox";
 import { EnrollmentRowActions } from "./EnrollmentRowActions";
+import { EnrollmentsContactoToolbar } from "./EnrollmentsContactoToolbar";
+import { BulkEstadoBar } from "./BulkEstadoBar";
+import { EnrolledPersonsFilterBar } from "./EnrolledPersonsFilterBar";
+import {
+  FILTROS_VACIOS,
+  aInputServidor,
+  type FiltrosInscritos,
+} from "../utils/enrollmentFiltros";
+import {
+  alternarSeleccion,
+  seleccionVisible,
+  estanTodosSeleccionados,
+} from "../utils/enrollmentSeleccion";
 import type { EnrollmentEstado } from "../schemas";
 
 interface EnrolledPersonsTableProps {
   programId: string;
+  /** Slug del programa — la ficha lo usa para «volver» aquí (?volver=…). */
+  programSlug?: string;
+  /** Nombre visible del programa — rótulo del enlace «volver». */
+  programName?: string;
   isAdmin?: boolean;
   volunteerVisibleFields?: string[];
   /** Program's enabled enrollment states (from programs.estados_habilitados). */
@@ -33,6 +50,7 @@ interface EnrolledPersonsTableProps {
 // ─── Legacy label map — kept for backwards-compat with exported buildCountLabel ─
 export const ESTADO_LABEL: Record<string, string> = {
   activo: "Activos",
+  terminado: "Terminados",
   completado: "Completados",
   rechazado: "Rechazados",
 };
@@ -46,6 +64,25 @@ export function buildCountLabel(
     `${total} persona${plural ? "s" : ""} inscrita${plural ? "s" : ""}` +
     (estadoFilter ? ` (${ESTADO_LABEL[estadoFilter]?.toLowerCase() ?? estadoFilter})` : "")
   );
+}
+
+/**
+ * Chips de filtro: estados habilitados del programa + 'completado' legacy.
+ * 'terminado' y 'completado' comparten etiqueta («Terminado», ESTADO_LABELS):
+ * con 'terminado' habilitado se omite el alias legacy, que duplicaba el chip.
+ */
+export function buildFilterStates(estadosHabilitados: string[]): EnrollmentEstado[] {
+  const conTerminado = estadosHabilitados.includes("terminado");
+  return [
+    ...new Set([
+      ...estadosHabilitados.filter(
+        (e) =>
+          (ESTADOS_CATALOGO as readonly string[]).includes(e) &&
+          !(e === "completado" && conTerminado)
+      ),
+      ...(conTerminado ? [] : ["completado"]),
+    ]),
+  ] as EnrollmentEstado[];
 }
 
 // ─── Estado chip config (WCAG: icon + text, never color alone) ────────────────
@@ -73,9 +110,10 @@ const CHIP_CONFIG: Record<string, ChipStyle> = {
  * al servidor un estado que ese programa no usa y devolvía cero, así que un
  * curso con 23 personas inscritas se veía como «0 (activo)».
  *
- * Se exporta para que el test lea el valor real en vez de replicarlo.
+ * Se exporta para que el test lea el valor real en vez de replicarlo. La
+ * fuente de verdad vive ahora en FILTROS_VACIOS (utils/enrollmentFiltros).
  */
-export const ESTADO_FILTRO_INICIAL: EnrollmentEstado | undefined = undefined;
+export const ESTADO_FILTRO_INICIAL: EnrollmentEstado | undefined = FILTROS_VACIOS.estado;
 
 const ALL_COLUMNS = ["foto", "nombre", "estado", "fecha_inscripcion", "notas"] as const;
 type ColumnKey = (typeof ALL_COLUMNS)[number];
@@ -104,78 +142,84 @@ function EstadoChip({ estado }: { estado: string }) {
 
 export function EnrolledPersonsTable({
   programId,
+  programSlug,
+  programName,
   isAdmin,
   volunteerVisibleFields = [],
   estadosHabilitados = [],
 }: EnrolledPersonsTableProps) {
-  const [search, setSearch] = useState("");
-  const [estadoFilter, setEstadoFilter] = useState<EnrollmentEstado | undefined>(
-    ESTADO_FILTRO_INICIAL
+  // Contexto de origen para la ficha: «volver» a este programa + navegación
+  // anterior/siguiente dentro del grupo (?grupo=). PersonaDetalle sanea `volver`.
+  const fichaQuery = programSlug
+    ? buildGrupoQuery(programId, `/programas/${programSlug}`, programName)
+    : "";
+  // Arranca en «Todos» (FILTROS_VACIOS.estado === undefined) — ver el
+  // comentario de ESTADO_FILTRO_INICIAL arriba.
+  const [filtros, setFiltros] = useState<FiltrosInscritos>(FILTROS_VACIOS);
+  const [seleccion, setSeleccion] = useState<Set<string>>(new Set());
+
+  const filterStates = buildFilterStates(estadosHabilitados);
+
+  const { enrollments, total, isLoading } = useEnrollments(
+    programId,
+    aInputServidor(filtros)
   );
-
-  // Filter states: program's enabled states + completado legacy
-  const filterStates = [
-    ...new Set([
-      ...estadosHabilitados.filter((e) =>
-        (ESTADOS_CATALOGO as readonly string[]).includes(e)
-      ),
-      "completado",
-    ]),
-  ] as EnrollmentEstado[];
-
-  const { enrollments, total, isLoading } = useEnrollments(programId, {
-    estado: estadoFilter,
-    search: search.length >= 2 ? search : undefined,
-  });
 
   const visibleCols = new Set<ColumnKey>(
     filterVisibleColumns([...ALL_COLUMNS], volunteerVisibleFields, !!isAdmin) as ColumnKey[]
   );
 
-  const colCount = visibleCols.size + (isAdmin ? 1 : 0);
+  // Sólo se manda al servidor lo marcado que SIGUE en la página: al cambiar
+  // el filtro las filas viejas ya no se ven y no pueden viajar en la mutación.
+  const idsVisibles = enrollments.map((e) => e.id);
+  const seleccionados = seleccionVisible(seleccion, idsVisibles);
+  const todosMarcados = estanTodosSeleccionados(seleccion, idsVisibles);
+
+  const colCount = visibleCols.size + (isAdmin ? 2 : 0);
 
   return (
     <div className="space-y-4">
-      {/* Search + Estado filter */}
-      <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
-        <Input
-          placeholder="Buscar por nombre..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="sm:max-w-xs"
-          aria-label="Buscar persona inscrita"
-        />
-        <div className="flex flex-wrap gap-1" role="group" aria-label="Filtrar por estado">
-          <Button
-            size="sm"
-            variant={estadoFilter === undefined ? "default" : "outline"}
-            onClick={() => setEstadoFilter(undefined)}
-            className="text-xs h-8 rounded-full"
-          >
-            Todos
-          </Button>
-          {filterStates.map((e) => (
-            <Button
-              key={e}
-              size="sm"
-              variant={estadoFilter === e ? "default" : "outline"}
-              onClick={() => setEstadoFilter(e as EnrollmentEstado)}
-              className="text-xs h-8 rounded-full"
-            >
-              {ESTADO_LABELS[e as keyof typeof ESTADO_LABELS] ?? e}
-            </Button>
-          ))}
-        </div>
-      </div>
+      <EnrolledPersonsFilterBar
+        filtros={filtros}
+        onFiltrosChange={setFiltros}
+        filterStates={filterStates}
+      />
 
       <p className="text-sm text-muted-foreground" aria-live="polite">
-        {buildCountLabel(total, estadoFilter)}
+        {buildCountLabel(total, filtros.estado)}
       </p>
+
+      {isAdmin && enrollments.length > 0 && (
+        <EnrollmentsContactoToolbar
+          personas={enrollments.map((e) => e.persons)}
+          total={total}
+        />
+      )}
+
+      {isAdmin && (
+        <BulkEstadoBar
+          programId={programId}
+          seleccionados={seleccionados}
+          estadosHabilitados={estadosHabilitados}
+          onHecho={() => setSeleccion(new Set())}
+        />
+      )}
 
       <div className="rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
+              {isAdmin && (
+                <TableHead className="w-10">
+                  <Checkbox
+                    checked={todosMarcados}
+                    onCheckedChange={() =>
+                      setSeleccion(todosMarcados ? new Set() : new Set(idsVisibles))
+                    }
+                    aria-label="Seleccionar todas las inscripciones de esta página"
+                  />
+                </TableHead>
+              )}
               {visibleCols.has("foto") && <TableHead className="w-12"></TableHead>}
               {visibleCols.has("nombre") && <TableHead>Persona</TableHead>}
               {visibleCols.has("estado") && <TableHead className="hidden sm:table-cell">Estado</TableHead>}
@@ -200,6 +244,17 @@ export function EnrolledPersonsTable({
             ) : (
               enrollments.map((enrollment) => (
                 <TableRow key={enrollment.id}>
+                  {isAdmin && (
+                    <TableCell className="w-10">
+                      <Checkbox
+                        checked={seleccion.has(enrollment.id)}
+                        onCheckedChange={() =>
+                          setSeleccion((previa) => alternarSeleccion(previa, enrollment.id))
+                        }
+                        aria-label={`Seleccionar a ${enrollment.persons.nombre} ${enrollment.persons.apellidos}`}
+                      />
+                    </TableCell>
+                  )}
                   {visibleCols.has("foto") && (
                     <TableCell className="w-12 pr-0">
                       <Avatar className="h-8 w-8">
@@ -217,7 +272,7 @@ export function EnrolledPersonsTable({
                   {visibleCols.has("nombre") && (
                     <TableCell>
                       <Link
-                        href={`/personas/${enrollment.persons.id}`}
+                        href={`/personas/${enrollment.persons.id}${fichaQuery}`}
                         className="hover:underline font-medium text-sm"
                       >
                         {enrollment.persons.apellidos}, {enrollment.persons.nombre}

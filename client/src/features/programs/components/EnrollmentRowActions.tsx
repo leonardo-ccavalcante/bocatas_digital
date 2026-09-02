@@ -52,13 +52,13 @@ export function EnrollmentRowActions({
       return;
     }
     updateEstado.mutate({
-      enrollmentId,
+      enrollmentIds: [enrollmentId],
       estado: next as EstadoInscripcion,
     });
   }
 
   function handleAdmitir() {
-    updateEstado.mutate({ enrollmentId, estado: "admitido" });
+    updateEstado.mutate({ enrollmentIds: [enrollmentId], estado: "admitido" });
   }
 
   function handleBajaConfirm(motivo: string, notas?: string) {

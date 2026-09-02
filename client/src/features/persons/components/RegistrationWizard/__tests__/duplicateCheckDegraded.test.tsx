@@ -84,6 +84,12 @@ vi.mock("../../../hooks/useOCRDocument", () => ({
 vi.mock("../_useSubmit", () => ({
   useRegistrationSubmit: () => ({ isSubmitting: false, handleFinalSubmit: vi.fn() }),
 }));
+// Step0Canal monta InstitucionTypeahead (Task 4), que consulta trpc de verdad;
+// aquí no se prueba la entidad derivadora — se stubbea el componente entero.
+vi.mock("@/features/derivar/InstitucionTypeahead", () => ({
+  InstitucionTypeahead: () => <input placeholder="Buscar institución..." />,
+}));
+
 vi.mock("sonner", () => ({
   toast: { error: vi.fn(), success: vi.fn() },
 }));

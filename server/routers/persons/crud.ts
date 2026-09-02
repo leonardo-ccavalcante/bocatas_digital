@@ -66,6 +66,16 @@ export function getAllColumnsForRole(role: string | undefined | null): string {
 export const PERSONS_GETALL_DEFAULT_LIMIT = 50;
 export const PERSONS_GETALL_MAX_LIMIT = 1000;
 
+/** Chips del listado: nombres de programas por persona, último primero. */
+export const PERSONS_GETALL_PROGRAMAS_CAP = 3;
+
+/**
+ * Lote máximo de ids por `.in()` en la query de chips: postgrest serializa los
+ * ids en la query-string (~39 bytes/UUID) y el directorio pide hasta 1000
+ * personas — un solo lote superaría el cap de 32KB de URL del proxy.
+ */
+export const PERSONS_GETALL_PROGRAMAS_LOTE = 200;
+
 export const PersonsGetAllInput = z
   .object({
     limit: z.number().int().min(1).max(PERSONS_GETALL_MAX_LIMIT).default(PERSONS_GETALL_DEFAULT_LIMIT),
@@ -187,6 +197,12 @@ export const crudRouter = router({
         canal_llegada: personData.canal_llegada,
         entidad_derivadora: str(personData.entidad_derivadora),
         persona_referencia: str(personData.persona_referencia),
+        // Amarrado a su canal: el textarea del wizard desaparece al cambiar de
+        // canal pero react-hook-form conserva el valor huérfano — se descarta aquí.
+        motivo_retorno:
+          personData.canal_llegada === "retorno_bocatas"
+            ? str(personData.motivo_retorno)
+            : null,
         recorrido_migratorio: str(personData.recorrido_migratorio),
         necesidades_principales: str(personData.necesidades_principales),
         restricciones_alimentarias: str(personData.restricciones_alimentarias),
@@ -316,7 +332,10 @@ export const crudRouter = router({
       .select(getAllColumnsForRole(ctx.user.role), { count: "exact" })
       .is("deleted_at", null)
       .order("nombre")
-      .range(offset, offset + limit - 1);
+      .range(offset, offset + limit - 1)
+      // La lista de columnas es dinámica (por rol): supabase-js no puede
+      // inferir la fila y devolvería GenericStringError. `id` siempre viaja.
+      .returns<Array<Record<string, unknown> & { id: string }>>();
 
     if (error) {
       throw new TRPCError({
@@ -329,7 +348,49 @@ export const crudRouter = router({
     // "Sin QR" manual search, which has a < 2s budget on low-end Android.
     const rows = data ?? [];
     await signPathField(AVATAR_BUCKET, rows, "foto_perfil_url");
-    return { data: rows, total: count ?? 0 };
+
+    // Chips de programas del listado: queries bateladas por LOTES con los ids
+    // de ESTA página (nunca por fila, nunca toda la tabla; cada persona cae
+    // entera en un único lote, así que su orden interno no cambia). Sin filtro
+    // de estado a
+    // propósito — el chip dice «vinculado a», no «activo en»; sólo se excluye
+    // lo borrado. El error se propaga: un fallo de BD tiene que verse, no
+    // disfrazarse de «sin programas» (lección de persons.programs.test.ts).
+    const ids = rows.map((r) => r.id);
+    const programasPorPersona = new Map<string, string[]>();
+    for (let i = 0; i < ids.length; i += PERSONS_GETALL_PROGRAMAS_LOTE) {
+      const lote = ids.slice(i, i + PERSONS_GETALL_PROGRAMAS_LOTE);
+      const { data: inscripciones, error: errorInscripciones } = await supabase
+        .from("program_enrollments")
+        .select("person_id, created_at, programs!program_enrollments_program_id_fkey(name)")
+        .in("person_id", lote)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false });
+      if (errorInscripciones) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: `Error al obtener inscripciones: ${errorInscripciones.message}`,
+        });
+      }
+      for (const insc of (inscripciones ?? []) as unknown as Array<{
+        person_id: string;
+        programs: { name: string } | null;
+      }>) {
+        const nombre = insc.programs?.name;
+        if (!nombre) continue;
+        const lista = programasPorPersona.get(insc.person_id) ?? [];
+        if (lista.length < PERSONS_GETALL_PROGRAMAS_CAP) lista.push(nombre);
+        programasPorPersona.set(insc.person_id, lista);
+      }
+    }
+
+    return {
+      data: rows.map((r) => ({
+        ...r,
+        programas: programasPorPersona.get(r.id) ?? [],
+      })),
+      total: count ?? 0,
+    };
   }),
 
   /**

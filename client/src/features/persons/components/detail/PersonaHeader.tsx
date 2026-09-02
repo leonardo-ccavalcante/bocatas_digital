@@ -29,6 +29,7 @@ import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDown } from "lucide-react";
 import BackLink from "@/components/layout/BackLink";
+import { GrupoNav } from "./GrupoNav";
 import { formatDateDisplay, calculateAge } from "@/lib/dateUtils";
 import type { Database } from "@/lib/database.types";
 import { getEstadoChip } from "./personaEstado";
@@ -44,6 +45,12 @@ interface PersonaHeaderProps {
    * desplegable, ni siquiera el disparador — es como lo ve un no-admin.
    */
   acciones?: ReactNode;
+  /** Ruta interna de vuelta al listado de origen. Saneada en PersonaDetalle. */
+  volverHref?: string;
+  /** Rótulo del enlace «volver» (nombre del programa de origen). */
+  volverLabel?: string;
+  /** Programa de origen: activa el prev/next entre fichas del grupo (admin). */
+  grupoId?: string;
 }
 
 function getInitials(nombre: string, apellidos: string | null): string {
@@ -78,7 +85,14 @@ function KPICell({
   );
 }
 
-export function PersonaHeader({ person, visitas, acciones }: PersonaHeaderProps) {
+export function PersonaHeader({
+  person,
+  visitas,
+  acciones,
+  volverHref,
+  volverLabel,
+  grupoId,
+}: PersonaHeaderProps) {
   const fullName = `${person.nombre} ${person.apellidos ?? ""}`.trim();
   const initials = getInitials(person.nombre, person.apellidos);
   const estado = getEstadoChip(person.fase_itinerario);
@@ -100,9 +114,17 @@ export function PersonaHeader({ person, visitas, acciones }: PersonaHeaderProps)
       <div className="mx-auto max-w-6xl px-4 pb-6 pt-5 sm:px-8">
         {/* Breadcrumb / back */}
         <div className="mb-4 flex items-center gap-2 text-xs text-muted-foreground">
-          <BackLink label="Personas" href="/personas" />
+          <BackLink label={volverLabel ?? "Personas"} href={volverHref ?? "/personas"} />
           <span aria-hidden="true">/</span>
           <span className="font-medium text-foreground">{fullName}</span>
+          {grupoId && (
+            <GrupoNav
+              grupoId={grupoId}
+              personId={person.id}
+              volverHref={volverHref}
+              volverLabel={volverLabel}
+            />
+          )}
         </div>
 
         <div className="flex items-start gap-5">

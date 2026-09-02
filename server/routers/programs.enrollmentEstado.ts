@@ -106,6 +106,90 @@ export async function applyEstadoChange(
   return data;
 }
 
+export interface ResultadoLoteEstado {
+  /** Ids que quedaron aplicados (y con su evento apuntado). */
+  ok: string[];
+  /** Los que no, con el porqué en claro para enseñarlo tal cual. */
+  fallos: Array<{ id: string; motivo: string }>;
+}
+
+/**
+ * Cambia el estado de N inscripciones, FILA A FILA y sin transacción.
+ *
+ * Deliberado: cada fila pasa por `applyEstadoChange`, así que conserva la
+ * validación de `estados_habilitados`, el motivo obligatorio de `baja` y su
+ * propia entrada en `enrollment_events`. Un fallo parcial se REPORTA en
+ * `fallos` y no revierte lo ya aplicado — dar de baja a 20 de 22 diciendo
+ * cuáles fallaron es más útil que no dar de baja a nadie, y revertir en
+ * bloque exigiría una función PL/pgSQL que hoy no aporta nada.
+ *
+ * La lectura va por fila (no un `.in()` previo) para poder distinguir
+ * «no encontrada» de «estado no habilitado» en el mensaje de cada una.
+ */
+export async function cambiarEstadoEnLote(
+  supabase: Supabase,
+  actorId: string,
+  enrollmentIds: readonly string[],
+  estado: EstadoInscripcion,
+  motivo?: string
+): Promise<ResultadoLoteEstado> {
+  const ok: string[] = [];
+  const fallos: Array<{ id: string; motivo: string }> = [];
+
+  for (const id of enrollmentIds) {
+    const { data: row, error } = await supabase
+      .from("program_enrollments")
+      .select("id, estado, programs!program_enrollments_program_id_fkey(estados_habilitados)")
+      .eq("id", id)
+      .maybeSingle();
+
+    // Un fallo de lectura NO es «no encontrada»: decirlo mentiría en un
+    // resultado parcial. Se distingue y se sigue con las demás filas.
+    if (error) {
+      fallos.push({ id, motivo: "Error al leer la inscripción" });
+      continue;
+    }
+    if (!row) {
+      fallos.push({ id, motivo: "Inscripción no encontrada" });
+      continue;
+    }
+
+    // No-op: re-aplicar el mismo estado re-sellaría fecha_fin y apuntaría un
+    // evento X→X de ruido. Cuenta como ok sin escribir nada.
+    if (row.estado === estado) {
+      ok.push(id);
+      continue;
+    }
+
+    try {
+      await applyEstadoChange(
+        supabase,
+        actorId,
+        {
+          id: row.id,
+          estado: row.estado,
+          // `baja` siempre es alcanzable, también en filas legacy cuyo
+          // programa no la habilita — mismo criterio que unenrollPerson.
+          estados_habilitados: [
+            ...(row.programs?.estados_habilitados ?? []),
+            "baja",
+          ],
+        },
+        estado,
+        motivo
+      );
+      ok.push(id);
+    } catch (e) {
+      fallos.push({
+        id,
+        motivo: e instanceof TRPCError ? e.message : "Error inesperado",
+      });
+    }
+  }
+
+  return { ok, fallos };
+}
+
 export async function logEnrollmentEvent(
   supabase: Supabase,
   ev: { enrollmentId: string; anterior: string | null; nuevo: string; motivo?: string; actorId: string }

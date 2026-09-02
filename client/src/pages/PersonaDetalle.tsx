@@ -18,6 +18,7 @@ import {
 } from "@/features/persons/components/detail/EditPersonModal";
 import { RetirarFichaMenu } from "@/features/persons/components/detail/RetirarFichaMenu";
 import { useConsentTemplates } from "@/features/persons/hooks/useConsentTemplates";
+import { sanitizeVolver } from "@/lib/volverNav";
 import { usePersonById } from "@/features/persons/hooks/usePersonById";
 import { getConsentTemplateLanguage } from "@/features/persons/schemas/enums";
 import { EnrollmentPanel } from "@/features/programs/components/EnrollmentPanel";
@@ -52,6 +53,13 @@ export default function PersonaDetalle() {
     if (new URLSearchParams(search).get("editar") !== "1") return;
     navigate(`/personas/${id}`, { replace: true });
   }, [search, id, navigate]);
+  // Contexto de origen: la tabla de inscritos de un programa añade
+  // ?volver/&volverLabel/&grupo al href de la ficha. `volver` se sanea aquí —
+  // sólo rutas internas — para que un enlace manipulado no saque de la app.
+  const origenParams = new URLSearchParams(search);
+  const volverHref = sanitizeVolver(origenParams.get("volver"));
+  const volverLabel = volverHref ? (origenParams.get("volverLabel") ?? undefined) : undefined;
+  const grupoId = origenParams.get("grupo") ?? undefined;
   const [activeTab, setActiveTab] = useState("resumen");
 
   // Only admins and superadmins see check-in data + the Familia CTA + the
@@ -124,6 +132,11 @@ export default function PersonaDetalle() {
       <PersonaHeader
         person={personRow}
         visitas={visitas}
+        volverHref={volverHref}
+        volverLabel={volverLabel}
+        // getEnrollments es admin-only (adminProcedure): a un voluntario el
+        // prev/next le daría FORBIDDEN — se le pasa sólo el enlace «volver».
+        grupoId={isAdmin ? grupoId : undefined}
         acciones={
           isAdmin ? (
             <>
