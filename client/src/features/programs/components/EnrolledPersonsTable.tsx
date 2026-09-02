@@ -48,6 +48,22 @@ export function buildCountLabel(
   );
 }
 
+/**
+ * Chips de filtro: estados habilitados del programa + 'completado' legacy.
+ * 'terminado' y 'completado' comparten etiqueta («Terminado», ESTADO_LABELS):
+ * con 'terminado' habilitado se omite el alias legacy, que duplicaba el chip.
+ */
+export function buildFilterStates(estadosHabilitados: string[]): EnrollmentEstado[] {
+  return [
+    ...new Set([
+      ...estadosHabilitados.filter((e) =>
+        (ESTADOS_CATALOGO as readonly string[]).includes(e)
+      ),
+      ...(estadosHabilitados.includes("terminado") ? [] : ["completado"]),
+    ]),
+  ] as EnrollmentEstado[];
+}
+
 // ─── Estado chip config (WCAG: icon + text, never color alone) ────────────────
 type ChipStyle = { icon: React.ReactNode; className: string };
 
@@ -113,15 +129,7 @@ export function EnrolledPersonsTable({
     ESTADO_FILTRO_INICIAL
   );
 
-  // Filter states: program's enabled states + completado legacy
-  const filterStates = [
-    ...new Set([
-      ...estadosHabilitados.filter((e) =>
-        (ESTADOS_CATALOGO as readonly string[]).includes(e)
-      ),
-      "completado",
-    ]),
-  ] as EnrollmentEstado[];
+  const filterStates = buildFilterStates(estadosHabilitados);
 
   const { enrollments, total, isLoading } = useEnrollments(programId, {
     estado: estadoFilter,

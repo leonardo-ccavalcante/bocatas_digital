@@ -12,9 +12,11 @@ import type { EnrollmentEstado } from "../schemas";
 import {
   ESTADO_LABEL,
   buildCountLabel,
+  buildFilterStates,
   ESTADO_FILTRO_INICIAL,
 } from "../components/EnrolledPersonsTable";
 import * as tablaModule from "../components/EnrolledPersonsTable";
+import { ESTADO_LABELS } from "@shared/programEstados";
 
 // ─── Mirrors the handleFilterChange logic in EnrolledPersonsTable ─────────────
 
@@ -173,5 +175,33 @@ describe("EnrolledPersonsTable — ToggleGroup status filter logic", () => {
     it("rechazado label lowercases to 'rechazados'", () => {
       expect(buildCountLabel(2, "rechazado")).toBe("2 personas inscritas (rechazados)");
     });
+  });
+});
+
+// ─── buildFilterStates — chips sin «Terminado» duplicado ─────────────────────
+
+describe("buildFilterStates — chips de estado", () => {
+  it("con 'terminado' habilitado NO añade 'completado' (pintaba dos chips «Terminado»)", () => {
+    const chips = buildFilterStates([
+      "inscrito", "preseleccionado", "admitido", "lista_espera",
+      "activo", "baja", "terminado",
+    ]);
+    expect(chips).toContain("terminado");
+    expect(chips).not.toContain("completado");
+  });
+
+  it("las etiquetas visibles nunca se repiten", () => {
+    const labels = buildFilterStates(["activo", "terminado"]).map((e) => ESTADO_LABELS[e]);
+    expect(new Set(labels).size).toBe(labels.length);
+  });
+
+  it("sin 'terminado' habilitado, 'completado' sigue disponible para filas legacy", () => {
+    expect(buildFilterStates(["activo", "pausado", "baja"])).toEqual([
+      "activo", "pausado", "baja", "completado",
+    ]);
+  });
+
+  it("descarta valores fuera del catálogo", () => {
+    expect(buildFilterStates(["activo", "cualquier_cosa"])).toEqual(["activo", "completado"]);
   });
 });

@@ -311,7 +311,12 @@ export const programsRouter = router({
         .range(input.offset, input.offset + input.limit - 1);
 
       if (input.estado) {
-        query = query.eq("estado", input.estado);
+        // 'completado' es el alias legacy de 'terminado' (shared/programEstados):
+        // filtrar por 'terminado' debe traer también las filas antiguas.
+        query =
+          input.estado === "terminado"
+            ? query.in("estado", ["terminado", "completado"])
+            : query.eq("estado", input.estado);
       }
 
       const { data, error, count } = await query;
