@@ -164,8 +164,13 @@ describe("EnrolledPersonsTable — ToggleGroup status filter logic", () => {
       expect(buildCountLabel(0, "completado")).toBe("0 personas inscritas (completados)");
     });
 
-    it("ESTADO_LABEL keys match the EnrollmentEstado enum values", () => {
-      expect(Object.keys(ESTADO_LABEL).sort()).toEqual(["activo", "completado", "rechazado"]);
+    it("ESTADO_LABEL cubre los estados que el contador puede nombrar", () => {
+      expect(Object.keys(ESTADO_LABEL).sort()).toEqual([
+        "activo",
+        "completado",
+        "rechazado",
+        "terminado",
+      ]);
     });
 
     it("ESTADO_LABEL does not contain pausado (not a valid EnrollmentEstado)", () => {
@@ -203,5 +208,18 @@ describe("buildFilterStates — chips de estado", () => {
 
   it("descarta valores fuera del catálogo", () => {
     expect(buildFilterStates(["activo", "cualquier_cosa"])).toEqual(["activo", "completado"]);
+  });
+
+  it("con 'terminado' Y 'completado' habilitados explícitamente, sólo queda 'terminado'", () => {
+    // El form UI no ofrece estados legacy, pero la API y la DB los aceptan
+    // (el refine admite todo ESTADOS_CATALOGO): el invariante de etiquetas
+    // únicas debe aguantar también ese caso.
+    expect(buildFilterStates(["terminado", "completado"])).toEqual(["terminado"]);
+  });
+});
+
+describe("buildCountLabel — el chip único «Terminado» tiene etiqueta propia", () => {
+  it("'terminado' pinta '(terminados)', no el token crudo", () => {
+    expect(buildCountLabel(2, "terminado")).toBe("2 personas inscritas (terminados)");
   });
 });

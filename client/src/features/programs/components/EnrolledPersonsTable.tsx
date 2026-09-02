@@ -33,6 +33,7 @@ interface EnrolledPersonsTableProps {
 // ─── Legacy label map — kept for backwards-compat with exported buildCountLabel ─
 export const ESTADO_LABEL: Record<string, string> = {
   activo: "Activos",
+  terminado: "Terminados",
   completado: "Completados",
   rechazado: "Rechazados",
 };
@@ -54,12 +55,15 @@ export function buildCountLabel(
  * con 'terminado' habilitado se omite el alias legacy, que duplicaba el chip.
  */
 export function buildFilterStates(estadosHabilitados: string[]): EnrollmentEstado[] {
+  const conTerminado = estadosHabilitados.includes("terminado");
   return [
     ...new Set([
-      ...estadosHabilitados.filter((e) =>
-        (ESTADOS_CATALOGO as readonly string[]).includes(e)
+      ...estadosHabilitados.filter(
+        (e) =>
+          (ESTADOS_CATALOGO as readonly string[]).includes(e) &&
+          !(e === "completado" && conTerminado)
       ),
-      ...(estadosHabilitados.includes("terminado") ? [] : ["completado"]),
+      ...(conTerminado ? [] : ["completado"]),
     ]),
   ] as EnrollmentEstado[];
 }

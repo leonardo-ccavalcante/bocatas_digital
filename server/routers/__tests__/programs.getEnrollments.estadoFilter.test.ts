@@ -40,6 +40,7 @@ function makeQuery(): Record<string, unknown> {
 vi.mock("../../../client/src/lib/supabase/server", () => ({
   createAdminClient: () => ({ from: () => makeQuery() }),
   createServerClient: vi.fn(),
+  createUserImpersonationClient: vi.fn(),
 }));
 
 // getEnrollments firma los avatares con signPathField; aquí no hay Storage.
