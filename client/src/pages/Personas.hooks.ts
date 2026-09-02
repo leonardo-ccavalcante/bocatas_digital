@@ -62,7 +62,7 @@ export function usePersonsData({
   // ── Normalise to PersonRowData ────────────────────────────────────────────
   const adminRows: PersonRowData[] = useMemo(
     () =>
-      (allPersons as unknown as PersonRow[]).map((p) => ({
+      (allPersons as unknown as Array<PersonRow & { programas?: string[] }>).map((p) => ({
         id: p.id,
         nombre: p.nombre,
         apellidos: p.apellidos ?? null,
@@ -70,6 +70,7 @@ export function usePersonsData({
         created_at: p.created_at ?? null,
         foto_perfil_url: p.foto_perfil_url ?? null,
         numero_documento: p.numero_documento ?? null,
+        programas: p.programas ?? [],
       })),
     [allPersons]
   );

@@ -1,13 +1,13 @@
 /**
  * PersonRowDesktop — single row in the desktop persons table.
  *
- * Renders name/initials avatar, fase badge, creation-date-based recency dot,
- * estado badge, and action buttons. Keyboard-navigable.
+ * Renders name/initials avatar, chips de programas (último primero), a
+ * creation-date-based recency dot, estado badge, and action buttons.
+ * Keyboard-navigable.
  */
 import { useLocation } from "wouter";
 import { PersonActionsMenu } from "./PersonActionsMenu";
 import { Badge } from "@/components/ui/badge";
-import { FASE_ITINERARIO_CONFIG } from "@/features/persons/schemas/labels";
 
 // ─── Recency dot (decorative) ─────────────────────────────────────────────────
 // Uses created_at as a proxy (no last_visit field in the API).
@@ -60,6 +60,11 @@ export interface PersonRowData {
    * y se estaba descartando en el mapeo. No se pinta en ninguna fila.
    */
   numero_documento?: string | null;
+  /**
+   * Nombres de programas vinculados (último primero, cap 3 en el servidor).
+   * Sólo llega por el carril admin (`getAll`); en búsqueda no viaja.
+   */
+  programas?: string[];
 }
 
 // ─── Avatar initials ────────────────────────────────────────────────────────
@@ -137,9 +142,6 @@ export function PersonRowDesktop({
   style,
 }: PersonRowDesktopProps) {
   const [, navigate] = useLocation();
-  const faseConfig = person.fase_itinerario
-    ? (FASE_ITINERARIO_CONFIG[person.fase_itinerario] ?? null)
-    : null;
   const estado = person.fase_itinerario ? "Activa" : "Inactiva";
 
   const goToDetail = () => navigate(`/personas/${person.id}`);
@@ -185,11 +187,24 @@ export function PersonRowDesktop({
         </div>
       </div>
 
-      {/* Fase */}
+      {/* Programas (chips: 2 + «+N» sobre el array capado a 3 — indica «hay más») */}
       <span className="text-body-sm text-foreground truncate">
-        {faseConfig ? (
-          <span className={`inline-block px-2 py-0.5 rounded text-[11px] font-medium ${faseConfig.color}`}>
-            {faseConfig.label}
+        {person.programas && person.programas.length > 0 ? (
+          <span className="inline-flex items-center gap-1">
+            {person.programas.slice(0, 2).map((nombre) => (
+              <span
+                key={nombre}
+                title={nombre}
+                className="inline-block max-w-[88px] truncate rounded bg-accent px-1.5 py-0.5 text-[10px] font-medium text-accent-foreground"
+              >
+                {nombre}
+              </span>
+            ))}
+            {person.programas.length > 2 && (
+              <span className="text-[10px] text-muted-foreground">
+                +{person.programas.length - 2}
+              </span>
+            )}
           </span>
         ) : (
           <span className="text-muted-foreground">—</span>

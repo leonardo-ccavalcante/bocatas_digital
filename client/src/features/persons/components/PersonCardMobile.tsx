@@ -14,7 +14,6 @@
  * que sustituye. Crecerlo solapa filas.
  */
 import { useLocation } from "wouter";
-import { FASE_ITINERARIO_CONFIG } from "@/features/persons/schemas/labels";
 import { PersonActionsMenu } from "./PersonActionsMenu";
 import { EstadoBadge, RecencyDot } from "./PersonRowDesktop";
 import type { PersonRowData } from "./PersonRowDesktop";
@@ -25,9 +24,6 @@ interface PersonCardMobileProps {
 
 export function PersonCardMobile({ person }: PersonCardMobileProps) {
   const [, navigate] = useLocation();
-  const faseConfig = person.fase_itinerario
-    ? (FASE_ITINERARIO_CONFIG[person.fase_itinerario] ?? null)
-    : null;
   const estado = person.fase_itinerario ? "Activa" : "Inactiva";
 
   const initials = [person.nombre[0] ?? "", (person.apellidos ?? " ")[0] ?? ""]
@@ -75,9 +71,12 @@ export function PersonCardMobile({ person }: PersonCardMobileProps) {
             {person.id.slice(0, 8)}…
           </p>
           <div className="flex items-center gap-2 mt-1.5 text-[11px]">
-            {faseConfig ? (
-              <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${faseConfig.color}`}>
-                {faseConfig.label}
+            {person.programas && person.programas.length > 0 ? (
+              <span
+                title={person.programas[0]}
+                className="max-w-[110px] truncate rounded bg-accent px-1.5 py-0.5 text-[10px] font-medium text-accent-foreground"
+              >
+                {person.programas[0]}
               </span>
             ) : (
               <span className="text-muted-foreground">—</span>
