@@ -21,6 +21,7 @@ import { useEnrollments } from "../hooks/useEnrollment";
 import { filterVisibleColumns } from "../utils/volunteerVisibility";
 import { buildGrupoQuery } from "@/lib/volverNav";
 import { EnrollmentRowActions } from "./EnrollmentRowActions";
+import { EnrollmentsContactoToolbar } from "./EnrollmentsContactoToolbar";
 import type { EnrollmentEstado } from "../schemas";
 
 interface EnrolledPersonsTableProps {
@@ -195,6 +196,13 @@ export function EnrolledPersonsTable({
       <p className="text-sm text-muted-foreground" aria-live="polite">
         {buildCountLabel(total, estadoFilter)}
       </p>
+
+      {isAdmin && enrollments.length > 0 && (
+        <EnrollmentsContactoToolbar
+          personas={enrollments.map((e) => e.persons)}
+          total={total}
+        />
+      )}
 
       <div className="rounded-md border">
         <Table>
