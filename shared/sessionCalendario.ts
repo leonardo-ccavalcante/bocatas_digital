@@ -103,6 +103,13 @@ export function validarCalendario(entrada: EntradaCalendario): string[] {
     errores.push(
       "Cada franja necesita hora de inicio y hora de fin, y la de fin debe ser posterior a la de inicio."
     );
+  } else if (new Set(entrada.slots.map((s) => s.dia_semana)).size < entrada.slots.length) {
+    // El límite v1 genera UNA sesión por día (fechasProgramadas usa la primera
+    // franja): aceptar dos franjas del mismo día publicaría un horario que
+    // calla la segunda.
+    errores.push(
+      "Hay dos franjas para el mismo día: sólo se puede generar una sesión por día (deja una franja por día)."
+    );
   }
   if (!entrada.locationId) {
     errores.push("Selecciona una ubicación: sin ella no se puede pasar lista en la sesión.");

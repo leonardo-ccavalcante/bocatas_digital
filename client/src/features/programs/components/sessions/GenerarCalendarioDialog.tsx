@@ -133,6 +133,7 @@ export function GenerarCalendarioDialog({
       // y reabrir el modal lea la config ya guardada.
       await utils.programs.sessions.listSesiones.invalidate({ programId });
       await utils.programs.getAll.invalidate();
+      await utils.programs.getBySlug.invalidate();
       setEnviando(false);
       toast.error("Horario guardado, pero no se han generado las sesiones", {
         description: err instanceof Error ? err.message : undefined,
@@ -142,6 +143,9 @@ export function GenerarCalendarioDialog({
 
     await utils.programs.sessions.listSesiones.invalidate({ programId });
     await utils.programs.getAll.invalidate();
+    // La página del programa se pinta desde getBySlug: sin esto, la cabecera
+    // y los defaults de edición seguirían con las fechas viejas hasta un remount.
+    await utils.programs.getBySlug.invalidate();
     setEnviando(false);
     onOpenChange(false);
   }

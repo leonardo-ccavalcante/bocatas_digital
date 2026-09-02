@@ -49,6 +49,7 @@ vi.mock("@/lib/trpc", () => ({
       programs: {
         sessions: { listSesiones: { invalidate: mockInvalidateSesiones } },
         getAll: { invalidate: mockInvalidateProgramas },
+        getBySlug: { invalidate: vi.fn() },
       },
     }),
   },

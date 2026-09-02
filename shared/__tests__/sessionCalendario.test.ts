@@ -106,6 +106,13 @@ describe("validarCalendario", () => {
     );
   });
 
+  it("rechaza dos franjas del mismo día — el límite v1 sólo generaría la primera y callarlo publica un horario mentiroso", () => {
+    const otraLunes: ProgramacionSlot = { dia_semana: 1, hora_inicio: "18:00", hora_fin: "20:00" };
+    expect(validarCalendario({ ...valida, slots: [LUNES, otraLunes] })).toContain(
+      "Hay dos franjas para el mismo día: sólo se puede generar una sesión por día (deja una franja por día)."
+    );
+  });
+
   it("exige el rango de fechas y lo quiere en orden", () => {
     expect(validarCalendario({ ...valida, desde: "" })).toContain(
       "Indica el primer y el último día del curso."
