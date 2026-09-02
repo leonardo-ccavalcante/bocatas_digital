@@ -64,6 +64,19 @@ const CHIP_CONFIG: Record<string, ChipStyle> = {
   rechazado:      { icon: <XCircle className="w-3 h-3" />,     className: "bg-red-100 text-red-700 border-red-200" },
 };
 
+/**
+ * Estado del filtro al abrir la tabla: ninguno, es decir «Todos».
+ *
+ * Antes arrancaba en 'activo'. Pero cada programa declara sus propios
+ * `estados_habilitados`, y un curso de formación no habilita 'activo' — su
+ * embudo es inscrito → preseleccionado → admitido → … Resultado: la tabla pedía
+ * al servidor un estado que ese programa no usa y devolvía cero, así que un
+ * curso con 23 personas inscritas se veía como «0 (activo)».
+ *
+ * Se exporta para que el test lea el valor real en vez de replicarlo.
+ */
+export const ESTADO_FILTRO_INICIAL: EnrollmentEstado | undefined = undefined;
+
 const ALL_COLUMNS = ["foto", "nombre", "estado", "fecha_inscripcion", "notas"] as const;
 type ColumnKey = (typeof ALL_COLUMNS)[number];
 
@@ -96,7 +109,9 @@ export function EnrolledPersonsTable({
   estadosHabilitados = [],
 }: EnrolledPersonsTableProps) {
   const [search, setSearch] = useState("");
-  const [estadoFilter, setEstadoFilter] = useState<EnrollmentEstado | undefined>("activo");
+  const [estadoFilter, setEstadoFilter] = useState<EnrollmentEstado | undefined>(
+    ESTADO_FILTRO_INICIAL
+  );
 
   // Filter states: program's enabled states + completado legacy
   const filterStates = [
