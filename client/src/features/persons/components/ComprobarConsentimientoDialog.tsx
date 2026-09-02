@@ -23,7 +23,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ShieldCheck } from "lucide-react";
 import { trpc } from "@/lib/trpc";
-import { parsearNombres, MAX_NOMBRES } from "../utils/comprobarConsentimiento";
+import {
+  parsearNombres,
+  contarExcluidos,
+  MAX_NOMBRES,
+} from "../utils/comprobarConsentimiento";
 
 function Lista({
   titulo,
@@ -54,12 +58,17 @@ export function ComprobarConsentimientoDialog() {
   const [texto, setTexto] = useState("");
   const [nombres, setNombres] = useState<string[]>([]);
 
-  const { data, isFetching } = trpc.persons.checkConsentByNames.useQuery(
+  const { data, isFetching, isError } = trpc.persons.checkConsentByNames.useQuery(
     { names: nombres, purpose: "fotografia" },
     { enabled: nombres.length > 0 }
   );
 
   const pendientes = parsearNombres(texto);
+  const excluidos = contarExcluidos(texto);
+  // Tras editar el texto sin volver a comprobar, las listas de abajo son de la
+  // consulta ANTERIOR: se atenúan para que no se lean como vigentes.
+  const desfasado =
+    data !== undefined && JSON.stringify(pendientes) !== JSON.stringify(nombres);
 
   function cambiarApertura(next: boolean) {
     if (!next) {
@@ -99,6 +108,14 @@ export function ComprobarConsentimientoDialog() {
           />
         </div>
 
+        {excluidos > 0 && (
+          <p className="text-xs text-destructive" role="alert">
+            {excluidos} nombre{excluidos === 1 ? "" : "s"} supera{excluidos === 1 ? "" : "n"} el
+            tope de {MAX_NOMBRES} y NO se comprobará{excluidos === 1 ? "" : "n"} — divide la
+            lista en dos.
+          </p>
+        )}
+
         <Button
           type="button"
           onClick={() => setNombres(pendientes)}
@@ -107,8 +124,18 @@ export function ComprobarConsentimientoDialog() {
           {isFetching ? "Comprobando..." : `Comprobar (${pendientes.length})`}
         </Button>
 
+        {isError && (
+          <p className="text-xs text-destructive" role="alert">
+            No se pudo comprobar la lista. Vuelve a intentarlo; si sigue fallando,
+            avisa al equipo técnico.
+          </p>
+        )}
+
         {data && (
-          <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+          <div
+            className={`space-y-3 max-h-72 overflow-y-auto pr-1 ${desfasado ? "opacity-50" : ""}`}
+            aria-live="polite"
+          >
             <Lista
               titulo="Con consentimiento"
               className="text-emerald-700"
@@ -129,6 +156,12 @@ export function ComprobarConsentimientoDialog() {
               className="text-amber-700"
               items={data.ambiguos.map((a) => `${a.input} (${a.matches} coincidencias)`)}
             />
+            {desfasado && (
+              <p className="text-xs text-amber-700">
+                Estos resultados son de la lista anterior — pulsa «Comprobar» de
+                nuevo.
+              </p>
+            )}
           </div>
         )}
       </DialogContent>

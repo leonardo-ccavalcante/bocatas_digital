@@ -3,7 +3,7 @@
  * componente: es lo único del diálogo que puede equivocarse en silencio.
  */
 import { describe, it, expect } from "vitest";
-import { parsearNombres, MAX_NOMBRES } from "../comprobarConsentimiento";
+import { parsearNombres, contarExcluidos, MAX_NOMBRES } from "../comprobarConsentimiento";
 
 describe("parsearNombres", () => {
   it("una línea es un nombre, sin vacías ni espacios de sobra", () => {
@@ -20,6 +20,12 @@ describe("parsearNombres", () => {
   it("corta en el tope que acepta el servidor", () => {
     const texto = Array.from({ length: MAX_NOMBRES + 20 }, (_, i) => `Persona ${i}`).join("\n");
     expect(parsearNombres(texto)).toHaveLength(MAX_NOMBRES);
+  });
+
+  it("dice cuántos nombres se quedaron FUERA del tope — nunca se truncan en silencio", () => {
+    const texto = Array.from({ length: MAX_NOMBRES + 20 }, (_, i) => `Persona ${i}`).join("\n");
+    expect(contarExcluidos(texto)).toBe(20);
+    expect(contarExcluidos("Ana García\nJosé Núñez")).toBe(0);
   });
 
   it("un texto en blanco no produce ninguna consulta", () => {

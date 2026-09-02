@@ -86,10 +86,12 @@ export const consentsPorNombreRouter = router({
           .is("deleted_at", null);
 
         if (error) {
-          // El mensaje del driver arrastra los nombres buscados: fuera.
+          // El mensaje del driver arrastra los nombres buscados: fuera. El
+          // `cause` viaja al log correlacionado (sólo códigos, sin PII).
           throw new TRPCError({
             code: "INTERNAL_SERVER_ERROR",
             message: "No se pudo comprobar la lista de nombres",
+            cause: error,
           });
         }
 
@@ -158,6 +160,7 @@ async function idsConFinVigente(
     throw new TRPCError({
       code: "INTERNAL_SERVER_ERROR",
       message: "No se pudieron leer los consentimientos",
+      cause: error,
     });
   }
 

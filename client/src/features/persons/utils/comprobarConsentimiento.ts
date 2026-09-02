@@ -21,3 +21,18 @@ export function parsearNombres(texto: string): string[] {
 
   return nombres;
 }
+
+/**
+ * Nombres únicos que superan MAX_NOMBRES y por tanto NO entran en la
+ * comprobación. En una herramienta de consentimiento, una línea que
+ * desaparece en silencio es peligrosa: el diálogo lo avisa con este número.
+ */
+export function contarExcluidos(texto: string): number {
+  const vistos = new Set<string>();
+  for (const linea of texto.split("\n")) {
+    const nombre = linea.trim();
+    if (!nombre) continue;
+    vistos.add(nombre.toLowerCase());
+  }
+  return Math.max(0, vistos.size - MAX_NOMBRES);
+}
