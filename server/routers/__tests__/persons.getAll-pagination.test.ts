@@ -73,6 +73,16 @@ function getAllChain(result: { data: unknown[]; error: null; count: number }) {
 beforeEach(() => {
   fromMock.mockReset();
   rangeMock.mockReset();
+  // getAll ahora hace una 2ª query batelada (program_enrollments) para los
+  // chips del listado. Los mockReturnValueOnce de cada test siguen sirviendo
+  // la página de persons (los once-values tienen prioridad); esta implementación
+  // por defecto atiende la query de inscripciones con una lista vacía.
+  fromMock.mockImplementation(() => ({
+    select: vi.fn().mockReturnThis(),
+    in: vi.fn().mockReturnThis(),
+    is: vi.fn().mockReturnThis(),
+    order: vi.fn().mockResolvedValue({ data: [], error: null }),
+  }));
 });
 
 describe("persons.getAll — server-side pagination (MYT-80-ATL03)", () => {

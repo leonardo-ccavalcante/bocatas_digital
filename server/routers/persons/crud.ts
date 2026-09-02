@@ -66,6 +66,9 @@ export function getAllColumnsForRole(role: string | undefined | null): string {
 export const PERSONS_GETALL_DEFAULT_LIMIT = 50;
 export const PERSONS_GETALL_MAX_LIMIT = 1000;
 
+/** Chips del listado: nombres de programas por persona, último primero. */
+export const PERSONS_GETALL_PROGRAMAS_CAP = 3;
+
 export const PersonsGetAllInput = z
   .object({
     limit: z.number().int().min(1).max(PERSONS_GETALL_MAX_LIMIT).default(PERSONS_GETALL_DEFAULT_LIMIT),
@@ -335,7 +338,46 @@ export const crudRouter = router({
     // "Sin QR" manual search, which has a < 2s budget on low-end Android.
     const rows = data ?? [];
     await signPathField(AVATAR_BUCKET, rows, "foto_perfil_url");
-    return { data: rows, total: count ?? 0 };
+
+    // Chips de programas del listado: UNA query batelada con los ids de ESTA
+    // página (nunca por fila, nunca toda la tabla). Sin filtro de estado a
+    // propósito — el chip dice «vinculado a», no «activo en»; sólo se excluye
+    // lo borrado. El error se propaga: un fallo de BD tiene que verse, no
+    // disfrazarse de «sin programas» (lección de persons.programs.test.ts).
+    const ids = rows.map((r) => (r as { id: string }).id);
+    const programasPorPersona = new Map<string, string[]>();
+    if (ids.length > 0) {
+      const { data: inscripciones, error: errorInscripciones } = await supabase
+        .from("program_enrollments")
+        .select("person_id, created_at, programs!program_enrollments_program_id_fkey(name)")
+        .in("person_id", ids)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false });
+      if (errorInscripciones) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: `Error al obtener inscripciones: ${errorInscripciones.message}`,
+        });
+      }
+      for (const insc of (inscripciones ?? []) as unknown as Array<{
+        person_id: string;
+        programs: { name: string } | null;
+      }>) {
+        const nombre = insc.programs?.name;
+        if (!nombre) continue;
+        const lista = programasPorPersona.get(insc.person_id) ?? [];
+        if (lista.length < PERSONS_GETALL_PROGRAMAS_CAP) lista.push(nombre);
+        programasPorPersona.set(insc.person_id, lista);
+      }
+    }
+
+    return {
+      data: rows.map((r) => ({
+        ...(r as Record<string, unknown>),
+        programas: programasPorPersona.get((r as { id: string }).id) ?? [],
+      })),
+      total: count ?? 0,
+    };
   }),
 
   /**
