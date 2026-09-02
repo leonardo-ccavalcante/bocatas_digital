@@ -159,9 +159,9 @@ that repeatedly bite agents:
   of its parents.** Tests that mock the trpc client module (or a hooks module) wholesale
   fail at collect time with `undefined.<proc>` when a child starts calling a new
   procedure. After touching a widely-mounted component, run the WHOLE feature
-  tree of every feature that mounts it (`vitest run client/src/features/<name>/`)
-  — not the top-level `__tests__/` dir (nested `components/*/__tests__/` dirs
-  are outside that prefix) and not just your task's Files block; stub the new
+  tree of every feature that mounts it (vitest run on the whole feature folder)
+  — not only its top-level tests folder (nested test dirs under components are
+  outside that prefix) and not just your task's Files block; stub the new
   procedure in each affected mock.
 - **Do not pre-create folders for future modules** — create them when the feature
   actually starts.
