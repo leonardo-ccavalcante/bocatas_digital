@@ -20,8 +20,15 @@ import { ESTADO_LABELS, ESTADOS_CATALOGO } from "@shared/programEstados";
 import { useEnrollments } from "../hooks/useEnrollment";
 import { filterVisibleColumns } from "../utils/volunteerVisibility";
 import { buildGrupoQuery } from "@/lib/volverNav";
+import { Checkbox } from "@/components/ui/checkbox";
 import { EnrollmentRowActions } from "./EnrollmentRowActions";
 import { EnrollmentsContactoToolbar } from "./EnrollmentsContactoToolbar";
+import { BulkEstadoBar } from "./BulkEstadoBar";
+import {
+  alternarSeleccion,
+  seleccionVisible,
+  estanTodosSeleccionados,
+} from "../utils/enrollmentSeleccion";
 import type { EnrollmentEstado } from "../schemas";
 
 interface EnrolledPersonsTableProps {
@@ -145,6 +152,7 @@ export function EnrolledPersonsTable({
   const [estadoFilter, setEstadoFilter] = useState<EnrollmentEstado | undefined>(
     ESTADO_FILTRO_INICIAL
   );
+  const [seleccion, setSeleccion] = useState<Set<string>>(new Set());
 
   const filterStates = buildFilterStates(estadosHabilitados);
 
@@ -157,7 +165,13 @@ export function EnrolledPersonsTable({
     filterVisibleColumns([...ALL_COLUMNS], volunteerVisibleFields, !!isAdmin) as ColumnKey[]
   );
 
-  const colCount = visibleCols.size + (isAdmin ? 1 : 0);
+  // Sólo se manda al servidor lo marcado que SIGUE en la página: al cambiar
+  // el filtro las filas viejas ya no se ven y no pueden viajar en la mutación.
+  const idsVisibles = enrollments.map((e) => e.id);
+  const seleccionados = seleccionVisible(seleccion, idsVisibles);
+  const todosMarcados = estanTodosSeleccionados(seleccion, idsVisibles);
+
+  const colCount = visibleCols.size + (isAdmin ? 2 : 0);
 
   return (
     <div className="space-y-4">
@@ -204,10 +218,30 @@ export function EnrolledPersonsTable({
         />
       )}
 
+      {isAdmin && (
+        <BulkEstadoBar
+          programId={programId}
+          seleccionados={seleccionados}
+          estadosHabilitados={estadosHabilitados}
+          onHecho={() => setSeleccion(new Set())}
+        />
+      )}
+
       <div className="rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
+              {isAdmin && (
+                <TableHead className="w-10">
+                  <Checkbox
+                    checked={todosMarcados}
+                    onCheckedChange={() =>
+                      setSeleccion(todosMarcados ? new Set() : new Set(idsVisibles))
+                    }
+                    aria-label="Seleccionar todas las inscripciones de esta página"
+                  />
+                </TableHead>
+              )}
               {visibleCols.has("foto") && <TableHead className="w-12"></TableHead>}
               {visibleCols.has("nombre") && <TableHead>Persona</TableHead>}
               {visibleCols.has("estado") && <TableHead className="hidden sm:table-cell">Estado</TableHead>}
@@ -232,6 +266,17 @@ export function EnrolledPersonsTable({
             ) : (
               enrollments.map((enrollment) => (
                 <TableRow key={enrollment.id}>
+                  {isAdmin && (
+                    <TableCell className="w-10">
+                      <Checkbox
+                        checked={seleccion.has(enrollment.id)}
+                        onCheckedChange={() =>
+                          setSeleccion((previa) => alternarSeleccion(previa, enrollment.id))
+                        }
+                        aria-label={`Seleccionar a ${enrollment.persons.nombre} ${enrollment.persons.apellidos}`}
+                      />
+                    </TableCell>
+                  )}
                   {visibleCols.has("foto") && (
                     <TableCell className="w-12 pr-0">
                       <Avatar className="h-8 w-8">

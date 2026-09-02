@@ -31,6 +31,8 @@ const ENROLLMENTS = [
 
 vi.mock("../hooks/useEnrollment", () => ({
   useEnrollments: () => ({ enrollments: ENROLLMENTS, total: 1, isLoading: false }),
+  // BulkEstadoBar (Task 12) también se monta bajo la tabla para admin.
+  useUpdateEnrollmentEstado: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 vi.mock("../components/EnrollmentRowActions", () => ({ EnrollmentRowActions: () => null }));
 vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn(), warning: vi.fn() } }));
