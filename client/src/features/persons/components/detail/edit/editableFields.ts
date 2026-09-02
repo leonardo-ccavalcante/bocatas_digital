@@ -51,7 +51,7 @@ export const CAMPOS_NO_EDITABLES = [
 /** Todo lo que el formulario puede tocar. Orden = orden de las secciones. */
 export const CAMPOS_EDITABLES = [
   // Canal
-  "canal_llegada", "entidad_derivadora", "persona_referencia",
+  "canal_llegada", "entidad_derivadora", "persona_referencia", "motivo_retorno",
   // Identidad
   "nombre", "apellidos", "fecha_nacimiento", "genero", "pais_origen",
   "idioma_principal", "idiomas",

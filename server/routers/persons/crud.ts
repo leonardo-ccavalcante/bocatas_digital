@@ -187,6 +187,7 @@ export const crudRouter = router({
         canal_llegada: personData.canal_llegada,
         entidad_derivadora: str(personData.entidad_derivadora),
         persona_referencia: str(personData.persona_referencia),
+        motivo_retorno: str(personData.motivo_retorno),
         recorrido_migratorio: str(personData.recorrido_migratorio),
         necesidades_principales: str(personData.necesidades_principales),
         restricciones_alimentarias: str(personData.restricciones_alimentarias),
