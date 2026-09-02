@@ -356,7 +356,9 @@ export const programsRouter = router({
     .input(z.object({
       programId: uuidLike,
       estado: z.enum(ESTADOS_CATALOGO).optional(),
-      search: z.string().optional(),
+      // Cap como persons/search.ts: sin él, una llamada directa podría mandar
+      // una aguja gigante al ilike. La UI ya recorta a ≥2 chars en el cliente.
+      search: z.string().trim().max(100).optional(),
       // Ejes de la cabecera de la tabla. NO se ofrece `situacion_legal`
       // (HIGH_RISK_PII_FIELDS, shared/reports/entities.ts:289; vetado también
       // en programs.enlace.ts:241), ni `colectivos` ni `recorrido_migratorio`
