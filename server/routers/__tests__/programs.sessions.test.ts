@@ -154,6 +154,42 @@ describe("sessionsRouter.generarSesiones", () => {
   });
 
   /**
+   * TASK 17: el caso que produce el modal «Generar calendario» — dos franjas
+   * semanales + ubicación guardadas en config por programs.update, y el rango
+   * por el input (desde/hasta), sin depender de fecha_inicio/fecha_fin.
+   * Verde desde el principio: es la red que protege la extracción de
+   * iterateDateSlots a shared/sessionCalendario.ts.
+   * 2026-09-07 y 2026-09-14 son lunes; 2026-09-09 y 2026-09-16, miércoles.
+   */
+  it("genera las sesiones de dos franjas semanales con la config guardada por el modal", async () => {
+    const LOC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+    const { inserts } = mockDb({
+      programs: [{
+        id: ID(1), slug: "2026_09_coc", fecha_inicio: null, fecha_fin: null,
+        config: {
+          location_id: LOC,
+          programacion: [
+            { dia_semana: 1, hora_inicio: "09:00", hora_fin: "13:00" },
+            { dia_semana: 3, hora_inicio: "16:00", hora_fin: "20:00" },
+          ],
+        },
+      }],
+      program_sessions: [],
+    });
+    const res = await sessionsCaller.generarSesiones({
+      programId: ID(1), desde: "2026-09-07", hasta: "2026-09-18",
+    });
+    expect(res).toEqual({ created: 4, skipped: 0 });
+    const filas = inserts["program_sessions"] ?? [];
+    expect(filas.map((r) => r.fecha)).toEqual([
+      "2026-09-07", "2026-09-09", "2026-09-14", "2026-09-16",
+    ]);
+    expect(filas.every((r) => r.location_id === LOC)).toBe(true);
+    expect(filas[0]).toMatchObject({ hora_inicio: "09:00", hora_fin: "13:00" });
+    expect(filas[1]).toMatchObject({ hora_inicio: "16:00", hora_fin: "20:00" });
+  });
+
+  /**
    * GROUP 1a: config.location_id must be stamped on every generated session.
    * Fails against the old code (which had no location_id in the insert).
    */
