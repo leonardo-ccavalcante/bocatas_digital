@@ -225,7 +225,7 @@ describe("programs.enrollPerson — inscribible gate + estado inicial + event", 
   });
 });
 
-describe("programs.updateEnrollmentEstado — catalog + motivo + events", () => {
+describe("programs.updateEnrollmentEstado — lote, catálogo, motivo y eventos", () => {
   const enrollment = {
     id: ID(7),
     person_id: ID(9),
@@ -234,27 +234,44 @@ describe("programs.updateEnrollmentEstado — catalog + motivo + events", () => 
     programs: { estados_habilitados: ["inscrito", "admitido", "lista_espera", "baja", "terminado"] },
   };
 
-  it("rejects an estado the program has not enabled", async () => {
+  it("un estado que el programa no habilita sale en fallos, no revienta la llamada", async () => {
     mockDb({ program_enrollments: [enrollment] });
-    await expect(
-      caller.updateEnrollmentEstado({ enrollmentId: ID(7), estado: "preseleccionado" })
-    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    const res = await caller.updateEnrollmentEstado({
+      enrollmentIds: [ID(7)],
+      estado: "preseleccionado",
+    });
+    expect(res.ok).toEqual([]);
+    expect(res.fallos).toEqual([
+      { id: ID(7), motivo: expect.stringContaining("no está habilitado") },
+    ]);
   });
 
-  it("requires motivo when moving to baja", async () => {
+  it("baja sin motivo sale en fallos", async () => {
     mockDb({ program_enrollments: [enrollment] });
-    await expect(
-      caller.updateEnrollmentEstado({ enrollmentId: ID(7), estado: "baja" })
-    ).rejects.toMatchObject({ code: "BAD_REQUEST", message: expect.stringContaining("motivo") });
+    const res = await caller.updateEnrollmentEstado({
+      enrollmentIds: [ID(7)],
+      estado: "baja",
+    });
+    expect(res.ok).toEqual([]);
+    expect(res.fallos[0].motivo).toContain("motivo");
   });
 
-  it("baja with motivo updates the row, sets fecha_fin and appends the event", async () => {
+  it("baja con motivo actualiza la fila, sella fecha_fin y apunta el evento", async () => {
     const { inserts, updates } = mockDb({
       program_enrollments: [enrollment],
       enrollment_events: [],
     });
-    await caller.updateEnrollmentEstado({ enrollmentId: ID(7), estado: "baja", motivo: "encontró trabajo" });
-    expect(updates["program_enrollments"]?.[0]).toMatchObject({ estado: "baja", motivo_baja: "encontró trabajo" });
+    const res = await caller.updateEnrollmentEstado({
+      enrollmentIds: [ID(7)],
+      estado: "baja",
+      motivo: "encontró trabajo",
+    });
+    expect(res.ok).toEqual([ID(7)]);
+    expect(res.fallos).toEqual([]);
+    expect(updates["program_enrollments"]?.[0]).toMatchObject({
+      estado: "baja",
+      motivo_baja: "encontró trabajo",
+    });
     expect(updates["program_enrollments"]?.[0]?.fecha_fin).toBeTruthy();
     expect(inserts["enrollment_events"]?.[0]).toMatchObject({
       estado_anterior: "admitido",
@@ -264,17 +281,58 @@ describe("programs.updateEnrollmentEstado — catalog + motivo + events", () => 
     });
   });
 
-  it("promotes lista_espera → admitido without motivo", async () => {
+  it("promociona lista_espera → admitido sin motivo", async () => {
     const { inserts } = mockDb({
       program_enrollments: [{ ...enrollment, estado: "lista_espera" }],
       enrollment_events: [],
     });
-    const res = await caller.updateEnrollmentEstado({ enrollmentId: ID(7), estado: "admitido" });
-    expect(res).toBeTruthy();
+    const res = await caller.updateEnrollmentEstado({
+      enrollmentIds: [ID(7)],
+      estado: "admitido",
+    });
+    expect(res.ok).toEqual([ID(7)]);
     expect(inserts["enrollment_events"]?.[0]).toMatchObject({
       estado_anterior: "lista_espera",
       estado_nuevo: "admitido",
     });
+  });
+
+  it("una fila inválida no impide las demás: aparece en fallos y el resto se aplica", async () => {
+    const { inserts } = mockDb({
+      program_enrollments: [
+        { ...enrollment, id: ID(7), estado: "lista_espera" },
+        {
+          ...enrollment,
+          id: ID(8),
+          estado: "lista_espera",
+          // Este programa NO habilita 'admitido'.
+          programs: { estados_habilitados: ["activo", "pausado", "baja"] },
+        },
+      ],
+      enrollment_events: [],
+    });
+
+    const res = await caller.updateEnrollmentEstado({
+      enrollmentIds: [ID(7), ID(8)],
+      estado: "admitido",
+    });
+
+    expect(res.ok).toEqual([ID(7)]);
+    expect(res.fallos).toEqual([
+      { id: ID(8), motivo: expect.stringContaining("no está habilitado") },
+    ]);
+    // La fila buena dejó su evento de auditoría; la mala, ninguno.
+    expect(inserts["enrollment_events"]).toHaveLength(1);
+  });
+
+  it("una inscripción inexistente se reporta, no tumba el lote", async () => {
+    mockDb({ program_enrollments: [] });
+    const res = await caller.updateEnrollmentEstado({
+      enrollmentIds: [ID(7)],
+      estado: "admitido",
+    });
+    expect(res.ok).toEqual([]);
+    expect(res.fallos).toEqual([{ id: ID(7), motivo: "Inscripción no encontrada" }]);
   });
 });
 

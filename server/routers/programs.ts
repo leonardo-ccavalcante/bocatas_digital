@@ -13,6 +13,7 @@ import {
 import {
   applyEstadoChange,
   assertParentDepthOk,
+  cambiarEstadoEnLote,
   createOrReviveEnrollment,
 } from "./programs.enrollmentEstado";
 import { getListadoMensual } from "./programs.listado";
@@ -541,33 +542,27 @@ export const programsRouter = router({
       return getListadoMensual(supabase, input.programId, input.year, input.month);
     }),
 
-  /** Changes an enrollment's estado within the program's enabled set (admin+).
-   * baja requires a motivo; every transition is appended to enrollment_events. */
+  /** Cambia el estado de UNA o VARIAS inscripciones (admin+).
+   * Fila a fila: `baja` sigue exigiendo motivo y cada transición queda en
+   * enrollment_events. Sin transacción — un fallo parcial se devuelve en
+   * `fallos` y no revierte las filas ya aplicadas (ver cambiarEstadoEnLote). */
   updateEnrollmentEstado: adminProcedure
     .input(
       z.object({
-        enrollmentId: uuidLike,
+        enrollmentIds: z.array(uuidLike).min(1).max(200),
         estado: z.enum(ESTADOS_INSCRIPCION),
         motivo: z.string().max(500).optional(),
       })
     )
-    .mutation(async ({ ctx, input }) => {
-      const supabase = createAdminClient();
-      const { data: row, error } = await supabase
-        .from("program_enrollments")
-        .select("id, estado, programs!program_enrollments_program_id_fkey(estados_habilitados)")
-        .eq("id", input.enrollmentId)
-        .single();
-      if (error || !row) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Inscripción no encontrada" });
-      }
-      const enrollment = {
-        id: row.id,
-        estado: row.estado,
-        estados_habilitados: row.programs?.estados_habilitados ?? [],
-      };
-      return applyEstadoChange(supabase, String(ctx.user.id), enrollment, input.estado, input.motivo);
-    }),
+    .mutation(async ({ ctx, input }) =>
+      cambiarEstadoEnLote(
+        createAdminClient(),
+        String(ctx.user.id),
+        input.enrollmentIds,
+        input.estado,
+        input.motivo
+      )
+    ),
 
   /** Unenrolls a person = baja with a mandatory motivo (admin+). */
   unenrollPerson: adminProcedure

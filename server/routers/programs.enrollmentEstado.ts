@@ -106,6 +106,72 @@ export async function applyEstadoChange(
   return data;
 }
 
+export interface ResultadoLoteEstado {
+  /** Ids que quedaron aplicados (y con su evento apuntado). */
+  ok: string[];
+  /** Los que no, con el porqué en claro para enseñarlo tal cual. */
+  fallos: Array<{ id: string; motivo: string }>;
+}
+
+/**
+ * Cambia el estado de N inscripciones, FILA A FILA y sin transacción.
+ *
+ * Deliberado: cada fila pasa por `applyEstadoChange`, así que conserva la
+ * validación de `estados_habilitados`, el motivo obligatorio de `baja` y su
+ * propia entrada en `enrollment_events`. Un fallo parcial se REPORTA en
+ * `fallos` y no revierte lo ya aplicado — dar de baja a 20 de 22 diciendo
+ * cuáles fallaron es más útil que no dar de baja a nadie, y revertir en
+ * bloque exigiría una función PL/pgSQL que hoy no aporta nada.
+ *
+ * La lectura va por fila (no un `.in()` previo) para poder distinguir
+ * «no encontrada» de «estado no habilitado» en el mensaje de cada una.
+ */
+export async function cambiarEstadoEnLote(
+  supabase: Supabase,
+  actorId: string,
+  enrollmentIds: readonly string[],
+  estado: EstadoInscripcion,
+  motivo?: string
+): Promise<ResultadoLoteEstado> {
+  const ok: string[] = [];
+  const fallos: Array<{ id: string; motivo: string }> = [];
+
+  for (const id of enrollmentIds) {
+    const { data: row, error } = await supabase
+      .from("program_enrollments")
+      .select("id, estado, programs!program_enrollments_program_id_fkey(estados_habilitados)")
+      .eq("id", id)
+      .single();
+
+    if (error || !row) {
+      fallos.push({ id, motivo: "Inscripción no encontrada" });
+      continue;
+    }
+
+    try {
+      await applyEstadoChange(
+        supabase,
+        actorId,
+        {
+          id: row.id,
+          estado: row.estado,
+          estados_habilitados: row.programs?.estados_habilitados ?? [],
+        },
+        estado,
+        motivo
+      );
+      ok.push(id);
+    } catch (e) {
+      fallos.push({
+        id,
+        motivo: e instanceof TRPCError ? e.message : "Error inesperado",
+      });
+    }
+  }
+
+  return { ok, fallos };
+}
+
 export async function logEnrollmentEvent(
   supabase: Supabase,
   ev: { enrollmentId: string; anterior: string | null; nuevo: string; motivo?: string; actorId: string }
