@@ -102,9 +102,13 @@ export const TIPO_PRESETS: Record<
   },
 };
 
-/** Initial state for a new enrollment given a program's enabled states. */
+/**
+ * Initial state for a new enrollment given a program's enabled states.
+ * Orden de embudo: el PRIMER estado de ESTADOS_INSCRIPCION habilitado —
+ * 'inscrito' antes que 'activo' (una edición nace inscrita, no activa).
+ * 'activo' queda sólo como fallback si nada del catálogo está habilitado.
+ */
 export function estadoInicial(estadosHabilitados: readonly string[]): EstadoInscripcion {
-  if (estadosHabilitados.includes("activo")) return "activo";
   const first = ESTADOS_INSCRIPCION.find((e) => estadosHabilitados.includes(e));
   return first ?? "activo";
 }

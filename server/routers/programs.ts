@@ -389,10 +389,11 @@ export const programsRouter = router({
         }
       }
 
-      // Alta con el estado inicial del programa (funnel-aware: una edición
-      // arranca en 'inscrito', un continuo en 'activo'). Si la persona ya pasó
-      // por aquí y se le dio de baja, se revive su inscripción en vez de
-      // intentar un INSERT que el UNIQUE no parcial rechaza.
+      // Alta con el estado inicial del programa: estadoInicial sigue el orden
+      // de embudo de ESTADOS_INSCRIPCION (una edición arranca en 'inscrito'
+      // AUNQUE tenga 'activo' habilitado; un continuo, en 'activo'). Si la
+      // persona ya pasó por aquí y se le dio de baja, se revive su inscripción
+      // en vez de intentar un INSERT que el UNIQUE no parcial rechaza.
       const estado = estadoInicial(program.estados_habilitados ?? ["activo"]);
       const data = await createOrReviveEnrollment(supabase, String(ctx.user.id), {
         personId: input.personId,
