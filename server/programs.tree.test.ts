@@ -325,6 +325,36 @@ describe("programs.updateEnrollmentEstado — lote, catálogo, motivo y eventos"
     expect(inserts["enrollment_events"]).toHaveLength(1);
   });
 
+  it("cambiar al MISMO estado es un no-op: cuenta como ok sin escribir ni re-sellar fechas", async () => {
+    const { inserts, updates } = mockDb({
+      program_enrollments: [enrollment],
+      enrollment_events: [],
+    });
+    const res = await caller.updateEnrollmentEstado({
+      enrollmentIds: [ID(7)],
+      estado: "admitido",
+    });
+    expect(res.ok).toEqual([ID(7)]);
+    expect(updates["program_enrollments"]).toBeUndefined();
+    expect(inserts["enrollment_events"]).toBeUndefined();
+  });
+
+  it("baja en lote funciona aunque el programa no la tenga habilitada (como unenrollPerson)", async () => {
+    const { updates } = mockDb({
+      program_enrollments: [
+        { ...enrollment, programs: { estados_habilitados: ["inscrito", "admitido"] } },
+      ],
+      enrollment_events: [],
+    });
+    const res = await caller.updateEnrollmentEstado({
+      enrollmentIds: [ID(7)],
+      estado: "baja",
+      motivo: "fin de la edición",
+    });
+    expect(res.ok).toEqual([ID(7)]);
+    expect(updates["program_enrollments"]?.[0]).toMatchObject({ estado: "baja" });
+  });
+
   it("una inscripción inexistente se reporta, no tumba el lote", async () => {
     mockDb({ program_enrollments: [] });
     const res = await caller.updateEnrollmentEstado({

@@ -69,7 +69,9 @@ export function BulkEstadoBar({
       {
         enrollmentIds: seleccionados,
         estado,
-        motivo: motivo.trim() || undefined,
+        // El motivo sólo existe para 'baja': un resto tecleado antes de
+        // cambiar de destino no debe colarse en el evento de otra transición.
+        motivo: estado === "baja" ? motivo.trim() : undefined,
       },
       {
         onSettled: () => {

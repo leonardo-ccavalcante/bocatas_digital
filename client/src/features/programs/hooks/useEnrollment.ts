@@ -68,6 +68,9 @@ export function useUpdateEnrollmentEstado(programId: string, personId?: string) 
     onSuccess: (result) => {
       utils.programs.getEnrollments.invalidate({ programId });
       utils.programs.getAllWithCounts.invalidate();
+      // Un lote toca a N personas: se invalidan TODAS las fichas cacheadas,
+      // no sólo la de `personId` (que sigue sirviendo para el panel 1-a-1).
+      utils.programs.getPersonEnrollments.invalidate();
       if (personId) {
         utils.programs.getPersonEnrollments.invalidate({ personId });
       }

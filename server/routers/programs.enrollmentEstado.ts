@@ -141,10 +141,23 @@ export async function cambiarEstadoEnLote(
       .from("program_enrollments")
       .select("id, estado, programs!program_enrollments_program_id_fkey(estados_habilitados)")
       .eq("id", id)
-      .single();
+      .maybeSingle();
 
-    if (error || !row) {
+    // Un fallo de lectura NO es «no encontrada»: decirlo mentiría en un
+    // resultado parcial. Se distingue y se sigue con las demás filas.
+    if (error) {
+      fallos.push({ id, motivo: "Error al leer la inscripción" });
+      continue;
+    }
+    if (!row) {
       fallos.push({ id, motivo: "Inscripción no encontrada" });
+      continue;
+    }
+
+    // No-op: re-aplicar el mismo estado re-sellaría fecha_fin y apuntaría un
+    // evento X→X de ruido. Cuenta como ok sin escribir nada.
+    if (row.estado === estado) {
+      ok.push(id);
       continue;
     }
 
@@ -155,7 +168,12 @@ export async function cambiarEstadoEnLote(
         {
           id: row.id,
           estado: row.estado,
-          estados_habilitados: row.programs?.estados_habilitados ?? [],
+          // `baja` siempre es alcanzable, también en filas legacy cuyo
+          // programa no la habilita — mismo criterio que unenrollPerson.
+          estados_habilitados: [
+            ...(row.programs?.estados_habilitados ?? []),
+            "baja",
+          ],
         },
         estado,
         motivo
