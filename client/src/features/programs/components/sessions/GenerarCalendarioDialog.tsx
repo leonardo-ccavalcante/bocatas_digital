@@ -128,6 +128,11 @@ export function GenerarCalendarioDialog({
         `Calendario generado: ${res.created} sesiones nuevas, ${res.skipped} ya existían.`
       );
     } catch (err) {
+      // El fallo puede llegar A MEDIO lote (el insert va fecha a fecha):
+      // se invalida igual para que el calendario enseñe lo que sí se creó
+      // y reabrir el modal lea la config ya guardada.
+      await utils.programs.sessions.listSesiones.invalidate({ programId });
+      await utils.programs.getAll.invalidate();
       setEnviando(false);
       toast.error("Horario guardado, pero no se han generado las sesiones", {
         description: err instanceof Error ? err.message : undefined,
@@ -142,7 +147,15 @@ export function GenerarCalendarioDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      // Mientras se guarda/genera no se cierra ni con Escape ni pinchando
+      // fuera — coherente con el botón Cancelar deshabilitado.
+      onOpenChange={(o) => {
+        if (!o && enviando) return;
+        onOpenChange(o);
+      }}
+    >
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Generar calendario</DialogTitle>
@@ -167,7 +180,7 @@ export function GenerarCalendarioDialog({
           </div>
 
           <div className="space-y-2">
-            <Label>Días de clase</Label>
+            <p className="text-sm font-medium leading-none">Días de clase</p>
             {slots.map((slot, i) => (
               <div key={i} className="flex items-end gap-2">
                 <div className="flex-1 space-y-1">
@@ -208,6 +221,7 @@ export function GenerarCalendarioDialog({
               Ubicación <span className="text-destructive" aria-hidden="true">*</span>
             </Label>
             <select id="calendario-ubicacion" className={SELECT_CLASS} value={locationId}
+              aria-required="true"
               onChange={(e) => setLocationId(e.target.value)}>
               <option value="">Selecciona una ubicación…</option>
               {ubicaciones.map((u) => (
