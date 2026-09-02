@@ -30,12 +30,16 @@ export function BuscarPorQrButton() {
   const [, navigate] = useLocation();
 
   const alLeer = (valor: string) => {
+    // El escáner es one-shot (para la cámara tras la primera lectura): el
+    // diálogo se cierra en CUALQUIER lectura, como en CloseoutScanner — si se
+    // dejara abierto tras un QR inválido quedaría un vídeo congelado que
+    // aparenta escanear y no lee.
+    setAbierto(false);
     const parsed = parseQrPayload(valor);
     if (!parsed) {
       toast.error("QR no válido — no es un código de Bocatas.");
       return;
     }
-    setAbierto(false);
     navigate(`/personas/${parsed.uuid}`);
   };
 

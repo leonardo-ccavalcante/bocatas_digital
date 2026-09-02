@@ -67,6 +67,11 @@ describe("BuscarPorQrButton", () => {
     expect(toastError).toHaveBeenCalledWith("QR no válido — no es un código de Bocatas.");
   });
 
+  it("cierra el diálogo también tras un QR inválido — el escáner es one-shot y quedaría muerto", async () => {
+    await escanear("https://example.com/algo");
+    expect(screen.queryByRole("button", { name: "simular-escaneo" })).toBeNull();
+  });
+
   it("un UUID pelado sin firma no cuenta como QR de Bocatas", async () => {
     await escanear(UUID);
     expect(navigate).not.toHaveBeenCalled();
