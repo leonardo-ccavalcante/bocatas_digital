@@ -21,10 +21,10 @@
  *    intermedio que inventar.
  *    Retirar una ficha es `superadminProcedure`: borrar no es corregir.
  *
- * 3. RASTRO: se registra por `logProcedureAction` con el id de la persona y la
- *    LISTA DE CAMPOS tocados — nunca sus valores, que son PII. La auditoría
- *    completa depende de #150 (logAudit escribe en un buffer que nadie lee) y
- *    no se resuelve aquí.
+ * 3. RASTRO: update se registra por `logProcedureAction` con el id de la
+ *    persona y la LISTA DE CAMPOS tocados — nunca sus valores, que son PII.
+ *    softDelete deja rastro durable vía `logAudit` (#150 ya resuelto):
+ *    retirar una ficha es acción de cumplimiento, no telemetría de request.
  *
  * Los datos de categoría especial (Art. 9/10) no se pueden tocar sin declarar
  * el consentimiento: ver `colectivo_consentimiento` más abajo.
@@ -33,7 +33,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { createAdminClient } from "../../../client/src/lib/supabase/server";
 import { adminProcedure, superadminProcedure } from "../../_core/trpc";
-import { logProcedureAction, logProcedureError } from "../../_core/logging-middleware";
+import { logAudit, logProcedureAction, logProcedureError } from "../../_core/logging-middleware";
 import { encryptPII, isPiiCryptoConfigured } from "../../_core/pii-crypto";
 import { softDeleteWithCascade } from "../../db/soft-delete-cascade";
 import { AVATAR_BUCKET, ID_DOCUMENT_BUCKET, storageRemove } from "../../storage";
@@ -240,6 +240,8 @@ export const softDeletePerson = superadminProcedure
     // (server/db/soft-delete-cascade.ts). Reversible: admin/soft-delete-recovery.
     await softDeleteWithCascade(supabase, "persons", input.id);
 
-    logProcedureAction(ctx, "Person soft-deleted", { personId: input.id, fotosBorradas: borradas });
+    // Retirar una ficha es acción de cumplimiento: rastro durable (logAudit,
+    // #150), no el buffer por-request que nada lee. Sólo ids y contadores.
+    logAudit(ctx, "persons.softDelete", { personId: input.id, fotosBorradas: borradas });
     return { id: persona.id };
   });
