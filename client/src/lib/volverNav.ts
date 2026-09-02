@@ -9,6 +9,9 @@
 export function sanitizeVolver(raw: string | null | undefined): string | undefined {
   if (!raw) return undefined;
   if (!raw.startsWith("/") || raw.startsWith("//")) return undefined;
+  // El parser de URL del browser normaliza "\" a "/" y descarta tab/CR/LF:
+  // "/\evil.com" o "/\t/evil.com" acabarían siendo "//evil.com" en un href.
+  if (/[\\\x00-\x1f\x7f]/.test(raw)) return undefined;
   return raw;
 }
 

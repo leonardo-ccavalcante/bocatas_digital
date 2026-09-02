@@ -3,8 +3,9 @@
  *
  * Aparece sólo cuando la ficha se abrió desde el listado de inscritos de un
  * programa (?grupo=<programId>). Recorre la lista COMPLETA de inscripciones
- * del programa (sin filtro de estado — la tabla por defecto filtra «activo»,
- * pero el orden base created_at desc es el mismo), capada a GRUPO_NAV_LIMIT
+ * del programa (sin filtro de estado — la vista por defecto de la tabla
+ * tampoco filtra, y el orden base created_at desc es el mismo aunque el
+ * usuario haya filtrado por un chip), capada a GRUPO_NAV_LIMIT
  * (el máximo de programs.getEnrollments). Si el programa tiene más inscritos,
  * la navegación cubre esa primera página: en los bordes el chevrón se pinta
  * desactivado, nunca roto.
@@ -39,7 +40,7 @@ function Chevron({
   const base = "inline-flex h-7 w-7 items-center justify-center rounded border border-border";
   if (!href) {
     return (
-      <span aria-disabled="true" className={`${base} opacity-40`}>
+      <span aria-hidden="true" className={`${base} opacity-40`}>
         {children}
       </span>
     );

@@ -14,6 +14,12 @@ describe("sanitizeVolver", () => {
     expect(sanitizeVolver(null)).toBeUndefined();
     expect(sanitizeVolver(undefined)).toBeUndefined();
   });
+
+  it("rechaza backslash y caracteres de control (el parser del browser los normaliza a //)", () => {
+    expect(sanitizeVolver("/\\evil.com")).toBeUndefined();
+    expect(sanitizeVolver("/\t/evil.com")).toBeUndefined();
+    expect(sanitizeVolver("/\n/evil.com")).toBeUndefined();
+  });
 });
 
 describe("computePrevNext", () => {
