@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -24,6 +22,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { EnrollmentRowActions } from "./EnrollmentRowActions";
 import { EnrollmentsContactoToolbar } from "./EnrollmentsContactoToolbar";
 import { BulkEstadoBar } from "./BulkEstadoBar";
+import { EnrolledPersonsFilterBar } from "./EnrolledPersonsFilterBar";
+import {
+  FILTROS_VACIOS,
+  aInputServidor,
+  type FiltrosInscritos,
+} from "../utils/enrollmentFiltros";
 import {
   alternarSeleccion,
   seleccionVisible,
@@ -106,9 +110,10 @@ const CHIP_CONFIG: Record<string, ChipStyle> = {
  * al servidor un estado que ese programa no usa y devolvía cero, así que un
  * curso con 23 personas inscritas se veía como «0 (activo)».
  *
- * Se exporta para que el test lea el valor real en vez de replicarlo.
+ * Se exporta para que el test lea el valor real en vez de replicarlo. La
+ * fuente de verdad vive ahora en FILTROS_VACIOS (utils/enrollmentFiltros).
  */
-export const ESTADO_FILTRO_INICIAL: EnrollmentEstado | undefined = undefined;
+export const ESTADO_FILTRO_INICIAL: EnrollmentEstado | undefined = FILTROS_VACIOS.estado;
 
 const ALL_COLUMNS = ["foto", "nombre", "estado", "fecha_inscripcion", "notas"] as const;
 type ColumnKey = (typeof ALL_COLUMNS)[number];
@@ -148,18 +153,17 @@ export function EnrolledPersonsTable({
   const fichaQuery = programSlug
     ? buildGrupoQuery(programId, `/programas/${programSlug}`, programName)
     : "";
-  const [search, setSearch] = useState("");
-  const [estadoFilter, setEstadoFilter] = useState<EnrollmentEstado | undefined>(
-    ESTADO_FILTRO_INICIAL
-  );
+  // Arranca en «Todos» (FILTROS_VACIOS.estado === undefined) — ver el
+  // comentario de ESTADO_FILTRO_INICIAL arriba.
+  const [filtros, setFiltros] = useState<FiltrosInscritos>(FILTROS_VACIOS);
   const [seleccion, setSeleccion] = useState<Set<string>>(new Set());
 
   const filterStates = buildFilterStates(estadosHabilitados);
 
-  const { enrollments, total, isLoading } = useEnrollments(programId, {
-    estado: estadoFilter,
-    search: search.length >= 2 ? search : undefined,
-  });
+  const { enrollments, total, isLoading } = useEnrollments(
+    programId,
+    aInputServidor(filtros)
+  );
 
   const visibleCols = new Set<ColumnKey>(
     filterVisibleColumns([...ALL_COLUMNS], volunteerVisibleFields, !!isAdmin) as ColumnKey[]
@@ -175,40 +179,14 @@ export function EnrolledPersonsTable({
 
   return (
     <div className="space-y-4">
-      {/* Search + Estado filter */}
-      <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
-        <Input
-          placeholder="Buscar por nombre..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="sm:max-w-xs"
-          aria-label="Buscar persona inscrita"
-        />
-        <div className="flex flex-wrap gap-1" role="group" aria-label="Filtrar por estado">
-          <Button
-            size="sm"
-            variant={estadoFilter === undefined ? "default" : "outline"}
-            onClick={() => setEstadoFilter(undefined)}
-            className="text-xs h-8 rounded-full"
-          >
-            Todos
-          </Button>
-          {filterStates.map((e) => (
-            <Button
-              key={e}
-              size="sm"
-              variant={estadoFilter === e ? "default" : "outline"}
-              onClick={() => setEstadoFilter(e as EnrollmentEstado)}
-              className="text-xs h-8 rounded-full"
-            >
-              {ESTADO_LABELS[e as keyof typeof ESTADO_LABELS] ?? e}
-            </Button>
-          ))}
-        </div>
-      </div>
+      <EnrolledPersonsFilterBar
+        filtros={filtros}
+        onFiltrosChange={setFiltros}
+        filterStates={filterStates}
+      />
 
       <p className="text-sm text-muted-foreground" aria-live="polite">
-        {buildCountLabel(total, estadoFilter)}
+        {buildCountLabel(total, filtros.estado)}
       </p>
 
       {isAdmin && enrollments.length > 0 && (

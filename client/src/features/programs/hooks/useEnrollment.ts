@@ -1,6 +1,6 @@
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-import type { EnrollmentEstado } from "../schemas";
+import type { FiltrosServidor } from "../utils/enrollmentFiltros";
 
 /**
  * Enrolls a person in a program.
@@ -101,18 +101,17 @@ export function useUpdateEnrollmentEstado(programId: string, personId?: string) 
  */
 export function useEnrollments(
   programId: string,
-  options?: {
-    estado?: EnrollmentEstado;
-    search?: string;
-    limit?: number;
-    offset?: number;
-  }
+  options?: Partial<FiltrosServidor> & { limit?: number; offset?: number }
 ) {
   const { data, isLoading, error } = trpc.programs.getEnrollments.useQuery(
     {
       programId,
       estado: options?.estado,
       search: options?.search,
+      pais_origen: options?.pais_origen,
+      genero: options?.genero,
+      situacion_laboral: options?.situacion_laboral,
+      situacion_ante_empleo: options?.situacion_ante_empleo,
       limit: options?.limit ?? 50,
       offset: options?.offset ?? 0,
     },
