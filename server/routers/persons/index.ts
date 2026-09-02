@@ -7,6 +7,7 @@
  *   update.ts:   update (admin), softDelete (superadmin)  — #177
  *   enroll.ts:   enroll
  *   consents.ts: programs, consentTemplates, saveConsents, getPersonConsents
+ *   consentsPorNombre.ts: checkConsentByNames (comprobación en bloque por nombre)
  *   photo.ts:    uploadPhoto
  *   family.ts:   createFamily
  *   admin.ts:    updateRole, updateFaseItinerario
@@ -21,6 +22,7 @@ import { searchPersons } from "./search";
 import { updatePerson, softDeletePerson } from "./update";
 import { enrollRouter } from "./enroll";
 import { consentsRouter } from "./consents";
+import { consentsPorNombreRouter } from "./consentsPorNombre";
 import { photoRouter } from "./photo";
 import { familyRouter } from "./family";
 import { adminRouter } from "./admin";
@@ -40,6 +42,7 @@ export const personsRouter = router({
   consentTemplates: consentsRouter.consentTemplates,
   saveConsents: consentsRouter.saveConsents,
   getPersonConsents: consentsRouter.getPersonConsents,
+  checkConsentByNames: consentsPorNombreRouter.checkConsentByNames,
   uploadPhoto: photoRouter.uploadPhoto,
   createFamily: familyRouter.createFamily,
   updateRole: adminRouter.updateRole,
