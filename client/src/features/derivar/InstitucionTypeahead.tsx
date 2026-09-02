@@ -23,14 +23,24 @@ interface InstitucionTypeaheadProps {
   value: InstitucionPickedItem | null;
   onChange: (i: InstitucionPickedItem | null) => void;
   id?: string;
+  /**
+   * Controlled-text mode: when `text` is provided the caller owns the input
+   * text (e.g. a form field that persists free text). `onTextChange` fires on
+   * every keystroke and on pick, so free text is never lost.
+   */
+  text?: string;
+  onTextChange?: (text: string) => void;
 }
 
 export function InstitucionTypeahead({
   value,
   onChange,
   id,
+  text,
+  onTextChange,
 }: InstitucionTypeaheadProps) {
-  const [q, setQ] = useState(value?.nombre ?? "");
+  const [qInterno, setQInterno] = useState(value?.nombre ?? "");
+  const q = text ?? qInterno;
   const [showCreate, setShowCreate] = useState(false);
   const [listOpen, setListOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -60,14 +70,16 @@ export function InstitucionTypeahead({
     !value;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setQ(e.target.value);
+    setQInterno(e.target.value);
+    onTextChange?.(e.target.value);
     setListOpen(true);
     if (value) onChange(null);
   };
 
   const handlePick = (item: InstitucionPickedItem) => {
     onChange(item);
-    setQ(item.nombre);
+    setQInterno(item.nombre);
+    onTextChange?.(item.nombre);
     setListOpen(false);
   };
 
