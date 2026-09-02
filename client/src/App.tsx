@@ -27,6 +27,9 @@ const CheckIn = lazy(() => import("./pages/CheckIn"));
 
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 
+// Informes — la casa de los informes (reports-tab + comprobaciones)
+const Informes = lazy(() => import("./pages/Informes"));
+
 // Programas
 const Programas = lazy(() => import("./pages/Programas"));
 const ProgramaDetalle = lazy(() => import("./pages/ProgramaDetalle"));
@@ -122,6 +125,11 @@ function Router() {
         <Route path="/dashboard">
           <ProtectedRoute requiredRoles={["admin", "superadmin"]}>
             <Dashboard />
+          </ProtectedRoute>
+        </Route>
+        <Route path="/informes">
+          <ProtectedRoute requiredRoles={["admin", "superadmin"]}>
+            <Informes />
           </ProtectedRoute>
         </Route>
         <Route path="/programas/:slug">

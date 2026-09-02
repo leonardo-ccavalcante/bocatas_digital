@@ -95,6 +95,9 @@ vi.mock("@/pages/CheckIn", () => ({
 vi.mock("@/pages/Dashboard", () => ({
   default: () => <div data-testid="dashboard-page" />,
 }));
+vi.mock("@/pages/Informes", () => ({
+  default: () => <div data-testid="informes-page" />,
+}));
 vi.mock("@/pages/Programas", () => ({
   default: () => <div data-testid="programas-page" />,
 }));
@@ -360,5 +363,35 @@ describe("App.tsx staff routes are role-gated (RC-07: F011/F046/F113)", () => {
     await waitFor(() => {
       expect(screen.getByTestId("programas-page")).toBeInTheDocument();
     });
+  });
+});
+
+describe("App.tsx ruta /informes (sección «Informes» de la barra lateral)", () => {
+  it("admin entra en /informes", async () => {
+    authState.user = { id: "u1", role: "admin", name: "Admin" };
+    renderAtPath("/informes");
+    await waitFor(() => {
+      expect(screen.getByTestId("informes-page")).toBeInTheDocument();
+    });
+  });
+
+  it("superadmin entra en /informes", async () => {
+    authState.user = { id: "u3", role: "superadmin", name: "Superadmin" };
+    renderAtPath("/informes");
+    await waitFor(() => {
+      expect(screen.getByTestId("informes-page")).toBeInTheDocument();
+    });
+  });
+
+  // Todo server/routers/reports/* es adminProcedure (CODEMAP.md §Compliance):
+  // abrir esta página a voluntarios sería enseñarles tarjetas que devuelven
+  // FORBIDDEN una a una. El gate vive aquí, no en el procedimiento.
+  it("voluntario en /informes se va a casa — la página no llega a montarse", async () => {
+    authState.user = { id: "u2", role: "voluntario", name: "Vol" };
+    renderAtPath("/informes");
+    await waitFor(() => {
+      expect(screen.getByTestId("home-page")).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId("informes-page")).toBeNull();
   });
 });
