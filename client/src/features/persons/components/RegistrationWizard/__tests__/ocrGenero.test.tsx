@@ -61,6 +61,12 @@ vi.mock("@/lib/trpc", () => ({
       createFamily: { useMutation: () => ({ mutateAsync: vi.fn() }) },
       uploadPhoto: { useMutation: () => ({ mutateAsync: vi.fn() }) },
     },
+    // Step0Canal ahora monta InstitucionTypeahead (Task 4): su búsqueda y el
+    // modal de creación consultan instituciones.*.
+    instituciones: {
+      search: { useQuery: () => ({ data: [] }) },
+      create: { useMutation: () => ({ isPending: false, mutateAsync: vi.fn() }) },
+    },
     ocr: {
       extractDocument: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
     },
@@ -72,9 +78,11 @@ vi.mock("@/lib/trpc", () => ({
 // (DocumentCaptureInline.tsx `handleExtract` → `onExtracted(result.data)`).
 // This isolates the test to the mapping bug in handleOCRExtracted (index.tsx)
 // instead of also having to drive the camera/file-upload/mutation UI.
+// En MAYÚSCULAS, como los devuelve el OCR real (Task 6): las aserciones de
+// nombre/apellidos de abajo prueban además la normalización titleCaseEs.
 const OCR_FIXTURE: OcrExtracted = {
-  nombre: "Fatima",
-  apellidos: "El Amrani",
+  nombre: "FATIMA",
+  apellidos: "EL AMRANI",
   fecha_nacimiento: "1990-05-12",
   tipo_documento: "documento_extranjero",
   numero_documento: "AB123456",
