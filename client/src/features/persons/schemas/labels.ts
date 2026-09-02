@@ -11,7 +11,7 @@ export const CANAL_LLEGADA_LABELS: Record<string, string> = {
   telefono: "Teléfono",
   email: "Email",
   instagram: "Instagram",
-  retorno_bocatas: "Retorno Bocatas",
+  retorno_bocatas: "Bocatas",
   otros: "Otros",
 };
 

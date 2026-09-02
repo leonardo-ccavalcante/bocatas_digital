@@ -32,6 +32,8 @@ export const PersonCreateSchema = z.object({
   canal_llegada: CanalLlegadaSchema,
   entidad_derivadora: z.string().max(200).optional().nullable(),
   persona_referencia: z.string().max(200).optional().nullable(),
+  // Sólo tiene sentido con canal_llegada === "retorno_bocatas" (canal «Bocatas»).
+  motivo_retorno: z.string().max(500).optional().nullable(),
 
   // Section 1 — Identidad
   nombre: z.string().min(1, "El nombre es obligatorio").max(100),
@@ -134,6 +136,7 @@ export const Step0Schema = PersonCreateSchema.pick({
   canal_llegada: true,
   entidad_derivadora: true,
   persona_referencia: true,
+  motivo_retorno: true,
 });
 
 export const Section1Schema = PersonCreateSchema.pick({
