@@ -158,9 +158,11 @@ that repeatedly bite agents:
 - **A shared component that gains a new data dependency breaks every mount test
   of its parents.** Tests that mock the trpc client module (or a hooks module) wholesale
   fail at collect time with `undefined.<proc>` when a child starts calling a new
-  procedure. After touching a widely-mounted component, run the whole test
-  directory of each feature that mounts it — not just the files in your task's
-  Files block; stub the new procedure in each affected mock.
+  procedure. After touching a widely-mounted component, run the WHOLE feature
+  tree of every feature that mounts it (`vitest run client/src/features/<name>/`)
+  — not the top-level `__tests__/` dir (nested `components/*/__tests__/` dirs
+  are outside that prefix) and not just your task's Files block; stub the new
+  procedure in each affected mock.
 - **Do not pre-create folders for future modules** — create them when the feature
   actually starts.
 
