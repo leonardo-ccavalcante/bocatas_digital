@@ -45,14 +45,16 @@ function adminCtx(): TrpcContext {
   };
 }
 
-// persons: .select(cols,{count}).is().order().range() → página
+// persons: .select(cols,{count}).is().order().range().returns() → página
 // (foto_perfil_url: null → signPathField no toca Storage)
 function personsChain(rows: unknown[], count: number) {
   return {
     select: vi.fn().mockReturnThis(),
     is: vi.fn().mockReturnThis(),
     order: vi.fn().mockReturnThis(),
-    range: vi.fn().mockResolvedValue({ data: rows, error: null, count }),
+    range: vi.fn().mockReturnValue({
+      returns: vi.fn().mockResolvedValue({ data: rows, error: null, count }),
+    }),
   };
 }
 
@@ -97,9 +99,7 @@ describe("persons.getAll — chips de programas (query batelada, cap 3)", () => 
     mockTables({ data: enrollmentRows, error: null });
     const caller = crudRouter.createCaller(adminCtx());
 
-    const result = (await caller.getAll({ limit: 50, offset: 0 })) as {
-      data: Array<{ id: string; programas?: string[] }>;
-    };
+    const result = await caller.getAll({ limit: 50, offset: 0 });
 
     const p1 = result.data.find((r) => r.id === "p1")!;
     const p2 = result.data.find((r) => r.id === "p2")!;

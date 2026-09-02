@@ -325,7 +325,10 @@ export const crudRouter = router({
       .select(getAllColumnsForRole(ctx.user.role), { count: "exact" })
       .is("deleted_at", null)
       .order("nombre")
-      .range(offset, offset + limit - 1);
+      .range(offset, offset + limit - 1)
+      // La lista de columnas es dinámica (por rol): supabase-js no puede
+      // inferir la fila y devolvería GenericStringError. `id` siempre viaja.
+      .returns<Array<Record<string, unknown> & { id: string }>>();
 
     if (error) {
       throw new TRPCError({
@@ -344,7 +347,7 @@ export const crudRouter = router({
     // propósito — el chip dice «vinculado a», no «activo en»; sólo se excluye
     // lo borrado. El error se propaga: un fallo de BD tiene que verse, no
     // disfrazarse de «sin programas» (lección de persons.programs.test.ts).
-    const ids = rows.map((r) => (r as { id: string }).id);
+    const ids = rows.map((r) => r.id);
     const programasPorPersona = new Map<string, string[]>();
     if (ids.length > 0) {
       const { data: inscripciones, error: errorInscripciones } = await supabase
@@ -373,8 +376,8 @@ export const crudRouter = router({
 
     return {
       data: rows.map((r) => ({
-        ...(r as Record<string, unknown>),
-        programas: programasPorPersona.get((r as { id: string }).id) ?? [],
+        ...r,
+        programas: programasPorPersona.get(r.id) ?? [],
       })),
       total: count ?? 0,
     };

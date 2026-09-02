@@ -54,8 +54,8 @@ const rangeMock = vi.fn();
 
 /**
  * Mirrors the chain the FIXED resolver is expected to build:
- *   .from("persons").select(cols, {count:"exact"}).is(...).order(...).range(...)
- * `.range()` is the terminal, awaited call. Today's (unfixed) resolver never
+ *   .from("persons").select(cols, {count:"exact"}).is(...).order(...).range(...).returns()
+ * `.returns()` (the dynamic-columns type helper) is the terminal, awaited call. Today's (unfixed) resolver never
  * calls `.range()` at all, so `rangeMock` stays uncalled and this chain's
  * `order()` (a non-thenable mockReturnThis) is what actually gets awaited —
  * the assertions below target the presence/args of the `.range()` call
@@ -66,7 +66,9 @@ function getAllChain(result: { data: unknown[]; error: null; count: number }) {
     select: vi.fn().mockReturnThis(),
     is: vi.fn().mockReturnThis(),
     order: vi.fn().mockReturnThis(),
-    range: rangeMock.mockReturnValueOnce(Promise.resolve(result)),
+    range: rangeMock.mockReturnValueOnce({
+      returns: vi.fn().mockResolvedValue(result),
+    }),
   };
 }
 
