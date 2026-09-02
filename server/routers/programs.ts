@@ -1,6 +1,12 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { signPathField, AVATAR_BUCKET } from "../storage";
+import { ilikeForOr } from "../_core/postgrestFilter";
+import {
+  GeneroSchema,
+  SituacionLaboralSchema,
+  SituacionAnteEmpleoSchema,
+} from "../../client/src/features/persons/schemas/enums";
 import { router, voluntarioProcedure, adminProcedure } from "../_core/trpc";
 import { createAdminClient } from "../../client/src/lib/supabase/server";
 import type { Database } from "../../client/src/lib/database.types";
@@ -351,6 +357,16 @@ export const programsRouter = router({
       programId: uuidLike,
       estado: z.enum(ESTADOS_CATALOGO).optional(),
       search: z.string().optional(),
+      // Ejes de la cabecera de la tabla. NO se ofrece `situacion_legal`
+      // (HIGH_RISK_PII_FIELDS, shared/reports/entities.ts:289; vetado también
+      // en programs.enlace.ts:241), ni `colectivos` ni `recorrido_migratorio`
+      // (Art. 9/10). Estos cuatro son los mismos que el informe demográfico
+      // ya agrega, y NO se añaden al select: filtrar por el embed no exige
+      // devolver el campo.
+      pais_origen: z.string().length(2).optional(),
+      genero: GeneroSchema.optional(),
+      situacion_laboral: SituacionLaboralSchema.optional(),
+      situacion_ante_empleo: SituacionAnteEmpleoSchema.optional(),
       limit: z.number().int().min(1).max(100).default(50),
       offset: z.number().int().min(0).default(0),
     }))
@@ -386,6 +402,30 @@ export const programsRouter = router({
           input.estado === "terminado"
             ? query.in("estado", ["terminado", "completado"])
             : query.eq("estado", input.estado);
+      }
+
+      // Los ejes se filtran DENTRO del embed `persons!inner`, igual que el
+      // `.is("persons.deleted_at", null)` de arriba: con !inner, un filtro
+      // sobre la tabla embebida descarta también la fila padre.
+      if (input.pais_origen) query = query.eq("persons.pais_origen", input.pais_origen);
+      if (input.genero) query = query.eq("persons.genero", input.genero);
+      if (input.situacion_laboral) {
+        query = query.eq("persons.situacion_laboral", input.situacion_laboral);
+      }
+      if (input.situacion_ante_empleo) {
+        query = query.eq("persons.situacion_ante_empleo", input.situacion_ante_empleo);
+      }
+
+      // `search` se aceptaba en el input y NO se usaba: el buscador de la
+      // cabecera nunca filtró nada. Un `.or()` de nivel superior sobre rutas
+      // con punto es un PGRST100 (500 en cada búsqueda), así que va acotado
+      // con { referencedTable } y con las columnas a pelo — mismo patrón que
+      // families/titular-search.ts y families/compliance.ts:114.
+      if (input.search) {
+        const token = ilikeForOr(input.search);
+        query = query.or(`nombre.ilike.${token},apellidos.ilike.${token}`, {
+          referencedTable: "persons",
+        });
       }
 
       const { data, error, count } = await query;
