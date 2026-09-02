@@ -1,5 +1,6 @@
 import type { UseFormRegister, UseFormWatch, UseFormSetValue, FieldErrors } from "react-hook-form";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { type PersonCreate, CANAL_LLEGADA_LABELS } from "../../../schemas";
 import { SelectField, FieldError } from "../_shared";
@@ -25,6 +26,18 @@ export function Step0Canal({ register, watch, setValue, errors }: Step0CanalProp
         aria-invalid={!!errors.canal_llegada}
       />
       <FieldError id="canal_llegada-error" message={errors.canal_llegada?.message} />
+      {watch("canal_llegada") === "retorno_bocatas" && (
+        <div className="space-y-1">
+          <Label htmlFor="motivo_retorno">Motivo del retorno (opcional)</Label>
+          <Textarea
+            id="motivo_retorno"
+            rows={3}
+            maxLength={500}
+            placeholder="Qué le trae de vuelta a Bocatas..."
+            {...register("motivo_retorno")}
+          />
+        </div>
+      )}
       <div className="space-y-1">
         <Label htmlFor="entidad_derivadora">Entidad derivadora (opcional)</Label>
         <Input id="entidad_derivadora" {...register("entidad_derivadora")} placeholder="Cruz Roja, Servicios Sociales..." />
