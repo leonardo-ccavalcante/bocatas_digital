@@ -39,6 +39,12 @@ vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 import { Step0Canal } from "../steps/Step0Canal";
 
+const CRUZ_ROJA = {
+  id: "inst-1", nombre: "Cruz Roja Madrid", tipo: "ong", areas: ["salud"],
+  direccion: null, telefono: null, email: null, codigo_postal: null,
+  distrito: null, notas: null, is_active: true,
+};
+
 function Harness({ canal }: { canal: PersonCreate["canal_llegada"] }) {
   const defaults = useMemo(
     () => ({ canal_llegada: canal, program_ids: [] as string[] }),
@@ -79,5 +85,27 @@ describe("Step0Canal — motivo del retorno", () => {
     expect(screen.getByTestId("motivo-actual").textContent).toBe(
       "Vuelve tras una temporada fuera"
     );
+  });
+});
+
+describe("Step0Canal — entidad derivadora asistida por catálogo", () => {
+  it("elegir una institución guarda su nombre en entidad_derivadora", async () => {
+    armarMocks([CRUZ_ROJA]);
+    const user = userEvent.setup();
+    render(<Harness canal="boca_a_boca" />);
+    await user.type(screen.getByPlaceholderText("Buscar institución..."), "Cruz");
+    await user.click(await screen.findByText("Cruz Roja Madrid"));
+    expect(screen.getByTestId("entidad-actual").textContent).toBe("Cruz Roja Madrid");
+  });
+
+  it("el texto libre se conserva aunque no se elija del catálogo", async () => {
+    armarMocks([]);
+    const user = userEvent.setup();
+    render(<Harness canal="boca_a_boca" />);
+    await user.type(
+      screen.getByPlaceholderText("Buscar institución..."),
+      "Parroquia San Ramón"
+    );
+    expect(screen.getByTestId("entidad-actual").textContent).toBe("Parroquia San Ramón");
   });
 });

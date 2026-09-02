@@ -1,7 +1,10 @@
+import { useState } from "react";
 import type { UseFormRegister, UseFormWatch, UseFormSetValue, FieldErrors } from "react-hook-form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { InstitucionTypeahead } from "@/features/derivar/InstitucionTypeahead";
+import type { InstitucionPickedItem } from "@/features/derivar/CrearInstitucionInlineModal";
 import { type PersonCreate, CANAL_LLEGADA_LABELS } from "../../../schemas";
 import { SelectField, FieldError } from "../_shared";
 
@@ -13,6 +16,11 @@ interface Step0CanalProps {
 }
 
 export function Step0Canal({ register, watch, setValue, errors }: Step0CanalProps) {
+  // Selección viva del catálogo; el formulario sólo guarda el NOMBRE en el
+  // TEXT entidad_derivadora — cero migración, fichas antiguas intactas. El
+  // texto libre no elegido también se conserva (onTextChange), y crear una
+  // institución inline sigue reservado a admin (instituciones.create).
+  const [institucion, setInstitucion] = useState<InstitucionPickedItem | null>(null);
   return (
     <div className="space-y-4">
       <SelectField
@@ -40,7 +48,13 @@ export function Step0Canal({ register, watch, setValue, errors }: Step0CanalProp
       )}
       <div className="space-y-1">
         <Label htmlFor="entidad_derivadora">Entidad derivadora (opcional)</Label>
-        <Input id="entidad_derivadora" {...register("entidad_derivadora")} placeholder="Cruz Roja, Servicios Sociales..." />
+        <InstitucionTypeahead
+          id="entidad_derivadora"
+          value={institucion}
+          text={watch("entidad_derivadora") ?? ""}
+          onChange={setInstitucion}
+          onTextChange={(t) => setValue("entidad_derivadora", t === "" ? null : t)}
+        />
       </div>
       <div className="space-y-1">
         <Label htmlFor="persona_referencia">Persona de referencia (opcional)</Label>
