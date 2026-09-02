@@ -155,6 +155,12 @@ that repeatedly bite agents:
   if it does, the UI is dead. Cover at least one whole path (mount → act → assert
   it is still on screen). State that must survive a step transition belongs in the
   parent, never in the child the parent unmounts.
+- **A shared component that gains a new data dependency breaks every mount test
+  of its parents.** Tests that mock the trpc client module (or a hooks module) wholesale
+  fail at collect time with `undefined.<proc>` when a child starts calling a new
+  procedure. After touching a widely-mounted component, run the whole test
+  directory of each feature that mounts it — not just the files in your task's
+  Files block; stub the new procedure in each affected mock.
 - **Do not pre-create folders for future modules** — create them when the feature
   actually starts.
 
