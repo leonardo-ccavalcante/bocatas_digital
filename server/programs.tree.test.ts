@@ -52,13 +52,16 @@ function mockDb(tables: Record<string, Row[]>) {
   const selects: Record<string, string[]> = {};
   const makeChain = (table: string) => {
     const filters: Record<string, unknown> = {};
+    const inFilters: Record<string, Set<unknown>> = {};
     // Una lectura sin single()/maybeSingle()/range() devuelve lista, no fila.
     let seleccionado = false;
     let escrito = false;
     const rowsFor = () => {
       const rows = tables[table] ?? [];
-      const matched = rows.filter((r) =>
-        Object.entries(filters).every(([k, v]) => !(k in r) || r[k] === v)
+      const matched = rows.filter(
+        (r) =>
+          Object.entries(filters).every(([k, v]) => !(k in r) || r[k] === v) &&
+          Object.entries(inFilters).every(([k, vs]) => !(k in r) || vs.has(r[k]))
       );
       return matched;
     };
@@ -72,13 +75,19 @@ function mockDb(tables: Record<string, Row[]>) {
       }),
       order: vi.fn(() => chain),
       range: vi.fn(() => Promise.resolve({ data: rowsFor(), error: null, count: rowsFor().length })),
-      is: vi.fn(() => chain),
+      is: vi.fn((col: string, val: unknown) => {
+        filters[col] = val;
+        return chain;
+      }),
       limit: vi.fn(() => chain),
       eq: vi.fn((col: string, val: unknown) => {
         filters[col] = val;
         return chain;
       }),
-      in: vi.fn(() => chain),
+      in: vi.fn((col: string, vals: unknown) => {
+        inFilters[col] = new Set(vals as unknown[]);
+        return chain;
+      }),
       single: vi.fn(() => {
         const row = rowsFor()[0] ?? inserts[table]?.[0] ?? null;
         return Promise.resolve({ data: row, error: row ? null : { code: "PGRST116", message: "not found" } });

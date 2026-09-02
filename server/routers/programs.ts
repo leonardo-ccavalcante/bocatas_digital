@@ -154,7 +154,11 @@ async function idsConWhatsappVigente(
     // Sin la lista de permisos no se puede decidir a quién se puede escribir.
     // Devolver el conjunto vacío marcaría a todo el mundo como «no
     // autorizado» sin decirlo, y eso es una lista muda que parece una
-    // respuesta: se corta.
+    // respuesta: se corta. Se deja el código real en stderr (sin PII) para
+    // poder diagnosticar; el mensaje al cliente es genérico.
+    console.error(
+      `[programs.getEnrollments] fallo al leer consents: ${error.code ?? "?"} ${error.message}`
+    );
     throw new TRPCError({
       code: "INTERNAL_SERVER_ERROR",
       message: "No se pudieron leer los consentimientos de comunicaciones",
