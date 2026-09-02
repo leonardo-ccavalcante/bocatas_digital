@@ -49,8 +49,12 @@ type Row = Record<string, unknown>;
 function mockDb(tables: Record<string, Row[]>) {
   const inserts: Record<string, Row[]> = {};
   const updates: Record<string, Row[]> = {};
+  const selects: Record<string, string[]> = {};
   const makeChain = (table: string) => {
     const filters: Record<string, unknown> = {};
+    // Una lectura sin single()/maybeSingle()/range() devuelve lista, no fila.
+    let seleccionado = false;
+    let escrito = false;
     const rowsFor = () => {
       const rows = tables[table] ?? [];
       const matched = rows.filter((r) =>
@@ -61,7 +65,11 @@ function mockDb(tables: Record<string, Row[]>) {
     // test mock boundary — chainable Supabase query builder
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const chain: any = {
-      select: vi.fn(() => chain),
+      select: vi.fn((cols?: string) => {
+        (selects[table] ??= []).push(String(cols ?? ""));
+        seleccionado = true;
+        return chain;
+      }),
       order: vi.fn(() => chain),
       range: vi.fn(() => Promise.resolve({ data: rowsFor(), error: null, count: rowsFor().length })),
       is: vi.fn(() => chain),
@@ -77,10 +85,12 @@ function mockDb(tables: Record<string, Row[]>) {
       }),
       maybeSingle: vi.fn(() => Promise.resolve({ data: rowsFor()[0] ?? null, error: null })),
       insert: vi.fn((payload: Row | Row[]) => {
+        escrito = true;
         (inserts[table] ??= []).push(...(Array.isArray(payload) ? payload : [payload]));
         return chain;
       }),
       update: vi.fn((payload: Row) => {
+        escrito = true;
         (updates[table] ??= []).push(payload);
         return chain;
       }),
@@ -88,7 +98,11 @@ function mockDb(tables: Record<string, Row[]>) {
     };
     // Make awaiting the chain (insert/update without .select()) resolve.
     chain.then = (resolve: (v: unknown) => unknown) =>
-      Promise.resolve({ data: rowsFor()[0] ?? inserts[table]?.[0] ?? null, error: null }).then(resolve);
+      Promise.resolve(
+        seleccionado && !escrito
+          ? { data: rowsFor(), error: null, count: rowsFor().length }
+          : { data: rowsFor()[0] ?? inserts[table]?.[0] ?? null, error: null }
+      ).then(resolve);
     return chain;
   };
   vi.mocked(createAdminClient).mockReturnValue({
@@ -96,7 +110,7 @@ function mockDb(tables: Record<string, Row[]>) {
     // test mock boundary — Supabase client mock
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any);
-  return { inserts, updates };
+  return { inserts, updates, selects };
 }
 
 beforeEach(() => vi.clearAllMocks());
@@ -252,5 +266,48 @@ describe("programs.updateEnrollmentEstado — catalog + motivo + events", () => 
       estado_anterior: "lista_espera",
       estado_nuevo: "admitido",
     });
+  });
+});
+
+describe("programs.getEnrollments — contacto y consentimiento de WhatsApp", () => {
+  const INSCRITOS = [
+    { id: ID(6), estado: "activo", persons: { id: ID(1), nombre: "Ana", apellidos: "García", email: "ana@example.org", telefono: "600111222" } },
+    { id: ID(7), estado: "activo", persons: { id: ID(2), nombre: "Luis", apellidos: "Pérez", email: "luis@example.org", telefono: "600555666" } },
+    { id: ID(8), estado: "activo", persons: { id: ID(3), nombre: "Sara", apellidos: "Gil", email: null, telefono: "600777888" } },
+  ];
+  // Ana dijo que sí; Luis dijo que no (fila con granted:false, que el
+  // `.eq("granted", true)` deja fuera); Sara es un alta sin fila ninguna.
+  const CONSENTIMIENTOS = [
+    { person_id: ID(1), purpose: "comunicaciones_whatsapp", granted: true },
+    { person_id: ID(2), purpose: "comunicaciones_whatsapp", granted: false },
+    { person_id: ID(3), purpose: "fotografia", granted: true },
+  ];
+
+  it("pide email y telefono de la persona (el aviso del curso sale de aquí)", async () => {
+    const { selects } = mockDb({ program_enrollments: [] });
+    await caller.getEnrollments({ programId: ID(5) });
+    const proyeccion = (selects["program_enrollments"] ?? []).join(" ");
+    expect(proyeccion).toContain("email");
+    expect(proyeccion).toContain("telefono");
+  });
+
+  it("marca puede_whatsapp sólo a quien tiene el consentimiento vivo", async () => {
+    mockDb({ program_enrollments: INSCRITOS, consents: CONSENTIMIENTOS });
+    const { enrollments } = await caller.getEnrollments({ programId: ID(5) });
+    expect(enrollments.map((e) => e.persons.puede_whatsapp)).toEqual([true, false, false]);
+    // El teléfono sigue viajando: quien decide es el flag, no el hueco.
+    expect(enrollments[1].persons.telefono).toBe("600555666");
+  });
+
+  it("pregunta a consents por person_id (el permiso no se deduce del teléfono)", async () => {
+    const { selects } = mockDb({ program_enrollments: INSCRITOS, consents: CONSENTIMIENTOS });
+    await caller.getEnrollments({ programId: ID(5) });
+    expect((selects["consents"] ?? []).join(" ")).toContain("person_id");
+  });
+
+  it("sin inscritos no pregunta por consentimientos", async () => {
+    const { selects } = mockDb({ program_enrollments: [] });
+    await caller.getEnrollments({ programId: ID(5) });
+    expect(selects["consents"]).toBeUndefined();
   });
 });

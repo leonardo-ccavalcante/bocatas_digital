@@ -106,6 +106,64 @@ const ProgramWithCountsSchema = z.object({
   subtree_total_persons: z.number().nullable().optional(),
 }).passthrough();
 
+/** Fila tal y como la devuelve el select de `getEnrollments`. */
+interface EnrollmentConPersona {
+  id: string;
+  estado: string;
+  fecha_inicio: string | null;
+  fecha_fin: string | null;
+  notas: string | null;
+  created_at: string;
+  persons: {
+    id: string;
+    nombre: string | null;
+    apellidos: string | null;
+    foto_perfil_url: string | null;
+    restricciones_alimentarias: string | null;
+    email: string | null;
+    telefono: string | null;
+  };
+}
+
+/**
+ * Ids de persona con `comunicaciones_whatsapp` CONCEDIDO y NO retirado.
+ *
+ * Mismo criterio que la comprobación de imagen de `persons` (Task 11): una
+ * revocación cuenta como un «no» porque `saveConsents` sí escribe
+ * `revoked_at`, y una fila borrada (`deleted_at`) no dice nada. `consents`
+ * tiene `upsert onConflict: "person_id,purpose"`, así que hay como mucho una
+ * fila viva por persona y fin: no hace falta ordenar por fecha.
+ */
+async function idsConWhatsappVigente(
+  supabase: ReturnType<typeof createAdminClient>,
+  personIds: readonly string[]
+): Promise<Set<string>> {
+  const ids = [...new Set(personIds)];
+  if (ids.length === 0) return new Set();
+
+  const { data, error } = await supabase
+    .from("consents")
+    .select("person_id")
+    .in("person_id", ids)
+    .eq("purpose", "comunicaciones_whatsapp")
+    .eq("granted", true)
+    .is("revoked_at", null)
+    .is("deleted_at", null);
+
+  if (error) {
+    // Sin la lista de permisos no se puede decidir a quién se puede escribir.
+    // Devolver el conjunto vacío marcaría a todo el mundo como «no
+    // autorizado» sin decirlo, y eso es una lista muda que parece una
+    // respuesta: se corta.
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "No se pudieron leer los consentimientos de comunicaciones",
+    });
+  }
+
+  return new Set((data ?? []).map((r) => String(r.person_id)));
+}
+
 export const programsRouter = router({
   // ─── Job 1: Programs Catalog ─────────────────────────────────────────────
 
@@ -300,9 +358,15 @@ export const programsRouter = router({
       // program_enrollments rows, same defect shape as programs.listado.ts.
       let query = supabase
         .from("program_enrollments")
+        // `email` y `telefono` viajan porque el aviso del curso («copiar
+        // correos», WhatsApp) sale de esta lista y no de la ficha una a una.
+        // No hay proyección por rol aquí a propósito: este procedimiento es
+        // adminProcedure, así que un voluntario recibe FORBIDDEN y el contacto
+        // no llega a salir de la base. Si algún día pasa a voluntarioProcedure,
+        // hay que partir la lista de columnas por rol como en persons/crud.ts.
         .select(`
           id, estado, fecha_inicio, fecha_fin, notas, created_at,
-          persons!inner(id, nombre, apellidos, foto_perfil_url, restricciones_alimentarias)
+          persons!inner(id, nombre, apellidos, foto_perfil_url, restricciones_alimentarias, email, telefono)
         `, { count: "exact" })
         .eq("program_id", input.programId)
         .is("deleted_at", null)
@@ -330,7 +394,35 @@ export const programsRouter = router({
         enrollments.map(e => (e as { persons?: unknown }).persons),
         "foto_perfil_url"
       );
-      return { enrollments, total: count ?? 0 };
+
+      // Tener el teléfono no es tener permiso para usarlo. El fin
+      // `comunicaciones_whatsapp` se recoge SIEMPRE en el alta y en producción
+      // hoy hay 60 negativas frente a 23 síes: sin esta marca, «copiar
+      // teléfonos» entregaría una difusión hecha contra la mayoría de la lista.
+      // Se decide aquí, en el servidor, porque el cliente no puede leer
+      // `consents` ni debe inferir un permiso de que exista el dato.
+      const puedenWhatsapp = await idsConWhatsappVigente(
+        supabase,
+        enrollments
+          .map((e) => (e as EnrollmentConPersona).persons?.id)
+          .filter((id): id is string => typeof id === "string")
+      );
+
+      const conConsentimiento = enrollments.map((fila) => {
+        const { persons, ...resto } = fila as EnrollmentConPersona;
+        return {
+          ...resto,
+          persons: {
+            ...persons,
+            // Ausencia de fila = NO: hay altas antiguas sin ninguna fila de
+            // consentimiento, y tratar el hueco como permiso convierte «no lo
+            // sabemos» en «adelante».
+            puede_whatsapp: puedenWhatsapp.has(persons.id),
+          },
+        };
+      });
+
+      return { enrollments: conConsentimiento, total: count ?? 0 };
     }),
 
   /** Enrolls a person in a program with consent pre-check (admin+) */
