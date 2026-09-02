@@ -69,6 +69,13 @@ export const PERSONS_GETALL_MAX_LIMIT = 1000;
 /** Chips del listado: nombres de programas por persona, último primero. */
 export const PERSONS_GETALL_PROGRAMAS_CAP = 3;
 
+/**
+ * Lote máximo de ids por `.in()` en la query de chips: postgrest serializa los
+ * ids en la query-string (~39 bytes/UUID) y el directorio pide hasta 1000
+ * personas — un solo lote superaría el cap de 32KB de URL del proxy.
+ */
+export const PERSONS_GETALL_PROGRAMAS_LOTE = 200;
+
 export const PersonsGetAllInput = z
   .object({
     limit: z.number().int().min(1).max(PERSONS_GETALL_MAX_LIMIT).default(PERSONS_GETALL_DEFAULT_LIMIT),
@@ -342,18 +349,21 @@ export const crudRouter = router({
     const rows = data ?? [];
     await signPathField(AVATAR_BUCKET, rows, "foto_perfil_url");
 
-    // Chips de programas del listado: UNA query batelada con los ids de ESTA
-    // página (nunca por fila, nunca toda la tabla). Sin filtro de estado a
+    // Chips de programas del listado: queries bateladas por LOTES con los ids
+    // de ESTA página (nunca por fila, nunca toda la tabla; cada persona cae
+    // entera en un único lote, así que su orden interno no cambia). Sin filtro
+    // de estado a
     // propósito — el chip dice «vinculado a», no «activo en»; sólo se excluye
     // lo borrado. El error se propaga: un fallo de BD tiene que verse, no
     // disfrazarse de «sin programas» (lección de persons.programs.test.ts).
     const ids = rows.map((r) => r.id);
     const programasPorPersona = new Map<string, string[]>();
-    if (ids.length > 0) {
+    for (let i = 0; i < ids.length; i += PERSONS_GETALL_PROGRAMAS_LOTE) {
+      const lote = ids.slice(i, i + PERSONS_GETALL_PROGRAMAS_LOTE);
       const { data: inscripciones, error: errorInscripciones } = await supabase
         .from("program_enrollments")
         .select("person_id, created_at, programs!program_enrollments_program_id_fkey(name)")
-        .in("person_id", ids)
+        .in("person_id", lote)
         .is("deleted_at", null)
         .order("created_at", { ascending: false });
       if (errorInscripciones) {

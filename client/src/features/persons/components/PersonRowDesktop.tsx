@@ -160,7 +160,7 @@ export function PersonRowDesktop({
       }}
       style={style}
       className={`
-        grid grid-cols-[1fr_130px_120px_100px_80px] gap-3 items-center px-5 cursor-pointer
+        grid grid-cols-[1fr_170px_120px_100px_80px] gap-3 items-center px-5 cursor-pointer
         transition-colors group
         ${compact ? "py-2" : "py-3"}
         ${active ? "bg-accent/50" : "hover:bg-accent/30"}
@@ -191,11 +191,11 @@ export function PersonRowDesktop({
       <span className="text-body-sm text-foreground truncate">
         {person.programas && person.programas.length > 0 ? (
           <span className="inline-flex items-center gap-1">
-            {person.programas.slice(0, 2).map((nombre) => (
+            {person.programas.slice(0, 2).map((nombre, i) => (
               <span
-                key={nombre}
+                key={`${i}-${nombre}`}
                 title={nombre}
-                className="inline-block max-w-[88px] truncate rounded bg-accent px-1.5 py-0.5 text-[10px] font-medium text-accent-foreground"
+                className="inline-block max-w-[72px] truncate rounded bg-accent px-1.5 py-0.5 text-[10px] font-medium text-accent-foreground"
               >
                 {nombre}
               </span>

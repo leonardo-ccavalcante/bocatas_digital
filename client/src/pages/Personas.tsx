@@ -248,7 +248,7 @@ export default function Personas() {
           <>
             {/* Desktop table — virtualized */}
             <div className="hidden sm:block bocatas-card overflow-hidden">
-              <div className="grid grid-cols-[1fr_130px_120px_100px_80px] gap-3 px-5 py-3 text-eyebrow text-muted-foreground border-b border-border bg-muted/30">
+              <div className="grid grid-cols-[1fr_170px_120px_100px_80px] gap-3 px-5 py-3 text-eyebrow text-muted-foreground border-b border-border bg-muted/30">
                 <span>Persona</span>
                 <span>Programas</span>
                 <span>Registro</span>

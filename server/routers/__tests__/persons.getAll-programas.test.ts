@@ -130,6 +130,30 @@ describe("persons.getAll — chips de programas (query batelada, cap 3)", () => 
     expect(inMock).not.toHaveBeenCalled();
   });
 
+  it("trocea los ids en lotes — 1000 UUIDs en un solo .in() revientan el cap de URL (32KB)", async () => {
+    const muchos = Array.from({ length: 450 }, (_, i) => ({
+      id: `p${i}`,
+      nombre: `N${i}`,
+      apellidos: null,
+      foto_perfil_url: null,
+    }));
+    fromMock.mockImplementation((table: string) =>
+      table === "persons"
+        ? personsChain(muchos, muchos.length)
+        : enrollmentsChain({ data: [], error: null })
+    );
+    const caller = crudRouter.createCaller(adminCtx());
+
+    await caller.getAll({ limit: 1000, offset: 0 });
+
+    // 450 ids con lotes de 200 → 3 llamadas, ninguna con más de 200 ids.
+    expect(inMock.mock.calls.length).toBe(3);
+    for (const [col, lote] of inMock.mock.calls) {
+      expect(col).toBe("person_id");
+      expect((lote as string[]).length).toBeLessThanOrEqual(200);
+    }
+  });
+
   it("propaga el fallo de la query de inscripciones en vez de fingir chips vacíos", async () => {
     mockTables({ data: null, error: { message: "connection refused" } });
     const caller = crudRouter.createCaller(adminCtx());
