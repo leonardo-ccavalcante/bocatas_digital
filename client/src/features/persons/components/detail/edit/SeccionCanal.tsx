@@ -16,7 +16,12 @@ export function SeccionCanal({ values, onChange }: SeccionProps) {
         label="Canal de llegada"
         id="edit-canal_llegada"
         value={values.canal_llegada ?? ""}
-        onChange={(v) => onChange("canal_llegada", v as PersonCreate["canal_llegada"])}
+        onChange={(v) => {
+          onChange("canal_llegada", v as PersonCreate["canal_llegada"]);
+          // El motivo pertenece al canal «Bocatas»: al salir de él se limpia,
+          // si no quedaba pegado (e invisible) al canal nuevo.
+          if (v !== "retorno_bocatas") onChange("motivo_retorno", null);
+        }}
         options={CANAL_LLEGADA_LABELS}
       />
       {values.canal_llegada === "retorno_bocatas" && (
@@ -37,6 +42,7 @@ export function SeccionCanal({ values, onChange }: SeccionProps) {
             text={values.entidad_derivadora ?? ""}
             onChange={setInstitucion}
             onTextChange={(t) => onChange("entidad_derivadora", t === "" ? null : t)}
+            allowCreate={false}
           />
         </div>
         <Texto

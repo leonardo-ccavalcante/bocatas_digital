@@ -98,4 +98,18 @@ describe("persons.create — motivo_retorno en el INSERT", () => {
     await caller.create(ALTA_MINIMA);
     expect(capturedInsert!.motivo_retorno).toBeNull();
   });
+
+  it("con canal distinto de retorno_bocatas el motivo se descarta (huérfano del wizard)", async () => {
+    // El textarea desaparece al cambiar el canal pero react-hook-form conserva
+    // el valor: la muralla es el servidor, que amarra el campo a su canal.
+    const { crudRouter } = await import("../persons/crud");
+    const caller = crudRouter.createCaller(buildContext(buildVoluntario()));
+
+    await caller.create({
+      ...ALTA_MINIMA,
+      canal_llegada: "boca_a_boca",
+      motivo_retorno: "texto huérfano de un canal anterior",
+    });
+    expect(capturedInsert!.motivo_retorno).toBeNull();
+  });
 });

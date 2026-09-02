@@ -54,6 +54,7 @@ export function Step0Canal({ register, watch, setValue, errors }: Step0CanalProp
           text={watch("entidad_derivadora") ?? ""}
           onChange={setInstitucion}
           onTextChange={(t) => setValue("entidad_derivadora", t === "" ? null : t)}
+          allowCreate={false}
         />
       </div>
       <div className="space-y-1">

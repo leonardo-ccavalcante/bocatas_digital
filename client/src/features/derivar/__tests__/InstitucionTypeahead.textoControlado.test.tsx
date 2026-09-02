@@ -85,6 +85,26 @@ describe("InstitucionTypeahead — texto controlado", () => {
     ).toBe("Cruz Roja Madrid");
   });
 
+  it("allowCreate=false oculta «Crear …» — el alta es voluntario-reachable y instituciones.create es admin-only", async () => {
+    armarMocks([]);
+    const user = userEvent.setup();
+    render(
+      <InstitucionTypeahead value={null} onChange={vi.fn()} allowCreate={false} />
+    );
+    await user.type(screen.getByPlaceholderText("Buscar institución..."), "Entidad inexistente");
+    expect(screen.queryByText(/Crear/)).toBeNull();
+  });
+
+  it("sin interacción no aparece «Crear …» aunque el texto sembrado no esté en el catálogo", () => {
+    // La edición siembra `text` con el valor guardado: el botón sólo tiene
+    // sentido tras abrir la lista (teclear o enfocar), nunca en el mount.
+    armarMocks([]);
+    render(
+      <InstitucionTypeahead value={null} onChange={vi.fn()} text="Parroquia" onTextChange={vi.fn()} />
+    );
+    expect(screen.queryByText(/Crear/)).toBeNull();
+  });
+
   it("sin `text` sigue siendo no controlado (compatibilidad derivar)", async () => {
     armarMocks([]);
     const user = userEvent.setup();

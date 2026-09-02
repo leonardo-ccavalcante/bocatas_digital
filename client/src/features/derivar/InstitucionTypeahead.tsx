@@ -30,6 +30,12 @@ interface InstitucionTypeaheadProps {
    */
   text?: string;
   onTextChange?: (text: string) => void;
+  /**
+   * Whether the «Crear …» inline-create affordance is offered. Default true
+   * (derivar, admin-reachable). Pass false where instituciones.create would
+   * 403 — the persons alta/edición are voluntario-reachable.
+   */
+  allowCreate?: boolean;
 }
 
 export function InstitucionTypeahead({
@@ -38,6 +44,7 @@ export function InstitucionTypeahead({
   id,
   text,
   onTextChange,
+  allowCreate = true,
 }: InstitucionTypeaheadProps) {
   const [qInterno, setQInterno] = useState(value?.nombre ?? "");
   const q = text ?? qInterno;
@@ -131,7 +138,7 @@ export function InstitucionTypeahead({
         </div>
       )}
 
-      {noResults && (
+      {allowCreate && listOpen && noResults && (
         <Button
           variant="outline"
           size="sm"

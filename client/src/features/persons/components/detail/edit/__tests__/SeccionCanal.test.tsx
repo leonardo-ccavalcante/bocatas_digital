@@ -51,6 +51,17 @@ describe("SeccionCanal — motivo del retorno", () => {
     expect(screen.queryByLabelText("Motivo del retorno")).toBeNull();
   });
 
+  it("salir del canal «Bocatas» limpia motivo_retorno — sin esto quedaba pegado al canal nuevo", () => {
+    const onChange = montar({
+      canal_llegada: "retorno_bocatas",
+      motivo_retorno: "texto viejo",
+    });
+    fireEvent.click(screen.getByLabelText("Canal de llegada"));
+    fireEvent.click(screen.getByRole("option", { name: "Cruz Roja" }));
+    expect(onChange).toHaveBeenCalledWith("canal_llegada", "cruz_roja");
+    expect(onChange).toHaveBeenCalledWith("motivo_retorno", null);
+  });
+
   it("con canal «Bocatas» edita motivo_retorno", () => {
     const onChange = montar({
       canal_llegada: "retorno_bocatas",
